@@ -45,6 +45,7 @@ staticfiles/
 test_default.sqlite3
 test_academy_db.sqlite3
 test_pipeline_db.sqlite3
+test_academy_sqlite.sqlite3
 test_*.sqlite3-journal
 test_*.sqlite3-wal
 test_*.sqlite3-shm

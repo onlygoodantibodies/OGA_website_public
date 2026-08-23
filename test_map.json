@@ -1,6 +1,7 @@
 {
 "always_run": [
 "django:core.tests_browser_availability",
+"django:core.tests_healthcheck",
 "django:core.tests_portal_script",
 "django:core.tests_static_hashing",
 "django:core.tests_supporters",
@@ -10,7 +11,7 @@
 "pytest:core/tests.py",
 "pytest:pipeline/services/cropper/tests/test_crops.py"
 ],
-"built_from": "d6c059999d8db9e9f37fa9e38dd4bf9ee0603cbb",
+"built_from": "10db2265cb407bd5dbcded8a8e99547a98691cb7",
 "map": {
 "academy/assistant.py": [
 "django:academy.tests_assistant",

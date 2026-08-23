@@ -226,6 +226,13 @@ SECRET_PATTERNS = [
     (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}"), "a Slack token"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "a private key"),
     (re.compile(r"\bpostgres(?:ql)?://[^\s\"'<>]*:[^\s\"'<>@]+@"), "a database URL with a password"),
+    # A live Render database host. Not a credential, which is exactly why it
+    # slipped past the rule above: `postgresql:/user:secret@dpg-<real>-a...`
+    # has no `://`, so it is not a URL, and the password in it was fake anyway.
+    # What it publishes is the *target* -- a publicly resolvable hostname, with
+    # the database name and user beside it -- and a test only needs a string of
+    # the right shape and length. Placeholders go in ALLOWED_MATCHES below.
+    (re.compile(r"\bdpg-[a-z0-9]{16,}"), "a live Render database host"),
 ]
 
 #: Real people's addresses that appeared in the dumps, held as SHA-256 of the
@@ -252,6 +259,9 @@ ALLOWED_MATCHES = [
     "postgresql://mcp_readonly:...@host/db",
     "postgresql://mcp_readonly:PW@INTERNAL_HOST:5432/DBNAME",
     "postgres://user:pass@localhost:5432/pipeline_pg",
+    "postgresql://USER:PASSWORD@dpg-xxxxxxxxxxxx-a/oga_academy_db",
+    "postgres://user:pw@host:5432/oga_academy_db",
+    "dpg-xxxxxxxxxxxxxxxxxxxx-a",
 ]
 
 #: Files the export writes into the snapshot root. Sourced from `publish/` in

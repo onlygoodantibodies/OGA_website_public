@@ -129,6 +129,37 @@ class PublicCacheHeadersTests(TestCase):
         self.assertNotIn('Cache-Control',
                          self.client.get('/no-such-page-here/').headers)
 
+    def test_a_cacheable_page_does_not_vary_on_cookie(self):
+        """The header that silently cancelled this whole module.
+
+        Every public page renders the Academy link, which reads `request.user`,
+        so Django marks the response `Vary: Cookie`. Cloudflare declines to store
+        anything varying on more than `Accept-Encoding` — so the page went out
+        asking to be cached (`s-maxage=3600`) and came back
+        `cf-cache-status: DYNAMIC`, every time, with nothing saying so. Measured
+        on live 23 Aug 2026; adding a Cloudflare Cache Rule changed nothing until
+        this came off.
+        """
+        page = self.client.get('/champions/')
+        self.assertIn('s-maxage=', page['Cache-Control'])
+        vary = page.get('Vary', '')
+        self.assertNotIn('cookie', vary.lower(), f'Vary is {vary!r}')
+
+    def test_the_encoding_half_of_vary_survives(self):
+        """`Accept-Encoding` is the one value Cloudflare does honour, and GZip
+        needs it — dropping it would hand a gzipped body to a client that cannot
+        read one."""
+        page = self.client.get('/champions/', headers={'accept-encoding': 'gzip'})
+        self.assertIn('accept-encoding', page.get('Vary', '').lower())
+
+    def test_a_refused_page_keeps_its_vary_untouched(self):
+        """The cookie is only dropped where `_may_be_cached` already cleared the
+        reply. A page that was refused must keep varying, or it would be shared
+        by a cache that was never told it could be."""
+        page = self.client.get('/contact/')
+        self.assertNotIn('Cache-Control', page.headers)
+        self.assertIn('cookie', page.get('Vary', '').lower())
+
 
 class RevalidationTests(TestCase):
     """"You already have this one" — the reply that costs nothing.

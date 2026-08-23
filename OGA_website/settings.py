@@ -106,6 +106,13 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # FIRST, and it has to be. This answers Render's health check, and a health
+    # check that cannot pass does not slow a deploy down — it hangs it, leaving
+    # the site on the old code with nothing on any screen saying why. Above
+    # SecurityMiddleware so an internal probe over plain HTTP can never be
+    # answered with a redirect; it validates no host and opens no database.
+    # See OGA_website/health.py for what it deliberately does not check.
+    'OGA_website.health.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     # Public HTML goes out compressed. A gene page is 40-100 KB of markup and
     # Render's router does not compress it, so every crawler that walked the 585
@@ -223,8 +230,10 @@ WSGI_APPLICATION = 'OGA_website.wsgi.application'
 # db_core.sqlite3 (default)  — in git, auto-deployed. Contains:
 #     Gene, Antibody, Description, Experiment, CellLine
 #
-# db_academy.sqlite3 (academy_db) — Render persistent disk. Contains:
+# academy_db — Contains:
 #     APIConsumer, all Academy models, User, sessions, allauth
+#     PostgreSQL when ACADEMY_DATABASE_URL is set; otherwise the SQLite file
+#     db_academy.sqlite3 on the Render persistent disk. See the note below.
 #
 # pipeline_db (PostgreSQL) — Render PostgreSQL service. Contains:
 #     All YCharOS pipeline models (targets, antibodies, sessions, etc.)
@@ -241,20 +250,45 @@ else:
     # Codespaces / local dev: academy database alongside core
     ACADEMY_DB_PATH = BASE_DIR / 'db_academy.sqlite3'
 
+# academy_db moves to PostgreSQL by setting ACADEMY_DATABASE_URL and nothing
+# else — no code change, no deploy, and clearing the variable puts it straight
+# back on the file. The same shape as USE_R2 and for the same reason: the switch
+# is the whole of the safety, because it makes the cutover and the rollback the
+# same size.
+#
+# The move is not really about SQLite's write concurrency, which one gunicorn
+# worker never reaches. It is about the disk: a Render service with a persistent
+# disk cannot deploy without downtime, because the disk detaches from the old
+# instance before it attaches to the new one. Measured either side of adding the
+# health check on 23 Aug 2026, the gap was 40 seconds both times — that is the
+# 502. This file is the only thing that needs the disk, so moving it is what
+# lets the disk come off, which is what closes the gap and, incidentally, is what
+# allows more than one instance at all.
+#
+# OGA_website/academy_db.py carries the guard that keeps the fallback above from
+# becoming a silently-invented empty database once the disk is gone.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db_core.sqlite3',
     },
-    'academy_db': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ACADEMY_DB_PATH,
-    },
+    'academy_db': dj_database_url.config(
+        env='ACADEMY_DATABASE_URL',
+        default=f'sqlite:///{ACADEMY_DB_PATH}',
+    ),
     'pipeline_db': dj_database_url.config(
         env='PIPELINE_DATABASE_URL',
         default=f'sqlite:///{BASE_DIR / "db_pipeline.sqlite3"}',
     ),
 }
+
+# Read-only source alias for the move itself: set ACADEMY_SQLITE_URL to the
+# SQLite file while academy_db already points at PostgreSQL, and
+# `academy_db_copy` / `academy_db_compare` can read both at once. Registered only
+# when the variable is set, so outside the migration there is no second alias
+# sitting on a path that SQLite would silently create if anything touched it.
+if os.environ.get('ACADEMY_SQLITE_URL'):
+    DATABASES['academy_sqlite'] = dj_database_url.config(env='ACADEMY_SQLITE_URL')
 
 DATABASE_ROUTERS = ['OGA_website.db_router.OGARouter']
 
@@ -281,6 +315,15 @@ DATABASE_ROUTERS = ['OGA_website.db_router.OGARouter']
 # Measured together: the full Django suite runs 864 tests in ~20 s.
 if sys.argv[1:2] == ['test']:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+    # The migration's second alias always exists under test, so `academy_db_copy`
+    # can be driven for real between two databases that both carry the academy
+    # schema. Preserving every primary key is the property the whole move rests
+    # on — a renumbered user is a session pointing at the wrong person — and it
+    # is not a property you can check without somewhere to copy to.
+    DATABASES.setdefault('academy_sqlite', {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db_academy_source.sqlite3',
+    })
     for _alias in DATABASES:
         DATABASES[_alias].setdefault('TEST', {})
         DATABASES[_alias]['TEST']['NAME'] = str(BASE_DIR / f'test_{_alias}.sqlite3')

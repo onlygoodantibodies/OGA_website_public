@@ -26,6 +26,15 @@ CORE_DATA_MODELS = {'gene', 'antibody', 'experiment', 'description', 'cellline'}
 # The pipeline app gets its own PostgreSQL database.
 PIPELINE_APP = 'pipeline'
 
+# Aliases that carry the academy schema. `academy_db` is the one the app reads
+# and writes; `academy_sqlite` exists only while the data is being moved off the
+# Render disk, so `academy_db_copy` has somewhere to read the old rows from. Both
+# take the same migrations — an academy database is an academy database — while
+# `db_for_read`/`db_for_write` still name only `academy_db`, so nothing routes a
+# live query at the source by accident.
+ACADEMY_DB = 'academy_db'
+ACADEMY_ALIASES = frozenset({ACADEMY_DB, 'academy_sqlite'})
+
 # Django infrastructure apps that must exist in pipeline_db because
 # pipeline models have ForeignKeys to auth.User (Member.user).
 # These create a separate user pool from academy_db — pipeline users
@@ -103,7 +112,7 @@ class OGARouter:
         # get run on every database, where account_* tables don't exist (this bites
         # multi-database test-DB creation; harmless-but-wrong in production).
         if app_label in ('account', 'socialaccount'):
-            return db == 'academy_db'
+            return db in ACADEMY_ALIASES
 
         # For pipeline_db: allow Django infrastructure, block everything else
         if db == 'pipeline_db':
@@ -114,7 +123,7 @@ class OGARouter:
             if _is_core_data(app_label, model_name):
                 return db == 'default'
             else:
-                return db == 'academy_db'
+                return db in ACADEMY_ALIASES
 
         # No model name (app-level migration operations like RunPython/RunSQL).
         # Return None = no opinion, let Django decide.

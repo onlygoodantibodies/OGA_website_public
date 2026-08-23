@@ -41,6 +41,25 @@ or anything else belonging to a person** — so what a cache can hand to the wro
 reader here is a wrong hyperlink, not somebody's data. If that link starts to
 matter, the fix is to stop the page varying at all, not to stop caching it.
 
+**And `Vary: Cookie` has to come off, or none of the above ever happens.** That
+paragraph read Cloudflare's Vary support as *it will ignore the header and share
+the copy anyway*. It does not: a response varying on anything but
+`Accept-Encoding` is one Cloudflare declines to store at all. So from the day
+this shipped until 23 Aug 2026 the home page went out with
+`Cache-Control: public, max-age=300, s-maxage=3600` **and**
+`Vary: Cookie, Accept-Encoding`, and every reply came back
+`cf-cache-status: DYNAMIC` — asking to be cached and being refused, with nothing
+on any screen saying so. The Cloudflare Cache Rule added that day changed
+nothing on its own, which is what finally made it visible.
+
+The header is there because every public page renders the Academy link, which
+reads `request.user`, and Django marks any response that touches the session as
+varying on `Cookie`. Dropping it is safe **only** on the replies `_may_be_cached`
+has already cleared — anonymous, no `Set-Cookie`, 200, a GET, outside the member
+areas — and for those, saying "this does not vary by cookie" is the same claim
+the paragraph above already audited and accepted. `Accept-Encoding` stays: GZip
+needs it and Cloudflare honours it.
+
 **The freshness cost is stated, not hidden.** A gene page that gains a published
 figure can be up to `SHARED_MAX_AGE` out of date at the edge. An hour is the
 conservative starting point; raising it is the lever to pull if bandwidth is
@@ -104,4 +123,20 @@ class PublicCacheHeadersMiddleware:
         if _may_be_cached(request, response):
             response['Cache-Control'] = (
                 f'public, max-age={MAX_AGE}, s-maxage={SHARED_MAX_AGE}')
+            _stop_varying_on_cookie(response)
         return response
+
+
+def _stop_varying_on_cookie(response):
+    """Drop `Cookie` from `Vary`, keeping everything else.
+
+    Only ever called on a response `_may_be_cached` has cleared. See the module
+    docstring for why that is the whole of the safety argument, and for what
+    this cost while it was missing.
+    """
+    values = [v.strip() for v in response.get('Vary', '').split(',') if v.strip()]
+    kept = [v for v in values if v.lower() != 'cookie']
+    if kept:
+        response['Vary'] = ', '.join(kept)
+    elif response.has_header('Vary'):
+        del response['Vary']

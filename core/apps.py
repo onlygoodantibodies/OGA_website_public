@@ -9,6 +9,58 @@ class CoreConfig(AppConfig):
     def ready(self):
         register(_check_signed_firefox_build, "core")
         register(_check_api_throttle_cache, "core")
+        register(_check_academy_db_is_durable, "core")
+        register(_check_academy_db_url_parsed, "core")
+
+
+def _check_academy_db_url_parsed(app_configs, **kwargs):
+    """Refuse a connection string that was not read as a connection string.
+
+    An **error**, and the one place that is right — deliberately against this
+    file's own convention, because the usual argument does not apply. The other
+    checks here are warnings so that `manage.py check`, which runs inside the
+    pre-deploy `migrate` *and* on every management command, cannot take the site
+    down over an optional feature. This one can only fire when
+    ACADEMY_DATABASE_URL is set *and* unparseable — a state no cron and no working
+    deploy is ever in — so failing is free, and the alternative is Django's own
+    message about a 150-character database name, which names neither the variable
+    nor the slash that caused it.
+    """
+    from django.core.checks import Error as CheckError
+
+    from OGA_website import academy_db
+
+    why = academy_db.config_refusal()
+    if not why:
+        return []
+    return [CheckError("ACADEMY_DATABASE_URL could not be read as a URL.",
+                       hint=why, id="core.E001")]
+
+
+def _check_academy_db_is_durable(app_configs, **kwargs):
+    """Say out loud when academy_db points somewhere a deploy will wipe.
+
+    The reasoning, the rule and the exemptions live in
+    ``OGA_website/academy_db.py``; this is the half that reaches a deploy log.
+
+    A **warning, never an error**, for a reason specific to this one: ``manage.py
+    check`` runs on *every* management command, and the two cron services
+    (``build_bulk_archive``, ``dataset_snapshot``) run this same code with **no
+    disk attached**, so the fallback path is what they legitimately have. An
+    error would abort both of them today, over a database neither one opens.
+
+    The hard stop is ``academy_db.enforce()`` in ``wsgi.py``, which only a
+    process about to serve HTTP ever reaches.
+    """
+    from OGA_website import academy_db
+
+    why = academy_db.refusal()
+    if not why:
+        return []
+    return [CheckWarning(
+        "academy_db is not on durable storage.",
+        hint=why,
+        id="core.W004")]
 
 
 def _check_api_throttle_cache(app_configs, **kwargs):
