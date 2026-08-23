@@ -1,0 +1,153 @@
+{% comment %}
+The chrome for every django-allauth page that is not one of the seven hand-written
+overrides in templates/account/.
+
+Without this file allauth serves its own layouts/base.html: Times New Roman on
+white, a bare "Menu:" list, no branding and no way back to the app. Change
+password, change email and account connections are all linked from the pipeline
+nav on every page, so that was the most visibly unfinished thing on the site —
+found by the twelfth field test, which reached it from the pipeline and could not
+get back without the browser's Back button.
+
+It is the *layout*, not three page overrides, because allauth builds every page
+from `{% templatetag openblock %} element {% templatetag closeblock %}` blocks
+over one of three layouts, all of which extend this file. So password change,
+email management, connections, email confirmation, reauthentication and anything
+allauth adds later are all covered at once — and none of allauth's own page
+templates is copied into this repo, where it would silently rot against the next
+version. The elements pick up Bootstrap in templates/allauth/elements/.
+
+Which chrome it wears depends on where the visitor came from. A person here may
+be an Academy user who has never seen the pipeline, so the site's own header is
+the default — but somebody who pressed "Change password" in the pipeline nav was
+getting Home, About Us, Publications, Roadmap, Partners and Contact over a page
+they reached from the sessions board: seven links out to the marketing site and
+none back to the work. `pipeline_chrome` (pipeline/context_processors.py) reads
+the `?next=` the pipeline nav already sends, and the top bar follows it.
+{% endcomment %}
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block head_title %}{% endblock head_title %} – {% if pipeline_chrome %}YCharOS Pipeline{% else %}Only Good Antibodies{% endif %}</title>
+  <link rel="icon" href="{% static 'core/up-logo.ico' %}">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+
+  {% block extra_head %}{% endblock extra_head %}
+</head>
+<body class="no-wobble">
+
+  {% if pipeline_chrome %}
+  {% include "pipeline/_slim_nav.html" %}
+  {% else %}
+  <header class="header">
+    <div class="logo">
+      <a href="{% url 'home' %}">
+        <img src="{% static 'core/logo.png' %}" alt="Only Good Antibodies" class="logo-img">
+      </a>
+    </div>
+    <div class="hamburger">☰</div>
+    <nav>
+      <ul class="menu">
+        <li><a href="{% url 'home' %}">Home</a></li>
+        <li><a href="{% url 'about' %}">About Us</a></li>
+        <li><a href="{% url 'publications' %}">Publications</a></li>
+        <li><a href="{% url 'roadmap' %}">Roadmap</a></li>
+        <li><a href="{% url 'partners' %}">Partners</a></li>
+        <li><a href="{% url 'contact' %}">Contact</a></li>
+        {% if user.is_authenticated %}
+          <li><a href="{% url 'academy:account' %}">My Account</a></li>
+          <li><a href="{% url 'academy:logout' %}">Log Out</a></li>
+        {% else %}
+          <li><a href="{% url 'academy:login' %}">Sign In</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </header>
+  {% include 'core/nav_toggle.html' %}
+  {% endif %}
+
+  <main class="flex-grow-1 d-flex flex-column align-items-center mt-4 mb-5 px-3">
+    {% comment %}
+    Resolved once. `pipeline_next` is the ?next= the pipeline nav sent, checked
+    to be one of this site's own pipeline paths — see
+    pipeline/context_processors.py::account_chrome. It is read there rather than
+    here because `request.GET.next` is a missing key on a QueryDict, which
+    template resolution turns into the empty string in some positions and an
+    error in others, and because a POST carries the value in its body instead.
+    {% endcomment %}
+    {% with nxt=pipeline_next %}
+    <div style="max-width: 560px; width: 100%;">
+
+      {% comment %}
+      The way back. `next` is allauth's own redirect field — PasswordChangeView
+      and the rest are NextRedirectMixin views, so the value both draws this link
+      and is where the save returns you. The pipeline nav sends its own path, so
+      changing a password from the sessions board lands back on the sessions
+      board rather than on the Academy home page.
+      {% endcomment %}
+      {% if nxt %}
+        <p class="mb-3">
+          <a href="{{ nxt }}" class="text-decoration-none">&larr; Back to the pipeline</a>
+        </p>
+      {% else %}
+        <p class="mb-3">
+          <a href="{% url 'academy:account' %}" class="text-decoration-none">&larr; Back to my account</a>
+        </p>
+      {% endif %}
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <div class="card shadow-sm p-4">
+        {% block content %}{% endblock content %}
+      </div>
+
+      {% comment %}
+      allauth's own base.html put these three in a list headed "Menu:", which is
+      where the unstyled page's reputation came from. They are still worth having
+      — somebody who came to change a password often wants the email next — so
+      they stay, as a footer to the card rather than a nav above it, and the page
+      you are on is not offered as a link to itself.
+      {% endcomment %}
+      <div class="d-flex flex-wrap gap-3 mt-3 small">
+        {% url 'account_change_password' as pw_url %}
+        {% if pw_url and request.path != pw_url %}
+          <a href="{{ pw_url }}{% if nxt %}?next={{ nxt|urlencode }}{% endif %}">Change password</a>
+        {% endif %}
+        {% url 'account_email' as email_url %}
+        {% if email_url and request.path != email_url %}
+          <a href="{{ email_url }}{% if nxt %}?next={{ nxt|urlencode }}{% endif %}">Email addresses</a>
+        {% endif %}
+        {% url 'socialaccount_connections' as conn_url %}
+        {% if conn_url and request.path != conn_url %}
+          <a href="{{ conn_url }}{% if nxt %}?next={{ nxt|urlencode }}{% endif %}">Connected accounts</a>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endwith %}
+  </main>
+
+  {% if not pipeline_chrome %}
+  <footer class="footer">
+    <div class="footer-content">
+      <p>&copy; {% now "Y" %} Only Good Antibodies. All rights reserved.</p>
+    </div>
+  </footer>
+  {% endif %}
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_body %}{% endblock extra_body %}
+</body>
+</html>

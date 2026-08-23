@@ -1,0 +1,308 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YCharOS Pipeline{% endblock %}</title>
+    {% include "pipeline/_styling.html" %}
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50">
+    <!-- Top nav -->
+    <nav class="bg-ycharos-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo / brand -->
+                <div class="flex items-center">
+                    <a href="{% url 'pipeline:hub' %}" class="text-white font-bold text-lg">
+                        YCharOS Pipeline
+                    </a>
+                    <!-- Desktop nav links -->
+                    <div class="hidden md:flex ml-10 items-center space-x-2">
+                        <a href="{% url 'pipeline:hub' %}"
+                           class="text-gray-200 hover:text-white hover:bg-ycharos-700 px-3 py-2 rounded-md text-sm font-medium
+                                  {% if request.resolver_match.url_name == 'hub' %}bg-ycharos-900 text-white{% endif %}">
+                            Task hub
+                        </a>
+                        <div class="relative">
+                            <button id="browse-btn" type="button"
+                                    class="text-gray-200 hover:text-white hover:bg-ycharos-700 px-3 py-2 rounded-md text-sm font-medium inline-flex items-center gap-1">
+                                Browse
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            {% comment %}The gene you are looking at comes with
+                            you. All four boards take ?gene=, so moving from
+                            STMN2's antibodies to STMN2's cell lines does not
+                            mean typing the gene again — which was four boards,
+                            four filter boxes and the same word typed four
+                            times.
+
+                            `nav_gene` comes from
+                            pipeline/context_processors.py, defaulting to the
+                            ?gene= a board is filtered to. A view that knows the
+                            gene another way overrides it — the gene's own page
+                            names it in the URL path, and reading only the query
+                            string meant the one page most obviously about a
+                            single gene was the one that dropped it. Found by the
+                            third field test.{% endcomment %}
+                            {% comment %}Every destination the hub offers is in
+                            here too. It was the four boards, Overview, Add a
+                            gene and How it all works — so People & access,
+                            Downloads & uploads, Set recommendations, Publish
+                            figures and the extension page were reachable *only*
+                            from the hub, and the Portfolio only from the target
+                            board. Wanting Recommendations from a board meant
+                            going Home first, which is the app admitting its nav
+                            does not cover it.
+
+                            The groups mirror the hub, including the two rows at
+                            the bottom that are not everybody's: People & access
+                            is superusers only, and the extension page is listed
+                            only while it is still team-only.
+
+                            `<hr>` for the dividers rather than an empty `<div>`:
+                            the navigation tests slice this menu out of the page
+                            at its first `</div>`, so a divider written as a div
+                            hid everything below it from them.{% endcomment %}
+                            <div id="browse-menu" class="hidden absolute left-0 mt-1 w-64 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black/5 max-h-[80vh] overflow-y-auto">
+                                {% if nav_gene %}
+                                <p class="px-4 py-1.5 text-xs text-gray-500 border-b border-gray-100">
+                                  Keeping <span class="font-semibold text-gray-700">{{ nav_gene }}</span>
+                                </p>
+                                {% endif %}
+                                <a href="{% url 'pipeline:master_dashboard' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Overview</a>
+                                <a href="{% url 'pipeline:target_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Target board</a>
+                                <a href="{% url 'pipeline:antibody_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Antibodies</a>
+                                <a href="{% url 'pipeline:cell_line_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Cell lines</a>
+                                <a href="{% url 'pipeline:session_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Sessions</a>
+                                {% comment %}Set recommendations is in this
+                                group and carries the gene, which it did not
+                                when it joined Browse an hour earlier: the
+                                comment below correctly said a query string a
+                                view does not read only makes a link look
+                                filtered, and the view reads it now. It is a
+                                per-gene surface — its own first instruction is
+                                "pick a gene" — so under a heading reading
+                                "Across every gene" it was the one entry the
+                                heading was wrong about.{% endcomment %}
+                                <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Set recommendations</a>
+                                <hr class="border-gray-100 my-1">
+                                {% comment %}None of these three carry `?gene=`,
+                                and that is not an oversight: the Portfolio
+                                counts every gene at once, and Publish figures
+                                and Downloads & uploads pick their own scope on
+                                the page. A query string a view does not read
+                                only makes the link look filtered — the rule the
+                                boards' own `?gene=` exists under.{% endcomment %}
+                                <p class="px-4 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Across every gene</p>
+                                <a href="{% url 'pipeline:target_portfolio' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Portfolio</a>
+                                <a href="{% url 'pipeline:cropper' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Publish figures</a>
+                                {% comment %}The review queue **does** carry the
+                                gene, unlike its three neighbours here: it reads
+                                `?gene=` to mean the same exact gene the four
+                                boards mean by it, and coming to it from a gene
+                                you are working on is the normal way in.{% endcomment %}
+                                <a href="{% url 'pipeline:review_queue' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Review queue</a>
+                                <a href="{% url 'pipeline:data_io' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Downloads &amp; uploads</a>
+                                <hr class="border-gray-100 my-1">
+                                <a href="{% url 'pipeline:feasibility' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Add a gene</a>
+                                {% comment %}Carries no `?gene=`: it is the same
+                                fourteen screens whatever you are working on, and
+                                a query string on a static page would only make
+                                the link look filtered.{% endcomment %}
+                                <a href="{% url 'pipeline:walkthrough' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">How it all works</a>
+                                {% if user.is_superuser or nav_extension_preview %}
+                                <hr class="border-gray-100 my-1">
+                                {% endif %}
+                                {% if user.is_superuser %}
+                                <a href="{% url 'pipeline:user_board' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">People &amp; access</a>
+                                <a href="{% url 'pipeline:impact' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Impact</a>
+                                {% endif %}
+                                {% if nav_extension_preview %}
+                                <a href="{% url 'extension' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">
+                                  Browser extension
+                                  <span class="block text-[11px] text-amber-700">not released yet</span>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% comment %}One search box for the whole pipeline, in the chrome
+                so it is on every page. Before this, every journey began with
+                "which board do I want?" — and finding a gene from cold was four
+                clicks that required knowing the app's shape first. A gene name
+                jumps straight to that gene's page.{% endcomment %}
+                <form action="{% url 'pipeline:find' %}" method="get"
+                      class="hidden md:flex flex-1 max-w-sm mx-6" role="search">
+                    <label for="nav-find" class="sr-only">Search genes, antibodies, cell lines and sessions</label>
+                    <div class="relative w-full">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M20 20l-3.5-3.5"/>
+                        </svg>
+                        {% comment %}Not pre-filled from request.GET.q: on a board
+                        that parameter is the board's own filter, and showing it
+                        here would read as "you searched for this".{% endcomment %}
+                        <input id="nav-find" type="search" name="q"
+                               placeholder="Search a gene, catalogue number, cell line…"
+                               class="w-full bg-ycharos-900/60 text-white placeholder-gray-400 border border-ycharos-700
+                                      rounded-md pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ycharos-400">
+                    </div>
+                </form>
+
+                <!-- Right side: user info + admin link -->
+                <div class="hidden md:flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-gray-300 text-sm">{{ user.get_full_name|default:user.username }}</span>
+                        {% comment %}?next= so the account pages know where you
+                        came from: they are shared with the Academy, so without it
+                        a password change from the sessions board ends on the
+                        Academy home page with no way back into the pipeline.{% endcomment %}
+                        <a href="{% url 'account_change_password' %}?next={{ request.get_full_path|urlencode }}" class="text-gray-400 hover:text-white text-sm">Change password</a>
+                        <a href="/admin/" class="text-gray-400 hover:text-white text-sm">Admin</a>
+                        {% comment %}A form, not a link. A GET that ends a session
+                        is fetched by anything that follows links without a person
+                        deciding to — a prefetcher, an unfurl preview, a stray
+                        middle-click — and the twelfth field test lost its run that
+                        way. The view refuses to act on GET regardless; this is
+                        what keeps the ordinary path one click.{% endcomment %}
+                        <form action="{% url 'pipeline:pipeline_logout' %}" method="post" class="inline">
+                            {% csrf_token %}
+                            {% comment %}bg-transparent/border-0 rather than relying
+                            on Tailwind's preflight: the CDN is the only source of
+                            it, so a slow or blocked load would otherwise put a grey
+                            OS-default button in the middle of a dark navy bar.{% endcomment %}
+                            <button type="submit"
+                                    class="text-gray-400 hover:text-white text-sm bg-transparent border-0 p-0 cursor-pointer">Logout</button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'account_login' %}" class="text-gray-200 hover:text-white text-sm">Login</a>
+                    {% endif %}
+                </div>
+
+                <!-- Mobile hamburger -->
+                <div class="md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-200 hover:text-white focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path id="menu-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                            <path id="menu-close" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-ycharos-900">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <form action="{% url 'pipeline:find' %}" method="get" class="px-1 pb-2" role="search">
+                    <label for="nav-find-mobile" class="sr-only">Search genes, antibodies, cell lines and sessions</label>
+                    <input id="nav-find-mobile" type="search" name="q"
+                           placeholder="Search a gene, catalogue number, cell line…"
+                           class="w-full bg-ycharos-800 text-white placeholder-gray-400 border border-ycharos-700
+                                  rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ycharos-400">
+                </form>
+                <a href="{% url 'pipeline:hub' %}" class="text-white hover:text-white block px-3 py-2 rounded-md text-base font-semibold">Task hub</a>
+                {% comment %}The gene comes with you here too. It did not: the
+                gene rode on the desktop dropdown only, so a phone lost it exactly
+                where a laptop kept it — and a phone is what somebody at the bench
+                is holding.{% endcomment %}
+                <p class="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-ycharos-300">
+                  Browse{% if nav_gene %} <span class="normal-case font-normal text-ycharos-200">— keeping {{ nav_gene }}</span>{% endif %}
+                </p>
+                <a href="{% url 'pipeline:master_dashboard' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Overview</a>
+                <a href="{% url 'pipeline:target_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Target board</a>
+                <a href="{% url 'pipeline:antibody_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Antibodies</a>
+                <a href="{% url 'pipeline:cell_line_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Cell lines</a>
+                <a href="{% url 'pipeline:session_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Sessions</a>
+                <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Set recommendations</a>
+                {% comment %}The same destinations as the desktop dropdown, in
+                the same order, and carrying `?gene=` on the same ones. Two
+                lists in the DOM is how a phone lost the gene where a laptop
+                kept it, so anything added to one is added to both.{% endcomment %}
+                <p class="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-ycharos-300">Across every gene</p>
+                <a href="{% url 'pipeline:target_portfolio' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Portfolio</a>
+                <a href="{% url 'pipeline:cropper' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Publish figures</a>
+                <a href="{% url 'pipeline:review_queue' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Review queue</a>
+                <a href="{% url 'pipeline:data_io' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Downloads &amp; uploads</a>
+                <hr class="border-ycharos-700 my-2">
+                <a href="{% url 'pipeline:feasibility' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Add a gene</a>
+                <a href="{% url 'pipeline:walkthrough' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">How it all works</a>
+                {% if user.is_superuser %}
+                <a href="{% url 'pipeline:user_board' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">People &amp; access</a>
+                <a href="{% url 'pipeline:impact' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Impact</a>
+                {% endif %}
+                {% if nav_extension_preview %}
+                <a href="{% url 'extension' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                  Browser extension
+                  <span class="block text-xs font-normal text-amber-300">not released yet</span>
+                </a>
+                {% endif %}
+                {% if user.is_authenticated %}
+                    <hr class="border-ycharos-700 my-2">
+                    <span class="text-gray-400 block px-3 py-1 text-sm">{{ user.get_full_name|default:user.username }}</span>
+                    <a href="{% url 'account_change_password' %}?next={{ request.get_full_path|urlencode }}" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-sm">Change password</a>
+                    <a href="/admin/" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-sm">Admin</a>
+                    <form action="{% url 'pipeline:pipeline_logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="text-gray-300 hover:text-white block w-full text-left px-3 py-2 rounded-md text-sm bg-transparent border-0 cursor-pointer">Logout</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash messages -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        {% for message in messages %}
+        <div class="rounded-md p-4 mb-3
+                    {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+                    {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
+                    {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+                    {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Mobile menu toggle script -->
+    <script>
+        const btn = document.getElementById('mobile-menu-btn');
+        const menu = document.getElementById('mobile-menu');
+        const openIcon = document.getElementById('menu-open');
+        const closeIcon = document.getElementById('menu-close');
+        btn.addEventListener('click', () => {
+            menu.classList.toggle('hidden');
+            openIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
+        });
+
+        // Desktop "Browse" dropdown
+        const browseBtn = document.getElementById('browse-btn');
+        const browseMenu = document.getElementById('browse-menu');
+        if (browseBtn && browseMenu) {
+            browseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                browseMenu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', () => browseMenu.classList.add('hidden'));
+            browseMenu.addEventListener('click', (e) => e.stopPropagation());
+        }
+</script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

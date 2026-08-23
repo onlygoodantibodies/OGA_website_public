@@ -1,0 +1,40 @@
+{% load static %}
+<header class="header">
+  <div class="logo">
+    <a href="{% url 'home' %}" title="Only Good Antibodies — home">
+      <img src="{% static 'core/logo.png' %}" alt="Only Good Antibodies — home" class="logo-img">
+    </a>
+  </div>
+  <div class="hamburger">☰</div>
+  <nav>
+    <ul class="menu">
+      <li><a href="{% url 'home' %}">Home</a></li>
+      {% comment %}
+      The Selection Tool and Connect your AI are reached from Tools, not from
+      the bar. Both are early releases and both are cards on the Tools hub
+      (badged as such there); a top-level entry each made the bar ten items
+      wide and wrapped it onto two lines on a phone.
+      {% endcomment %}
+      <li><a href="{% url 'tools_hub' %}">Tools</a></li>
+      <li><a href="{% url 'about' %}">About Us</a></li>
+      <li><a href="{% url 'roadmap' %}">Roadmap</a></li>
+      <li><a href="{% url 'champions' %}">Champions</a></li>
+      <li><a href="{% url 'news_publications' %}">News &amp; Publications</a></li>
+      <li><a href="{% url 'partners' %}">Partners</a></li>
+      <li><a href="{% url 'contact' %}">Contact</a></li>
+      {% if user.is_authenticated %}
+        <li><a href="{% url 'academy:academy_home' %}">Academy</a></li>
+      {% else %}
+        <li><a href="{% url 'academy:login' %}">Academy</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+</header>
+{% comment %}
+Back-to-genes link + gene search on every page except the homepage, which has
+its own hero search over the gene boxes it already renders.
+{% endcomment %}
+{% if request.resolver_match.url_name != 'home' %}
+  {% include 'core/gene_search_bar.html' %}
+{% endif %}
+{% include 'core/nav_toggle.html' %}

@@ -1,0 +1,149 @@
+{
+  "//": "Per-module quizzes for the interactive learning connector. Passing a module's quiz earns that module's certificate; passing all + the workshop plan earns the capstone. Questions test the key learning outcomes (00_overview.md). pass_mark is the fraction correct required; learners may retry (the connector re-asks, reinforcing the point). Keep answers here server-side — the connector never reveals the correct index until after grading.",
+  "pack_version": "0.4.3-draft",
+  "pass_mark": 0.7,
+  "modules": {
+    "framework": {
+      "title": "Planning antibody validation",
+      "questions": [
+        {
+          "text": "What determines how much validation evidence an antibody needs?",
+          "options": [
+            "The price of the antibody",
+            "How central the antibody's specificity is to your scientific conclusion",
+            "How many citations the antibody has",
+            "Whether the vendor labels it 'validated'"
+          ],
+          "correct": 1,
+          "explanation": "Validation is proportionate to the QUESTION. A target-specific question (is this protein doing X?) needs the strongest evidence; a community marker or a purely technical role needs less. Price, citations, and vendor labels don't set the bar."
+        },
+        {
+          "text": "For a target-specific question, what is the strongest validation evidence?",
+          "options": [
+            "A datasheet image from the manufacturer",
+            "A high citation count in the literature",
+            "Genetic controls (knockout or knockdown) in your application and sample type",
+            "A band at the expected molecular weight"
+          ],
+          "correct": 2,
+          "explanation": "Genetic perturbation of the target, in the same application and sample type you'll use, is the most predictive evidence. MW, citations, and datasheet images are weak or non-controls."
+        },
+        {
+          "text": "Which antibody class has the highest independent pass rates and reproducibility?",
+          "options": [
+            "Polyclonal antibodies",
+            "Recombinant antibodies",
+            "Whichever is cheapest",
+            "Whichever is most cited"
+          ],
+          "correct": 1,
+          "explanation": "Recombinant antibodies are made from a defined sequence and consistently outperform monoclonals and polyclonals (~67% vs 41% vs 27% for WB). Prefer recombinant where available."
+        },
+        {
+          "text": "On the OGA database, how do OGA's recommended applications differ from a vendor's recommended applications?",
+          "options": [
+            "There is no difference — both mean the same thing",
+            "OGA recommendations come from standardised YCharOS testing with genetic (knockout) controls; vendor recommendations are the supplier's own claims",
+            "Vendor recommendations are more rigorous because suppliers test more antibodies",
+            "OGA recommendations are based on how often the antibody is cited"
+          ],
+          "correct": 1,
+          "explanation": "An OGA recommendation is an independent verdict — the antibody passed standardised YCharOS testing with genetic controls for that specific application. A vendor's listed applications are the supplier's own claims and aren't independently controlled. Absence from the database is not a negative verdict."
+        }
+      ]
+    },
+    "controls": {
+      "title": "Controls that count",
+      "questions": [
+        {
+          "text": "Which control actually shows that a Western blot band IS your target protein?",
+          "options": [
+            "An isotype control",
+            "A secondary-only (no-primary) control",
+            "A genetic knockout of the target (the band should disappear)",
+            "A loading control such as GAPDH"
+          ],
+          "correct": 2,
+          "explanation": "Only perturbing the target itself answers 'is this signal my protein?'. A knockout removes the target, so the band must disappear. Isotype, secondary-only, and loading controls answer different questions (background, detection, equal loading)."
+        },
+        {
+          "text": "Why does a peptide-blocking (pre-adsorption) control NOT establish selectivity?",
+          "options": [
+            "Because it is too expensive to run routinely",
+            "Because it only shows the antibody binds the immunising peptide — a cross-reactive protein sharing that epitope would be blocked too",
+            "Because peptides are unstable",
+            "Because it requires a knockout cell line to interpret"
+          ],
+          "correct": 1,
+          "explanation": "Signal vanishing after pre-adsorption only proves the antibody binds the peptide, not that the signal is your target. Anything sharing or mimicking the epitope is blocked identically. It confirms epitope binding, not target identity."
+        },
+        {
+          "text": "What is the best positive control for antibody characterisation?",
+          "options": [
+            "Strong overexpression of the target, because more signal is better",
+            "The target expressed at endogenous (physiological) levels in an expressing cell of interest",
+            "An isotype-matched antibody",
+            "A housekeeping protein"
+          ],
+          "correct": 1,
+          "explanation": "The most informative positive is the target at RELEVANT levels — your expressing cell of interest, paired with a KO/KD of that same cell as the negative. Overexpression is supra-physiological; it's a screening/rule-out tool, not the ideal characterisation control."
+        },
+        {
+          "text": "The five pillars of validation are complementary, but why is genetic validation (a knockout/knockdown control) the strongest single pillar for selectivity?",
+          "options": [
+            "It is the cheapest and fastest method to run",
+            "It directly tests whether the antibody signal depends on the target protein being present",
+            "It correlates the antibody signal with RNA-seq data",
+            "It compares the signal against a tagged version of the protein"
+          ],
+          "correct": 1,
+          "explanation": "The five pillars (genetic, orthogonal, independent antibodies, tagged expression, IP-MS) are complementary — not a ranked checklist — but genetic strategies are the most direct: removing or reducing the target must change the signal. Orthogonal (RNA correlation) and tagged expression are supporting pillars that don't test target dependence directly."
+        }
+      ]
+    },
+    "acquiring": {
+      "title": "Finding and acquiring controls",
+      "questions": [
+        {
+          "text": "Before choosing a cell line as your positive control, what should you do first?",
+          "options": [
+            "Buy the most expensive antibody available",
+            "Confirm the line actually expresses the target (RNA-seq / proteomics: DepMap, ProCan, HPA)",
+            "Run an isotype control",
+            "Check the antibody's citation count"
+          ],
+          "correct": 1,
+          "explanation": "Confirm expression first, so a negative result means 'antibody/absent', not 'wrong sample'. DepMap/ProCan/HPA let you pick a line that expresses the target at relevant levels."
+        },
+        {
+          "text": "You can't make your own knockout. What is a reasonable robust negative control?",
+          "options": [
+            "A secondary-only control",
+            "siRNA/shRNA knockdown (e.g. Horizon/Dharmacon, Abcam), or a knockout in a different cell type via the OGA database",
+            "A peptide-blocking control",
+            "A loading control"
+          ],
+          "correct": 1,
+          "explanation": "Knockdown reduces the target (confirm efficiency by RT-qPCR) and is a genuine selectivity control — and a useful research tool too. A KO in a different cell type (searchable in the OGA database) is another option. Secondary-only, peptide-block, and loading controls don't establish selectivity."
+        },
+        {
+          "text": "Why does having a strong positive control help you practically and financially?",
+          "options": [
+            "It makes the antibody cheaper to buy",
+            "It lets you screen free vendor samples before committing budget, and gives you evidence for a refund if an antibody fails against it",
+            "It removes the need for any negative control",
+            "It guarantees the antibody will work in every application"
+          ],
+          "correct": 1,
+          "explanation": "A good positive control (e.g. a commercial overexpression lysate, or cloning your own vector) lets you pre-screen free samples and, if an antibody fails against overexpressed protein, gives you the evidence vendors need to issue a refund."
+        }
+      ]
+    }
+  },
+  "capstone": {
+    "title": "OGA Antibody Validation — Full Certification",
+    "requires_modules": ["framework", "controls", "acquiring"],
+    "requires_workshop_plan": true,
+    "//": "The capstone is earned when the learner holds all three module passes AND has produced a validation plan for their own target that passes the plan rubric (plan_schema.json)."
+  }
+}

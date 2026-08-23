@@ -1,0 +1,868 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1024, initial-scale=0.4, maximum-scale=1, user-scalable=no">
+  {% comment %}
+  `published_total`, not `antibody_count`: everything below is about the rows
+  currently drawn, and says so with the "N hidden" line under the count. These
+  two are read with none of that beside them — in a search result, in a link
+  preview — and they must not move when a reader ticks a filter box.
+  {% endcomment %}
+  <title>{{ gene_name }} antibody characterisation — knockout-validated results for {{ published_total }} antibodies | Only Good Antibodies</title>
+  <meta name="description" content="Knockout-validated characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+  {% comment %}
+  schema.org Dataset — what this page is, in the form a machine reads. Built by
+  core/views.py::_gene_jsonld, which escapes every `<` so nothing in a supplier
+  name or a free-text field can close this block early.
+  {% endcomment %}
+  <script type="application/ld+json">{{ jsonld|safe }}</script>
+</head>
+
+<style>
+/* --- Global accents --- */
+body {
+  background-color: #f7f9fc;
+  font-family: 'Open Sans', sans-serif;
+}
+
+
+/* --- Notice bar --- */
+.beta-test-notice {
+  text-align: center;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+  color: #10428a;
+  font-weight: 500;
+  padding: 0.8rem 0;
+}
+
+/* Reuse terms under the banner actions — quiet, and next to the DOI it names. */
+.oga-licence {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+.oga-licence a { text-decoration: underline; }
+
+/* Cell line callout box */
+.cellline-note {
+  max-width: 800px;
+  margin: 25px auto 15px;
+  background: #f9fbff;
+  border: 1px solid #dce6f5;
+  border-left: 4px solid #10428a;
+  border-radius: 8px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  text-align: left;
+}
+
+.cellline-note p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #10428a;
+}
+
+.cellline-note a {
+  color: #10428a;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Report + Citation buttons */
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Full Report */
+.f1000-link {
+  display: inline-block;
+  background-color: #10428a;
+  color: #ffffff;
+  border: 2px solid #10428a;
+  border-radius: 50px;
+  padding: 0.6rem 1.6rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.25s ease-in-out;
+}
+
+.f1000-link:hover {
+  background-color: transparent;
+  color: #ffffff;
+}
+
+/* Copy Citation */
+.copy-btn {
+  background-color: transparent;
+  color: #10428a;
+  border: 2px solid #10428a;
+  border-radius: 50px;
+  padding: 0.6rem 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+}
+
+.copy-btn:hover {
+  background-color: #10428a;
+  color: #ffffff;
+}
+
+/* --- Filters container --- */
+.filter-container {
+  display: flex;
+  justify-content: center;
+  margin: 2.5rem auto;
+  padding: 2rem 2rem 1.6rem;
+  background: #ffffff;
+  border: 1px solid #e3ebf7;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  max-width: 1200px;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.3rem;
+  justify-content: center;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 220px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: #10428a;
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.filter-group select {
+  background-color: #f9fbff;
+  border: 1px solid #d6e1f2;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #10428a;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #10428a;
+  box-shadow: 0 0 0 3px rgba(16, 66, 138, 0.15);
+}
+
+/* Discontinued tick box.
+
+   The other four filters are a label stacked over a dropdown; this one is a box
+   beside its words, so it opts out of the column layout rather than inheriting
+   a 0.4rem gap that would leave the tick floating above its own label. The
+   min-width is dropped too — "Show discontinued" needs about half of 220px, and
+   the flex row reads better without the hole. */
+.filter-group-check {
+  min-width: 0;
+  justify-content: flex-end;
+  padding-bottom: 0.55rem;
+}
+
+.filter-group-check .filter-check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-group-check input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #10428a;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* The line under the gene's antibody count saying what the tick is hiding. */
+.oga-discontinued-note {
+  text-align: center;
+  color: #555;
+  font-size: 0.9rem;
+  margin: 0.5rem auto 0;
+  max-width: 800px;
+  padding: 0 1rem;
+}
+
+.oga-discontinued-toggle {
+  color: #10428a;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.oga-discontinued-toggle:hover {
+  opacity: 0.7;
+}
+
+/* The per-row notice. Amber rather than red: the product is gone, the data is
+   not, and a red block over a full set of published figures reads as a warning
+   about the results. */
+.oga-ab-discontinued {
+  background: #fff8e6;
+  border-left: 3px solid #e0a800;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+/* Clear filters link */
+.clear-filters {
+  color: #10428a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.65rem 1rem;
+  transition: opacity 0.2s ease;
+}
+
+.clear-filters:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+.applications-list {
+    display: inline-block;
+    max-width: 250px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+  .banner-center h2 { font-size: 1.7rem; }
+  .filter-container { padding: 1.5rem; }
+  .filter-group { min-width: 160px; }
+}
+
+/* --- Recommended-application highlight --- */
+/* Applied by JS once the recommendations AJAX resolves: the experiment cell
+   whose application is recommended for this antibody gets a green wash. */
+.experiment-box.recommended {
+  background: #eafaf0;
+  box-shadow: inset 0 0 0 2px #12a150;
+  border-radius: 8px;
+}
+
+/* --- Click-to-zoom images --- */
+.experiment-box img.zoomable { cursor: zoom-in; }
+
+.oga-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 40, 0.85);
+  padding: 24px;
+}
+.oga-lightbox.open { display: flex; }
+.oga-lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.55);
+}
+.oga-lightbox .oga-close {
+  position: absolute;
+  top: 14px;
+  right: 22px;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: #ffffff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Open Sans', sans-serif;
+}
+
+/* --- ?ab= focus ---
+   Every selector here is prefixed and element-scoped on purpose: a bare
+   utility name in a page's own <style> is how the header bar lost its links
+   once already. Nothing in this block is !important. */
+.oga-ab-focus {
+  max-width: 1200px;
+  margin: 1rem auto 0;
+  padding: 0.6rem 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #e8f0fb;
+  border: 1px solid #b9d0ee;
+  border-radius: 10px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #10428a;
+}
+.oga-ab-focus-missing {
+  background: #fdf4e7;
+  border-color: #e8d3ae;
+  color: #7a5a20;
+}
+.oga-ab-focus-clear {
+  color: #10428a;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.row-box.oga-ab-focused {
+  outline: 2px solid #10428a;
+  outline-offset: 2px;
+  border-radius: 10px;
+  scroll-margin-top: 90px;
+}
+@media (max-width: 600px) {
+  .oga-ab-focus { margin: 0.8rem 1rem 0; }
+}
+</style>
+
+<body class="antibody-table-page">
+  {% include 'core/cookie_banner.html' %}
+  <script src="{% static 'core/script.js' %}"></script>
+
+  <!-- HEADER -->
+  {% include 'core/header.html' %}
+
+  <!-- BANNER -->
+<section class="banner antibody-banner">
+  <div class="banner-content">
+    <div class="banner-center">
+      <h2>Gene: {{ gene_name }}</h2>
+
+      <div class="banner-actions">
+        {% if report_link %}
+        <a href="{{ report_link }}" target="_blank" class="f1000-link">
+           {{ report_label }}
+        </a>
+        {% endif %}
+
+        {% if citation %}
+        <div class="copy-citation-wrapper">
+          <button id="copy-btn" class="copy-btn" title="{{ citation }}">
+             Copy Citation
+          </button>
+          <span id="citation-text" style="display: none;">{{ citation }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% comment %}
+      The reuse terms, beside the DOI they point at. The licence is also in this
+      page's JSON-LD, which is the right place for a machine and no place at all
+      for the person copying a figure into a slide deck — who is the reuser this
+      is actually addressed to. A gene with no report published yet has no DOI to
+      cite, so the sentence stops after the licence rather than naming this page.
+      {% endcomment %}
+      <p class="oga-licence">
+        Free to reuse under
+        <a href="{{ licence_url }}" target="_blank" rel="noopener license">{{ licence_name }}</a>{% if report_link %} —
+        please cite <a href="{{ report_link }}" target="_blank" rel="noopener">the {{ gene_name }} report</a>{% endif %}.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+  <!-- NOTICE -->
+  <div class="beta-test-notice">
+    Antibody order is random
+  </div>
+<!-- CELL LINE CALLOUT -->
+{% if cell_line_link %}
+  <div class="cellline-note">
+    <p>
+      <strong>Note:</strong>
+      These experiments were done in a single cell line.
+      <a href="{{ cell_line_link }}" target="_blank">See which cell line</a>.
+    </p>
+  </div>
+{% endif %}
+
+<!-- GENE INTRO LINE -->
+<p style="text-align: center; color: #555; font-size: 0.95rem; margin: 1rem auto 0; max-width: 800px; padding: 0 1rem;">
+  {% comment %}
+  "1 SNCA antibodies" was already here; hiding the discontinued ones by default
+  makes a count of 1 an ordinary outcome rather than a rarity, and next to a
+  number is where a grammar slip costs most — it makes a careful reader distrust
+  the number.
+  {% endcomment %}
+  Knockout-validated characterisation data for {{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:"y,ies" }} across WB, IP, ICC-IF and FC.{% if aliases %} Also known as: {{ aliases }}.{% endif %}
+</p>
+
+{% comment %}
+Directly under the count, because it is the sentence that makes the count
+true: every supplier's catalogue was checked in August 2026, and a reagent
+that is no longer sold is hidden unless asked for. Saying nothing here would
+leave the number quietly smaller than the one on the home page, which reads
+as data loss. The toggle is a <label> for the tick box in the filter bar —
+clicking it fires the same change event, so there is one control, not two
+that could disagree.
+{% endcomment %}
+{% if hidden_discontinued %}
+<p class="oga-discontinued-note" role="status">
+  Not shown: {{ hidden_discontinued }} antibod{{ hidden_discontinued|pluralize:"y,ies" }} the supplier no longer sells. The knockout-controlled results still stand.
+  {% comment %}
+  Deliberately no tabindex/role: a <label> cannot be operated by Enter, so
+  making it look focusable would be a keyboard dead end. The real tick box in
+  the filter bar above is in the tab order and does the same job.
+  {% endcomment %}
+  <label for="discontinued" class="oga-discontinued-toggle">Show discontinued</label>
+</p>
+{% elif shown_discontinued %}
+<p class="oga-discontinued-note" role="status">
+  Including {{ shown_discontinued }} antibod{{ shown_discontinued|pluralize:"y,ies" }} the supplier no longer sells, marked <strong>Discontinued</strong> below.
+</p>
+{% endif %}
+
+  <!-- FILTERS -->
+  <div class="filter-container">
+    <form id="filter-form" class="filter-form" method="get">
+      <div class="filter-group">
+        <label for="host">Host</label>
+        <select name="host" id="host" class="form-select">
+          <option value="">----</option>
+          {% for host in hosts %}
+            <option value="{{ host }}" {% if request.GET.host == host %}selected{% endif %}>
+              {{ host }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="clonality">Clonality</label>
+        <select name="clonality" id="clonality" class="form-select">
+          <option value="">----</option>
+          {% for clonality in clonality_options %}
+            <option value="{{ clonality }}" {% if request.GET.clonality == clonality %}selected{% endif %}>
+              {{ clonality }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="recombinant">Recombinant</label>
+        <select name="recombinant" id="recombinant" class="form-select">
+          <option value="">----</option>
+          {% for recombinant in recombinant_options %}
+            <option value="{{ recombinant }}" {% if request.GET.recombinant == recombinant %}selected{% endif %}>
+              {{ recombinant }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Application filter: NO name attribute — handled entirely by JS -->
+      <div class="filter-group">
+        <label for="application">Recommended Application*</label>
+        <select id="application" class="form-select">
+          <option value="">----</option>
+          <option value="wb">Western Blot</option>
+          <option value="icc_if">ICC / IF</option>
+          <option value="ip">Immunoprecipitation (IP)</option>
+          <option value="fc">Flow Cytometry (FC)</option>
+        </select>
+      </div>
+
+      {% comment %}
+      Unticked by default, so the table answers "what can I buy" — and drawn
+      whether or not this gene has any, because a control that is simply absent
+      is a feature a reader concludes does not exist. What it is hiding right
+      now is said under the table heading, not here, so the number sits beside
+      the count it contradicts.
+      {% endcomment %}
+      <div class="filter-group filter-group-check">
+        <label for="discontinued" class="filter-check-label">
+          <input type="checkbox" name="discontinued" value="show" id="discontinued"
+                 {% if show_discontinued %}checked{% endif %}>
+          Show discontinued
+        </label>
+      </div>
+
+      <a href="{{ request.path }}" class="clear-filters" id="clear-filters-link">Clear filters</a>
+    </form>
+  </div>
+
+  <!-- Auto-submit SERVER-SIDE filters on change (host, clonality, recombinant, discontinued) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var form = document.getElementById('filter-form');
+      if (form) {
+        // The tick box is a named control like the dropdowns, so it submits the
+        // same way. Selecting only `select[name]` left it needing a submit
+        // button the form does not have — the filter would have been drawn,
+        // clickable, and dead.
+        form.querySelectorAll('select[name], input[name]').forEach(function (control) {
+          control.addEventListener('change', function () {
+            form.submit();
+          });
+        });
+      }
+    });
+  </script>
+
+  {% comment %}
+  The page's one caveat, above the table it is about. It carried its own wording
+  until 12 Aug 2026 — "reflect observed selectivity under these specific
+  experimental conditions only" — which said roughly what `SCOPE_NOTE` says on
+  the portal, the extension page and /data-access/, in different words, on the
+  surface most readers arrive at first. The manufacturer-endorsement sentence is
+  this page's own and stays: it is about the supplier's datasheet rather than
+  about what OGA tested, and it is only owed where a supplier's product is named
+  beside a verdict.
+  {% endcomment %}
+  <div class="beta-test-notice" style="text-align: center; padding: 10px 20px; font-size: 0.85rem; color: #555;">
+    Appearance on this database does not imply manufacturer endorsement for all applications — always consult the manufacturer's datasheet for their recommended applications.
+    {% include 'core/_recommendation_caveat.html' %}
+  </div>
+
+  {% comment %}
+  ?ab= — arrived from a catalogue-number or RRID search. The row is lifted to the
+  top by the view and marked here; the chip is what says the page is focused and
+  is the way back to the unfiltered order. The other antibodies stay on the page
+  on purpose: "not recommended for WB, and these two against the same target are"
+  is the answer somebody holding one catalogue number actually needs, and it is
+  only on screen if the siblings are.
+  {% endcomment %}
+  {% if focus_label %}
+  <div class="oga-ab-focus" role="status">
+    <span class="oga-ab-focus-label">Showing <strong>{{ focus_label }}</strong>{% if focus_supplier %} — {{ focus_supplier }}{% endif %}</span>
+    <a class="oga-ab-focus-clear" href="{{ request.path }}">Show all {{ antibody_count }} {{ gene_name }} antibodies</a>
+  </div>
+  {% elif focus_missing %}
+  <div class="oga-ab-focus oga-ab-focus-missing" role="status">
+    <span class="oga-ab-focus-label">No {{ gene_name }} antibody here matches &ldquo;{{ focus_missing }}&rdquo;.</span>
+    <a class="oga-ab-focus-clear" href="{% url 'home' %}">Search again</a>
+  </div>
+  {% endif %}
+
+            <!-- Table Container -->
+            <main class="table-container" id="antibody-table" data-gene="{{ gene_name }}">
+                <!-- Ideal Antibody Row -->
+                <div class="row-box ideal-antibody-row"> 
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th class="header-label">WB</th>
+                                <th class="header-label">IP</th>
+                                <th class="header-label">ICC-IF</th>
+                                <th class="header-label">FC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="antibody-details">
+                                    <h3> Example</h3>
+                                    <h3>High-performing Antibody</h3>
+                                    <p>An example of a high-performing antibody.</p>
+                                </td>
+                                <td><div class="experiment-box"><img src="{% static 'core/WB-ideal.png' %}" alt="WB Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/Ideal-IP.png' %}" alt="IP Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/IF-Ideal.png' %}" alt="ICC-IF Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/FC-ideal.png' %}" alt="FC Image"></div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                   <!-- Dynamic Antibody Rows -->
+            {% for antibody in antibody_data %}
+            {% comment %}
+            data-recommended carries the applications this antibody is
+            recommended for, as the filter's own option values. The filter used
+            to read them out of the AJAX payload; the verdicts are rendered
+            here now, so it reads them off the row instead.
+            {% endcomment %}
+            <div class="row-box{% if antibody.id == focus_id %} oga-ab-focused{% endif %}"
+                 id="ab-{{ antibody.id }}"
+                 data-antibody-id="{{ antibody.id }}"
+                 data-recommended="{{ antibody.filter_keys }}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th class="header-label">WB</th>
+                            <th class="header-label">IP</th>
+                            <th class="header-label">ICC-IF</th>
+                            <th class="header-label">FC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <!-- Antibody Details -->
+                           
+<td class="antibody-details">
+    <h3>{{ antibody.name }}</h3>
+    {% if antibody.description %}
+        <p>RRID: {{ antibody.description.rrid }}</p>
+
+        <p>
+            Supplier:
+            {% if antibody.description.product_link %}
+                <a href="{{ antibody.description.product_link }}" target="_blank" class="product-link">
+                    {{ antibody.description.supplier }}
+                </a>
+            {% else %}
+                {{ antibody.description.supplier }}
+            {% endif %}
+        </p>
+
+        <p>Host: {{ antibody.description.host }}</p>
+        <p>{{ antibody.description.clonality }}</p>
+
+        {% if antibody.description.clone_ID %}
+            <p>Clone ID: {{ antibody.description.clone_ID }}</p>
+        {% endif %}
+
+        {% comment %}
+        Only reachable with the tick on, or on a row the reader named by
+        catalogue number — which is why it says what it means rather than the
+        bare word. "Discontinued" beside a Supplier link that still works reads
+        as a site error; naming the check and its date says whose statement it
+        is, and the results below it are unaffected by any of it.
+        {% endcomment %}
+        {% if antibody.description.discontinued %}
+            <p class="oga-ab-discontinued">
+                <strong>Discontinued</strong> — the supplier no longer sells this
+                product (checked August 2026). The results below still stand.
+            </p>
+        {% endif %}
+
+        {% if antibody.recommended_apps %}
+        <div class="rec-slot">
+            <p><strong>Recommended Applications:</strong>
+               <span class="applications-list">{{ antibody.recommended_apps|join:", " }}</span></p>
+        </div>
+        {% endif %}
+
+    {% endif %}
+</td>
+
+
+
+                            <!-- WB Experiment -->
+                            <td>
+                                <div class="experiment-box{% if antibody.experiments.WB and antibody.recommended.WB %} recommended{% endif %}" data-app="wb">
+                                    {% if antibody.experiments.WB %}
+                                        <img src="{{ antibody.experiments.WB }}" alt="WB Image" class="zoomable">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- IP Experiment -->
+                            <td>
+                                <div class="experiment-box{% if antibody.experiments.IP and antibody.recommended.IP %} recommended{% endif %}" data-app="ip">
+                                    {% if antibody.experiments.IP %}
+                                        <img src="{{ antibody.experiments.IP }}" alt="IP Image" class="zoomable">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- ICC-IF Experiment -->
+                            <td>
+                                <div class="experiment-box{% if antibody.experiments.ICC_IF and antibody.recommended.ICC_IF %} recommended{% endif %}" data-app="icc_if">
+                                    {% if antibody.experiments.ICC_IF %}
+                                        <img src="{{ antibody.experiments.ICC_IF }}" alt="ICC-IF Image" class="zoomable">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- FC Experiment -->
+                            <td>
+                                <div class="experiment-box{% if antibody.experiments.FC and antibody.recommended.FC %} recommended{% endif %}" data-app="fc">
+                                    {% if antibody.experiments.FC %}
+                                        <img src="{{ antibody.experiments.FC }}" alt="FC Image" class="zoomable">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+              
+        </main>
+    </div>
+
+    {% comment %}
+    Client-side application filter.
+
+    The recommendations it filters on are rendered by the server now — the green
+    wash, the "Recommended Applications:" line and the `data-recommended`
+    attribute this reads. There is no fetch here any more: the verdicts are the
+    reason this site exists, and having them arrive by JavaScript from a
+    referer-gated endpoint made them the one thing on the page that a search
+    engine, a crawler, an assistant, or anybody with JS off could not see.
+    {% endcomment %}
+    <script>
+    (function () {
+      function recommendedFor(row) {
+        return (row.dataset.recommended || '').split(' ').filter(Boolean);
+      }
+
+      function applyApplicationFilter() {
+        var selected = document.getElementById('application').value;
+        document.querySelectorAll('.row-box[data-antibody-id]').forEach(function (row) {
+          if (!selected) {
+            row.style.display = '';
+            return;
+          }
+          row.style.display =
+            recommendedFor(row).indexOf(selected) === -1 ? 'none' : '';
+        });
+      }
+
+      // Application filter — client-side only
+      document.getElementById('application').addEventListener('change', applyApplicationFilter);
+
+      // Clear filters link: also reset application dropdown
+      document.getElementById('clear-filters-link').addEventListener('click', function () {
+        document.getElementById('application').value = '';
+        // Let the default link behaviour handle the server-side filter reset
+      });
+    })();
+    </script>
+
+    <!-- Click-to-zoom lightbox for the experiment crops -->
+    <div class="oga-lightbox" id="oga-lightbox" role="dialog" aria-modal="true" aria-label="Enlarged image">
+      <button class="oga-close" id="oga-lightbox-close" aria-label="Close">&times;</button>
+      <img id="oga-lightbox-img" src="" alt="Enlarged experiment image">
+    </div>
+    <script>
+    (function () {
+      var box = document.getElementById('oga-lightbox');
+      var img = document.getElementById('oga-lightbox-img');
+
+      function open(src, alt) {
+        img.src = src;
+        img.alt = alt || 'Enlarged experiment image';
+        box.classList.add('open');
+      }
+      function close() {
+        box.classList.remove('open');
+        img.src = '';
+      }
+
+      // Delegate: any zoomable crop image opens the lightbox
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t.tagName === 'IMG' && t.classList.contains('zoomable')) {
+          open(t.currentSrc || t.src, t.alt);
+        }
+      });
+
+      box.addEventListener('click', function (e) {
+        // click on backdrop (not the image itself) closes
+        if (e.target !== img) close();
+      });
+      document.getElementById('oga-lightbox-close').addEventListener('click', close);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') close();
+      });
+    })();
+    </script>
+
+    <!-- Footer -->
+<footer class="antibody-footer">
+    <div class="footer-container">
+        <!-- Quick Links Column -->
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'publications' %}">Publications</a>
+            
+            <a href="{% url 'news' %}">News</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+
+        <!-- Contact Information Column -->
+    <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p style="color: white;">Email: <a href="mailto:onlygoodantibodies@gmail.com" style="color: white; text-decoration: none;">onlygoodantibodies@gmail.com</a></p>
+        <p style="color: white;">LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" style="color: white; text-decoration: none;">Follow us on LinkedIn</a></p>
+        <p style="color: white;">BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" style="color: white; text-decoration: none;">Follow us on BlueSky</a></p>
+    </div>
+
+
+        <!-- Social Media Column -->
+        <div class="footer-column">
+            <h4>Follow Us</h4>
+            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                <img src="{% static 'core/bluesky.png' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <!-- Add other social media icons here -->
+        </div>
+    </div>
+
+    <!-- Bottom Footer with Copyright and Back to Top -->
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+</footer>
+<script src="{% static 'core/script.js' %}"></script>
+{% if focus_id %}
+<script>
+  {% comment %}
+  The view puts the searched-for row first, but the filters and the worked
+  example sit above it, so on a narrow window it can still open below the fold —
+  and a highlight nobody scrolls to is a highlight nobody sees. The row is real
+  either way; this only moves the viewport.
+  {% endcomment %}
+  document.addEventListener('DOMContentLoaded', function () {
+      var row = document.getElementById('ab-{{ focus_id }}');
+      if (row && row.scrollIntoView) {
+          row.scrollIntoView({block: 'center', behavior: 'smooth'});
+      }
+  });
+</script>
+{% endif %}
+</body>
+</html>

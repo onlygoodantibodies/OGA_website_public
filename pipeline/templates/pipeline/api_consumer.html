@@ -1,0 +1,266 @@
+{% extends "pipeline/base.html" %}
+{% block title %}{{ consumer.name }} — what they have been doing{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <p class="text-sm mb-4">
+    <a href="{% url 'pipeline:impact' %}" class="text-ycharos-600 hover:underline">&larr; Impact</a>
+  </p>
+
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">API consumer</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ consumer.name }}</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      {{ consumer.get_consumer_type_display }} · {{ consumer.get_tier_display }}
+      {% if not consumer.is_active %}
+        <span class="ml-1 rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">key switched off</span>
+      {% endif %}
+    </p>
+  </div>
+
+  {% comment %}
+  The paragraph is the page. Everything below it is the working underneath the
+  sentences, in the order somebody would ask for it: what they did, when, and
+  what they looked at. A reader who stops after this box should still be able to
+  answer "is this partnership working".
+  {% endcomment %}
+  <section class="mb-8 rounded border border-gray-200 bg-white p-5">
+    {% for sentence in story %}
+      <p class="text-gray-800 {% if not forloop.first %}mt-2{% endif %}">{{ sentence }}</p>
+    {% endfor %}
+  </section>
+
+  {# ── What the key may see ── #}
+  <section class="mb-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">What their key may see</h2>
+    <p class="text-sm text-gray-600 mb-3">The scope every answer they get is narrowed
+      by. Changed in Django admin, not here — this page only reads.</p>
+    <ul class="text-sm text-gray-800 space-y-1">
+      {% for sentence in scope %}<li>{{ sentence }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  {# ── The counts ── #}
+  <section class="mb-8">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">requests served</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ days }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">days they called</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ portal_requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">portal connects</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        {% comment %}
+        A dash rather than a nought when the pipeline database could not be
+        reached: "0 waiting" is a claim about their backlog, and this box would
+        make it confidently about a partner who has one.
+        {% endcomment %}
+        <div class="text-2xl font-bold text-gray-900">{% if pending_known %}{{ pending }}{% else %}&mdash;{% endif %}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">
+          {% if pending_known %}waiting for them{% else %}waiting — not counted{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ── What they did ── #}
+  <section class="mb-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">What they did</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      <strong>Days</strong> sits beside <strong>requests</strong> because they are
+      different partners: 40 requests on one day is somebody trying the thing out,
+      40 across 40 days is somebody who has built it into their week.
+    </p>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-500">
+          <th class="py-1 font-medium">They…</th>
+          <th class="py-1 font-medium text-right">Requests</th>
+          <th class="py-1 font-medium text-right">Days</th>
+          <th class="py-1 font-medium text-right">Last</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in by_endpoint %}
+          <tr class="border-b border-gray-100">
+            <td class="py-1">{{ row.activity }}
+              <span class="block font-mono text-xs text-gray-400">{{ row.endpoint }}</span></td>
+            <td class="py-1 text-right font-semibold">{{ row.requests }}</td>
+            <td class="py-1 text-right">{{ row.days }}</td>
+            <td class="py-1 text-right text-gray-500">{{ row.last|date:"j M Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="py-1 text-gray-500 italic">
+            Nothing recorded against this key.
+          </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {# ── When ── #}
+  {% if by_day %}
+  <section class="mb-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">When</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      The days they actually called, newest first{% if days_more %} — the most recent
+      {{ by_day|length }} of {{ days }}, so {{ days_more }} earlier
+      {{ days_more|pluralize:"day,days" }}
+      {{ days_more|pluralize:"is,are" }} not drawn{% endif %}. Bars are relative to
+      their own busiest day, not to anybody else's.
+    </p>
+    <table class="w-full text-sm">
+      {% for row in by_day %}
+        <tr class="border-b border-gray-100">
+          <td class="py-1 w-32 text-gray-600">{{ row.date|date:"j M Y" }}</td>
+          <td class="py-1">
+            {% comment %}
+            A fixed track filled by widthratio. Setting the width from the count
+            directly draws every busy day identically once it passes the track's
+            own maximum — the bug the Overview chart had.
+            {% endcomment %}
+            <div class="h-2 w-full rounded bg-gray-100">
+              <div class="h-2 rounded bg-ycharos-500"
+                   style="width: {% widthratio row.requests busiest_day 100 %}%"></div>
+            </div>
+          </td>
+          <td class="py-1 w-12 text-right font-semibold">{{ row.requests }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  {# ── What they ticked off ── #}
+  <section class="mb-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">What they have ticked off</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      Antibodies this organisation marked reviewed in the portal — the nearest thing
+      recorded to what a partner actually looked at, rather than how often they
+      called. Nothing else in the site draws it.
+    </p>
+    {% if reviewed.unresolved %}
+      {% comment %}
+      A failed read is not an empty result. Without this the whole column would
+      draw "no longer on file", which is a claim about the partner's ticks
+      rather than about the database that did not answer.
+      {% endcomment %}
+      <p class="mb-3 rounded border-l-4 border-amber-400 bg-amber-50 px-4 py-2 text-sm text-gray-700" role="alert">
+        The genes could not be looked up just now — the pipeline database did not
+        answer. The ticks below are still theirs; only the gene column is missing.
+      </p>
+    {% endif %}
+    {% if reviewed.listed %}
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-500">
+            <th class="py-1 font-medium">Catalogue</th>
+            <th class="py-1 font-medium">Gene</th>
+            <th class="py-1 font-medium text-right">Ticked off</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in reviewed.listed %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1 font-mono text-xs">{{ row.catalogue }}</td>
+              {% comment %}
+              Four outcomes, and three of them used to render identically as a
+              blank. A gene links to its own page — that is what a gene name is
+              for, wherever it is printed. A catalogue on two products with
+              different genes says so rather than picking one, because the gene
+              is the column a reader would quote. A row that matched but whose
+              target carries no gene name is on file (8 such rows live) and must
+              not read as the tick having gone missing.
+              {% endcomment %}
+              <td class="py-1">
+                {% if row.ambiguous %}
+                  <span class="text-amber-700">more than one product uses this number</span>
+                {% elif row.gene and row.target_id %}
+                  <a href="{% url 'pipeline:target_detail' row.target_id %}"
+                     class="text-ycharos-600 hover:underline">{{ row.gene }}</a>
+                {% elif row.gene %}
+                  {{ row.gene }}
+                {% elif row.matched %}
+                  <span class="text-gray-500 italic">on file, no gene recorded</span>
+                {% else %}
+                  <span class="text-gray-500 italic">no longer on file</span>
+                {% endif %}
+              </td>
+              <td class="py-1 text-right text-gray-500">{{ row.reviewed_at|date:"j M Y" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if reviewed.more %}
+        <p class="mt-2 text-sm text-gray-600">{{ reviewed.more }} earlier
+          {{ reviewed.more|pluralize:"tick,ticks" }} not drawn — {{ reviewed.total }} in total.</p>
+      {% endif %}
+    {% else %}
+      <p class="text-sm text-gray-500 italic">Nothing ticked off yet.</p>
+    {% endif %}
+  </section>
+
+  {# ── Their settings ── #}
+  <section class="mb-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Their download settings</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      Set by them, in the portal, and shared by anybody holding the key. Empty means
+      every setting is at its default.
+    </p>
+    {% if portal_config %}
+      <table class="w-full text-sm">
+        {% for key, value in portal_config.items %}
+          <tr class="border-b border-gray-100">
+            <td class="py-1 font-mono text-xs w-48">{{ key }}</td>
+            {% comment %}
+            `default_if_none`, not `default`: the latter fires on any falsy
+            value, and this dict is free-form JSON written verbatim from a
+            keyholder's PUT — so a setting explicitly turned **off** would draw
+            identically to one never set, under a paragraph saying empty means
+            default. That is the page stating the opposite of the truth.
+            {% endcomment %}
+            <td class="py-1">{{ value|default_if_none:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="text-sm text-gray-500 italic">Defaults — they have not changed anything.</p>
+    {% endif %}
+  </section>
+
+  {% comment %}
+  Named, not buried. Every silence below is one a reader would otherwise fill
+  with a conclusion about the partner: a page with nothing on it reads as an
+  organisation doing nothing, when it can equally be an organisation whose key
+  was switched off, or one reading the catalogue on an endpoint nothing counts.
+  {% endcomment %}
+  <section class="mb-10 rounded border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-gray-700">
+    <p><strong>What this page cannot tell you.</strong> The counter keeps one row per
+    organisation per endpoint per day, which is what stops it growing with traffic
+    — and it buys the dates and gives up the clock. There is no time of day here.</p>
+    <ul class="mt-2 list-disc pl-5 space-y-1">
+      <li>A call refused by the rate limit is <strong>not counted at all</strong>, so a
+        partner hammering the API is understated here and everybody else is exact.</li>
+      <li>A call carrying a dead or wrong key is counted as <em>keyless</em> and cannot
+        be attributed, by design — so if their key were switched off, their attempts
+        would not appear on this page.</li>
+      <li>Reading the catalogue or the schema ({{ uncounted|join:", " }}) passes through
+        no counter, so silence there is not evidence.</li>
+      <li>The counter records <em>which endpoint</em>, never which gene or antibody was
+        asked for — the URL name is stored precisely so a query string cannot multiply
+        the rows.</li>
+      <li>Reporting a problem is counted above like any other call, but <em>what</em>
+        they reported is not: it is sent as an email and no row is written, so the
+        substance of a complaint cannot be recovered from here.</li>
+    </ul>
+  </section>
+
+</div>
+{% endblock %}

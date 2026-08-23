@@ -1,0 +1,168 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if confirm %}Log Out{% else %}Logged Out{% endif %} – OGA Academy</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Global styles -->
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+
+  <style>
+    :root {
+      --main-blue: #10428a;
+      --accent-blue: #86bef0;
+      --light-bg: #f8faff;
+    }
+
+    body {
+      background-color: var(--light-bg);
+      font-family: 'Open Sans', sans-serif;
+    }
+
+    /* Centered card */
+    .logout-card {
+      max-width: 550px;
+      background: #fff;
+      padding: 3rem;
+      border-radius: 1rem;
+      box-shadow: 0 6px 25px rgba(16, 66, 138, 0.1);
+      text-align: center;
+    }
+
+    .logout-title {
+      font-size: 2.1rem;
+      font-weight: 700;
+      color: var(--main-blue);
+      margin-bottom: 1rem;
+    }
+
+    .logout-text {
+      color: #444;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn-primary {
+      background-color: var(--main-blue) !important;
+      border: none;
+      border-radius: 50px;
+      padding: 0.6rem 1.5rem;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-blue) !important;
+    }
+
+    .btn-link {
+      font-weight: 600;
+      color: var(--main-blue);
+      text-decoration: none;
+      padding: 0.6rem 1rem;
+    }
+
+    .btn-link:hover {
+      color: var(--accent-blue);
+      text-decoration: underline;
+    }
+
+    /* Spacing to keep footer off screen bottom */
+    .logout-wrapper {
+      padding: 5rem 1rem 6rem;
+    }
+  </style>
+</head>
+
+<body class="no-wobble">
+
+{% include 'academy/header.html' %}
+
+<!-- Main Content -->
+<main class="logout-wrapper d-flex justify-content-center align-items-center">
+  {% comment %}
+  One template, two states. `confirm` is set on GET, when nothing has happened
+  yet: signing out is a POST, because a GET that ends a session is followed by
+  anything that follows links without a person deciding to — a prefetcher, a chat
+  client building an unfurl preview, a stray middle-click. Nine templates across
+  the public site link here with a plain <a>, so a GET stays a valid request and
+  asks the question rather than answering it.
+  {% endcomment %}
+  <div class="logout-card">
+    {% if confirm %}
+      <h1 class="logout-title">Log out of OGA Academy?</h1>
+
+      <p class="logout-text">You'll need to sign in again to pick up where you left off.</p>
+
+      <form method="post" action="{% url 'academy:logout' %}"
+            class="d-flex justify-content-center gap-3 flex-wrap">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Log Out</button>
+        <a href="{% url 'academy:academy_home' %}" class="btn btn-link">Stay Logged In</a>
+      </form>
+    {% else %}
+      <h1 class="logout-title">You're now logged out</h1>
+
+      <p class="logout-text">Thanks for visiting.</p>
+
+      <div class="d-flex justify-content-center gap-3 flex-wrap">
+        <a href="{% url 'academy:login' %}" class="btn btn-primary">Log In Again</a>
+        <a href="{% url 'home' %}" class="btn btn-link">Return Home</a>
+      </div>
+    {% endif %}
+  </div>
+</main>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-container">
+        <!-- Quick Links Column -->
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'publications' %}">Publications</a>
+            
+            <a href="{% url 'news' %}">News</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+
+       <!-- Contact Information Column -->
+       <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+        <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+    </div>
+
+    <!-- Social Media Column -->
+    <div class="footer-column">
+        <h4>Follow Us</h4>
+        <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+            <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+        </a>
+        <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+            <img src="{% static 'core/bluesky.png' %}" alt="LinkedIn" class="social-icon">
+        </a>
+        <!-- Add other social media icons here -->
+    </div>
+</div>
+
+<!-- Bottom Footer with Copyright and Back to Top -->
+<div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+</div>
+</footer>
+
+<script src="{% static 'core/script.js' %}"></script>
+
+</body>
+</html>

@@ -1,0 +1,843 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Target board — every site's targets{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* A dotted underline is the difference between a tooltip people find and one
+     nobody knows is there. */
+  .help { border-bottom: 1px dotted #9ca3af; cursor: help; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto" x-data>
+
+  {# ── Header ── #}
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Target board</p>
+      <h1 class="text-2xl font-bold text-gray-900 mt-1">The master target list</h1>
+      <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+        Every target, every site. Click a cell to edit it — changes save straight away.
+        Rows flagged <span class="font-semibold text-amber-700">duplicate</span> are the
+        same gene on more than one site's list.
+      </p>
+      {% comment %}The subtitle above promised a state the page never said how to
+      reach, and the sixth field test went looking: the SITES cell takes one value
+      and refuses a pair, and Add targets had a gene column and no site. The
+      answer then was that each site nominates for itself, so a second list came
+      from that site adding the gene — true, and it meant a coordinator could not
+      allocate a gene to a bench at all, from here or from feasibility. Add
+      targets carries a site now, so this says which control does which job:
+      adding puts a gene on a list, the cell moves it between them.{% endcomment %}
+      <p class="text-gray-500 mt-1 max-w-3xl text-xs">
+        A gene reaches a second site's list through
+        <span class="font-semibold">Add targets</span> — pick the site there and a
+        gene already on the consortium's list simply gains that site's nomination.
+        Typing over the <span class="font-semibold">Sites</span> cell here
+        <em>moves</em> a gene between lists rather than adding it to both.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{% url 'pipeline:target_board_guide' %}"
+         class="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:border-ycharos-500">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+        Guide
+      </a>
+      <a href="{% url 'pipeline:target_portfolio' %}"
+         class="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:border-ycharos-500">
+        Portfolio
+      </a>
+      <button type="button" id="new-btn"
+              class="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:border-ycharos-500">
+        Add targets
+      </button>
+      <div class="relative">
+        <button type="button" id="dl-btn"
+                class="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:border-ycharos-500">
+          Download ▾
+        </button>
+        <div id="dl-menu" class="hidden absolute right-0 mt-1 w-72 bg-white rounded-lg shadow-lg ring-1 ring-black/5 py-1 z-40">
+          <a id="dl-board" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">
+            <span class="font-semibold">Full sheet</span>
+            <span class="block text-xs text-gray-500">A–T plus sites, protein class, completion</span>
+          </a>
+          <a id="dl-carl" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">
+            <span class="font-semibold">Original layout</span>
+            <span class="block text-xs text-gray-500">Columns A–T exactly as the old workbook</span>
+          </a>
+        </div>
+      </div>
+      <button type="button" id="upload-btn"
+              class="inline-flex items-center gap-2 bg-ycharos-600 text-white rounded-lg px-3 py-2 text-sm font-semibold hover:bg-ycharos-700">
+        Upload a sheet
+      </button>
+    </div>
+  </div>
+
+  {% comment %}That the two buttons above are halves of one job, said where a
+  person with a long list is looking. "Add targets" and "Upload a sheet" both
+  existed and neither named the other, so somebody with sixty genes pasted them
+  a screenful at a time. Owner's ask. The template link lives in both panels
+  already; what was missing was the sentence.{% endcomment %}
+  <p class="text-sm text-gray-600 -mt-2 mb-4">
+    A few genes: <span class="font-semibold">Add targets</span>. A lot of them:
+    this board takes a <span class="font-semibold">spreadsheet</span> —
+    <a href="{% url 'pipeline:import_template' kind='targets' %}"
+       data-receipt="header-template-receipt"
+       class="font-semibold text-ycharos-700 hover:underline">download the blank
+    template</a>, fill in the gene column, and bring it back with
+    <span class="font-semibold">Upload a sheet</span>. Same check, same preview,
+    no row limit.
+  </p>
+  <p id="header-template-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+
+  {# ── Filters ── #}
+  <form id="filters" method="get" class="bg-white border border-gray-200 rounded-xl p-3 mb-4 flex flex-wrap items-end gap-3">
+    <div class="flex-1 min-w-[200px]">
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Search</label>
+      <input type="search" name="q" value="{{ filters.q }}" placeholder="Gene, protein, UniProt…"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </div>
+    {% comment %}An exact gene, the same field name as the other three boards, so
+    a gene carries from one board to the next. It has to be a field in this form,
+    not only a URL parameter: the grid builds its query from the form, so a
+    filter that is not here is dropped the moment the rows load.{% endcomment %}
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Gene</label>
+      <input type="text" name="gene" value="{{ filters.gene }}" placeholder="Exact — STMN2, or STMN2, ELP3"
+             class="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Site</label>
+      <select name="site" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All sites</option>
+        {% for s in sites %}<option value="{{ s.pk }}" {% if filters.site == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        {% comment %}"No site recorded" is a real answer, not the absence of a
+        filter — see services/sites.py::NONE. It is what the Portfolio's
+        "210 have no nomination naming a site" links to, and it has to be an
+        option on the form rather than only a URL value: board.js rebuilds
+        its query from the form, so a filter the select cannot carry is
+        dropped by the first rows fetch and the page looks filtered while the
+        data is not.{% endcomment %}
+        <option value="none" {% if filters.site == 'none' %}selected{% endif %}>No site recorded</option>
+        {% include "pipeline/_unknown_site_option.html" %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Project</label>
+      <select name="project" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All projects</option>
+        {% for p in projects %}<option value="{{ p.pk }}" {% if filters.project == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Funder</label>
+      <select name="agency" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All funders</option>
+        {% for a in agencies %}<option value="{{ a.pk }}" {% if filters.agency == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Protein class</label>
+      <select name="protein_class" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any class</option>
+        {% for c in classes %}<option value="{{ c }}" {% if filters.protein_class == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Funded</label>
+      <select name="funded" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Either</option>
+        <option value="yes" {% if filters.funded == 'yes' %}selected{% endif %}>Funded</option>
+        <option value="no" {% if filters.funded == 'no' %}selected{% endif %}>Not funded</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Completed</label>
+      <select name="completed" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Either</option>
+        <option value="yes" {% if filters.completed == 'yes' %}selected{% endif %}>Completed</option>
+        <option value="no" {% if filters.completed == 'no' %}selected{% endif %}>Not completed</option>
+      </select>
+    </div>
+    {% if filters.status %}
+    {% comment %}Arrived from Overview's drill-down. Kept on Apply, and shown
+    so an unexpectedly short list is explained rather than mysterious.{% endcomment %}
+    <input type="hidden" name="status" value="{{ filters.status }}">
+    <span class="inline-flex items-center gap-2 bg-ycharos-50 border border-ycharos-200 text-ycharos-900 rounded-full px-3 py-1.5 text-sm font-semibold">
+      Stage: {{ filters.status }}
+      <a href="?" class="text-ycharos-600 hover:text-ycharos-900" title="Remove this filter">&times;</a>
+    </span>
+    {% endif %}
+    <button class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold">Apply</button>
+    <a href="{% url 'pipeline:target_board' %}" class="text-sm text-gray-500 hover:text-gray-800 py-2">Clear</a>
+    <span id="row-count" class="text-sm text-gray-500 ml-auto"></span>
+  </form>
+
+  {# New entries, on the board rather than a page of their own #}
+  {{ new_columns|json_script:"new-columns" }}
+  {{ new_example|json_script:"new-example" }}
+  <div id="new-panel"></div>
+
+  {# ── Save errors ── #}
+  {% comment %}A failed save used to be an alert() carrying raw Python exception
+  text. It says what happened, in the page, and the edited cell goes back to the
+  value it had — nothing on screen may imply a save that did not happen.{% endcomment %}
+  <div id="board-error"
+       class="hidden mb-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  {% include "pipeline/_gene_next_step.html" %}
+
+  {# ── Grid ── #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0 z-10">
+          {% comment %}Hover text comes from the same source as the notes in the
+          downloaded workbook, so page and spreadsheet always agree.{% endcomment %}
+          <tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            <th class="px-3 py-2 sticky left-0 bg-gray-50 z-20"><span class="help" title="{{ tips.gene }}">Gene</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.protein }}">Protein</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.sites }}">Sites</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.funder }}">Funder / project</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.funded }}">Funded</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.completed }}">Completed</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.applications }}">Applications</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.classes }}">Protein class</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.zenodo }}">Zenodo</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.f1000 }}">F1000</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.notes }}">Notes</span></th>
+          </tr>
+        </thead>
+        <tbody id="grid" class="divide-y divide-gray-100">
+          <tr><td colspan="11" class="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% comment %}The pager sits inside the card, under the grid, and is hidden
+    entirely when everything fits — so the small boards look exactly as they
+    did. `board.js` fills it; the page number is board state and never a filter
+    field, or it would ride along into every download href.{% endcomment %}
+    <div id="row-pager"
+         class="hidden flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-gray-200 bg-gray-50"></div>
+  </div>
+  <p class="text-xs text-gray-400 mt-2">
+    Protein name, UniProt ID and mass come from UniProt and aren't editable here —
+    a disagreement is flagged on upload rather than overwritten.
+  </p>
+</div>
+
+{# ── Upload panel ── #}
+<div id="upload-panel" class="hidden fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+  <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full mt-10 p-6">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">Upload a target list</h2>
+        <p class="text-sm text-gray-600 mt-1">
+          The old workbook works as-is — headers on row 5, columns A–T, hidden rows and all.
+          You'll see exactly what would change before anything is saved.
+        </p>
+      </div>
+      <button type="button" class="close-upload text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+    </div>
+
+    {% comment %}The blank sheet, on the door that asks for a filled one.
+
+    It was only in the Add targets pop-out, so "download the blank template,
+    fill it in, upload it" meant opening one panel for the link, closing it, and
+    opening another to use it — a backtrack the eleventh field test walked and
+    recorded. `OGABoard.uploadPanel` puts the link in both places on the other
+    three boards; this panel is hand-rolled and predates it.{% endcomment %}
+    <p class="mt-3 text-sm">
+      <a href="{% url 'pipeline:import_template' kind='targets' %}"
+         data-receipt="upload-template-receipt"
+         class="font-semibold text-ycharos-700 hover:underline">⬇ Blank Excel template</a>
+      <span class="text-gray-500">— one column, the gene symbol, with an example
+      row. Fill it in and put it back here.</span>
+    </p>
+    <p id="upload-template-receipt" class="text-sm" role="status" aria-live="polite"></p>
+
+    <div class="mt-4 space-y-3">
+      <input type="file" id="upload-file" accept=".xlsx,.xlsm,.csv,.tsv"
+             class="block w-full text-sm border border-gray-300 rounded-lg p-2">
+      {% comment %}Your own site, chosen from the list the app already knows,
+      not free text pre-filled with somebody else's. Typed free text accepted
+      "Atlantis Institute" without a murmur, and the value it arrived with was
+      McGill for every user of every site.{% endcomment %}
+      <label class="block text-sm">
+        <span class="text-gray-600">If a row has no site, treat it as</span>
+        <select id="default-site" class="border border-gray-300 rounded px-2 py-1 ml-1 text-sm">
+          <option value="">— leave the site blank —</option>
+          {% for s in sites %}
+            <option value="{{ s.name }}" {% if s.name == my_site %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+        {% if my_site %}
+          <span class="block text-xs text-gray-500 mt-1">
+            Defaults to your own site, {{ my_site }}. Rows that name a site keep it.
+          </span>
+        {% else %}
+          <span class="block text-xs text-amber-700 mt-1">
+            Your account has no site recorded, so this is blank rather than a guess.
+            Rows that name a site keep it; the rest will have no site.
+          </span>
+        {% endif %}
+      </label>
+      <label class="flex items-start gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="apply-overwrites" class="mt-1">
+        <span>Also overwrite values that already exist in the database
+          <span class="block text-xs text-gray-500">Off by default: blanks are filled, existing values are left alone and reported as conflicts.</span>
+        </span>
+      </label>
+      <div class="flex gap-2">
+        <button type="button" id="preview-btn" class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold">Preview changes</button>
+        <button type="button" id="commit-btn" class="hidden bg-ycharos-600 text-white rounded-lg px-4 py-2 text-sm font-semibold">Save these changes</button>
+      </div>
+      <div id="upload-result" class="text-sm"></div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  // Rendered server-side, as everywhere else in the pipeline. The cookie is not
+  // an option: CSRF_COOKIE_HTTPONLY is on, so document.cookie never shows the
+  // token and every POST from this page came back 403.
+  const csrf = "{{ csrf_token }}";
+  const grid = document.getElementById('grid');
+  const rowsUrl = "{% url 'pipeline:target_board_rows' %}";
+  const patchUrl = "{% url 'pipeline:target_board_patch' %}";
+  const exportUrl = "{% url 'pipeline:target_board_export' %}";
+  /* One preview for both doors. This panel used to post to `nomination_check`,
+   * which knows who is already doing a gene and whether its knockout can be
+   * bought but not whether the symbol is real; the feasibility page's bulk box
+   * knew the reverse. Neither had what the other had, and both were called
+   * "check". `feasibility_bulk_check` is both halves now, and the UniProt half
+   * degrades to "not checked" rather than taking this page down with it. */
+  const checkUrl = "{% url 'pipeline:feasibility_bulk_check' %}";
+  const previewUrl = "{% url 'pipeline:target_board_upload_preview' %}";
+  const commitUrl = "{% url 'pipeline:target_board_upload_commit' %}";
+  let duplicates = {};
+
+  const {esc, pill, formQuery, banner} = OGABoard;
+  const filtersForm = document.getElementById('filters');
+  const qs = () => formQuery(filtersForm);
+  const cell = (row, field, value, opts = {}) =>
+    OGABoard.cell(row.id, field, value, {'nomination-id': (opts || {}).nominationId},
+                  {empty: (opts || {}).empty, label: (opts || {}).label});
+
+  /* Sites. A target's site lives on its nomination, so this cell writes the
+   * nomination — creating one if the target has none, which is how every target
+   * added from the feasibility page starts out.
+   *
+   * With one nomination (or none) the cell is editable, so a target can be
+   * allocated *and* reallocated here. It used to render read-only pills whenever
+   * a site was already set, which meant a first allocation was possible and a
+   * reallocation was not. Two or more nominations stay read-only: the same gene
+   * pursued at two sites is a real state the duplicate badge flags, and one text
+   * box cannot say which of them is being moved. */
+  function sitesCell(r, nom) {
+    if (r.nominations.length > 1) {
+      // One box cannot say which of several nominations to move, so this cell
+      // stays read-only — but the gene's own page now draws each nomination
+      // with its own cells, so the link is where the edit is rather than only
+      // where the list is. (Comments in an inline script are page text, so this
+      // one avoids quoting the old wording: a test looks for it.)
+      return r.sites.map(s => pill(s, 'flat')).join(' ')
+        + `<span class="block text-xs text-gray-400 mt-1">nominated ${
+             r.nominations.length} times — <a href="/pipeline/target/${r.id}/"
+             class="underline hover:text-gray-700">see them on the target page</a>,
+             where each one can be edited. Not here: one box cannot say which to move.</span>`;
+    }
+    /* A site the *import* recorded, with no nomination behind it. This cell was
+     * blank and offered "set site" for all 508 targets the Access import
+     * created, because it read the nominations alone — while Overview listed the
+     * same genes under the same site it had stamped on them. The thirteenth
+     * field test checked 348 of them and found 192 disagreeing, and drew the
+     * right conclusion: anybody tidying up would start filling in sites that are
+     * already on file. `services/targets.py::sites_of` is the one reader now.
+     *
+     * Shown, and marked, because the two are not the same evidence: a nomination
+     * has a funder, a project and a date behind it, and this is a column on a
+     * 2019 spreadsheet written identically on every row. Typing here therefore
+     * *records* the nomination rather than moving one — there is none to move. */
+    if (r.sites_from_import) {
+      return cell(r, 'site', r.sites[0],
+                  {nominationId: nom.id,
+                   label: 'site — recorded by the original import; typing here'
+                          + ' files a nomination for it'})
+        + `<span class="block text-xs text-gray-400 mt-1">from import</span>`;
+    }
+    /* Typing over a site MOVES the nomination — it does not add one. On a
+     * cross-site master list that is the difference between "McGill is working
+     * on this too" and "this is no longer Leicester's", and the cell said
+     * neither: the row redrew, flashed a save, and the gene had quietly left one
+     * site's list. The accessible name says which it is. Adding a second site is
+     * not something the grid can do; the note below the table says where it can. */
+    if (r.sites[0]) {
+      return cell(r, 'site', r.sites[0],
+                  {nominationId: nom.id,
+                   label: 'site — moves this gene off ' + r.sites[0] + ' onto the site you type'});
+    }
+    return cell(r, 'site', '',
+                {nominationId: nom.id, label: 'site', empty: 'set site'});
+  }
+
+  /* The DOI cell moved to board.js — the gene's own page draws the same thing
+   * now, and this repo has paid three times over for a preview rule that lived
+   * in one template. The date under each DOI is new: a gene counts as completed
+   * on a Zenodo DOI or an F1000 *date*, and the date was editable through the
+   * patch endpoint while being drawn on no screen at all, so an F1000 paper
+   * recorded here kept no record of when it came out. */
+
+  function rowHtml(r) {
+      const nom = r.nominations[0] || {};
+      const dupSites = duplicates[(r.gene || '').toUpperCase()];
+      const apps = Object.entries(r.coverage || {})
+        .map(([a, sites]) => pill(`${a} · ${sites.join('/')}`, 'cool')).join(' ');
+      return `<tr data-row="${r.id}" class="hover:bg-gray-50 align-top">
+        <td class="px-3 py-2 sticky left-0 bg-white font-semibold text-gray-900">
+          <a href="/pipeline/target/${r.id}/" class="hover:text-ycharos-700">${esc(r.gene)}</a>
+          ${dupSites ? `<span class="block mt-1">${pill('duplicate: ' + dupSites.join(', '), 'warn')}</span>` : ''}
+          ${r.family ? `<span class="block text-xs text-gray-400 mt-0.5">${esc(r.family)} family</span>` : ''}
+        </td>
+        ${/* The other names, under the protein rather than in a column of their
+              own: this grid is eleven columns wide already, and the job here is
+              only to let somebody who filled aliases across fifty genes through
+              Downloads & uploads see that it landed. Both alias columns are
+              folded into one list server-side, so this and the gene page cannot
+              disagree about what a gene is also called. */''}
+        <td class="px-3 py-2 text-gray-600 max-w-xs">${esc(r.protein)}
+          ${(r.other_names || []).length
+            ? `<span class="block text-xs text-gray-400 mt-0.5">also known as ${
+                 esc(r.other_names.join(', '))}</span>` : ''}</td>
+        <td class="px-3 py-2">${sitesCell(r, nom)}</td>
+        <td class="px-3 py-2 text-gray-600">
+          <div>${cell(r, 'granting_agency', nom.agency || '',
+              {nominationId: nom.id, label: 'funder', empty: 'set funder'})}</div>
+          <div class="text-xs text-gray-400">${cell(r, 'project', nom.project || '',
+              {nominationId: nom.id, label: 'project', empty: 'set project'})}</div>
+        </td>
+        ${/* The only button in a target row, and its accessible name was the
+              bare words "Click to change" — nothing said which field. The field
+              test clicked it expecting the site cell and silently flipped a
+              gene's funding on the shared master list instead. It now names the
+              field, states the value, and says what the click will do. */''}
+        <td class="px-3 py-2">
+          <button class="toggle" data-target="${r.id}" data-field="funded"
+                  data-nomination-id="${nom.id || ''}" data-value="${r.funded ? '' : 'yes'}"
+                  aria-pressed="${r.funded ? 'true' : 'false'}"
+                  aria-label="Funded: ${r.funded ? 'yes' : r.has_nomination ? 'no' : 'not recorded'}${
+                    esc(r.gene ? ` for ${r.gene}` : '')}. Click to mark it ${r.funded ? 'not funded' : 'funded'}."
+                  title="${r.has_nomination
+                            ? `Funded — currently ${r.funded ? 'funded' : 'not funded'}. Click to mark it ${r.funded ? 'not funded' : 'funded'}.`
+                            : 'No nomination recorded yet — click to mark this gene funded'}">
+            ${r.funded ? pill('funded', 'good')
+              : r.has_nomination ? pill('not funded', 'flat')
+              : OGABoard.DASH}
+          </button>
+        </td>
+        <td class="px-3 py-2">${r.completed ? pill('completed', 'good') : pill('open', 'flat')}</td>
+        <td class="px-3 py-2">${apps || OGABoard.DASH}</td>
+        <td class="px-3 py-2 max-w-[14rem]">${r.classes.map(c => pill(c, 'cool')).join(' ') || OGABoard.DASH}</td>
+        <td class="px-3 py-2 max-w-[11rem]">${OGABoard.doiCell(r.id, {
+            field: 'zenodo_doi', label: 'Zenodo DOI',
+            text: r.zenodo_text, href: r.zenodo_link,
+            dateField: 'zenodo_date', dateLabel: 'Zenodo deposit date',
+            date: r.zenodo_date})}</td>
+        <td class="px-3 py-2 max-w-[11rem]">${OGABoard.doiCell(r.id, {
+            field: 'f1000_doi', label: 'F1000 DOI',
+            text: r.f1000_text, href: r.f1000_link,
+            dateField: 'f1000_date', dateLabel: 'F1000 publication date',
+            date: r.f1000_date})}</td>
+        <td class="px-3 py-2 text-gray-500 max-w-xs">${cell(r, 'comments', nom.comments || '',
+            {nominationId: nom.id, label: 'notes', empty: 'add a note'})}</td>
+      </tr>`;
+  }
+
+  const errors = banner('board-error', 'board-error-text', 'board-error-close');
+
+  const board = OGABoard.create({
+    grid, filtersForm, errors, csrf,
+    countEl: document.getElementById('row-count'),
+    pagerEl: document.getElementById('row-pager'),
+    urls: {rows: rowsUrl, patch: patchUrl},
+    colspan: 11,
+    emptyMessage: 'No targets match these filters.',
+    countLabel: n => `${n} target${n === 1 ? '' : 's'}`,
+    rowHtml,
+    afterLoad: data => { duplicates = data.duplicates || {}; },
+    afterPatch: data => {
+      const key = (data.row.gene || '').toUpperCase();
+      if ((data.duplicate_sites || []).length) duplicates[key] = data.duplicate_sites;
+      else delete duplicates[key];
+    },
+  });
+  /* **A gene is deleted from its own page, not from this list.** Owner's call
+   * after using it: the warning box was right, the *place* was not. This is a
+   * list of 585 rows scrolled past at speed, and a delete control on each one
+   * is a delete control beside every gene you were not thinking about. The gene
+   * page is about that gene and nothing else, so arriving there is already the
+   * deliberate act the control needs in front of it.
+   *
+   * The gene in the first column links there, so nothing had to be added — see
+   * `target_detail.html` for the control itself. */
+
+  const load = board.load;
+
+  // Download menu
+  const dlBtn = document.getElementById('dl-btn'), dlMenu = document.getElementById('dl-menu');
+  dlBtn.addEventListener('click', () => dlMenu.classList.toggle('hidden'));
+  document.addEventListener('click', e => {
+    if (!dlBtn.contains(e.target) && !dlMenu.contains(e.target)) dlMenu.classList.add('hidden');
+  });
+  document.getElementById('dl-board').addEventListener('click', e => {
+    e.preventDefault(); window.location = `${exportUrl}?${qs()}`;
+  });
+  document.getElementById('dl-carl').addEventListener('click', e => {
+    e.preventDefault(); window.location = `${exportUrl}?layout=carl&${qs()}`;
+  });
+
+  // Panels
+  const show = id => document.getElementById(id).classList.remove('hidden');
+  const hide = id => document.getElementById(id).classList.add('hidden');
+  // The blank-template link in the upload panel is page markup, not built by
+  // `uploadPanel`, so it needs arming by hand — otherwise the click writes the
+  // file and the page neither moves nor says so.
+  /* Every `data-receipt` link on the page, not only the upload panel's — the
+   * header now carries one too, and a download that says nothing is the defect
+   * a field test filed as a broken feature with the directory listing open.
+   * `downloadReceipts` marks what it has wired, so this is safe to widen. */
+  OGABoard.downloadReceipts();
+  document.getElementById('upload-btn').addEventListener('click', () => show('upload-panel'));
+  document.querySelectorAll('.close-upload').forEach(b => b.addEventListener('click', () => hide('upload-panel')));
+
+  // Upload
+  function uploadBody() {
+    const fd = new FormData();
+    fd.append('file', document.getElementById('upload-file').files[0]);
+    fd.append('default_site', document.getElementById('default-site').value);
+    fd.append('apply_overwrites', document.getElementById('apply-overwrites').checked ? 'true' : 'false');
+    return fd;
+  }
+  // Same careful fetch the grid uses, reporting into the upload panel rather
+  // than the page banner. Awaiting res.json() on an error page throws, which
+  // once left "Reading…" on screen for ever and made a plain server error look
+  // identical to a hang.
+  async function postJson(url, body, out, busy) {
+    out.innerHTML = `<span class="text-gray-500">${esc(busy)}</span>`;
+    return OGABoard.requestJson(
+      url, {method: 'POST', headers: {'X-CSRFToken': csrf}, body},
+      msg => { out.innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; });
+  }
+
+  document.getElementById('preview-btn').addEventListener('click', async () => {
+    const out = document.getElementById('upload-result');
+    if (!document.getElementById('upload-file').files[0]) { out.textContent = 'Choose a file first.'; return; }
+    const d = await postJson(previewUrl, uploadBody(), out, 'Reading the file…');
+    if (!d) return;
+    const s = d.summary;
+    const conflicts = d.items.filter(i => i.conflicts.length);
+    out.innerHTML = `
+      <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <p class="font-semibold text-gray-900">${OGABoard.sheetLine(d)}${
+          OGABoard.plural(s.rows, 'row')} read.</p>
+        <ul class="mt-1 text-gray-700 list-disc list-inside">
+          <li>${OGABoard.plural(s.new_targets, 'new target')}, ${s.existing_targets} already known</li>
+          <li>${OGABoard.plural(s.new_nominations, 'new nomination')}${s.repeat_genes ? `, including ${OGABoard.plural(s.repeat_genes, 'repeat entry', 'repeat entries')} for a gene already in the file (kept as extra nominations)` : ''}</li>
+          <li>Sites seen: ${s.sites.join(', ') || 'none'}</li>
+          <li>${OGABoard.plural(s.conflicts, 'value')} ${s.conflicts === 1 ? 'disagrees' : 'disagree'} with the database</li>
+        </ul>
+        ${d.columns_missing.length ? `<p class="mt-2 text-xs text-gray-500">Columns not in the file: ${d.columns_missing.map(esc).join(', ')}</p>` : ''}
+      </div>
+      ${conflicts.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
+        <p class="font-semibold text-amber-900">Disagreements (left alone unless you tick the overwrite box):</p>
+        <ul class="mt-1 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
+          ${conflicts.slice(0, 40).map(i => i.conflicts.map(c =>
+            `<li><b>${esc(i.gene)}</b> — ${esc(c.field)}: file says "${esc(c.in_file)}", database has "${esc(c.in_database)}"</li>`).join('')).join('')}
+        </ul></div>` : ''}`;
+    document.getElementById('commit-btn').classList.remove('hidden');
+  });
+  document.getElementById('commit-btn').addEventListener('click', async () => {
+    const out = document.getElementById('upload-result');
+    const d = await postJson(commitUrl, uploadBody(), out,
+      'Saving… this takes longer than the preview, please wait.');
+    if (!d) return;
+    out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+      Saved. ${d.targets_created.length} targets created, ${d.targets_updated} updated,
+      ${d.nominations_created} nominations added, ${d.reports_touched} reports updated.</div>`;
+    document.getElementById('commit-btn').classList.add('hidden');
+    load();
+  });
+
+  // ── Add targets, in a pop-out on this page ────────────────────────────
+  // Replaces the old check-only panel: the same pre-flight check is now the
+  // preview step, so you can act on what it tells you instead of reading it,
+  // closing the box and going somewhere else to type the genes again.
+  const bulkAddUrl = "{% url 'pipeline:feasibility_bulk_add' %}";
+  // The rows the last check returned — what `Create them` will write, so the
+  // slow half runs once and the write makes no outbound call. `checkedSite` is
+  // the site those rows were checked against, so moving the dropdown afterwards
+  // is caught before anything is sent.
+  let checkedRows = null, checkedSite = null, pendingSite = null;
+  const neSite = () => (document.getElementById('ne-site') || {}).value || '';
+  const genesFrom = tsv => tsv.split('\n').slice(1)
+    .map(l => l.split('\t')[0].trim()).filter(Boolean).join('\n');
+
+  const newEntry = OGABoard.newEntry({
+    mount: document.getElementById('new-panel'),
+    csrf,
+    columns: JSON.parse(document.getElementById('new-columns').textContent),
+    example: JSON.parse(document.getElementById('new-example').textContent),
+    rows: 8,
+    templateUrl: "{% url 'pipeline:import_template' kind='targets' %}",
+    urls: {preview: checkUrl, commit: bulkAddUrl},
+    intro: `<b class="text-gray-900">Add targets.</b> One gene per row, or switch to
+            Paste for a list. <b>Check these</b> first — it confirms every symbol
+            against UniProt and says whether another site is already doing the gene,
+            who has done the rest of its family, and whether a knockout line can
+            simply be bought. Protein name, UniProt ID and mass are filled from
+            UniProt; you only type the gene. A gene UniProt cannot confirm is
+            <b>not</b> created.
+            <span class="block mt-2 text-gray-500">Each new gene is one lookup, so a
+            long list takes a few seconds. For the full go/no-go on <em>one</em>
+            gene — expression across cell lines, KO availability, how many
+            antibodies exist — use
+            <a href="{% url 'pipeline:feasibility' %}" class="underline">Check
+            feasibility</a>.</span>
+            {% comment %}The spreadsheet route, named where somebody with a long
+            list is standing. The blank template was already linked from this
+            panel and the board has an Upload a sheet button, but nothing said
+            the two were halves of one job — so a person with sixty genes pasted
+            them eight at a time. Owner's ask.{% endcomment %}
+            <span class="block mt-2 text-gray-500">Adding a lot at once? This
+            board takes a <b>spreadsheet</b>: download the blank template below,
+            fill in the gene column, and bring it back with
+            <b>Upload a sheet</b> — the same check, the same preview, no row
+            limit.</span>`,
+    // One site, one funder, one project and one funded flag for the whole batch.
+    // Owner's ask: a paste is normally one bench's and one grant's worth of
+    // genes, and setting them on every row afterwards is the work this box
+    // exists to avoid. All four are optional, and each is picked from a list the
+    // page already renders rather than typed — free text here would mint a
+    // second "CIHR", and a typed site name a second "Leicester".
+    //
+    // The site is the one that changes what this panel can do. Every gene it
+    // added went on the adder's own list, so putting a gene on another site's
+    // list was not possible from this board at all — the header used to say so,
+    // and sent you to the feasibility page, which could not do it either.
+    extraHtml: `<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="block">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+          <select id="ne-site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            {% for s in sites %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == my_site_id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+          </select></label>
+        <label class="block">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Funder (optional)</span>
+          <select id="ne-agency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">Not recorded</option>
+            {% for a in agencies %}<option value="{{ a.pk }}">{{ a.name }}</option>{% endfor %}
+          </select></label>
+        <label class="block">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Project (optional)</span>
+          <select id="ne-project" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">Not recorded</option>
+            {% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}
+          </select></label>
+        <label class="flex items-end gap-2 text-sm text-gray-700 pb-2">
+          <input type="checkbox" id="ne-funded" class="rounded border-gray-300 mb-1">
+          <span>These are funded</span></label>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">Every gene this press adds goes on
+      the site chosen above. A gene already on that site's list keeps whatever is
+      recorded against it — the funder and project only fill blanks.</p>`,
+    // The check is GET-only and shared with nothing else to break, so this board
+    // asks for it the way it already expects to be asked.
+    buildRequest: (phase, tsv) => {
+      const genes = genesFrom(tsv);
+      if (!genes.trim()) return {error: 'Type at least one gene first.'};
+      const pick = id => (document.getElementById(id) || {}).value || '';
+      if (phase === 'preview') {
+        /* The site goes in the *check*, not only in the save: which of these
+         * genes are already on that site's list is precisely what the preview
+         * counts, and every row says the site by name. A funder does not, which
+         * is why it is read at the press instead. */
+        pendingSite = neSite();
+        return {url: checkUrl, options: {
+          method: 'POST',
+          headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+          body: JSON.stringify({genes, site: pendingSite}),
+        }};
+      }
+      /* The rows the check returned, not the genes again. The commit used to
+       * redo every UniProt lookup — the slow half, run twice, the second time
+       * while writing — so a timeout could leave a half-created batch. */
+      if (!checkedRows) return {error: 'Check the genes first.'};
+      /* A two-step check-then-create can write something nobody previewed if
+       * something changes in between — the rule the table already follows, and
+       * a dropdown is no different. Moving the site after checking would save a
+       * batch onto a bench the preview never mentioned, so it is refused here
+       * rather than sent. (The server refuses it too: every checked row carries
+       * the site it was checked against.) */
+      if (neSite() !== checkedSite) {
+        return {error: 'The site changed after the check. Press Check these '
+                     + 'again so the preview says what will be written.'};
+      }
+      /* The funding details are read at the moment of the press, not at the
+       * check: they are not part of what the preview verified, and changing the
+       * funder after checking should not require checking again. */
+      const ticked = id => !!(document.getElementById(id) || {}).checked;
+      return {url: bulkAddUrl, options: {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          rows: checkedRows,
+          site: pick('ne-site'),
+          granting_agency: pick('ne-agency'),
+          project: pick('ne-project'),
+          funded: ticked('ne-funded'),
+        }),
+      }};
+    },
+    renderPreview: d => {
+      checkedRows = d.rows || null;
+      // The value that was *sent*, not the one in the box now: a change made
+      // while the check was in flight would otherwise be recorded as the site
+      // it was checked against.
+      checkedSite = pendingSite;
+      const s = d.summary || {};
+      const label = {new: ['new', 'good'], on_file: ['already a target', 'warn'],
+                     synonym: ['already a target', 'warn'],
+                     not_found: ['not in UniProt', 'warn'],
+                     unchecked: ['not checked', 'warn']};
+      return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50 mb-3">
+          ${/* "0 new — these will be added" used to sit directly above "4 will
+                go on Leicester's list" and a button reading `Add 4 to pipeline`,
+                so the second line contradicted the fourth. They are two
+                different records: a gene the consortium has never seen becomes a
+                Target, and a gene your site has not claimed becomes a
+                nomination. Say which is which — the feasibility door already
+                worded it this way. */''}
+          <p class="font-semibold text-gray-900">${OGABoard.plural(s.total || 0, 'gene')} checked.</p>
+          <ul class="mt-1 text-gray-700 list-disc list-inside">
+            <li>${s.create || 0} to create — not on the consortium's list yet</li>
+            <li>${s.on_file || 0} already on the consortium's list</li>
+            <li>${s.nominate || 0} will go on <b>${esc(d.site || 'your site')}</b>'s list</li>
+            ${s.not_found ? `<li class="text-amber-800">${s.not_found} not in UniProt —
+              <b>not added</b>, check the spelling</li>` : ''}
+            ${s.unchecked ? `<li class="text-amber-800">${s.unchecked} not checked —
+              UniProt did not answer in time. Press <b>Check these</b> again.</li>` : ''}
+          </ul>
+        </div>
+        <div class="space-y-2 max-h-72 overflow-y-auto">
+        ${(d.rows || []).map(r => {
+          const [text, tone] = label[r.status] || label.unchecked;
+          const warn = r.status === 'not_found' || r.status === 'unchecked';
+          return `
+          <div class="border rounded-lg p-3 ${warn ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}">
+            <p class="font-bold text-gray-900">${esc(r.gene)} ${pill(text, tone)}</p>
+            ${r.protein_name ? `<p class="text-gray-700 mt-1 text-xs">${esc(r.protein_name)}${
+              r.uniprot_id ? ` · ${esc(r.uniprot_id)}` : ''}</p>` : ''}
+            ${r.note ? `<p class="text-gray-500 mt-1 text-xs">${esc(r.note)}</p>` : ''}
+            ${(r.context || []).map(c => `<p class="text-amber-900 mt-1 text-xs">⚠ ${esc(c)}</p>`).join('')}
+          </div>`;
+        }).join('')}
+        </div>`;
+    },
+    // Genes UniProt could not confirm are NOT created — feasibility_bulk_add
+    // skips them rather than falling back to a bare target. So say that, and
+    // colour the box by whether anything actually landed.
+    // The same count the feasibility door puts on its button. Both doors post to
+    // one endpoint; run 9 found only one of them had learned to say how much it
+    // was about to write.
+    // Both halves come from `OGABoard.targetAddSummary`, which is shared with
+    // the feasibility door: the arithmetic was written twice with a comment on
+    // each copy saying it had to match the other, and the refusal was written
+    // only on the feasibility side — so this panel armed `Create them` over a
+    // list of genes UniProt had not answered for.
+    commitLabel: d => OGABoard.targetAddSummary(d).label,
+    whyNotCommit: d => OGABoard.targetAddSummary(d).why,
+    renderResult: d => {
+      const added = d.added || [], missing = d.not_found || [];
+      const errors = d.errors || [], skipped = d.skipped || [];
+      // A gene already on the consortium's list that was not yet on yours gains a
+      // nomination. The preview counts those ("N will go on Leicester's list");
+      // the result said "skipped" about the same rows, so the two halves of one
+      // panel disagreed about whether anything had been written.
+      const nominated = d.nominated_existing || [];
+      /* A gene already on your list that gained a funder or a project is not
+       * "nothing to do" — something was written to it. Same family as the
+       * nomination fix above: the summary must not use the word that stops
+       * somebody looking. */
+      const funded = d.funding_filled || [];
+      const fundedSet = new Set(funded.map(g => String(g).toUpperCase()));
+      const untouched = skipped.filter(
+        g => !fundedSet.has(String(typeof g === 'string' ? g : g.gene).toUpperCase()));
+      const whose = d.site ? `${esc(d.site)}'s` : 'your';
+      const name = g => esc(typeof g === 'string' ? g : (g.gene || g.gene_name || ''));
+      const n = OGABoard.plural;
+      const tone = (added.length || nominated.length || funded.length)
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+        : 'border-amber-200 bg-amber-50 text-amber-900';
+      return `<div class="border ${tone} rounded-lg p-3">
+        <b>${n(added.length, 'target')} added${added.length ? `: ${added.map(name).join(', ')}` : ''}.</b>
+        ${nominated.length ? `<br><b>${nominated.length} added to ${whose} list</b> — already on the
+           consortium's list, now nominated at ${whose === 'your' ? 'your site' : esc(d.site)} too: ${nominated.map(name).join(', ')}.` : ''}
+        ${funded.length ? `<br>${n(funded.length, 'gene')} already on ${whose} list gained the
+           funding details you set — blanks only, nothing recorded was changed:
+           ${funded.map(name).join(', ')}.` : ''}
+        ${untouched.length ? `<br>${untouched.length} already yours — nothing to do: ${untouched.map(name).join(', ')}.` : ''}
+        ${missing.length ? `<br><span class="text-amber-900">${missing.length} <b>not added</b> — UniProt could not confirm ${missing.map(name).join(', ')}.
+           If UniProt is unreachable rather than the gene being wrong, try again shortly.</span>` : ''}
+        ${errors.length ? `<br><span class="text-red-700">${n(errors.length, 'error')}: ${errors.slice(0, 5).map(e => name(e) + ' — ' + esc(e.error || '')).join('; ')}</span>` : ''}
+      </div>`;
+    },
+    /* Somewhere to go, and somewhere that shows what you just did: a clean save
+     * redraws this board narrowed to exactly the genes it added, rather than
+     * leaving them somewhere in 585 rows. When the result has something else to
+     * say — a gene UniProt refused, one already yours — nothing moves on its own
+     * and the same destination is offered as a button. `OGABoard.targetAddGo`
+     * decides which, and the feasibility door calls the same function. */
+    afterResult: (out, d) => OGABoard.targetAddGo(d, out),
+    onDone: () => load(),
+  });
+  document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  // Arriving from a gene's page with "add" in the query means: open the Add
+  // panel, ready to type, with the gene already filled in. The gene filter is
+  // applied too, so you can see what is there before adding to it.
+  (function () {
+    const p = new URLSearchParams(location.search);
+    if (!p.get('add')) return;
+    const gene = p.get('gene') || '';
+    const box = document.getElementById(null);
+    if (box && gene) box.value = gene;
+    newEntry.open();
+  })();
+
+  /* A gene deleted on its own page sends you back here, and has to say so on
+   * arrival — a destructive act that ends with a silent list is the same
+   * silence as a download that does not announce itself, and the row it names
+   * is precisely the one you cannot go and check.
+   *
+   * `load()` clears messages, so this is posted after it. The parameter is then
+   * stripped from the URL: a refresh must not re-announce a deletion that
+   * happened once, and a copied link must not carry it to somebody else. */
+  const deleted = new URLSearchParams(location.search).get('deleted');
+  if (deleted) {
+    const url = new URL(location.href);
+    url.searchParams.delete('deleted');
+    history.replaceState({}, '', url);
+  }
+
+  load().then(() => { if (deleted) errors.show(`Deleted ${deleted}.`); });
+})();
+</script>
+{% endblock %}

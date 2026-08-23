@@ -1,0 +1,559 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1024, initial-scale=0.4, maximum-scale=1, user-scalable=no">
+  <title>{{ gene.name }} antibody characterisation — knockout-validated results for {{ antibody_data|length }} antibodies | Only Good Antibodies</title>
+  <meta name="description" content="Knockout-validated characterisation data for {{ antibody_data|length }} {{ gene.name }}{% if gene.aliases %} (also known as {{ gene.aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+</head>
+
+<style>
+/* --- Global accents --- */
+body {
+  background-color: #f7f9fc;
+  font-family: 'Open Sans', sans-serif;
+}
+
+
+/* --- Notice bar --- */
+.beta-test-notice {
+  text-align: center;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+  color: #10428a;
+  font-weight: 500;
+  padding: 0.8rem 0;
+}
+
+/* Cell line callout box */
+.cellline-note {
+  max-width: 800px;
+  margin: 25px auto 15px;
+  background: #f9fbff;
+  border: 1px solid #dce6f5;
+  border-left: 4px solid #10428a;
+  border-radius: 8px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  text-align: left;
+}
+
+.cellline-note p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #10428a;
+}
+
+.cellline-note a {
+  color: #10428a;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Report + Citation buttons */
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Full Report */
+.f1000-link {
+  display: inline-block;
+  background-color: #10428a;
+  color: #ffffff;
+  border: 2px solid #10428a;
+  border-radius: 50px;
+  padding: 0.6rem 1.6rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.25s ease-in-out;
+}
+
+.f1000-link:hover {
+  background-color: transparent;
+  color: #ffffff;
+}
+
+/* Copy Citation */
+.copy-btn {
+  background-color: transparent;
+  color: #10428a;
+  border: 2px solid #10428a;
+  border-radius: 50px;
+  padding: 0.6rem 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+}
+
+.copy-btn:hover {
+  background-color: #10428a;
+  color: #ffffff;
+}
+
+/* --- Filters container --- */
+.filter-container {
+  display: flex;
+  justify-content: center;
+  margin: 2.5rem auto;
+  padding: 2rem 2rem 1.6rem;
+  background: #ffffff;
+  border: 1px solid #e3ebf7;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  max-width: 1200px;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.3rem;
+  justify-content: center;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 220px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: #10428a;
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.filter-group select {
+  background-color: #f9fbff;
+  border: 1px solid #d6e1f2;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #10428a;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #10428a;
+  box-shadow: 0 0 0 3px rgba(16, 66, 138, 0.15);
+}
+
+/* Clear filters link */
+.clear-filters {
+  color: #10428a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.65rem 1rem;
+  transition: opacity 0.2s ease;
+}
+
+.clear-filters:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+.applications-list {
+    display: inline-block;
+    max-width: 250px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+  .banner-center h2 { font-size: 1.7rem; }
+  .filter-container { padding: 1.5rem; }
+  .filter-group { min-width: 160px; }
+}
+</style>
+
+<body class="antibody-table-page">
+  {% include 'core/cookie_banner.html' %}
+  <script src="{% static 'core/script.js' %}"></script>
+
+  <!-- HEADER -->
+  {% include 'core/header.html' %}
+
+  <!-- BANNER -->
+<section class="banner antibody-banner">
+  <div class="banner-content">
+    <div class="banner-center">
+      <h2>Gene: {{ gene.name }}</h2>
+
+      <div class="banner-actions">
+        <a href="{{ gene.f1000_report_link }}" target="_blank" class="f1000-link">
+           Full Report
+        </a>
+
+        {% if gene.citation %}
+        <div class="copy-citation-wrapper">
+          <button id="copy-btn" class="copy-btn" title="{{ gene.citation }}">
+             Copy Citation
+          </button>
+          <span id="citation-text" style="display: none;">{{ gene.citation }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+
+  <!-- NOTICE -->
+  <div class="beta-test-notice">
+    Antibody order is random
+  </div>
+<!-- CELL LINE CALLOUT -->
+{% if gene.cell_line_link %}
+  <div class="cellline-note">
+    <p>
+      <strong>Note:</strong>
+      This gene's experiments were conducted in a specific cell line —
+      <a href="{{ gene.cell_line_link }}" target="_blank">click here to view it</a>.
+    </p>
+  </div>
+{% endif %}
+
+<!-- GENE INTRO LINE -->
+<p style="text-align: center; color: #555; font-size: 0.95rem; margin: 1rem auto 0; max-width: 800px; padding: 0 1rem;">
+  Knockout-validated characterisation data for {{ antibody_data|length }} {{ gene.name }} antibodies across WB, IP, ICC-IF and FC.{% if gene.aliases %} Also known as: {{ gene.aliases }}.{% endif %}
+</p>
+
+  <!-- FILTERS -->
+  <div class="filter-container">
+    <form id="filter-form" class="filter-form" method="get">
+      <div class="filter-group">
+        <label for="host">Host</label>
+        <select name="host" id="host" class="form-select">
+          <option value="">----</option>
+          {% for host in hosts %}
+            <option value="{{ host }}" {% if request.GET.host == host %}selected{% endif %}>
+              {{ host }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="clonality">Clonality</label>
+        <select name="clonality" id="clonality" class="form-select">
+          <option value="">----</option>
+          {% for clonality in clonality_options %}
+            <option value="{{ clonality }}" {% if request.GET.clonality == clonality %}selected{% endif %}>
+              {{ clonality }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="recombinant">Recombinant</label>
+        <select name="recombinant" id="recombinant" class="form-select">
+          <option value="">----</option>
+          {% for recombinant in recombinant_options %}
+            <option value="{{ recombinant }}" {% if request.GET.recombinant == recombinant %}selected{% endif %}>
+              {{ recombinant }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Application filter: NO name attribute — handled entirely by JS -->
+      <div class="filter-group">
+        <label for="application">Recommended Application*</label>
+        <select id="application" class="form-select">
+          <option value="">----</option>
+          <option value="wb">Western Blot</option>
+          <option value="icc_if">ICC / IF</option>
+          <option value="ip">Immunoprecipitation (IP)</option>
+          <option value="fc">Flow Cytometry (FC)</option>
+        </select>
+      </div>
+
+      <a href="{{ request.path }}" class="clear-filters" id="clear-filters-link">Clear filters</a>
+    </form>
+  </div>
+
+  <!-- Auto-submit SERVER-SIDE filters on dropdown change (host, clonality, recombinant only) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var form = document.getElementById('filter-form');
+      if (form) {
+        form.querySelectorAll('select[name]').forEach(function (select) {
+          select.addEventListener('change', function () {
+            form.submit();
+          });
+        });
+      }
+    });
+  </script>
+
+  <div class="beta-test-notice" style="text-align: center; padding: 10px 20px; font-size: 0.85rem; color: #555;">
+    Appearance on this database does not imply manufacturer endorsement for all applications. Recommendations here reflect observed selectivity under these specific experimental conditions only — always consult the manufacturer's datasheet for their recommended applications.
+  </div>
+
+            <!-- Table Container -->
+            <main class="table-container" id="antibody-table" data-gene="{{ gene.name }}">
+                <!-- Ideal Antibody Row -->
+                <div class="row-box ideal-antibody-row"> 
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th class="header-label">WB</th>
+                                <th class="header-label">IP</th>
+                                <th class="header-label">ICC-IF</th>
+                                <th class="header-label">FC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="antibody-details">
+                                    <h3> Example</h3>
+                                    <h3>High-performing Antibody</h3>
+                                    <p>An example of a high-performing antibody.</p>
+                                </td>
+                                <td><div class="experiment-box"><img src="{% static 'core/WB-ideal.png' %}" alt="WB Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/Ideal-IP.png' %}" alt="IP Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/IF-Ideal.png' %}" alt="ICC-IF Image"></div></td>
+                                <td><div class="experiment-box"><img src="{% static 'core/FC-ideal.png' %}" alt="FC Image"></div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                   <!-- Dynamic Antibody Rows -->
+            {% for antibody in antibody_data %}
+            <div class="row-box" data-antibody-id="{{ antibody.id }}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th class="header-label">WB</th>
+                            <th class="header-label">IP</th>
+                            <th class="header-label">ICC-IF</th>
+                            <th class="header-label">FC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <!-- Antibody Details -->
+                           
+<td class="antibody-details">
+    <h3>{{ antibody.name }}</h3>
+    {% if antibody.description %}
+        <p>RRID: {{ antibody.description.rrid }}</p>
+
+        <p>
+            Supplier:
+            {% if antibody.description.product_link %}
+                <a href="{{ antibody.description.product_link }}" target="_blank" class="product-link">
+                    {{ antibody.description.supplier }}
+                </a>
+            {% else %}
+                {{ antibody.description.supplier }}
+            {% endif %}
+        </p>
+
+        <p>Host: {{ antibody.description.host }}</p>
+        <p>{{ antibody.description.clonality }}</p>
+
+        {% if antibody.description.clone_ID %}
+            <p>Clone ID: {{ antibody.description.clone_ID }}</p>
+        {% endif %}
+
+        {% if antibody.description.discontinued %}
+            <p><strong>Discontinued</strong></p>
+        {% endif %}
+
+        <!-- Recommendations injected here by JS -->
+        <div class="rec-slot"></div>
+
+    {% endif %}
+</td>
+
+
+
+                            <!-- WB Experiment -->
+                            <td>
+                                <div class="experiment-box">
+                                    {% if antibody.experiments.WB %}
+                                        <img src="{{ antibody.experiments.WB }}" alt="WB Image">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- IP Experiment -->
+                            <td>
+                                <div class="experiment-box">
+                                    {% if antibody.experiments.IP %}
+                                        <img src="{{ antibody.experiments.IP }}" alt="IP Image">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- ICC-IF Experiment -->
+                            <td>
+                                <div class="experiment-box">
+                                    {% if antibody.experiments.ICC_IF %}
+                                        <img src="{{ antibody.experiments.ICC_IF }}" alt="ICC-IF Image">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- FC Experiment -->
+                            <td>
+                                <div class="experiment-box">
+                                    {% if antibody.experiments.FC %}
+                                        <img src="{{ antibody.experiments.FC }}" alt="FC Image">
+                                    {% else %}
+                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+              
+        </main>
+    </div>
+
+    <!-- Recommendations AJAX loader + client-side application filter -->
+    <script>
+    (function () {
+      var gene = document.getElementById('antibody-table').dataset.gene;
+      var recData = {};  // antibody_id -> { wb, ip, icc_if, fc }
+
+      // Labels for display
+      var appLabels = { wb: 'Western Blot', icc_if: 'ICC / IF', ip: 'IP', fc: 'Flow Cytometry' };
+
+      function renderRecommendations() {
+        document.querySelectorAll('.row-box[data-antibody-id]').forEach(function (row) {
+          var abId = row.dataset.antibodyId;
+          var slot = row.querySelector('.rec-slot');
+          if (!slot) return;
+
+          var recs = recData[abId];
+          if (!recs) { slot.innerHTML = ''; return; }
+
+          var apps = [];
+          if (recs.wb) apps.push(appLabels.wb);
+          if (recs.icc_if) apps.push(appLabels.icc_if);
+          if (recs.ip) apps.push(appLabels.ip);
+          if (recs.fc) apps.push(appLabels.fc);
+
+          if (apps.length > 0) {
+            slot.innerHTML = '<p><strong>Recommended Applications:</strong> ' +
+              '<span class="applications-list">' + apps.join(', ') + '</span></p>';
+          } else {
+            slot.innerHTML = '';
+          }
+        });
+      }
+
+      function applyApplicationFilter() {
+        var selected = document.getElementById('application').value;
+        document.querySelectorAll('.row-box[data-antibody-id]').forEach(function (row) {
+          if (!selected) {
+            row.style.display = '';
+            return;
+          }
+          var abId = row.dataset.antibodyId;
+          var recs = recData[abId];
+          if (recs && recs[selected]) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      }
+
+      // Fetch recommendations
+      fetch('/api/internal/recommendations/' + encodeURIComponent(gene) + '/')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          recData = data.recommendations || {};
+          renderRecommendations();
+        })
+        .catch(function () {
+          // Silently degrade — antibodies still visible, just no rec badges
+        });
+
+      // Application filter — client-side only
+      document.getElementById('application').addEventListener('change', applyApplicationFilter);
+
+      // Clear filters link: also reset application dropdown
+      document.getElementById('clear-filters-link').addEventListener('click', function () {
+        document.getElementById('application').value = '';
+        // Let the default link behaviour handle the server-side filter reset
+      });
+    })();
+    </script>
+
+    <!-- Footer -->
+<footer class="antibody-footer">
+    <div class="footer-container">
+        <!-- Quick Links Column -->
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'publications' %}">Publications</a>
+            
+            <a href="{% url 'news' %}">News</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+
+        <!-- Contact Information Column -->
+    <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p style="color: white;">Email: <a href="mailto:onlygoodantibodies@gmail.com" style="color: white; text-decoration: none;">onlygoodantibodies@gmail.com</a></p>
+        <p style="color: white;">LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" style="color: white; text-decoration: none;">Follow us on LinkedIn</a></p>
+        <p style="color: white;">BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" style="color: white; text-decoration: none;">Follow us on BlueSky</a></p>
+    </div>
+
+
+        <!-- Social Media Column -->
+        <div class="footer-column">
+            <h4>Follow Us</h4>
+            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                <img src="{% static 'core/bluesky.png' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <!-- Add other social media icons here -->
+        </div>
+    </div>
+
+    <!-- Bottom Footer with Copyright and Back to Top -->
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+</footer>
+<script src="{% static 'core/script.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OGA Academy Certificate</title>
+  <link rel="icon" href="{% static 'core/up-logo.ico' %}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <style>
+    .cert-card {
+      max-width: 600px;
+      margin: 3rem auto;
+      border: none;
+      border-radius: .5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .cert-header {
+      background: #10428a;
+      color: white;
+      border-top-left-radius: .5rem;
+      border-top-right-radius: .5rem;
+      text-align: center;
+      padding: 1.5rem 1rem;
+    }
+    .cert-body h2 {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+    .cert-footer {
+      text-align: center;
+      font-size: .9rem;
+      color: #666;
+      padding: .75rem;
+    }
+    .next-module-prompt {
+      max-width: 600px;
+      margin: 0 auto 3rem auto;
+      text-align: center;
+      padding: 1.5rem;
+      background: #f0f7ff;
+      border-radius: .5rem;
+      border: 1px solid #c8dff7;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+
+{% include 'academy/header.html' %}
+
+  <div class="container">
+    <div class="card cert-card">
+      <div class="cert-header">
+        <h3>Certificate of Completion</h3>
+      </div>
+      <div class="card-body cert-body text-center">
+        <p class="lead mb-1">This certifies that</p>
+        <h2 class="mb-3">{{ cert.user.get_full_name|default:cert.user.username }}</h2>
+        <p class="mb-1">has successfully completed the module</p>
+        <h4 class="mb-3">{{ cert.lesson.title }}</h4>
+        <p>Your score: <strong>{{ cert.score }}%</strong></p>
+        <a href="{% url 'academy:generate_pdf' cert.id %}" class="btn btn-success btn-lg mt-3">
+          <i class="bi bi-download me-2"></i>Download PDF
+        </a>
+      </div>
+      <div class="cert-footer">
+        Issued on {{ cert.issued_at|date:"F j, Y" }} — OGA Academy
+      </div>
+    </div>
+
+    <!-- Next module prompt -->
+    <div class="next-module-prompt">
+      <p class="mb-3 fs-5">Continue with the next module</p>
+      <a href="{% url 'academy:academy_home' %}" class="btn btn-primary btn-lg">
+        <i class="bi bi-house me-2"></i>Return to Academy Home to start the next module
+      </a>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

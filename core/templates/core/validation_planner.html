@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antibody Validation Planner — Only Good Antibodies</title>
+    <meta name="description" content="Plan proportionate antibody validation for your research. For each antibody: what it's for, which controls you'll run, and why. A structured tool from the OGA community.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   VALIDATION PLANNER v5 — one page, one card per antibody
+   ══════════════════════════════════════ */
+.vpl-hero { background: linear-gradient(160deg, #0d2b5e 0%, #10428a 45%, #4a8ec9 100%); color: #fff; padding: 64px 24px 48px; text-align: center; }
+.vpl-hero-inner { max-width: 780px; margin: 0 auto; }
+.vpl-hero-label { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; opacity: .9; color: #fff !important; }
+.vpl-hero h1 { font-family: 'Open Sans', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
+.vpl-hero p { font-size: 1rem; line-height: 1.6; opacity: .96; margin: 0; color: #fff !important; }
+.vpl-hero a { color: #fff !important; text-decoration: underline; }
+
+.vpl-main { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; }
+
+.vpl-intro { background: #f2f6fc; border: 1px solid #d8e4f4; border-radius: 12px; padding: 0; margin-bottom: 26px; overflow: hidden; }
+.vpl-intro summary { list-style: none; cursor: pointer; padding: 14px 20px; font-weight: 700; color: #10428a; font-size: .92rem; display: flex; align-items: center; gap: 8px; }
+.vpl-intro summary::-webkit-details-marker { display: none; }
+.vpl-intro summary::before { content: "▸"; transition: transform .15s; }
+.vpl-intro[open] summary::before { transform: rotate(90deg); }
+.vpl-intro-body { padding: 0 20px 16px; font-size: .88rem; color: #40485a; line-height: 1.6; }
+.vpl-intro-body ul { margin: 8px 0 0; padding-left: 18px; }
+.vpl-intro-body li { margin-bottom: 6px; }
+.vpl-intro-body strong { color: #10428a; }
+
+.vpl-scope { background: #fbf9f2; border: 1px solid #ece2c7; border-radius: 10px; padding: 10px 16px; font-size: .82rem; color: #6b5a2e; line-height: 1.55; margin-bottom: 22px; }
+
+.vpl-card { background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; box-shadow: 0 1px 3px rgba(20,40,80,.05); padding: 22px 22px 10px; margin-bottom: 22px; }
+.vpl-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.vpl-card-num { font-family: 'Open Sans', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
+.vpl-remove { background: none; border: none; color: #b91c1c; font-size: .82rem; cursor: pointer; font-weight: 600; }
+.vpl-remove:hover { text-decoration: underline; }
+
+.vpl-block-label { text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; font-weight: 700; color: #5a6b8c; margin: 18px 0 8px; border-top: 1px solid #f0f0f0; padding-top: 14px; }
+.vpl-block-label:first-of-type { border-top: none; padding-top: 4px; }
+.vpl-block-hint { font-size: .78rem; color: #8a8a8a; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+
+.vpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.vpl-grid .full { grid-column: 1 / -1; }
+@media (max-width: 620px) { .vpl-grid { grid-template-columns: 1fr; } }
+
+.vpl-field label { display: block; font-size: .8rem; font-weight: 600; color: #40485a; margin-bottom: 4px; }
+.vpl-field input[type=text], .vpl-field textarea, .vpl-field select { width: 100%; border: 1px solid #cfd6e2; border-radius: 8px; padding: 8px 10px; font-size: .9rem; font-family: inherit; color: #1f2733; background: #fff; }
+.vpl-field textarea { min-height: 60px; resize: vertical; }
+.vpl-field input:focus, .vpl-field textarea:focus, .vpl-field select:focus { outline: none; border-color: #10428a; box-shadow: 0 0 0 3px rgba(16,66,138,.12); }
+
+.vpl-apps { display: flex; flex-wrap: wrap; gap: 8px; }
+.vpl-apps label { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600; color: #40485a; background: #f6f7fa; border: 1px solid #dfe4ec; border-radius: 20px; padding: 5px 12px; cursor: pointer; }
+.vpl-apps input { accent-color: #10428a; }
+.vpl-apps label:has(input:checked) { background: #e6effb; border-color: #9cc0e8; color: #10428a; }
+
+.vpl-check { display: inline-flex; align-items: flex-start; gap: 8px; font-size: .84rem; color: #40485a; cursor: pointer; margin-top: 4px; }
+.vpl-check input { accent-color: #10428a; margin-top: 2px; }
+
+.vpl-db-msg { font-size: .8rem; margin-top: 6px; display: none; }
+.vpl-db-msg.show { display: block; }
+.vpl-db-found { color: #166534; }
+.vpl-db-none { color: #8a6d1a; }
+
+.vpl-adv { margin-top: 16px; border-top: 1px dashed #e2e6ee; padding-top: 6px; }
+.vpl-adv summary { list-style: none; cursor: pointer; font-size: .82rem; font-weight: 700; color: #10428a; padding: 8px 0; display: flex; align-items: center; gap: 6px; }
+.vpl-adv summary::-webkit-details-marker { display: none; }
+.vpl-adv summary::before { content: "▸"; transition: transform .15s; }
+.vpl-adv[open] summary::before { transform: rotate(90deg); }
+.vpl-adv-hint { font-weight: 400; color: #8a8a8a; }
+
+.vpl-ptm-controls { display: none; }
+.vpl-ptm-controls.show { display: block; }
+
+.vpl-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; align-items: center; }
+.vpl-btn { font-family: 'Open Sans', sans-serif; font-weight: 700; font-size: .92rem; border: none; border-radius: 9px; padding: 11px 20px; cursor: pointer; }
+.vpl-btn-primary { background: #10428a; color: #fff; }
+.vpl-btn-primary:hover { background: #0d356e; }
+.vpl-btn-outline { background: #fff; color: #10428a; border: 1.5px solid #9cc0e8; }
+.vpl-btn-outline:hover { background: #f2f6fc; }
+.vpl-btn-add { width: 100%; background: #fff; color: #10428a; border: 1.5px dashed #9cc0e8; border-radius: 12px; padding: 14px; font-weight: 700; font-size: .92rem; cursor: pointer; margin-bottom: 24px; }
+.vpl-btn-add:hover { background: #f2f6fc; }
+.vpl-copy-confirm { display: none; color: #166534; font-weight: 600; font-size: .88rem; }
+
+.vpl-budget { background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; padding: 18px 22px; margin-bottom: 22px; }
+.vpl-budget label { display: block; font-size: .85rem; font-weight: 700; color: #40485a; margin-bottom: 6px; }
+.vpl-budget textarea { width: 100%; border: 1px solid #cfd6e2; border-radius: 8px; padding: 8px 10px; font-size: .9rem; font-family: inherit; min-height: 54px; resize: vertical; }
+
+/* ── Print ── */
+.vpl-print-header { display: none; }
+@media print {
+  .header, .footer, .vpl-hero, .vpl-intro, .vpl-scope, .vpl-remove, .vpl-btn, .vpl-btn-add, .vpl-actions, .vpl-no-print { display: none !important; }
+  .vpl-adv { border-top: none; } .vpl-adv summary { display: none; } .vpl-adv[open] > *:not(summary), .vpl-adv > div { display: block !important; }
+  .vpl-print-header { display: block !important; text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #10428a; }
+  .vpl-print-header h1 { font-size: 1.3rem; color: #10428a; margin: 0 0 4px; }
+  .vpl-print-header p { font-size: .82rem; color: #888; margin: 0; }
+  .vpl-card, .vpl-budget { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  body { background: #fff; }
+}
+</style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+<section class="vpl-hero vpl-no-print">
+  <div class="vpl-hero-inner">
+    <span class="vpl-hero-label">Research Tools</span>
+    <h1>Antibody Validation Planner</h1>
+    <p>Plan proportionate validation, one antibody at a time. For each: what you'll use it for, which controls you'll run, and why. When the experiments are done, capture the outcome in the <a href="{% url 'validation_record' %}">Validation Record</a>.</p>
+  </div>
+</section>
+
+<div class="vpl-main">
+
+  <div class="vpl-print-header">
+    <h1>Antibody Validation Plan</h1>
+    <p>onlygoodantibodies.co.uk/tools/validation-planner</p>
+  </div>
+
+  <details class="vpl-intro vpl-no-print">
+    <summary>Before you start — the idea in one minute</summary>
+    <div class="vpl-intro-body">
+      Validation should be <strong>proportionate to the conclusions your antibody carries</strong>. You don't need to validate every antibody to the same depth — you need to match the evidence to what the antibody is being asked to prove.
+      <ul>
+        <li><strong>Search first.</strong> Existing characterisation data (e.g. OGA / YCharOS) can tell you which antibodies already work — before you spend on validation.</li>
+        <li><strong>The strongest negative control is genetic</strong> — a knockout or knockdown, ideally in the same cell line and application as your experiment.</li>
+        <li><strong>Corroborate</strong> antibody results with an antibody-independent readout (mRNA, mass spec, orthogonal antibody) where you can.</li>
+      </ul>
+      For the full detail see the <a href="{% url 'validation_framework' %}" target="_blank">Validation Planning Framework →</a>
+    </div>
+  </details>
+
+  <div class="vpl-scope vpl-no-print">
+    This tool covers antibodies against proteins and post-translational modifications. For non-protein targets (DNA, lipids, carbohydrates) the principles still apply but specific control strategies differ.
+  </div>
+
+  <div id="vpl-cards"></div>
+
+  <button type="button" class="vpl-btn-add vpl-no-print" id="vpl-add">+ Add another antibody</button>
+
+  <div class="vpl-budget vpl-no-print">
+    <label>Validation budget <span style="font-weight:400;color:#999">(optional — useful for grant costings)</span></label>
+    <textarea id="f-budget" placeholder="e.g. HAP1 KO cell line (~£2,000), siRNA (~£1,000), overexpression lysate (~£200). Costed in grant budget."></textarea>
+  </div>
+
+  <div class="vpl-actions vpl-no-print">
+    <button type="button" class="vpl-btn vpl-btn-primary" id="vpl-download">Download / Print plan</button>
+    <button type="button" class="vpl-btn vpl-btn-outline" id="vpl-copy">Copy to clipboard</button>
+    <span class="vpl-copy-confirm" id="vpl-copy-confirm">Copied ✓</span>
+  </div>
+
+</div>
+
+<datalist id="vpl-genes">
+  {% for g in genes %}<option value="{{ g.name }}"></option>{% endfor %}
+</datalist>
+
+<template id="vpl-card-tpl">
+  <div class="vpl-card">
+    <div class="vpl-card-head">
+      <span class="vpl-card-num">Antibody #<span class="vpl-n"></span></span>
+      <button type="button" class="vpl-remove vpl-no-print">Remove</button>
+    </div>
+
+    <div class="vpl-block-label">The antibody<span class="vpl-block-hint">what you're planning to use</span></div>
+    <div class="vpl-grid">
+      <div class="vpl-field full">
+        <label>Target (gene)</label>
+        <input type="text" data-f="target" list="vpl-genes" placeholder="e.g. SNCA">
+        <div class="vpl-db-msg vpl-db-found" data-db="found">✓ OGA characterisation data exists for this target — <a href="#" target="_blank" data-db="link">view on the database →</a></div>
+        <div class="vpl-db-msg vpl-db-none" data-db="none">No OGA characterisation data for this target yet — you can still plan below.</div>
+      </div>
+    </div>
+
+    <div class="vpl-block-label">What you'll use it for</div>
+    <div class="vpl-grid">
+      <div class="vpl-field full">
+        <label>Application(s)</label>
+        <div class="vpl-apps" data-f="apps">
+          <label><input type="checkbox" value="WB"> WB</label>
+          <label><input type="checkbox" value="IF / ICC"> IF / ICC</label>
+          <label><input type="checkbox" value="Flow"> Flow</label>
+          <label><input type="checkbox" value="IP"> IP</label>
+          <label><input type="checkbox" value="IHC"> IHC</label>
+          <label><input type="checkbox" value="ELISA"> ELISA</label>
+          <label><input type="checkbox" value="ChIP"> ChIP</label>
+          <label><input type="checkbox" value="Other"> Other</label>
+        </div>
+      </div>
+      <div class="vpl-field"><label>Sample / system</label><input type="text" data-f="sample" placeholder="e.g. HAP1 lysate, mouse brain sections"></div>
+      <div class="vpl-field"><label>Dilution / concentration <span style="font-weight:400;color:#999">(if known)</span></label><input type="text" data-f="conc" placeholder="e.g. 1:1000"></div>
+      <div class="vpl-field full"><label>What conclusion will this antibody support?</label><textarea data-f="question" placeholder="e.g. Measuring endogenous α-synuclein levels after knockdown."></textarea></div>
+      <div class="vpl-field full">
+        <label class="vpl-check"><input type="checkbox" data-f="ptm"> This antibody targets a <strong>&nbsp;post-translational modification</strong>&nbsp; (e.g. phospho-site)</label>
+      </div>
+    </div>
+
+    <div class="vpl-block-label">Controls you'll run — and why<span class="vpl-block-hint">the part that matters most</span></div>
+    <div class="vpl-grid">
+      <div class="vpl-field full"><label>Negative control <span style="font-weight:400;color:#999">(genetic KO / KD is strongest)</span></label><textarea data-f="neg" placeholder="e.g. HAP1 SNCA knockout — expect the signal to disappear at the target band."></textarea></div>
+      <div class="vpl-field full"><label>Positive control</label><textarea data-f="pos" placeholder="e.g. Tissue / line known to express the target at the expected size."></textarea></div>
+      <div class="vpl-field full vpl-ptm-controls" data-f="ptm-wrap"><label>Modification-specificity control <span style="font-weight:400;color:#999">(for PTM antibodies)</span></label><textarea data-f="ptmctrl" placeholder="e.g. Phosphatase treatment, or a phospho-dead mutant, abolishes the signal."></textarea></div>
+      <div class="vpl-field full"><label>Antibody-independent readout <span style="font-weight:400;color:#999">(optional — mRNA, MS, orthogonal antibody)</span></label><textarea data-f="orth" placeholder="e.g. RNA-seq / qPCR should track the antibody signal across conditions."></textarea></div>
+      <div class="vpl-field full"><label>Why these controls — and how well do they match your experiment?</label><textarea data-f="why" placeholder="e.g. The KO is in the same cell line and application as the experiment, so it directly controls specificity here."></textarea></div>
+    </div>
+
+    <details class="vpl-adv vpl-no-print">
+      <summary>Advanced <span class="vpl-adv-hint">— category, antibody identity, selection criteria</span></summary>
+      <div class="vpl-grid" style="margin-top:8px">
+        <div class="vpl-field full">
+          <label>How is this antibody being used? <span style="font-weight:400;color:#999">(sets how much validation is proportionate)</span></label>
+          <select data-f="category">
+            <option value="">— choose —</option>
+            <option value="target-specific">Target-specific — it carries a conclusion about this protein (needs the strongest evidence)</option>
+            <option value="community-marker">Community-adopted marker — a widely-used clone for cell ID/gating (use the established clone)</option>
+            <option value="technical">Technical function — e.g. IP/enrichment where identity is confirmed another way</option>
+          </select>
+        </div>
+        <div class="vpl-field"><label>Vendor / supplier</label><input type="text" data-f="vendor" placeholder="e.g. Abcam"></div>
+        <div class="vpl-field"><label>Catalogue number</label><input type="text" data-f="catalogue" placeholder="e.g. ab138501"></div>
+        <div class="vpl-field"><label>RRID</label><input type="text" data-f="rrid" placeholder="e.g. AB_2532045"></div>
+        <div class="vpl-field"><label>Clone / lot</label><input type="text" data-f="clone" placeholder="Clone name or lot"></div>
+        <div class="vpl-field"><label>Host / clonality</label><input type="text" data-f="host" placeholder="e.g. rabbit recombinant monoclonal"></div>
+        <div class="vpl-field full"><label>Selection criteria <span style="font-weight:400;color:#999">(why this antibody / clone?)</span></label><textarea data-f="selection" placeholder="e.g. Recombinant; independent KO validation available; recommended for WB."></textarea></div>
+      </div>
+    </details>
+  </div>
+</template>
+
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a><a href="{% url 'about' %}">About Us</a><a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'publications' %}">Publications</a><a href="{% url 'news' %}">News</a><a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank"><img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon"></a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank"><img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon"></a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var GENES = {};
+  {% for g in genes %}GENES["{{ g.name|escapejs }}"] = 1;
+  {% endfor %}
+  var cardsEl = document.getElementById('vpl-cards');
+  var tpl = document.getElementById('vpl-card-tpl');
+
+  function renumber() {
+    var cards = cardsEl.querySelectorAll('.vpl-card');
+    cards.forEach(function (c, i) {
+      c.querySelector('.vpl-n').textContent = i + 1;
+      c.querySelector('.vpl-remove').style.display = cards.length > 1 ? '' : 'none';
+    });
+  }
+
+  function addCard() {
+    var node = tpl.content.cloneNode(true);
+    var card = node.querySelector('.vpl-card');
+    card.querySelector('.vpl-remove').addEventListener('click', function () { card.remove(); renumber(); });
+
+    var t = card.querySelector('[data-f="target"]');
+    var found = card.querySelector('[data-db="found"]');
+    var none = card.querySelector('[data-db="none"]');
+    var link = card.querySelector('[data-db="link"]');
+    t.addEventListener('input', function () {
+      var g = t.value.trim().toUpperCase();
+      found.classList.remove('show'); none.classList.remove('show');
+      if (!g) return;
+      if (GENES[g] || GENES[t.value.trim()]) { link.href = 'https://onlygoodantibodies.co.uk/gene/' + encodeURIComponent(g) + '/'; found.classList.add('show'); }
+      else { none.classList.add('show'); }
+    });
+
+    var ptm = card.querySelector('[data-f="ptm"]');
+    var ptmWrap = card.querySelector('[data-f="ptm-wrap"]');
+    ptm.addEventListener('change', function () { ptmWrap.classList.toggle('show', ptm.checked); });
+
+    cardsEl.appendChild(node);
+    renumber();
+    if (typeof plausible !== 'undefined') plausible('Planner Antibody Added');
+  }
+
+  document.getElementById('vpl-add').addEventListener('click', addCard);
+  addCard();
+
+  function cardText(card, i) {
+    function v(f) { var el = card.querySelector('[data-f="' + f + '"]'); return el ? el.value.trim() : ''; }
+    var apps = [];
+    card.querySelectorAll('[data-f="apps"] input:checked').forEach(function (c) { apps.push(c.value); });
+    var ptm = card.querySelector('[data-f="ptm"]').checked;
+    var L = [];
+    L.push('ANTIBODY #' + i);
+    L.push('  Target: ' + (v('target') || '—'));
+    if (v('category')) L.push('  Category: ' + v('category'));
+    var id = [v('vendor'), v('catalogue'), v('rrid') ? 'RRID:' + v('rrid') : '', v('clone'), v('host')].filter(Boolean).join(' · ');
+    if (id) L.push('  Identity: ' + id);
+    if (apps.length || v('sample') || v('conc')) L.push('  Used for: ' + [apps.join(', '), v('sample'), v('conc')].filter(Boolean).join(' · ') + (ptm ? ' [PTM antibody]' : ''));
+    if (v('question')) L.push('  Supports: ' + v('question'));
+    L.push('  CONTROLS PLANNED');
+    if (v('neg')) L.push('    Negative: ' + v('neg'));
+    if (v('pos')) L.push('    Positive: ' + v('pos'));
+    if (ptm && v('ptmctrl')) L.push('    PTM-specificity: ' + v('ptmctrl'));
+    if (v('orth')) L.push('    Antibody-independent: ' + v('orth'));
+    if (v('why')) L.push('    Why / match: ' + v('why'));
+    if (v('selection')) L.push('  Selection criteria: ' + v('selection'));
+    return L.join('\n');
+  }
+
+  function planText() {
+    var out = ['ANTIBODY VALIDATION PLAN', '(onlygoodantibodies.co.uk/tools/validation-planner)', ''];
+    cardsEl.querySelectorAll('.vpl-card').forEach(function (c, i) { out.push(cardText(c, i + 1)); out.push(''); });
+    var b = document.getElementById('f-budget').value.trim();
+    if (b) { out.push('VALIDATION BUDGET'); out.push('  ' + b); out.push(''); }
+    return out.join('\n');
+  }
+
+  document.getElementById('vpl-download').addEventListener('click', function () {
+    var n = cardsEl.querySelectorAll('.vpl-card').length;
+    if (typeof plausible !== 'undefined') plausible('Plan Downloaded', { props: { antibodies: n } });
+    window.print();
+  });
+
+  document.getElementById('vpl-copy').addEventListener('click', function () {
+    navigator.clipboard.writeText(planText()).then(function () {
+      var el = document.getElementById('vpl-copy-confirm');
+      el.style.display = 'inline'; setTimeout(function () { el.style.display = 'none'; }, 2500);
+    });
+    if (typeof plausible !== 'undefined') plausible('Plan Copied');
+  });
+})();
+</script>
+</body>
+</html>

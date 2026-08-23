@@ -1,0 +1,76 @@
+# Django / Python defaults
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.venv/
+.venv-mcp/
+.venv-test/
+venv~/
+
+# MCP servers: local-only runtime artifacts (never commit)
+mcp_servers/audit.log
+mcp_servers/.env
+mcp_servers/**/__pycache__/
+mcp_servers/tests/test_audit.log
+mcp_servers/tests/test_pipeline.sqlite3
+# Local, environment-specific MCP client config (has absolute paths) — use
+# mcp_servers/mcp.example.json as the template.
+.mcp.json
+db.sqlite3
+*.sqlite3
+db_academy.sqlite3
+# Media now lives on Cloudflare R2 (see OBJECT_STORAGE_PLAN.md), not git
+media/
+dist/
+
+# Browser-extension dev harness. package.json is committed (it is how
+# `npm test` is defined); what npm installs from it is not, and the packaged
+# zip excludes both — see core/extension_index.py::build_zip_bytes.
+browser-extension/node_modules/
+browser-extension/package-lock.json
+
+# Build artifact: Render runs `collectstatic` at build, so this is generated
+# per deploy, never hand-edited. See CLAUDE.md.
+staticfiles/
+
+# Test databases kept between runs by `manage.py test --keepdb` (see settings.py).
+# The test databases and their SQLite journals. settings.py points the three
+# TEST names at files rather than :memory: so --keepdb works, and SQLite writes
+# a `-journal` companion beside each while a run is in progress. `*.sqlite3`
+# above does not match those, so a run interrupted mid-flight leaves two
+# untracked build artefacts sitting in `git status`.
+test_default.sqlite3
+test_academy_db.sqlite3
+test_pipeline_db.sqlite3
+test_*.sqlite3-journal
+test_*.sqlite3-wal
+test_*.sqlite3-shm
+.coverage
+.coverage.*
+
+# Built by bin/build_css.sh on every deploy, from the templates and board.js as
+# they are at that moment. Not in git on purpose: a committed stylesheet has to
+# be rebuilt by whoever edits a template, and the time that is forgotten the
+# page renders unstyled with nothing failing. Built each deploy, it cannot drift.
+pipeline/static/pipeline/tailwind.css
+.tailwind/
+
+# A local mirror made by the sync client in API.md §11, and the client itself
+# once extracted. Both land in the working tree of whoever is testing the API
+# from a checkout, and neither belongs in the repository: the images are a copy
+# of what the CDN already serves, and `sync.py` is generated from API.md, so a
+# committed copy is a second version of a file this repo keeps deliberately in
+# one place. `oga_images/` is the default destination; `OGA_GENES=ACE` makes it
+# `oga_images_ACE/`, hence the glob.
+sync.py
+oga_images/
+oga_images_*/
+
+# Resolution answers accumulated by `manage.py resolve_citation_dois`, so a run
+# that dies part-way does not re-ask Europe PMC for what it already has. Working
+# state, not source: the result belongs in the snapshot's `by_doi`, and a stale
+# cache committed beside a rebuilt snapshot would be answers about other papers.
+core/data/*.doi-cache.json

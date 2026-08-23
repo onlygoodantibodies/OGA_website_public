@@ -1,0 +1,10 @@
+{% comment %}
+The email page marks each address Verified / Unverified / Primary with this.
+allauth's own renders a bare `<strong>`, so all three read the same; the whole
+point of the row is that they do not.
+{% endcomment %}
+{% load allauth %}
+<span class="badge ms-2 {% if 'success' in attrs.tags %}text-bg-success{% elif 'warning' in attrs.tags %}text-bg-warning{% else %}text-bg-secondary{% endif %}"
+      {% if attrs.title %}title="{{ attrs.title }}"{% endif %}>
+  {% slot %}{% endslot %}
+</span>

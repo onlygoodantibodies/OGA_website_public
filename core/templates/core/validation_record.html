@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Record — Only Good Antibodies</title>
+    <meta name="description" content="A quick record of your antibody validation: what the antibody was, what you used it for, which controls you ran, and why. A lightweight companion to the Validation Planner.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   VALIDATION RECORD — lightweight self-report
+   ══════════════════════════════════════ */
+.vrec-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 45%, #4a8ec9 100%);
+  color: #fff; padding: 64px 24px 48px; text-align: center;
+}
+.vrec-hero-inner { max-width: 760px; margin: 0 auto; }
+.vrec-hero-label { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; opacity: .9; color: #fff !important; }
+.vrec-hero h1 { font-family: 'Open Sans', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
+.vrec-hero p { font-size: 1rem; line-height: 1.6; opacity: .96; margin: 0; color: #fff !important; }
+.vrec-hero a { color: #fff !important; text-decoration: underline; }
+
+.vrec-main { max-width: 880px; margin: 0 auto; padding: 32px 20px 60px; }
+
+.vrec-intro {
+  background: #f2f6fc; border: 1px solid #d8e4f4; border-radius: 12px;
+  padding: 16px 20px; font-size: .9rem; color: #40485a; line-height: 1.6; margin-bottom: 26px;
+}
+.vrec-intro strong { color: #10428a; }
+
+.vrec-card {
+  background: #fff; border: 1px solid #e6e9ef; border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(20,40,80,.05); padding: 22px 22px 8px; margin-bottom: 22px;
+}
+.vrec-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.vrec-card-num { font-family: 'Open Sans', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
+.vrec-remove { background: none; border: none; color: #b91c1c; font-size: .82rem; cursor: pointer; font-weight: 600; }
+.vrec-remove:hover { text-decoration: underline; }
+
+.vrec-block-label {
+  text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; font-weight: 700;
+  color: #5a6b8c; margin: 18px 0 8px; border-top: 1px solid #f0f0f0; padding-top: 14px;
+}
+.vrec-block-label:first-of-type { border-top: none; padding-top: 4px; }
+.vrec-block-hint { font-size: .78rem; color: #8a8a8a; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+
+.vrec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.vrec-grid .full { grid-column: 1 / -1; }
+@media (max-width: 620px) { .vrec-grid { grid-template-columns: 1fr; } }
+
+.vrec-field label { display: block; font-size: .8rem; font-weight: 600; color: #40485a; margin-bottom: 4px; }
+.vrec-field input[type=text], .vrec-field textarea, .vrec-field select {
+  width: 100%; border: 1px solid #cfd6e2; border-radius: 8px; padding: 8px 10px;
+  font-size: .9rem; font-family: inherit; color: #1f2733; background: #fff;
+}
+.vrec-field textarea { min-height: 60px; resize: vertical; }
+.vrec-field input:focus, .vrec-field textarea:focus, .vrec-field select:focus { outline: none; border-color: #10428a; box-shadow: 0 0 0 3px rgba(16,66,138,.12); }
+
+.vrec-apps { display: flex; flex-wrap: wrap; gap: 8px; }
+.vrec-apps label {
+  display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600;
+  color: #40485a; background: #f6f7fa; border: 1px solid #dfe4ec; border-radius: 20px;
+  padding: 5px 12px; cursor: pointer;
+}
+.vrec-apps input { accent-color: #10428a; }
+.vrec-apps label:has(input:checked) { background: #e6effb; border-color: #9cc0e8; color: #10428a; }
+
+.vrec-db-msg { font-size: .8rem; margin-top: 6px; display: none; }
+.vrec-db-msg.show { display: block; }
+.vrec-db-found { color: #166534; }
+.vrec-db-none { color: #8a6d1a; }
+
+.vrec-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.vrec-btn {
+  font-family: 'Open Sans', sans-serif; font-weight: 700; font-size: .92rem; border: none;
+  border-radius: 9px; padding: 11px 20px; cursor: pointer;
+}
+.vrec-btn-primary { background: #10428a; color: #fff; }
+.vrec-btn-primary:hover { background: #0d356e; }
+.vrec-btn-outline { background: #fff; color: #10428a; border: 1.5px solid #9cc0e8; }
+.vrec-btn-outline:hover { background: #f2f6fc; }
+.vrec-btn-add {
+  width: 100%; background: #fff; color: #10428a; border: 1.5px dashed #9cc0e8; border-radius: 12px;
+  padding: 14px; font-weight: 700; font-size: .92rem; cursor: pointer; margin-bottom: 24px;
+}
+.vrec-btn-add:hover { background: #f2f6fc; }
+
+.vrec-copy-confirm { display: none; color: #166534; font-weight: 600; font-size: .88rem; align-self: center; }
+
+/* ── Print ── */
+.vrec-print-header { display: none; }
+@media print {
+  .header, .footer, .vrec-hero, .vrec-intro, .vrec-remove, .vrec-btn, .vrec-btn-add, .vrec-actions, .vrec-no-print { display: none !important; }
+  .vrec-print-header { display: block !important; text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #10428a; }
+  .vrec-print-header h1 { font-size: 1.3rem; color: #10428a; margin: 0 0 4px; }
+  .vrec-print-header p { font-size: .82rem; color: #888; margin: 0; }
+  .vrec-card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  body { background: #fff; }
+}
+</style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+<section class="vrec-hero vrec-no-print">
+  <div class="vrec-hero-inner">
+    <span class="vrec-hero-label">Research Tools</span>
+    <h1>Validation Record</h1>
+    <p>A record of what you did: what the antibody was, what you used it for, which controls you ran, and why. The same questions as the <a href="{% url 'validation_planner' %}">Validation Planner</a> — filled in after the experiment.</p>
+  </div>
+</section>
+
+<div class="vrec-main">
+
+  <div class="vrec-print-header">
+    <h1>Antibody Validation Record</h1>
+    <p>onlygoodantibodies.co.uk/tools/validation-record</p>
+  </div>
+
+  <div class="vrec-intro vrec-no-print">
+    Use this to document antibody validation for a manuscript, a grant, or your own records. It follows the OGA
+    <a href="{% url 'validation_framework' %}" target="_blank">Validation Planning Framework</a>: for each antibody, say what it
+    was, what it was used for, and <strong>which controls you ran and why</strong>. Everything stays in your
+    browser; nothing is sent to us. When you're done, use <strong>Download / Print</strong> to save a PDF or <strong>Copy</strong> for pasting into a document.
+  </div>
+
+  <div id="vrec-cards"></div>
+
+  <button type="button" class="vrec-btn-add vrec-no-print" id="vrec-add">+ Add another antibody</button>
+
+  <div class="vrec-actions vrec-no-print">
+    <button type="button" class="vrec-btn vrec-btn-primary" onclick="window.print()">Download / Print</button>
+    <button type="button" class="vrec-btn vrec-btn-outline" id="vrec-copy">Copy to clipboard</button>
+    <span class="vrec-copy-confirm" id="vrec-copy-confirm">Copied ✓</span>
+  </div>
+
+</div>
+
+<datalist id="vrec-genes">
+  {% for g in genes %}<option value="{{ g.name }}"></option>{% endfor %}
+</datalist>
+
+<!-- Card template -->
+<template id="vrec-card-tpl">
+  <div class="vrec-card">
+    <div class="vrec-card-head">
+      <span class="vrec-card-num">Antibody #<span class="vrec-n"></span></span>
+      <button type="button" class="vrec-remove vrec-no-print">Remove</button>
+    </div>
+
+    <div class="vrec-block-label">The antibody<span class="vrec-block-hint">what you used</span></div>
+    <div class="vrec-grid">
+      <div class="vrec-field">
+        <label>Target (gene)</label>
+        <input type="text" data-f="target" list="vrec-genes" placeholder="e.g. SNCA">
+        <div class="vrec-db-msg vrec-db-found" data-db="found">✓ OGA characterisation data exists for this target — <a href="#" target="_blank" data-db="link">view on the database →</a></div>
+        <div class="vrec-db-msg vrec-db-none" data-db="none">No OGA characterisation data for this target yet.</div>
+      </div>
+      <div class="vrec-field"><label>Vendor / supplier</label><input type="text" data-f="vendor" placeholder="e.g. Abcam"></div>
+      <div class="vrec-field"><label>Catalogue number</label><input type="text" data-f="catalogue" placeholder="e.g. ab138501"></div>
+      <div class="vrec-field"><label>RRID <span style="font-weight:400;color:#999">(optional)</span></label><input type="text" data-f="rrid" placeholder="e.g. AB_2532045"></div>
+      <div class="vrec-field"><label>Clone / lot <span style="font-weight:400;color:#999">(optional)</span></label><input type="text" data-f="clone" placeholder="Clone name or lot"></div>
+      <div class="vrec-field"><label>Host / clonality <span style="font-weight:400;color:#999">(optional)</span></label><input type="text" data-f="host" placeholder="e.g. rabbit recombinant monoclonal"></div>
+    </div>
+
+    <div class="vrec-block-label">What it was used for</div>
+    <div class="vrec-grid">
+      <div class="vrec-field full">
+        <label>Application(s)</label>
+        <div class="vrec-apps" data-f="apps">
+          <label><input type="checkbox" value="WB"> WB</label>
+          <label><input type="checkbox" value="IF / ICC"> IF / ICC</label>
+          <label><input type="checkbox" value="Flow"> Flow</label>
+          <label><input type="checkbox" value="IP"> IP</label>
+          <label><input type="checkbox" value="IHC"> IHC</label>
+          <label><input type="checkbox" value="ELISA"> ELISA</label>
+          <label><input type="checkbox" value="ChIP"> ChIP</label>
+          <label><input type="checkbox" value="Other"> Other</label>
+        </div>
+      </div>
+      <div class="vrec-field"><label>Sample / system</label><input type="text" data-f="sample" placeholder="e.g. HAP1 lysate, mouse brain sections"></div>
+      <div class="vrec-field"><label>Dilution / concentration <span style="font-weight:400;color:#999">(optional)</span></label><input type="text" data-f="conc" placeholder="e.g. 1:1000"></div>
+      <div class="vrec-field full"><label>What conclusion does this antibody support?</label><textarea data-f="question" placeholder="e.g. Detecting endogenous α-synuclein levels after knockdown."></textarea></div>
+    </div>
+
+    <div class="vrec-block-label">Controls you ran — and why</div>
+    <div class="vrec-grid">
+      <div class="vrec-field full"><label>Negative control <span style="font-weight:400;color:#999">(genetic KO / KD is strongest)</span></label><textarea data-f="neg" placeholder="e.g. HAP1 SNCA knockout — signal lost at the expected band."></textarea></div>
+      <div class="vrec-field full"><label>Positive control</label><textarea data-f="pos" placeholder="e.g. Tissue known to express the target; expected size confirmed."></textarea></div>
+      <div class="vrec-field full"><label>Antibody-independent readout <span style="font-weight:400;color:#999">(optional — e.g. mRNA, MS, orthogonal antibody)</span></label><textarea data-f="orth" placeholder="e.g. RNA-seq / qPCR agreed with the antibody signal across conditions."></textarea></div>
+      <div class="vrec-field full"><label>Why these controls — and how well do they match your experiment?</label><textarea data-f="why" placeholder="e.g. KO is in the same cell line and application as the experiment, so it directly controls for specificity here."></textarea></div>
+    </div>
+  </div>
+</template>
+
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a><a href="{% url 'about' %}">About Us</a><a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'publications' %}">Publications</a><a href="{% url 'news' %}">News</a><a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank"><img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon"></a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank"><img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon"></a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var GENES = {};
+  {% for g in genes %}GENES["{{ g.name|escapejs }}"] = 1;
+  {% endfor %}
+  var cardsEl = document.getElementById('vrec-cards');
+  var tpl = document.getElementById('vrec-card-tpl');
+  var count = 0;
+
+  function renumber() {
+    var cards = cardsEl.querySelectorAll('.vrec-card');
+    cards.forEach(function (c, i) {
+      c.querySelector('.vrec-n').textContent = i + 1;
+      c.querySelector('.vrec-remove').style.display = cards.length > 1 ? '' : 'none';
+    });
+  }
+
+  function addCard() {
+    var node = tpl.content.cloneNode(true);
+    var card = node.querySelector('.vrec-card');
+    card.querySelector('.vrec-remove').addEventListener('click', function () {
+      card.remove(); renumber();
+    });
+    // Target → OGA data hint
+    var t = card.querySelector('[data-f="target"]');
+    var found = card.querySelector('[data-db="found"]');
+    var none = card.querySelector('[data-db="none"]');
+    var link = card.querySelector('[data-db="link"]');
+    t.addEventListener('input', function () {
+      var g = t.value.trim().toUpperCase();
+      found.classList.remove('show'); none.classList.remove('show');
+      if (!g) return;
+      if (GENES[g] || GENES[t.value.trim()]) {
+        link.href = 'https://onlygoodantibodies.co.uk/gene/' + encodeURIComponent(g) + '/';
+        found.classList.add('show');
+      } else {
+        none.classList.add('show');
+      }
+    });
+    cardsEl.appendChild(node);
+    renumber();
+  }
+
+  document.getElementById('vrec-add').addEventListener('click', addCard);
+  addCard(); // start with one
+
+  // ── Copy to clipboard ──
+  function cardText(card, i) {
+    function v(f) { var el = card.querySelector('[data-f="' + f + '"]'); return el ? el.value.trim() : ''; }
+    var apps = [];
+    card.querySelectorAll('[data-f="apps"] input:checked').forEach(function (c) { apps.push(c.value); });
+    var L = [];
+    L.push('ANTIBODY #' + i);
+    L.push('  Target: ' + (v('target') || '—'));
+    var id = [v('vendor'), v('catalogue'), v('rrid') ? 'RRID:' + v('rrid') : '', v('clone'), v('host')].filter(Boolean).join(' · ');
+    if (id) L.push('  Identity: ' + id);
+    if (apps.length || v('sample') || v('conc')) L.push('  Used for: ' + [apps.join(', '), v('sample'), v('conc')].filter(Boolean).join(' · '));
+    if (v('question')) L.push('  Supports: ' + v('question'));
+    L.push('  CONTROLS');
+    if (v('neg')) L.push('    Negative: ' + v('neg'));
+    if (v('pos')) L.push('    Positive: ' + v('pos'));
+    if (v('orth')) L.push('    Antibody-independent: ' + v('orth'));
+    if (v('why')) L.push('    Why / match: ' + v('why'));
+    return L.join('\n');
+  }
+
+  document.getElementById('vrec-copy').addEventListener('click', function () {
+    var out = ['ANTIBODY VALIDATION RECORD', '(onlygoodantibodies.co.uk/tools/validation-record)', ''];
+    cardsEl.querySelectorAll('.vrec-card').forEach(function (c, i) {
+      out.push(cardText(c, i + 1)); out.push('');
+    });
+    navigator.clipboard.writeText(out.join('\n')).then(function () {
+      var el = document.getElementById('vrec-copy-confirm');
+      el.style.display = 'inline'; setTimeout(function () { el.style.display = 'none'; }, 2500);
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Antibodies board — find and edit any antibody{% endblock %}
+
+{% block extra_head %}
+<style>
+  .help { border-bottom: 1px dotted #9ca3af; cursor: help; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto">
+
+  <p class="text-xs font-bold uppercase tracking-widest text-ycharos-700">Antibodies board</p>
+  <h1 class="text-3xl font-bold text-gray-900 mt-1">Every antibody</h1>
+  <p class="text-gray-600 mt-1 max-w-3xl">
+    Click a cell to edit it — changes save straight away. Click a tick to toggle it.
+  </p>
+
+  <div class="flex flex-wrap gap-2 mt-4">
+    <a href="{% url 'pipeline:antibody_board_guide' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Guide</a>
+    <button type="button" id="new-btn"
+            class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold hover:bg-ycharos-700">Add antibodies</button>
+    {% comment %}Download now carries the filters you can see, and the way back
+    is here rather than on the whole-dataset page: edit the sheet you downloaded
+    and put those rows back, with the same per-row preview as a paste.{% endcomment %}
+    <a id="dl-btn" href="{% url 'pipeline:antibody_export' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Download these</a>
+    <button type="button" id="upload-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Upload a sheet</button>
+  </div>
+  <div id="upload-panel"></div>
+  <div id="identity-panel"></div>
+
+  {% comment %}New entries, on the board rather than a page of their own.
+  Headings come from the same constant that builds the Excel template.
+
+  Use {% comment %}, not the short form, for anything longer than a few words.
+  The short form does not span lines, and it ends at the FIRST closing brace-hash
+  — so a warning about that written in the short form, and mentioning the
+  delimiters, ends halfway through itself and prints the remainder of the
+  sentence onto the page. That is precisely what shipped here, and what the
+  second field test read off the screen above the Add button.{% endcomment %}
+  {{ new_columns|json_script:"new-columns" }}
+  {{ new_example|json_script:"new-example" }}
+  <div id="new-panel"></div>
+
+  {# ── Filters ── #}
+  <form id="filters" method="get" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Search</span>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Catalogue, RRID, clone, gene…"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Gene</span>
+      <input type="text" name="gene" value="{{ filters.gene }}" placeholder="SOD1, or a list — NA for no gene"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      {% comment %}`NA` reaches the rows with no gene, exactly as it does on the
+      cell-lines board — where the hint has said so for several runs. An
+      antibody's target is nullable and 8 rows on file have none, so they
+      answered no gene filter at all and there was nothing to type to find them;
+      the field test typed the word the neighbouring board teaches and got
+      nothing back. A placeholder is not a statement — it vanishes as you type —
+      so it is said underneath as well.{% endcomment %}
+      <span class="block text-xs text-gray-400 mt-1">
+        Exact gene, or a comma-separated list. <span class="font-semibold">NA</span>
+        finds the antibodies with no gene recorded.
+      </span>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Supplier</span>
+      <select name="company" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All suppliers</option>
+        {% for c in companies %}
+          <option value="{{ c.pk }}" {% if filters.company == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+      <select name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All sites</option>
+        {% for s in sites %}
+          <option value="{{ s.pk }}" {% if filters.site == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+        {% comment %}"No site recorded" is a real answer, not the absence of a
+        filter — see services/sites.py::NONE. It is what the Portfolio's
+        "210 have no nomination naming a site" links to, and it has to be an
+        option on the form rather than only a URL value: board.js rebuilds
+        its query from the form, so a filter the select cannot carry is
+        dropped by the first rows fetch and the page looks filtered while the
+        data is not.{% endcomment %}
+        <option value="none" {% if filters.site == 'none' %}selected{% endif %}>No site recorded</option>
+        {% include "pipeline/_unknown_site_option.html" %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Clonality</span>
+      <select name="clonality" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any</option>
+        {% for c in clonalities %}
+          <option value="{{ c }}" {% if filters.clonality == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Recommended for</span>
+      <select name="application" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any application</option>
+        {% for a in applications %}
+          <option value="{{ a }}" {% if filters.application == a %}selected{% endif %}>{{ a|upper }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">OGA recommended</span>
+      <select name="recommended" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Either</option>
+        <option value="yes" {% if filters.recommended == 'yes' %}selected{% endif %}>Recommended</option>
+        <option value="no" {% if filters.recommended == 'no' %}selected{% endif %}>Not recommended</option>
+      </select>
+    </label>
+    <div class="flex items-end gap-3">
+      <button type="submit" class="px-5 py-2 rounded-lg bg-gray-900 text-white font-semibold">Apply</button>
+      <a href="{% url 'pipeline:antibody_board' %}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+      <span id="row-count" class="ml-auto text-sm text-gray-500"></span>
+    </div>
+  </form>
+
+  {# ── Save errors ── #}
+  <div id="board-error"
+       class="hidden mt-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div id="delete-panel"></div>
+  {% comment %}Why there is no Delete on these rows until a gene is picked. A
+  control that is simply absent is a feature a reader concludes does not exist,
+  so the gate names itself — same rule as a save button disabled with a reason
+  rather than hidden. Written by OGABoard.geneGate on every draw, because the
+  Gene box can be cleared without pressing Apply.{% endcomment %}
+  <p id="delete-gate" class="hidden mt-3 text-sm text-gray-500"></p>
+
+  {% include "pipeline/_gene_next_step.html" %}
+
+  {# ── Grid ── #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mt-3">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0 z-10">
+          {% comment %}Hover text comes from services/antibody_board.py::COLUMN_TIPS,
+          the one registry a future workbook export will read too.{% endcomment %}
+          {% comment %}Headings, their order and their hover text all come from
+          services/board_columns.py — the same registry the .xlsx download reads,
+          because the owner's review found the sheet and the board disagreeing
+          about both which fields exist and what order they are in.{% endcomment %}
+          <tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            {% for c in columns %}
+            {% comment %}A unit is drawn `normal-case` because this row is styled
+            `uppercase`, and CSS uppercases µ (U+00B5) to Μ (U+039C GREEK
+            CAPITAL MU) — the same glyph as a Latin M. "Conc. (µg/mL)" rendered
+            as CONC. (MG/ML) over microgram values: a thousandfold misreading
+            produced by a stylesheet. See services/board_columns.py.
+            {% endcomment %}
+            <th class="px-3 py-2{% if forloop.first %} sticky left-0 bg-gray-50 z-20{% endif %}"><span class="help" title="{{ c.tip }}">{{ c.th }}{% if c.unit %} <span class="normal-case">({{ c.unit }})</span>{% endif %}</span></th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody id="grid" class="divide-y divide-gray-100">
+          <tr><td colspan="{{ columns|length }}" class="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% comment %}The pager sits inside the card, under the grid, and is hidden
+    entirely when everything fits — so the small boards look exactly as they
+    did. `board.js` fills it; the page number is board state and never a filter
+    field, or it would ride along into every download href.{% endcomment %}
+    <div id="row-pager"
+         class="hidden flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-gray-200 bg-gray-50"></div>
+  </div>
+  <p class="text-xs text-gray-400 mt-2">
+    Catalogue number, supplier and gene aren't editable in the grid — together
+    with lot and site they are the antibody's identity key, and retyping one part
+    quietly makes the row a different antibody. <b>Click the catalogue number</b>
+    to change them: it says what is already recorded against the row before you
+    type, and refuses a change that would collide with a vial already on file.
+  </p>
+</div>
+
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  const csrf = "{{ csrf_token }}";
+  const grid = document.getElementById('grid');
+  const filtersForm = document.getElementById('filters');
+  const rowsUrl = "{% url 'pipeline:antibody_board_rows' %}";
+  const patchUrl = "{% url 'pipeline:antibody_board_patch' %}";
+
+  const {esc, pill, banner} = OGABoard;
+  const cell = (r, field, value, opts) => OGABoard.cell(r.id, field, value, null, opts);
+  const APPS = ['wb', 'ip', 'if', 'fc'];
+  /* What the supplier claims, which is a wider question than what OGA tested —
+   * mirrors services/antibody_board.py::SUPPLIER_APPLICATIONS. */
+  const SUPPLIER_APPS = APPS.concat(['ihc', 'elisa']);
+
+  /* A tick is a toggle button carrying the value it would save next.
+   *
+   * Eight of them sit in one row here. Every one used to be called "Click to
+   * change" and nothing else, so neither a screen reader nor a hovering pointer
+   * could tell which of the eight was about to be written. */
+  /* `offLabel` is the word an unticked control shows. The application ticks
+     leave it out on purpose — a grey `WB` beside four others reads as "not for
+     WB", because the row of them is the legend. A tick standing on its own has
+     no such row, and the same word in grey then reads as the value rather than
+     as its absence, so it says the opposite word instead. */
+  function tick(r, field, on, label, what, offLabel) {
+    const name = what || label;
+    const off = offLabel || label;
+    return `<button class="toggle mr-1" data-target="${r.id}" data-field="${field}"
+              data-value="${on ? '' : 'yes'}"
+              aria-pressed="${on ? 'true' : 'false'}"
+              aria-label="${esc(name)}: ${on ? 'yes' : 'no'}. Click to change."
+              title="${esc(name)} — ${on ? 'yes' : 'no'}. Click to change.">
+      ${on ? pill(label, 'good') : `<span class="text-gray-300 text-xs">${esc(off)}</span>`}
+    </button>`;
+  }
+
+  function rowHtml(r) {
+    return `<tr data-row="${r.id}" class="hover:bg-gray-50 align-top">
+      <td class="px-3 py-2 sticky left-0 bg-white font-semibold text-gray-900">
+        ${/* The lab's own A-number, above the catalogue and inside the same
+              sticky cell — it is a reference rather than a value, and what a
+              reader needs pinned while scrolling sideways is the catalogue
+              number, so the two travel together. Issued automatically at the
+              moment the record is created and editable here for the case the
+              box already says something else. Blank reads as "not numbered"
+              rather than as an invitation: the rows with no number are
+              Leicester's, that bench never used the convention, and its old
+              records are meant to stay blank. */''}
+        <div class="text-xs font-normal text-gray-500 mb-0.5">${cell(r, 'ab_number', r.ab_number,
+            {label: 'A-number — the lab\'s own reference for this vial',
+             empty: 'not numbered'})}</div>
+        ${/* The catalogue number IS the identity, so clicking it is how you
+              change it — deliberately, in a dialog that first says what would
+              follow the row. It used to link to the antibody page, which existed
+              for this one job. */''}
+        <button type="button" class="identity text-left hover:text-ycharos-700 underline decoration-dotted"
+                data-id="${r.id}" title="Catalogue, supplier and gene — what this antibody is. Click to change them.">
+          ${esc(r.catalogue) || '—'}</button>
+        ${/* Quiet by design: a control that catches the eye is one
+              somebody presses to find out what it does — and it is only
+              here at all once the board is narrowed to a single gene
+              (OGABoard.oneGene), so it never sits beside a record you
+              were not thinking about. */''}
+        ${OGABoard.oneGene(filtersForm) ? `
+        <button type="button" class="delete-row block mt-1 text-xs text-gray-300 hover:text-red-700"
+                data-id="${r.id}" title="Delete this antibody">Delete</button>` : ''}
+        ${r.out_of_market ? `<span class="block mt-1">${pill('out of market', 'warn')}</span>` : ''}
+      </td>
+      <td class="px-3 py-2 text-gray-600">${esc(r.company)}</td>
+      ${/* The gene name goes to the gene's page — everything recorded for it in
+            one place, which is where somebody reading a row of antibodies next
+            wants to be. It is what the targets board's first column already
+            does; nothing else was attached to clicking this cell, so it was a
+            piece of text you could not act on. A row with no gene stays text. */''}
+      <td class="px-3 py-2 font-medium text-gray-800">${r.gene && r.target_id
+          ? `<a href="/pipeline/target/${r.target_id}/" class="hover:text-ycharos-700 hover:underline"
+                title="Everything recorded for ${esc(r.gene)}">${esc(r.gene)}</a>`
+          : esc(r.gene)}</td>
+      <td class="px-3 py-2 text-xs">${r.rrid
+          ? `<a href="${esc(r.rrid_link)}" target="_blank" rel="noopener" class="text-ycharos-700 hover:underline">${esc(r.rrid)}</a>`
+          : '<span class="text-gray-300">—</span>'}</td>
+      <td class="px-3 py-2">${cell(r, 'lot_number', r.lot_number,
+          {label: 'lot number', empty: 'add lot'})}</td>
+      ${/* The concentration column. It was editable, exported and printed in the
+             report's Table 2 — and drawn nowhere, while the refusal message for
+             an unconvertible unit said "Add it on the board in µg/mL". The
+             board it named had no such column. */''}
+      <td class="px-3 py-2">${cell(r, 'concentration',
+          r.concentration === null ? '' : String(r.concentration),
+          {label: 'concentration in µg/mL', empty: 'add — e.g. 1000'})}</td>
+      ${/* Three controls, because the record holds three things. `clonality`
+             and `is_recombinant` are two columns answering one question and the
+             tick was editable here and drawn nowhere — so 178 Leicester vials
+             whose only record of being recombinant is that boolean showed on
+             this board as plain monoclonals, with no control that could say
+             otherwise. What the pair *means* is composed by
+             services/clonality.py and printed on the read-only screens; here
+             each half stays its own control, since each half is separately
+             wrong on some row. */''}
+      <td class="px-3 py-2">
+        <div>${cell(r, 'clonality', r.clonality)}</div>
+        <div>${r.clonality === 'recombinant'
+                ? `<span class="text-xs text-gray-500" title="This row records it in the clonality column itself, so there is nothing for the tick to say. Change the clonality to edit it.">Recombinant &mdash; from the clonality</span>`
+                : tick(r, 'is_recombinant', r.is_recombinant, 'Recombinant',
+                       'Recombinant', 'not recombinant')}</div>
+        <div class="text-xs text-gray-400">${cell(r, 'clone_id', r.clone_id, {label: 'clone ID'})}</div>
+      </td>
+      <td class="px-3 py-2">${cell(r, 'host_species', r.host_species, {label: 'host species'})}</td>
+      <td class="px-3 py-2 whitespace-nowrap">${
+        APPS.map(a => tick(r, `${a}_recommended`, r.recommended[a], a.toUpperCase(),
+                           `OGA recommends for ${a.toUpperCase()}`)).join('')}</td>
+      ${/* Six, not the four beside it. This is what the *supplier* claims, and a
+            datasheet routinely claims more than the four applications OGA
+            characterises — typing `WB, IHC` used to store WB and lose IHC in
+            silence, on a column whose whole job is to record the claim. The OGA
+            verdict one cell to the left stays four, deliberately. */''}
+      <td class="px-3 py-2 whitespace-nowrap">${
+        SUPPLIER_APPS.map(a => tick(r, `supplier_validated_${a}`, r.supplier_validated[a],
+                           a.toUpperCase(),
+                           `supplier recommends for ${a.toUpperCase()}`)).join('')}</td>
+      <td class="px-3 py-2 text-gray-600">${cell(r, 'site', r.site, {empty: 'set site'})}</td>
+      <td class="px-3 py-2 text-gray-500 max-w-xs">${cell(r, 'comments', r.comments)}</td>
+    </tr>`;
+  }
+
+  const errors = banner('board-error', 'board-error-text', 'board-error-close');
+
+  const board = OGABoard.create({
+    grid, filtersForm, errors, csrf,
+    countEl: document.getElementById('row-count'),
+    pagerEl: document.getElementById('row-pager'),
+    urls: {rows: rowsUrl, patch: patchUrl},
+    colspan: {{ columns|length }},
+    emptyMessage: 'No antibodies match these filters.',
+    countLabel: n => `${n} antibod${n === 1 ? 'y' : 'ies'}`,
+    rowHtml,
+    // The Delete on each row only exists while the board is one gene's worth of
+    // records, so the line explaining its absence is rewritten on every draw —
+    // the Gene box can be cleared without pressing Apply, and the grid redraws
+    // from the form after an add or a delete.
+    afterLoad: () => OGABoard.geneGate(
+      filtersForm, document.getElementById('delete-gate')),
+  });
+
+  // ── Add antibodies, in a pop-out on this page ─────────────────────────
+  // Wraps the same parse/commit endpoints the old Add antibodies page used, so
+  // the behaviour is identical and there is one write path, not two.
+  const newEntry = OGABoard.newEntry({
+    mount: document.getElementById('new-panel'),
+    csrf,
+    columns: JSON.parse(document.getElementById('new-columns').textContent),
+    example: JSON.parse(document.getElementById('new-example').textContent),
+    templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
+    urls: {
+      preview: "{% url 'pipeline:bulk_antibodies_parse' %}",
+      commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
+    },
+    /* The identity rule was the one thing a person who never opens a guide got
+     * wrong, and it was set in small grey type inside a paragraph. It is a
+     * callout now, and it names the lot, because the lot is the part nobody
+     * guesses: re-entering the same catalogue number with a new lot creates a
+     * second row on purpose, and that looks like an accidental duplicate. */
+    intro: `<b class="text-gray-900">Add antibodies.</b> Type them in the table, or
+            switch to Paste if you already have a list. Leave <b>gene</b> blank on a
+            row to use the default below.
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              An antibody is <b>catalogue + supplier + gene</b>, and the row you get
+              is one <b>vial</b> of it: <b>lot</b> and <b>site</b> say which vial was
+              tested, so all five together decide whether a row already exists.
+              <span class="block mt-1">Re-enter one of these with a <b>different
+              lot</b> and you get a <b>second row</b> — deliberately, because a
+              different lot can behave differently. Re-enter it with the
+              <b>same lot</b> and the existing row is <b>updated</b>; blank cells
+              never overwrite what is already there.</span>
+            </span>`,
+    extraHtml: `<div class="flex flex-wrap items-end gap-4">
+        <label class="block max-w-xs">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Gene for rows that don't name one</span>
+          <input type="text" id="ne-default-gene" placeholder="e.g. SOD1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="ne-create-targets" class="rounded border-gray-300">
+          Add the gene as a new target if it isn't one yet
+        </label>
+      </div>`,
+    extraValues: () => ({
+      default_gene: document.getElementById('ne-default-gene').value.trim(),
+      create_targets: document.getElementById('ne-create-targets').checked,
+    }),
+    // bulk_antibodies_commit defaults to a dry run — a commit that doesn't say
+    // so explicitly just previews again and creates nothing.
+    buildBody: (text, extra, phase) => ({text, ...extra, dry_run: phase !== 'commit'}),
+    renderPreview: d => {
+      const s = d.summary || {};
+      const blocked = (d.items || []).filter(i => i.status === 'no-target');
+      const sites = s.sites || [];
+      return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
+          <ul class="mt-1 text-gray-700 list-disc list-inside">
+            <li>${s.create || 0} new, ${s.update || 0} already known (will be updated)</li>
+            ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
+              sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
+            ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
+            ${(s.new_companies || []).length ? `<li>New supplier(s): ${s.new_companies.map(esc).join(', ')}</li>` : ''}
+            ${s.blocked ? `<li class="text-amber-800">${s.blocked} with no matching gene — tick the box above to add the gene, or these are skipped</li>` : ''}
+            ${s.bad_site ? `<li class="text-amber-800">${s.bad_site} name a site that is not on file — those rows are skipped rather than filed under yours</li>` : ''}
+            ${OGABoard.checkNotes(s)}
+          </ul>
+        </div>
+        ${/* The whole identity key, not just catalogue and gene. Two rows for the
+              same product with different lots are two vials and two outcomes, and
+              a preview that prints them identically cannot be checked. */''}
+        ${/* The supplier shown is the one that will be *saved*, not the one that
+              was typed. They can differ — a vendor is matched against the
+              suppliers already on file — and a paste of
+              "Bio-Techne (Novus Biologicals)" previewed as typed and saved as
+              R&D Systems. When the resolver substitutes, say so here, before
+              anything is written. */''}
+        ${OGABoard.previewRows(d.items, i =>
+            [i.catalogue, OGABoard.supplierLabel(i), i.gene || (i.row || {}).gene,
+             i.lot ? `lot ${i.lot}` : 'no lot', i.site]
+            .filter(Boolean).join(' · '))}
+        ${blocked.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs text-amber-900">
+          <p class="font-semibold">No gene found for:</p>
+          <ul class="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+            ${blocked.slice(0, 30).map(i => `<li>${esc((i.row || {}).catalogue || '(no catalogue)')} — ${esc((i.row || {}).gene || 'no gene given')}</li>`).join('')}
+          </ul></div>` : ''}`;
+    },
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+    onDone: () => board.load(),
+  });
+  document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  // Arriving from a gene's page with "add" in the query means: open the Add
+  // panel, ready to type, with the gene already filled in. The gene filter is
+  // applied too, so you can see what is there before adding to it.
+  (function () {
+    const p = new URLSearchParams(location.search);
+    if (!p.get('add')) return;
+    const gene = p.get('gene') || '';
+    const box = document.getElementById('ne-default-gene');
+    if (box && gene) box.value = gene;
+    newEntry.open();
+  })();
+
+
+  // ── The other half of the round trip ──────────────────────────────────
+  // Download carries the grid's filters, so the link has to be rebuilt from the
+  // filter form rather than being a static href — otherwise you edit a file that
+  // is not the rows you were looking at.
+  const exportUrl = "{% url 'pipeline:antibody_export' %}";
+  const dl = document.getElementById('dl-btn');
+  const syncDownload = () => { dl.href = `${exportUrl}?${OGABoard.formQuery(filtersForm)}`; };
+  syncDownload();
+  /* An unfiltered download is the whole dataset, from a button beside the
+   * one you wanted — the review did exactly that on the sessions board. */
+  dl.addEventListener('click', e => {
+    if (!OGABoard.confirmWholeDownload(filtersForm, board.count, 'antibody')) {
+      e.preventDefault();
+    }
+  });
+  filtersForm.addEventListener('change', syncDownload);
+  filtersForm.addEventListener('submit', syncDownload);
+
+  const upload = OGABoard.uploadPanel({
+    mount: document.getElementById('upload-panel'),
+    csrf,
+    templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
+    urls: {
+      preview: "{% url 'pipeline:import_upload' kind='antibodies' %}",
+      commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
+    },
+    intro: `<b class="text-gray-900">Upload a sheet of antibodies.</b>
+            Download these, edit them in Excel, and put them back. The columns are
+            the ones the template uses, so a file that works in the Add grid works
+            here. You see what will happen to every row before anything is saved.
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              Keep the <b>site</b> column as it came. It says whose vial each row
+              is, so leaving it alone is what makes a row you downloaded update
+              itself rather than be copied to your own bench. A <b>blank</b> site
+              means yours.
+            </span>`,
+    label: i => [i.catalogue, OGABoard.supplierLabel(i),
+                 i.gene || (i.row || {}).gene,
+                 i.lot ? `lot ${i.lot}` : 'no lot', i.site]
+                .filter(Boolean).join(' · '),
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+    onDone: () => board.load(),
+  });
+  document.getElementById('upload-btn').addEventListener('click', upload.open);
+
+
+  // ── Identity, deliberately ────────────────────────────────────────────
+  const identity = OGABoard.identityDialog({
+    mount: document.getElementById('identity-panel'),
+    csrf,
+    urls: {deletePreview: "{% url 'pipeline:delete_preview' %}",
+           deleteCommit: "{% url 'pipeline:delete_commit' %}",
+           load: "{% url 'pipeline:antibody_identity' %}",
+           save: "{% url 'pipeline:antibody_identity_save' %}"},
+    idParam: 'antibody_id',
+    // Deleting lives behind this dialog for the same reason identity does:
+    // it is the surface whose whole point is that changes here are deliberate.
+    deleteKind: 'antibody',
+    onDeleted: OGABoard.rowDeleted(board, errors),
+    query: board.query,
+    fields: [
+      {name: 'catalogue_number', label: 'Catalogue number'},
+      {name: 'company', label: 'Supplier',
+       hint: 'Resolved against the suppliers already on file, so one vendor never ends up under two spellings.'},
+      {name: 'gene', label: 'Gene',
+       hint: 'Must already be a target, or be one UniProt can confirm.'},
+    ],
+    describe: i => {
+      const a = i.attached || {};
+      const bits = [];
+      if (a.results) bits.push(`${a.results} recorded result${a.results === 1 ? '' : 's'}`);
+      if (a.figures) bits.push(`${a.figures} published figure${a.figures === 1 ? '' : 's'}`);
+      if (a.recommended) bits.push('an OGA recommendation');
+      const lotSite = [i.lot_number ? `lot ${i.lot_number}` : 'no lot recorded',
+                       i.site || 'no site'].join(' · ');
+      if (!bits.length) {
+        return `<div class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-gray-700">
+          Nothing is recorded against this row yet (${OGABoard.esc(lotSite)}), so
+          changing it is safe.</div>`;
+      }
+      /* The verb agrees with the list, which is built from counts and so is
+       * singular surprisingly often: "1 recorded result already point at this
+       * row" was on screen in the third field test. */
+      const many = bits.length > 1 || a.results > 1 || a.figures > 1;
+      return `<div class="border border-amber-300 bg-amber-50 rounded-lg p-3 text-amber-900">
+        <b>${OGABoard.esc(bits.join(', '))}</b> already ${many ? 'point' : 'points'}
+        at this row (${OGABoard.esc(lotSite)}). ${many ? 'They' : 'It'} will follow
+        it to whatever you change it to — so change this only if the row was
+        recorded wrongly, not to record a different antibody.</div>`;
+    },
+    onSaved: (id, d) => board.replaceRow(id, d),
+  });
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.identity');
+    if (btn) identity.open(btn.dataset.id);
+  });
+
+  /* Deleting, on every board rather than only the two with an identity
+   * dialog — targets were the one actually asked for and were one of the two
+   * without. `services/deletion.py` decides: another site's record is refused
+   * by name, and work behind your own is a manifest you have to tick past. */
+  const del = OGABoard.deleteDialog({
+    mount: document.getElementById('delete-panel'),
+    csrf, kind: 'antibody',
+    urls: {preview: "{% url 'pipeline:delete_preview' %}",
+           commit: "{% url 'pipeline:delete_commit' %}"},
+    onDeleted: OGABoard.rowDeleted(board, errors),
+  });
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('.delete-row');
+    if (b) del.open(b.dataset.id);
+  });
+
+  board.load();
+})();
+</script>
+{% endblock %}

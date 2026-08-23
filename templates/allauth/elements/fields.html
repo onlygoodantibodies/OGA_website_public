@@ -1,0 +1,8 @@
+{% comment %}
+allauth renders a whole form as `{{ attrs.form.as_p }}`, which is unstyled Django.
+crispy/bootstrap5 is already this project's form renderer — templates/account/login.html
+passes its allauth form through the same filter — so the change-password and
+add-email forms now match the sign-in page they were reached from.
+{% endcomment %}
+{% load crispy_forms_tags %}
+{{ attrs.form|crispy }}

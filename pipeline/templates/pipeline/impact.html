@@ -1,0 +1,382 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Impact — what the site has recorded{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Impact</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">What the site has recorded people doing</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+      Every figure here is something the application wrote down because a person did
+      it — a request served, a certificate issued, a plan recorded. Assembled from
+      four apps that each kept their own count, so a report or a grant can quote one
+      page instead of four admin screens.
+    </p>
+  </div>
+
+  {% comment %}
+  Said first, and deliberately not in small print at the bottom. This page has
+  no visitor numbers in it and never will — those live in Cloudflare — and a
+  reader who takes these totals for traffic will read them as far too small and
+  conclude the site is unused. Naming the gap is the difference between a
+  narrow number and a wrong one.
+  {% endcomment %}
+  <div class="mb-8 rounded border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-gray-700">
+    <p><strong>This is not traffic.</strong> Django records no page views, visitors or
+    referrers — those are in Cloudflare, which is a different account and a different
+    question. What is below is the narrower and harder number: someone finished a
+    lesson, built a plan, pulled the API. Read it as reach and engagement, never as
+    how many people saw the site.</p>
+  </div>
+
+  {% if failed_sections %}
+    {% comment %}
+    A section that threw is drawn as a gap with a name, never omitted: this page
+    reads four apps it does not own, and a section that silently vanished would
+    make the page quietly understate the very thing it exists to total up.
+    {% endcomment %}
+    <div class="mb-8 rounded border-l-4 border-red-400 bg-red-50 px-4 py-3 text-sm text-gray-700" role="alert">
+      <p><strong>{{ failed_sections|length }} section{{ failed_sections|pluralize }} could not be read</strong>
+      — {{ failed_sections|join:", " }}. The numbers below are therefore incomplete.
+      The rest of the page is unaffected; the log has the detail.</p>
+    </div>
+  {% endif %}
+
+  {# ── The dataset itself ── #}
+  {% if dataset %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">The published dataset</h2>
+    <p class="text-sm text-gray-600 mb-3">What there is to have an impact with. Counted
+      the way the public pages count it, so this cannot disagree with the home page.</p>
+    <div class="grid grid-cols-3 gap-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ dataset.genes }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">genes with data</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ dataset.antibodies }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">antibodies published</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ dataset.figures }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">figures</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── API ── #}
+  {% if api %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">The API</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      Requests that were <em>served</em>. A caller refused by the rate limit never
+      reaches the counter, so a runaway client is understated and everybody else is
+      exact.
+    </p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ api.total_requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">requests, all time</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ api.recent_requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ api.keyless_requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">keyless</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ api.keyed_requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">with a key</div>
+      </div>
+    </div>
+    <p class="text-sm text-gray-600 mb-4">
+      <strong>{{ api.organisations_active }}</strong> of
+      <strong>{{ api.organisations }}</strong> active keys have ever called
+      ({{ api.organisations_ever }} issued in total). A key that has never been used is
+      a partnership set up and not taken up — a different fact from a quiet month, and
+      not one to fold into a total.
+      <span class="block mt-1">Keyless callers are counted and deliberately never
+      identified, so the keyless figure is requests, not organisations.</span>
+    </p>
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Most-used endpoints</h3>
+        <table class="w-full text-sm">
+          {% for row in api.by_endpoint %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1 font-mono text-xs">{{ row.endpoint }}</td>
+              <td class="py-1 text-right font-semibold">{{ row.requests }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">No requests recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Busiest organisations</h3>
+        <table class="w-full text-sm">
+          {% for row in api.by_consumer %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1">
+                <a href="{% url 'pipeline:api_consumer' row.consumer_id %}"
+                   class="text-ycharos-600 hover:underline">{{ row.consumer__name }}</a>
+                <span class="text-xs text-gray-500">{{ row.consumer__consumer_type }}</span></td>
+              <td class="py-1 text-right font-semibold">{{ row.requests }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">No keyed requests recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Portal sign-ins ── #}
+  {% if portal %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Portal sign-ins</h2>
+    {% comment %}
+    Drawn apart from the API section above on purpose. The rows are the same
+    rows — a connect is a keyed request to one endpoint — but "a manufacturer
+    opened the portal we built them" and "a script pulled the feed overnight"
+    are different claims, and folding the first into a list of endpoint totals
+    is how it stayed unquotable.
+    {% endcomment %}
+    <p class="text-sm text-gray-600 mb-3">
+      A supplier signs in to <a href="{% url 'portal' %}" class="text-ycharos-600 underline">the portal</a>
+      by pasting their API key, which the page checks by calling one endpoint. So a
+      sign-in is a thing already counted, and this is the same rows as above read as
+      people rather than as traffic.
+    </p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ portal.organisations }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">organisations ever in</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ portal.organisations_recent }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">in the last {{ recent_days }} days</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ portal.days }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">days with a sign-in</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ portal.connects }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">connects, all time</div>
+      </div>
+    </div>
+
+    <table class="w-full text-sm mb-3">
+      <thead>
+        <tr class="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-500">
+          <th class="py-1 font-medium">Organisation</th>
+          <th class="py-1 font-medium text-right">Days in</th>
+          <th class="py-1 font-medium text-right">Connects</th>
+          <th class="py-1 font-medium text-right">First</th>
+          <th class="py-1 font-medium text-right">Last in</th>
+          <th class="py-1 font-medium text-right">Last API call</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in portal.by_consumer %}
+          <tr class="border-b border-gray-100">
+            <td class="py-1">
+              <a href="{% url 'pipeline:api_consumer' row.consumer_id %}"
+                 class="text-ycharos-600 hover:underline">{{ row.consumer__name }}</a>
+              <span class="text-xs text-gray-500">{{ row.consumer__consumer_type }} · {{ row.consumer__tier }}</span></td>
+            <td class="py-1 text-right font-semibold">{{ row.days }}</td>
+            <td class="py-1 text-right">{{ row.connects }}</td>
+            <td class="py-1 text-right text-gray-500">{{ row.first_seen|date:"j M Y" }}</td>
+            <td class="py-1 text-right">{{ row.last_seen|date:"j M Y" }}</td>
+            <td class="py-1 text-right text-gray-500">{{ row.last_call|date:"j M Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="py-1 text-gray-500 italic">
+            No key has been used to sign in to the portal yet.
+            {% if portal.refused %}Every attempt so far carried a key that could not be
+            matched — see below.{% endif %}
+          </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p class="text-sm text-gray-600">
+      <strong>Days in</strong> is the number to quote. The portal reconnects itself
+      whenever the tab is reloaded, so <em>connects</em> counts reloads, and a key
+      shared inside one company counts as one organisation however many people use it.
+      <span class="block mt-1"><strong>Dates, not times.</strong> The counter keeps one
+      row per organisation per day so that its size is set by who holds a key rather
+      than by how hard anyone pulls — which buys the dates and gives up the clock.
+      There is no “signed in at 14:03” here.</span>
+      <span class="block mt-1"><strong>Last API call</strong> is any request, sign-in or
+      not. Far ahead of <em>last in</em> means a script that still syncs for an
+      organisation whose people have stopped opening the portal — which neither number
+      shows on its own.</span>
+      {% if portal.refused %}
+      <span class="block mt-1"><strong>{{ portal.refused }} sign-in attempt{{ portal.refused|pluralize }}</strong>
+      carried no usable key — missing, unknown, or belonging to a key that has been
+      switched off. A refused attempt cannot be attributed, by design: the row is keyed
+      on a caller the request failed to identify. So it is a total and never a name, and
+      it is here because “somebody is trying with a key that no longer works” is a
+      support question that would otherwise be invisible.</span>
+      {% endif %}
+    </p>
+  </section>
+  {% endif %}
+
+  {# ── Academy ── #}
+  {% if academy %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">The Academy</h2>
+    <p class="text-sm text-gray-600 mb-3">Lessons <em>finished</em>, not started — a
+      started lesson is engagement and a finished one is the claim.</p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ academy.certificates }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">certificates issued</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ academy.learners }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">
+          learners who finished something</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ academy.lessons_completed }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">lessons completed</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ academy.ai_messages }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">AI tutor messages</div>
+      </div>
+    </div>
+    <p class="text-sm text-gray-600 mb-3">
+      {{ academy.learners_started }} people have started at least one lesson,
+      {{ academy.certificates_recent }} certificates issued in the last {{ recent_days }} days.
+    </p>
+    <h3 class="text-sm font-bold text-gray-800 mb-2">Most-completed lessons</h3>
+    <table class="w-full text-sm">
+      {% for row in academy.by_lesson %}
+        <tr class="border-b border-gray-100">
+          <td class="py-1">{{ row.lesson__title|default:"(untitled)" }}</td>
+          <td class="py-1 text-right font-semibold">{{ row.finished }}</td>
+        </tr>
+      {% empty %}
+        <tr><td class="py-1 text-gray-500 italic">No lessons completed yet.</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  {# ── Workshop credentials ── #}
+  {% if credentials %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Workshop credentials</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ credentials.issued }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">issued</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ credentials.issued_recent }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ credentials.institutions }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">institutions (approx.)</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ credentials.claims_unverified }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">claims never verified</div>
+      </div>
+    </div>
+    <p class="text-sm text-gray-600 mb-3">
+      Institutions are counted by <strong>email domain</strong>, the only affiliation a
+      credential carries — so two people at one university on different domains count
+      twice, and a shared departmental address counts once. Quote it as approximate.
+    </p>
+    <h3 class="text-sm font-bold text-gray-800 mb-2">By kind</h3>
+    <table class="w-full text-sm">
+      {% for row in credentials.by_kind %}
+        <tr class="border-b border-gray-100">
+          <td class="py-1">{{ row.kind }}</td>
+          <td class="py-1 text-right font-semibold">{{ row.n }}</td>
+        </tr>
+      {% empty %}
+        <tr><td class="py-1 text-gray-500 italic">None issued yet.</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  {# ── Selection tool ── #}
+  {% if selection %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Selection &amp; controls tool</h2>
+    <p class="text-sm text-gray-600 mb-3">
+      A <strong>compliance record</strong> is attributable to a named person at a named
+      institution and can be handed to a funder as evidence; a personal plan is somebody
+      helping themselves. Counted apart, because only the first is reportable.
+    </p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ selection.plans }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">plans built</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ selection.compliance }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">compliance records</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ selection.institutions }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">institutions named</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ selection.plans_recent }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
+      </div>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Applications asked about</h3>
+        <table class="w-full text-sm">
+          {% for row in selection.by_application %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1">{{ row.application }}</td>
+              <td class="py-1 text-right font-semibold">{{ row.n }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">Nothing recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Genes asked about</h3>
+        <table class="w-full text-sm">
+          {% for row in selection.by_gene %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1">{{ row.target_gene }}</td>
+              <td class="py-1 text-right font-semibold">{{ row.n }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">Nothing recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="text-xs text-gray-500 border-t border-gray-200 pt-4">
+    Counted live from the database each time this page is opened. Nothing personal is
+    drawn: the underlying records hold names and email addresses, and this page reads
+    only totals and email domains.
+  </p>
+
+</div>
+{% endblock %}

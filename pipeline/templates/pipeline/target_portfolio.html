@@ -1,0 +1,264 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Portfolio — what we've characterised{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Portfolio</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">What we've characterised</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+      The grant-writing view: how many targets we've completed, broken down by protein
+      class, site and funder. A target counts as <strong>completed</strong> once it has a
+      Zenodo report or a published F1000 paper.
+      <a href="{% url 'pipeline:target_board' %}" class="text-ycharos-700 font-semibold hover:underline">Back to the board</a>
+    </p>
+  </div>
+
+  {# ── Headline numbers ── #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    {% with t=p.totals %}
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-3xl font-bold text-gray-900">{{ t.targets }}</p>
+      <p class="text-sm text-gray-500 mt-1">targets on the list</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-3xl font-bold text-emerald-700">{{ t.completed }}</p>
+      <p class="text-sm text-gray-500 mt-1">completed and disseminated</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-3xl font-bold text-ycharos-700">{{ t.funded }}</p>
+      <p class="text-sm text-gray-500 mt-1">currently funded</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-3xl font-bold text-gray-700">{{ t.unfunded_watchlist }}</p>
+      <p class="text-sm text-gray-500 mt-1">on the watch list, unfunded</p>
+      {% if t.no_nomination %}
+      <p class="text-xs text-gray-400 mt-2">
+        {{ t.no_nomination }} target{{ t.no_nomination|pluralize }}
+        ha{{ t.no_nomination|pluralize:"s,ve" }} no nomination
+        recorded yet — funding is unknown for those, not absent.
+      </p>
+      {% endif %}
+    </div>
+    {% endwith %}
+  </div>
+
+  {# ── Duplicates across sites ── #}
+  {% if p.duplicates %}
+  <div class="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-8">
+    <h2 class="font-bold text-amber-900">
+      {{ p.duplicates|length }} target{{ p.duplicates|length|pluralize }} on more than one site's list
+    </h2>
+    <p class="text-sm text-amber-900/80 mt-1">Worth a conversation before either site spends money.</p>
+    <ul class="mt-2 text-sm text-amber-900 space-y-1">
+      {% for d in p.duplicates %}
+      <li><a href="{% url 'pipeline:target_detail' d.target_id %}" class="font-bold hover:underline">{{ d.gene }}</a>
+        — {{ d.sites|join:" and " }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {# ── By protein class ── #}
+  <h2 class="text-lg font-bold text-gray-900 mb-2">By protein class</h2>
+  <p class="text-sm text-gray-500 mb-3">
+    Derived from UniProt keywords and GO terms, plus any tags added by hand. A target
+    usually belongs to several classes, so these don't sum to the total.
+    {% if p.by_family %}Gene families are listed separately below.{% endif %}
+  </p>
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-8">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+        <tr><th class="px-4 py-2">Class</th><th class="px-4 py-2">On the list</th>
+            <th class="px-4 py-2">Completed</th><th class="px-4 py-2 w-1/3"></th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for label, c in p.by_class.items %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 font-semibold text-gray-900">
+            <a href="{% url 'pipeline:target_board' %}?protein_class={{ label|urlencode }}"
+               class="hover:text-ycharos-700">{{ label }}</a></td>
+          <td class="px-4 py-2 text-gray-700">{{ c.total }}</td>
+          <td class="px-4 py-2 text-emerald-700 font-semibold">{{ c.completed }}</td>
+          <td class="px-4 py-2">
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500" style="width: {% widthratio c.completed c.total 100 %}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">
+          No classes derived yet — run <code>manage.py backfill_protein_classes</code>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% comment %}
+  Gene families, folded away. They used to be in the table above: 296 of them
+  against 22 real classes, sorted by size, so the rows a grant would quote were
+  buried — and 241 of the families hold a single gene, which says nothing at all.
+
+  They are kept because they earn their keep elsewhere: this is what Add Targets
+  reads to say "McGill has 60 RAB targets (14 published), they may be the right
+  site to run this one". What they are not is a protein class, so the summary
+  line says out loud that a family is the letters at the front of the symbol —
+  otherwise "RAB family" beside "GPCR" reads as two findings of the same kind.
+  {% endcomment %}
+  {% if p.by_family %}
+  <details class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-8">
+    <summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 hover:bg-gray-50">
+      Gene families ({{ p.by_family|length }})
+      <span class="font-normal text-gray-500">— grouped by the gene symbol's
+        prefix (RAB11A, RAB5C and RAB7A are all “RAB family”), not by biology.
+        Useful for spotting which site has done most of a family.</span>
+    </summary>
+    <table class="min-w-full text-sm border-t border-gray-200">
+      <thead class="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+        <tr><th class="px-4 py-2">Family</th><th class="px-4 py-2">On the list</th>
+            <th class="px-4 py-2">Completed</th><th class="px-4 py-2 w-1/3"></th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for label, c in p.by_family.items %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 font-semibold text-gray-900">
+            <a href="{% url 'pipeline:target_board' %}?protein_class={{ label|urlencode }}"
+               class="hover:text-ycharos-700">{{ label }}</a></td>
+          <td class="px-4 py-2 text-gray-700">{{ c.total }}</td>
+          <td class="px-4 py-2 text-emerald-700 font-semibold">{{ c.completed }}</td>
+          <td class="px-4 py-2">
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500" style="width: {% widthratio c.completed c.total 100 %}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+
+  {# ── By site and funder ── #}
+  <div class="grid md:grid-cols-2 gap-6">
+    <div>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">By site</h2>
+      {% comment %}
+      Why this column does not add up to the header, said on the page. It read
+      373 under a headline of 583 with nothing to explain the gap, which on the
+      page a grant is written from reads as records having been lost. Both
+      directions are named because they pull opposite ways — a target nobody has
+      nominated anywhere is missing, and one two sites are pursuing is counted
+      twice — so naming only the shortfall would leave the arithmetic looking
+      broken in the other direction.
+      {% endcomment %}
+      {% with c=p.coverage %}
+      <p class="text-sm text-gray-500 mb-3">
+        One row per site per target — so this counts
+        {{ c.site_rows }} against {{ p.totals.targets }} targets on the list.
+        {% comment %}These totals were wrong rather than incomplete, which is
+        worse and reads the same. The caveat used to say "210 have no nomination
+        naming a site", true and read as *210 genes nobody has assigned* — while
+        192 of them carried a site from the Access import that Overview had been
+        showing all along. `services/targets.py::sites_of` counts those here now,
+        marked, because a nomination and a 2019 spreadsheet column are not the
+        same evidence and the number below gets typed into a grant.
+
+        A number in a caveat with nothing to click is still half a message, so
+        what genuinely has no site anywhere links to exactly those rows on the
+        board. `?site=none` is `services/sites.py::NONE`, and it means no
+        nomination *and* nothing from the import.{% endcomment %}
+        {% if c.site_from_import %}{{ c.site_from_import }} of those
+        {{ c.site_from_import|pluralize:"comes,come" }} from the original import rather
+        than from a nomination somebody made — marked below.{% endif %}
+        {% comment %}`pluralize` alone gives the plural an "s", which is right for
+        a noun and backwards for a verb: it read "192 … so appears nowhere" and
+        "1 … so appear nowhere". Next to a number is where a grammar slip costs
+        most, because it is the number a reader then stops trusting.{% endcomment %}
+        {% if c.site_missing %}<a href="{% url 'pipeline:target_board' %}?site=none"
+          class="font-semibold text-ycharos-700 hover:underline">{{ c.site_missing }}</a>
+        ha{{ c.site_missing|pluralize:"s,ve" }}
+        no site recorded anywhere and so appear{{ c.site_missing|pluralize:"s," }} nowhere below.{% endif %}
+        {% if c.site_shared %}{{ c.site_shared }} target{{ c.site_shared|pluralize }}
+        {{ c.site_shared|pluralize:"is,are" }} counted under more than one site.{% endif %}
+        {% if c.site_funded_missing or c.site_completed_missing %}
+        That is also why
+        {% if c.site_funded_missing %}<strong>funded</strong> here totals
+        {{ c.site_funded_missing }} short of the {{ p.totals.funded }} above —
+        {{ c.site_funded_missing|pluralize:"a funded target has,funded targets have" }}
+        no site to be counted under{% endif %}
+        {% if c.site_funded_missing and c.site_completed_missing %} and {% endif %}
+        {% if c.site_completed_missing %}<strong>completed</strong> totals
+        {{ c.site_completed_missing }} short of the {{ p.totals.completed }} above{% endif %}.
+        {% endif %}
+      </p>
+      {% endwith %}
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            <tr><th class="px-4 py-2">Site</th><th class="px-4 py-2">Targets</th>
+                <th class="px-4 py-2">Funded</th><th class="px-4 py-2">Completed</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for name, c in p.by_site.items %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 font-semibold text-gray-900">{{ name }}</td>
+              <td class="px-4 py-2 text-gray-700">{{ c.total }}
+                {% comment %}How much of this cell rests on the import's site
+                column. A funding total nobody can decompose is one nobody can
+                defend, and these rows carry no funder or project — which is why
+                FUNDED beside them is deliberately not raised to match.
+                {% endcomment %}
+                {% if c.from_import %}<span class="block text-xs text-gray-400">{{ c.from_import }} from import</span>{% endif %}
+              </td>
+              <td class="px-4 py-2 text-gray-700">{{ c.funded }}</td>
+              <td class="px-4 py-2 text-emerald-700 font-semibold">{{ c.completed }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No sites assigned yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">By funder</h2>
+      {% with c=p.coverage %}
+      <p class="text-sm text-gray-500 mb-3">
+        One row per funder per target — {{ c.agency_rows }} against
+        {{ p.totals.targets }} targets on the list.
+        {% if c.agency_missing %}{{ c.agency_missing }} ha{{ c.agency_missing|pluralize:"s,ve" }}
+        no nomination naming a funder; unfunded and unrecorded look the same here,
+        so read the watch-list figure above for that.{% endif %}
+        {% if c.agency_shared %}{{ c.agency_shared }} target{{ c.agency_shared|pluralize }}
+        {{ c.agency_shared|pluralize:"is,are" }} counted under more than one funder.{% endif %}
+        {% if c.agency_completed_missing %}<strong>Completed</strong> totals
+        {{ c.agency_completed_missing }} short of the {{ p.totals.completed }} above
+        for the same reason.{% endif %}
+      </p>
+      {% endwith %}
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            <tr><th class="px-4 py-2">Funder</th><th class="px-4 py-2">Targets</th>
+                <th class="px-4 py-2">Completed</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for name, c in p.by_agency.items %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 font-semibold text-gray-900">{{ name }}</td>
+              <td class="px-4 py-2 text-gray-700">{{ c.total }}</td>
+              <td class="px-4 py-2 text-emerald-700 font-semibold">{{ c.completed }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="px-4 py-6 text-center text-gray-400">No funders recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

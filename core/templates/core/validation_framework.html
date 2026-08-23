@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Framework for Planning Antibody Validation — Only Good Antibodies</title>
+    <meta name="description" content="Practical guidance for planning proportionate antibody validation. Built on consensus principles for researchers, supervisors, reviewers, and funders.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   VALIDATION FRAMEWORK PAGE
+   Prefix: fw-
+   ══════════════════════════════════════ */
+
+/* ── Hero ── */
+.fw-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 72px 24px 56px; text-align: center; position: relative; overflow: hidden;
+}
+.fw-hero::before {
+  content: ''; position: absolute; top: -40%; right: -15%; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%); border-radius: 50%;
+}
+.fw-hero-inner { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+.fw-hero-label {
+  display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
+}
+.fw-hero h1 {
+  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
+  line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
+}
+.fw-hero p {
+  font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.85); max-width: 680px; margin: 0 auto;
+}
+.fw-hero-actions { margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.fw-hero-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; border-radius: 50px;
+  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  text-decoration: none; transition: all 0.2s;
+}
+.fw-hero-btn.primary { background: #fff; color: #10428a; }
+.fw-hero-btn.primary:hover { background: #e8f0fb; transform: translateY(-1px); }
+.fw-hero-btn.outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+.fw-hero-btn.outline:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Main container ── */
+.fw-main { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ── Tools bar ── */
+.fw-tools-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  background: #f5f8ff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 14px 22px; margin-bottom: 36px; font-size: 0.88rem;
+}
+.fw-tools-bar strong { color: #10428a; }
+.fw-tools-bar a { color: #4a8ec9; text-decoration: none; font-weight: 600; }
+.fw-tools-bar a:hover { color: #10428a; text-decoration: underline; }
+.fw-tools-sep { color: #d0ddf0; }
+
+/* ── Intro block ── */
+.fw-intro { margin-bottom: 40px; }
+.fw-intro p { font-size: 0.95rem; color: #333; line-height: 1.75; margin-bottom: 16px; }
+.fw-intro p:last-child { margin-bottom: 0; }
+
+/* ── Key stats strip ── */
+.fw-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  margin: 32px 0 40px;
+}
+.fw-stat {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+  text-align: center; transition: transform 0.2s, box-shadow 0.2s;
+}
+.fw-stat:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(16,66,138,0.08); }
+.fw-stat-number {
+  font-family: 'Open Sans', sans-serif; font-size: 1.8rem; font-weight: 800;
+  color: #10428a; line-height: 1; margin-bottom: 6px;
+}
+.fw-stat-label { font-size: 0.78rem; color: #666; line-height: 1.4; }
+
+/* ── Image figure ── */
+.fw-figure {
+  margin: 28px 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  overflow: hidden; transition: box-shadow 0.2s;
+}
+.fw-figure:hover { box-shadow: 0 4px 16px rgba(16,66,138,0.08); }
+.fw-figure img { width: 100%; height: auto; display: block; }
+.fw-figure figcaption {
+  padding: 12px 18px; font-size: 0.82rem; color: #666; line-height: 1.5;
+  border-top: 1px solid #f0f3f8; background: #fafcff;
+}
+.fw-figure figcaption a { color: #4a8ec9; text-decoration: none; font-weight: 600; }
+.fw-figure figcaption a:hover { text-decoration: underline; }
+
+/* ── Accordions ── */
+.fw-accordion { margin-bottom: 16px; }
+.fw-accordion-trigger {
+  width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 22px 52px 22px 24px; position: relative;
+  font-family: 'Open Sans', sans-serif; transition: all 0.2s;
+}
+.fw-accordion-trigger:hover { border-color: #b8cce8; box-shadow: 0 2px 8px rgba(16,66,138,0.06); }
+.fw-accordion.open .fw-accordion-trigger {
+  border-radius: 12px 12px 0 0; border-color: #b8cce8;
+  border-bottom: 1px solid #e8edf5;
+}
+.fw-accordion-num {
+  display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center;
+  background: #f0f4f9; color: #10428a; border-radius: 8px; font-size: 0.82rem;
+  font-weight: 800; margin-right: 14px; flex-shrink: 0;
+}
+.fw-accordion.open .fw-accordion-num { background: #10428a; color: #fff; }
+.fw-accordion-title {
+  font-size: 1.05rem; font-weight: 700; color: #10428a; line-height: 1.3;
+  margin-bottom: 4px;
+}
+.fw-accordion-summary {
+  font-size: 0.86rem; color: #777; line-height: 1.5; margin-left: 42px;
+}
+.fw-accordion-arrow {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  font-size: 1.1rem; color: #4a8ec9; transition: transform 0.3s;
+}
+.fw-accordion.open .fw-accordion-arrow { transform: translateY(-50%) rotate(180deg); }
+
+.fw-accordion-body {
+  max-height: 0; overflow: hidden; transition: max-height 0.4s ease;
+  background: #fff; border: 1px solid #b8cce8; border-top: none;
+  border-radius: 0 0 12px 12px;
+}
+.fw-accordion.open .fw-accordion-body { max-height: 5000px; }
+.fw-accordion-content { padding: 28px 24px 32px; }
+.fw-accordion-content p {
+  font-size: 0.9rem; color: #444; line-height: 1.72; margin-bottom: 16px;
+}
+.fw-accordion-content p:last-child { margin-bottom: 0; }
+.fw-accordion-content h3 {
+  font-family: 'Open Sans', sans-serif; font-size: 0.98rem; font-weight: 700;
+  color: #10428a; margin: 28px 0 10px; line-height: 1.3;
+}
+.fw-accordion-content h3:first-child { margin-top: 0; }
+.fw-accordion-content a { color: #4a8ec9; text-decoration: none; font-weight: 600; }
+.fw-accordion-content a:hover { text-decoration: underline; color: #10428a; }
+.fw-accordion-content strong { color: #1a1a2e; }
+
+/* ── Callout boxes inside accordions ── */
+.fw-callout {
+  border-radius: 10px; padding: 18px 20px; margin: 20px 0; font-size: 0.88rem; line-height: 1.65;
+}
+.fw-callout p { margin-bottom: 8px; font-size: 0.88rem; }
+.fw-callout p:last-child { margin-bottom: 0; }
+.fw-callout-blue { background: #f0f4f9; border-left: 4px solid #10428a; }
+.fw-callout-amber { background: #fffbeb; border-left: 4px solid #f59e0b; color: #92400e; }
+.fw-callout-green { background: #f0fdf4; border-left: 4px solid #22c55e; color: #166534; }
+.fw-callout-blue strong { color: #0d2b5e; }
+
+/* ── Resource list ── */
+.fw-resource-list { list-style: none; padding: 0; margin: 16px 0; }
+.fw-resource-list li {
+  padding: 14px 18px; background: #fafcff; border: 1px solid #e8edf5;
+  border-radius: 8px; margin-bottom: 8px; font-size: 0.88rem; line-height: 1.6; color: #444;
+}
+.fw-resource-list li strong { display: block; color: #10428a; margin-bottom: 2px; }
+.fw-resource-list li a { color: #4a8ec9; text-decoration: none; font-weight: 600; }
+.fw-resource-list li a:hover { text-decoration: underline; }
+
+/* ── Control options grid ── */
+.fw-controls-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0;
+}
+.fw-control-card {
+  background: #fafcff; border: 1px solid #e8edf5; border-radius: 10px;
+  padding: 16px 18px; font-size: 0.86rem; line-height: 1.6; color: #444;
+}
+.fw-control-card strong { display: block; color: #10428a; margin-bottom: 4px; font-size: 0.88rem; }
+.fw-control-card.highlight { border-color: #22c55e; background: #f0fdf4; }
+.fw-control-card.highlight strong { color: #166534; }
+
+/* ── Three-column category cards ── */
+.fw-category-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
+.fw-cat-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 20px 18px; text-align: center; transition: transform 0.2s, box-shadow 0.2s;
+}
+.fw-cat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(16,66,138,0.08); }
+.fw-cat-icon {
+  width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; margin: 0 auto 12px; font-size: 1.4rem;
+}
+.fw-cat-card h4 {
+  font-family: 'Open Sans', sans-serif; font-size: 0.88rem; font-weight: 700;
+  color: #10428a; margin-bottom: 8px; line-height: 1.3;
+}
+.fw-cat-card p { font-size: 0.82rem; color: #666; line-height: 1.5; margin: 0; }
+
+/* category colours */
+.fw-cat-target .fw-cat-icon { background: #fee2e2; }
+.fw-cat-marker .fw-cat-icon { background: #fef3c7; }
+.fw-cat-technical .fw-cat-icon { background: #dcfce7; }
+
+/* ── Checklist ── */
+.fw-checklist { list-style: none; padding: 0; margin: 16px 0; counter-reset: check; }
+.fw-checklist li {
+  position: relative; padding: 10px 0 10px 36px; font-size: 0.88rem; color: #444;
+  line-height: 1.6; border-bottom: 1px solid #f0f3f8; counter-increment: check;
+}
+.fw-checklist li:last-child { border-bottom: none; }
+.fw-checklist li::before {
+  content: counter(check); position: absolute; left: 0; top: 10px;
+  width: 22px; height: 22px; line-height: 22px; text-align: center;
+  background: #f0f4f9; color: #10428a; border-radius: 6px;
+  font-size: 0.75rem; font-weight: 800;
+}
+
+/* ── Bottom CTA ── */
+.fw-cta {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 60%);
+  border-radius: 16px; padding: 48px 32px; text-align: center; margin-top: 48px; color: #fff;
+}
+.fw-cta h2 {
+  font-family: 'Open Sans', sans-serif; font-size: 1.5rem; font-weight: 800;
+  color: #fff; margin-bottom: 12px;
+}
+.fw-cta p { font-size: 0.95rem; color: rgba(255,255,255,0.8); line-height: 1.7; max-width: 560px; margin: 0 auto 28px; }
+.fw-cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.fw-cta-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; border-radius: 50px;
+  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  text-decoration: none; transition: all 0.2s;
+}
+.fw-cta-btn.primary { background: #fff; color: #10428a; }
+.fw-cta-btn.primary:hover { background: #e8f0fb; }
+.fw-cta-btn.secondary { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.fw-cta-btn.secondary:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Print ── */
+@media print {
+  .header, .footer, .fw-hero, .fw-tools-bar, .fw-hero-actions,
+  .fw-cta, .fw-no-print { display: none !important; }
+  .fw-print-header { display: block !important; }
+  .fw-accordion-body { max-height: none !important; overflow: visible !important; }
+  .fw-accordion-trigger { border-radius: 0 !important; border: none !important; padding: 12px 0 !important; }
+  .fw-accordion-arrow { display: none !important; }
+  .fw-main { padding: 0 !important; max-width: 100% !important; }
+}
+.fw-print-header { display: none; text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #10428a; }
+.fw-print-header h1 { font-family: 'Open Sans', sans-serif; font-size: 1.3rem; font-weight: 800; color: #10428a; margin: 0 0 4px; }
+.fw-print-header p { font-size: 0.85rem; color: #888; margin: 0; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .fw-stats { grid-template-columns: 1fr; }
+  .fw-category-cards { grid-template-columns: 1fr; }
+  .fw-controls-grid { grid-template-columns: 1fr; }
+  .fw-hero { padding: 56px 20px 40px; }
+  .fw-accordion-trigger { padding: 18px 44px 18px 18px; }
+  .fw-accordion-content { padding: 20px 18px 24px; }
+}
+@media (max-width: 540px) {
+  .fw-hero h1 { font-size: 1.6rem; }
+  .fw-hero-actions { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+<!-- ── Print header ── -->
+<div class="fw-print-header">
+  <h1>A Framework for Planning Antibody Validation</h1>
+  <p>Only Good Antibodies · onlygoodantibodies.co.uk</p>
+</div>
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<section class="fw-hero">
+  <div class="fw-hero-inner">
+    <span class="fw-hero-label">Framework &amp; Guidance</span>
+    <h1>Planning Antibody Validation</h1>
+    <p>A practical framework for deciding how much validation you need, selecting appropriate controls, and documenting your reasoning — built on consensus principles from 32 international experts.</p>
+    <div class="fw-hero-actions fw-no-print">
+      <a href="{% url 'validation_planner' %}" class="fw-hero-btn primary">Open the Validation Planner →</a>
+      <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.pdf' %}" class="fw-hero-btn outline">Download PDF</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ MAIN ══════════════════════ -->
+<div class="fw-main">
+
+<!-- ── Tools bar ── -->
+<div class="fw-tools-bar fw-no-print">
+  <strong>Tools:</strong>
+  <a href="{% url 'validation_planner' %}">Validation Planner</a>
+  <span class="fw-tools-sep">|</span>
+  <a href="{% url 'validation_record' %}">Validation Record</a>
+  <span class="fw-tools-sep">|</span>
+  <strong>Downloads:</strong>
+  <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.pdf' %}">Framework (PDF)</a>
+  <span class="fw-tools-sep">|</span>
+  <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.docx' %}">Framework (Word)</a>
+</div>
+
+<!-- ── Intro ── -->
+<div class="fw-intro">
+  <p>Antibodies are among the most widely used tools in biomedical research, but they do not always bind exclusively to their intended targets. Using an antibody that doesn't work as assumed can misdirect entire research programmes, waste funding, and consume irreplaceable biological samples.</p>
+  <p>This framework helps you plan proportionate validation — so that the most rigorous scrutiny is directed at the antibodies where the risk is highest. It applies whether you are <strong>planning experiments</strong>, <strong>supervising trainees</strong>, <strong>reviewing manuscripts</strong>, or <strong>evaluating grant applications</strong>.</p>
+</div>
+
+<!-- ── Key stats ── -->
+<div class="fw-stats">
+  <div class="fw-stat">
+    <div class="fw-stat-number">&gt;50%</div>
+    <div class="fw-stat-label">of commercial antibodies fail rigorous independent testing</div>
+  </div>
+  <div class="fw-stat">
+    <div class="fw-stat-number">67%</div>
+    <div class="fw-stat-label">pass rate for recombinant antibodies in Western blot — the highest of any class</div>
+  </div>
+  <div class="fw-stat">
+    <div class="fw-stat-number">3</div>
+    <div class="fw-stat-label">core principles: question-driven, context-matched, assay-specific</div>
+  </div>
+</div>
+
+<!-- ── Performance data figure ── -->
+<figure class="fw-figure">
+  <img src="{% static 'core/fw_performance_data.png' %}" alt="Charts showing recombinant antibodies outperform other types, and genetic validation is the most predictive of real-world performance">
+  <figcaption>
+    Large-scale <a href="https://ycharos.com" target="_blank" rel="noopener">YCharOS</a> data shows recombinant antibodies consistently have the highest pass rates, and genetic controls (knockout/knockdown) are far more predictive of real-world performance than orthogonal vendor data alone.
+  </figcaption>
+</figure>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 1 — Scientific question
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s1">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s1')">
+    <span class="fw-accordion-num">1</span>
+    <span class="fw-accordion-title">What does your scientific question require from the antibody?</span>
+    <div class="fw-accordion-summary">Not all experiments need the same level of validation. The critical factor is what your question demands in terms of specificity.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <p>The level of validation evidence you need depends on how central the antibody's specificity is to your scientific conclusion. We distinguish three situations:</p>
+
+      <div class="fw-category-cards">
+        <div class="fw-cat-card fw-cat-target">
+          <div class="fw-cat-icon">🎯</div>
+          <h4>Target-specific question</h4>
+          <p>Your question is about a particular protein — its role, expression, or location. If the antibody detects something else, your conclusion is wrong.</p>
+        </div>
+        <div class="fw-cat-card fw-cat-marker">
+          <div class="fw-cat-icon">🏷️</div>
+          <h4>Community-adopted marker</h4>
+          <p>The antibody identifies a cell population or phenotype — it defines context, not the subject of your experiment.</p>
+        </div>
+        <div class="fw-cat-card fw-cat-technical">
+          <div class="fw-cat-icon">⚙️</div>
+          <h4>Technical function</h4>
+          <p>The antibody serves a process role (e.g. loading control) where specificity for the stated target isn't what matters.</p>
+        </div>
+      </div>
+
+      <h3>Target-specific questions → strongest evidence required</h3>
+      <p>When your research question is about whether a particular protein plays a role in a process or disease, you need high confidence that your antibody data relates directly to that protein. Aim for the strongest validation evidence available — ideally <strong>genetic controls</strong> (knockout or knockdown) in the application and sample type you are using.</p>
+
+      <h3>Community-adopted markers → adopt critically</h3>
+      <p>If community-adopted tools exist for your purpose — for example, <a href="https://www.hcdm.org" target="_blank" rel="noopener">HCDM workshop-verified clones</a> for CD markers, or <a href="https://www.tissue-atlas.org" target="_blank" rel="noopener">OMAP-validated panels</a> for spatial biology — it may be sufficient to adopt these tools, provided you confirm you are using the <strong>same clone</strong> as characterised by the consortium.</p>
+
+      <div class="fw-callout fw-callout-amber">
+        <p><strong>Groupthink risk.</strong> For well-established populations with decades of cross-validation, the risk is lower. For less well-studied or rare cell populations, the evidence base behind the markers may be thinner than assumed. Where phenotypic analysis is critical to your hypothesis, consider applying the same standard as for target-specific questions.</p>
+      </div>
+
+      <h3>Technical function → consider alternatives</h3>
+      <p>For loading controls, total protein staining methods (Ponceau S, Stain-Free gels) are increasingly recognised as more reliable than antibody-based housekeeping controls, which can vary with experimental conditions. If you are using an antibody purely as a process control, document what it is actually for.</p>
+
+      <div class="fw-callout fw-callout-blue">
+        <p><strong>Try the interactive version.</strong> The <a href="{% url 'validation_planner' %}">Validation Planner</a> walks you through these categories for each antibody in your experiment and generates a structured plan.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 2 — Selecting controls
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s2">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s2')">
+    <span class="fw-accordion-num">2</span>
+    <span class="fw-accordion-title">Selecting controls</span>
+    <div class="fw-accordion-summary">Off-target binding depends on the expression levels of cross-reactive proteins in your specific sample. Controls should match your experimental context.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <figure class="fw-figure">
+        <img src="{% static 'core/fw_validation_strategies.png' %}" alt="Diagram showing five validation strategies: Genetic, Orthogonal, Independent Antibody, Tagged Protein Expression, and Immunoprecipitation Mass Spectrometry">
+        <figcaption>
+          The five pillars of antibody validation (<a href="https://doi.org/10.1038/nmeth.4014" target="_blank" rel="noopener">Uhlén et al., 2016</a>). Genetic strategies are the most robust when feasible. For human tissue IHC, multiple strategies are usually needed.
+        </figcaption>
+      </figure>
+
+      <h3>Positive controls</h3>
+      <p>Options ranging from strongest to most accessible:</p>
+
+      <div class="fw-controls-grid">
+        <div class="fw-control-card highlight">
+          <strong>Knockout wild-type pair</strong>
+          Excellent — but verify the knockout independently. ~30% of commercial KO lines may not be true knockouts.
+        </div>
+        <div class="fw-control-card highlight">
+          <strong>CRISPR knock-in</strong>
+          Gene insertion at endogenous levels. The most physiologically relevant positive control.
+        </div>
+        <div class="fw-control-card">
+          <strong>Tagged construct / transient transfection</strong>
+          Quick screening, but overexpression is supra-physiological and cannot confirm detection at endogenous levels.
+        </div>
+        <div class="fw-control-card">
+          <strong>Commercial overexpression lysate</strong>
+          Shows where protein should appear on a blot. Good for ruling out bad antibodies cheaply (~£200 for 20µg from <a href="https://www.origene.com" target="_blank" rel="noopener">OriGene</a>).
+        </div>
+        <div class="fw-control-card">
+          <strong>Lentiviral stable expression</strong>
+          Stable exogenous expression with some control over level. Less physiological than knock-in but more accessible.
+        </div>
+      </div>
+
+      <div class="fw-callout fw-callout-blue">
+        <p><strong>Confirm expression first.</strong> Use <a href="https://cellmodelpassports.sanger.ac.uk" target="_blank" rel="noopener">ProCan-DepMapSanger</a> (mass spec data, 949 cell lines) or <a href="https://depmap.org" target="_blank" rel="noopener">DepMap</a> RNA expression data to confirm your cell line expresses the target. A commonly used threshold of TPM ≥ 2.5 is not definitive — mass spec confirmation is stronger where available.</p>
+      </div>
+
+      <h3>Negative controls</h3>
+      <div class="fw-controls-grid">
+        <div class="fw-control-card highlight">
+          <strong>Genetic knockout in your cell type</strong>
+          Gold standard — but not feasible for human tissue or essential genes. Verify independently.
+        </div>
+        <div class="fw-control-card">
+          <strong>KO in a different cell type</strong>
+          The <a href="https://ycharos.com" target="_blank" rel="noopener">YCharOS</a> approach — open characterisation data searchable via the <a href="https://onlygoodantibodies.co.uk" target="_blank" rel="noopener">OGA Antibody Database</a>.
+        </div>
+        <div class="fw-control-card">
+          <strong>siRNA / shRNA knockdown</strong>
+          Useful when KO isn't feasible. Confirm knockdown efficiency by RT-qPCR. Partial reduction is harder to interpret.
+        </div>
+        <div class="fw-control-card">
+          <strong>Non-expressing cell line / tissue</strong>
+          Check proteomic or transcriptomic datasets. Less conclusive — absence of signal may reflect expression level rather than antibody specificity.
+        </div>
+      </div>
+
+      <p>For <strong>immunohistochemistry on human tissue</strong>: consider staining FFPE cell pellets from knockout cell lines alongside your tissue sections, using the same protocol.</p>
+
+      <p>For <strong>quantitative work</strong>: you may need controls spanning a range of expression levels — tissues or cell lines with graded expression, or for ELISA-type assays, spiking recombinant protein into plasma at known concentrations.</p>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 3 — Carrying out validation
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s3">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s3')">
+    <span class="fw-accordion-num">3</span>
+    <span class="fw-accordion-title">Carrying out the validation</span>
+    <div class="fw-accordion-summary">Run your controls in the exact assay system you are using. An antibody that works in one application does not necessarily work in another.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <figure class="fw-figure">
+        <img src="{% static 'core/fw_validation_steps.png' %}" alt="Two-step validation approach: Step 1 confirms the antibody detects the target protein using genetic strategies, Step 2 gathers supportive evidence in your sample of interest">
+        <figcaption>
+          A two-step approach: first confirm the antibody can detect the target protein (via knockout, knockdown, or tagged expression), then gather supportive evidence in your actual sample of interest. Source: OGA Champions Workshop.
+        </figcaption>
+      </figure>
+
+      <p>Use the controls you have selected in the <strong>exact assay system</strong> you are using. If you are validating for immunofluorescence, run your positive and negative controls through your immunofluorescence protocol. The protein is presented differently depending on the application — denatured vs. native, fixed vs. unfixed, intracellular vs. surface.</p>
+
+      <div class="fw-callout fw-callout-amber">
+        <p><strong>Protocol details matter.</strong> For flow cytometry, fixation and permeabilisation method can fundamentally change antibody performance. An antibody that works for surface staining may fail after fixation. For intracellular targets, consider testing multiple fixation/permeabilisation protocols (PFA-saponin, PFA-Triton, methanol).</p>
+      </div>
+
+      <h3>Decision rule</h3>
+      <p>If you cannot demonstrate a clear difference between your positive and negative controls in the assay you intend to use — <strong>do not use that antibody in that assay</strong>.</p>
+
+      <h3>Corroborate with antibody-independent readouts</h3>
+      <p>Where possible, build in complementary readouts to confirm the same story. If your antibody shows increased protein expression, does RT-qPCR show increased mRNA? If flow cytometry shows a shift, does single-cell RNA sequencing support the same conclusion? These orthogonal approaches strengthen any antibody-based finding.</p>
+
+      <div class="fw-callout fw-callout-green">
+        <p><strong>Record your results.</strong> Once you've run your validation experiments, use the <a href="{% url 'validation_record' %}">Validation Record</a> to document what you did — the antibody, what it was used for, and which controls you ran and why.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 4 — Searching for existing evidence
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s4">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s4')">
+    <span class="fw-accordion-num">4</span>
+    <span class="fw-accordion-title">Searching for existing evidence</span>
+    <div class="fw-accordion-summary">Search for independent characterisation data before planning your own experiments — and prioritise recombinant antibodies where available.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <figure class="fw-figure">
+        <img src="{% static 'core/fw_antibody_types.png' %}" alt="Three types of antibodies: polyclonal (multiple epitopes, batch variation), monoclonal (single epitope, one B cell clone), and recombinant (single epitope, produced from known nucleic acid sequence)">
+        <figcaption>
+          Polyclonal, monoclonal, and recombinant antibodies differ in reproducibility and performance. Recombinant antibodies are produced from a known nucleic acid sequence and consistently outperform other types. Adapted from Ascoli &amp; Aggeler, 2018.
+        </figcaption>
+      </figure>
+
+      <h3>Recommended sources</h3>
+      <ul class="fw-resource-list">
+        <li>
+          <strong><a href="https://onlygoodantibodies.co.uk" target="_blank" rel="noopener">OGA Antibody Database</a></strong>
+          Curated, searchable characterisation data with knockout controls across Western blot, IP, IF, and flow cytometry.
+        </li>
+        <li>
+          <strong><a href="https://www.benchsci.com" target="_blank" rel="noopener">BenchSci</a></strong>
+          AI-indexed published images. Filter by "genetic" verification to find knockout-validated data.
+        </li>
+        <li>
+          <strong><a href="https://www.citeab.com" target="_blank" rel="noopener">CiteAb</a></strong>
+          Citation-ranked antibody data. Filter by knockdown or knockout verification.
+        </li>
+        <li>
+          <strong><a href="https://www.labome.com" target="_blank" rel="noopener">Labome</a></strong>
+          Manually curated knockout validation data.
+        </li>
+        <li>
+          <strong><a href="https://www.hcdm.org" target="_blank" rel="noopener">HCDM</a></strong>
+          Workshop-verified clones for CD markers in flow cytometry.
+        </li>
+        <li>
+          <strong>Google Images</strong>
+          Search for "[target] knockout validated antibody [application]" to find vendor and published data.
+        </li>
+      </ul>
+
+      <div class="fw-callout fw-callout-blue">
+        <p><strong>Look at the actual images</strong> rather than relying on tick-boxes or claims. Check whether the data is from the same application and sample type as your planned experiment. Manufacturer data with genetic controls is replicable more than 80% of the time — but always verify the specifics.</p>
+      </div>
+
+      <h3>Prefer recombinant antibodies</h3>
+      <p>Large-scale independent testing shows recombinant antibodies have the highest success rates across applications: approximately <strong>67% for Western blot</strong> and <strong>48% for immunofluorescence</strong>, compared with monoclonals (41% WB, 31% IF) and polyclonals (27% WB, 22% IF).</p>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 5 — Documenting your plan
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s5">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s5')">
+    <span class="fw-accordion-num">5</span>
+    <span class="fw-accordion-title">Documenting your plan</span>
+    <div class="fw-accordion-summary">A documented plan allows supervisors, reviewers, and funders to assess whether your approach is proportionate and your evidence supports your claims.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <p>For each antibody-dependent experiment, record:</p>
+
+      <ol class="fw-checklist">
+        <li>What you are trying to show and which <strong>application and sample type</strong> you are using.</li>
+        <li>What your scientific question <strong>requires from the antibody</strong> — high specificity, comparability with community tools, or a technical function.</li>
+        <li>What <strong>existing evidence</strong> you found (or did not find) and where you searched.</li>
+        <li>Your <strong>positive and negative control strategy</strong>, including the specific materials you will use and how closely they match your experimental sample.</li>
+        <li>The <strong>antibody identity</strong>: vendor, catalogue number, lot number, clone name, RRID, host species, and dilution/concentration used.</li>
+        <li>Any <strong>antibody-independent readouts</strong> you will use to corroborate findings.</li>
+        <li>The <strong>outcome of validation experiments</strong> and your decision to proceed, reject, or test further.</li>
+      </ol>
+
+      <div class="fw-callout fw-callout-green">
+        <p><strong>Interactive tools for each stage:</strong></p>
+        <p>📋 <a href="{% url 'validation_planner' %}">Validation Planner</a> — walks you through items 1–6 and generates a structured plan document.</p>
+        <p>📝 <a href="{% url 'validation_record' %}">Validation Record</a> — documents item 7: a quick record of the antibody, what it was used for, and the controls you ran and why.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 6 — How this fits with other initiatives
+     ══════════════════════════════════════════════════ -->
+<div class="fw-accordion" id="fw-s6">
+  <button class="fw-accordion-trigger" onclick="fwToggle('fw-s6')">
+    <span class="fw-accordion-num">6</span>
+    <span class="fw-accordion-title">How this framework fits with other initiatives</span>
+    <div class="fw-accordion-summary">Built on a Delphi consensus study with 32 international experts, and compatible with the IWGAV five-pillar vocabulary.</div>
+    <span class="fw-accordion-arrow">▾</span>
+  </button>
+  <div class="fw-accordion-body">
+    <div class="fw-accordion-content">
+
+      <p>This framework implements principles endorsed by a <strong>multi-stakeholder Delphi consensus study</strong> (Blades, Biddle, Froud et al., 2026) in which 32 international experts rated proposed interventions for improving antibody validation practices. The panel reached consensus that researchers should be trained in antibody validation, that institutions should embed validation expectations into research integrity frameworks, and that funders should require validation plans in grant applications.</p>
+
+      <h3>Further resources</h3>
+      <ul class="fw-resource-list">
+        <li>
+          <strong><a href="https://doi.org/10.1038/nmeth.4014" target="_blank" rel="noopener">IWGAV five-pillar framework</a></strong>
+          Uhlén et al., 2016, <em>Nature Methods</em> 13:823–827. The standard vocabulary: genetic, orthogonal, independent antibody, recombinant expression, and capture mass spectrometry.
+        </li>
+        <li>
+          <strong><a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">YCharOS consensus protocols</a></strong>
+          Ayoubi et al., 2024, <em>Nature Protocols</em>. Knockout-based antibody characterisation across Western blot, IP, IF, and flow cytometry, written with the industry–academic consortium. The step-by-step version is <a href="https://www.protocols.io/view/a-consensus-platform-for-antibody-characterization-14egn9d16l5d" target="_blank" rel="noopener">on protocols.io</a>.
+        </li>
+        <li>
+          <strong><a href="https://www.euromabnet.com/guidelines" target="_blank" rel="noopener">EuroMAbNet practical guide</a></strong>
+          Broader validation guidelines across applications, with video tutorials.
+        </li>
+      </ul>
+
+      <h3>Contact &amp; feedback</h3>
+      <p>We welcome feedback on this framework. If you have suggestions, concerns, or would like to be involved in developing implementation guidance, please <a href="{% url 'contact' %}">contact us</a> or email Dr Harvinder Virk at <a href="mailto:hsv6@leicester.ac.uk">hsv6@leicester.ac.uk</a>.</p>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════ BOTTOM CTA ══════════════════════ -->
+<div class="fw-cta fw-no-print">
+  <h2>Ready to plan your validation?</h2>
+  <p>The Validation Planner walks you through this framework interactively — list your antibodies, categorise them, and build proportionate plans for each one.</p>
+  <div class="fw-cta-buttons">
+    <a href="{% url 'validation_planner' %}" class="fw-cta-btn primary">Open the Validation Planner →</a>
+    <a href="{% url 'validation_record' %}" class="fw-cta-btn secondary">Already have data? Record it →</a>
+  </div>
+</div>
+
+</div><!-- /.fw-main -->
+
+
+<!-- ══════════════════════ SCRIPT ══════════════════════ -->
+<script>
+(function() {
+  function fwToggle(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var isOpen = el.classList.contains('open');
+    el.classList.toggle('open');
+    // Track with Plausible
+    if (!isOpen && typeof plausible !== 'undefined') {
+      var title = el.querySelector('.fw-accordion-title');
+      if (title) plausible('Framework Section Opened', { props: { section: title.textContent.trim() } });
+    }
+  }
+  // Expose to onclick
+  window.fwToggle = fwToggle;
+
+  // Deep-link: open section if #fw-s1 etc. in URL
+  var hash = window.location.hash;
+  if (hash && hash.match(/^#fw-s[1-6]$/)) {
+    var target = document.getElementById(hash.slice(1));
+    if (target) {
+      target.classList.add('open');
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,552 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Downloads & uploads{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Pipeline workspace</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">Downloads &amp; uploads</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl">Export the whole pipeline dataset (including unpublished data),
+      edit it in Excel or with a chat assistant — for example, fill in missing F1000/Zenodo DOIs and antibody
+      product URLs across many genes — then upload it back. Uploading only <b>adds</b> and <b>updates</b>:
+      a blank cell never clears anything, rows you remove from the file are left untouched, and changing an
+      already-filled value asks you to confirm first. Members only; nothing here is public.</p>
+  </div>
+
+  {# ── Downloads ── #}
+  {{ families|json_script:"families-data" }}
+    {% comment %}The nightly full capture, above the per-family export because it
+  is the one most people want and the one that needs no choices made.
+
+  **It says what it is and what it is not.** The family export below covers ten
+  model families and omits every experimental reading and every nomination; this
+  covers everything the lab authors. Both being on one page is precisely why each
+  has to name its own scope — two downloads that look alike and contain different
+  things is how somebody archives the wrong one.
+
+  And it is a capture, not a restore: the upload path updates rows that still
+  exist and cannot recreate a deleted one for most families. A file that looks
+  like a backup and is not one is the most dangerous thing this page could
+  offer.{% endcomment %}
+  <div class="bg-white border border-gray-200 rounded-xl p-5 mt-4">
+    <div class="flex flex-wrap items-start gap-3">
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">Latest snapshot</h2>
+        <p class="mt-1 text-gray-600 text-sm max-w-2xl">
+          A full capture of everything the lab authors — targets, nominations,
+          cell lines, antibodies, sessions and <b>every result row</b> — written
+          once a day. The per-family download below is for editing and putting
+          back; this is the whole record.
+        </p>
+      </div>
+      {% if snapshot %}
+      <a href="{% url 'pipeline:dataset_snapshot_download' %}"
+         data-receipt="snapshot-receipt"
+         class="ml-auto px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold text-sm whitespace-nowrap">
+        ⬇ Download JSON</a>
+      {% endif %}
+    </div>
+    {% if snapshot %}
+      <p class="mt-3 text-sm {% if snapshot.stale %}text-amber-800{% else %}text-gray-600{% endif %}">
+        Taken {{ snapshot.taken|default:"—" }}
+        {% if snapshot.hours is not None %}({{ snapshot.hours }}h ago){% endif %}
+        · {{ snapshot.rows }} rows across {{ snapshot.tables }} tables
+        · {{ snapshot.bytes|filesizeformat }} compressed
+        {% if snapshot.stale %}
+          — <b>this is older than a day and a half</b>, so the daily job may have
+          stopped. Nothing is wrong with the file; it is simply not current.
+        {% endif %}
+      </p>
+      <p id="snapshot-receipt" class="text-sm" role="status" aria-live="polite"></p>
+    {% else %}
+      <p class="mt-3 text-sm text-amber-800">
+        No snapshot has been taken yet. One is taken daily, and a copy is emailed
+        off the platform — that emailed copy is the backup, not this page.
+      </p>
+    {% endif %}
+    <p class="mt-2 text-xs text-gray-500 max-w-2xl">
+      A capture, not a restore: uploading it updates values on rows that still
+      exist and cannot recreate a deleted one. To roll the database back, use
+      Render → ycharos-pipeline-db → Recovery.
+    </p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+    <h2 class="text-lg font-bold text-gray-900">Download the dataset</h2>
+    <p class="mt-1 text-gray-600 text-sm">Excel is one workbook with a sheet per family plus a Legend; JSON is the
+      same data as a gene tree. Pick a preset or open a family and tick the fields you want — every family you tick
+      something in gets a sheet, and its locked <b>id</b> and key columns come with it so the upload lands each row
+      on the right record.</p>
+
+    <div class="mt-4">
+      <label class="block text-xs font-medium text-gray-600 mb-1">Limit to genes (optional, comma-separated)</label>
+      <input id="genes" type="text" class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-72"
+             placeholder="blank = everything, e.g. SNCA, MAPT">
+      <p class="mt-1 text-xs text-gray-500 max-w-md">
+        Enter gene symbols in <b>any case</b> — <code>kif5a</code>, <code>KIF5A</code> and <code>Kif5a</code>
+        all match the same gene. Separate several with commas. Leave blank to download everything.
+      </p>
+    </div>
+
+    {# presets #}
+    <div id="presets" class="flex flex-wrap gap-2 mt-4">
+      <button type="button" data-preset="current" class="preset px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 text-gray-600 hover:border-ycharos-500">Current default</button>
+      <button type="button" data-preset="everything" class="preset px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 text-gray-600 hover:border-ycharos-500">Everything</button>
+      <button type="button" data-preset="reagents" class="preset px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 text-gray-600 hover:border-ycharos-500">Reagents only</button>
+      <button type="button" data-preset="reports" class="preset px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 text-gray-600 hover:border-ycharos-500">Reports &amp; DOIs</button>
+    </div>
+    <p id="presetHint" class="mt-2 text-xs text-gray-400"></p>
+
+    {# families accordion (built by JS) #}
+    <div id="families" class="mt-3 space-y-2"></div>
+
+    <div class="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-gray-100">
+      <span class="text-sm text-gray-600"><b id="selCount" class="text-gray-900 tabular-nums">0</b> fields across
+        <b id="famCount" class="text-gray-900 tabular-nums">0</b> families</span>
+      <span class="flex-1"></span>
+      <a id="dlxlsx" href="#" class="inline-flex items-center gap-2 bg-ycharos-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-ycharos-700 min-h-[40px]">Download Excel (.xlsx)</a>
+      <a id="dljson" href="#" class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-800 rounded-lg px-4 py-2 text-sm font-semibold hover:border-ycharos-500 min-h-[40px]">Download JSON</a>
+    </div>
+    <p id="dlWhy" class="mt-2 text-xs text-gray-500"></p>
+    <p id="dlreceipt" class="mt-2 text-sm" role="status" aria-live="polite"></p>
+    <div class="flex flex-wrap gap-4 mt-3 text-xs text-gray-500">
+      <span><span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-semibold mr-1">key</span>locked — included whenever its family is in the file</span>
+      <span><span class="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-semibold mr-1">+ db</span>real model field, not in today's default</span>
+      <span>no tag = exported by default</span>
+    </div>
+    <p class="mt-2 text-xs text-gray-500 max-w-3xl">A family gets a sheet only when at least one of its
+      own fields is ticked — its <b>key</b> columns alone are not enough to write one, so a family with
+      nothing ticked is marked <i>not in the file</i> and does not appear in the workbook.</p>
+  </div>
+
+  {# ── Uploads ── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+    <h2 class="text-lg font-bold text-gray-900">Upload changes</h2>
+    <p class="mt-1 text-gray-600 text-sm">Upload the edited <b>.json</b> or <b>.xlsx</b> (or a single-sheet
+      <b>.csv</b>) — the same file you downloaded, with gaps filled. The importer reads columns <b>by header</b>,
+      so whatever subset you exported lands correctly. We'll show you exactly what would change before anything is
+      written. Editable: <b>antibodies</b>, <b>reports</b>, and — by id — <b>targets</b>, <b>cell lines</b>,
+      <b>samples</b>, <b>assignments</b>, <b>reagent requests</b>, <b>cell culture events</b> and
+      <b>inventory</b> (storage locations). Creating new records stays on their dedicated pages, and people
+      columns are export-only reference (never written back).</p>
+
+    <div class="flex flex-wrap items-center gap-3 mt-4">
+      <input id="file" type="file" accept=".json,.xlsx,.xlsm,.csv,.tsv,.txt"
+             class="text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-ycharos-50 file:text-ycharos-700 hover:file:bg-ycharos-100">
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="createtargets" class="rounded border-gray-300"> Create missing genes as new targets
+      </label>
+      <button id="preview" class="inline-flex items-center gap-2 bg-ycharos-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-ycharos-700 min-h-[40px]">Preview changes</button>
+    </div>
+
+    <div id="msg" class="mt-4 text-sm hidden" role="status" aria-live="polite"></div>
+
+    <div id="report" class="mt-4 hidden">
+      <div id="counts" class="flex flex-wrap gap-3 mb-3"></div>
+
+      <div id="sec-creates" class="hidden mb-4">
+        <h3 class="font-semibold text-gray-800 text-sm mb-1">New records to create</h3>
+        <div id="creates" class="text-sm text-gray-700"></div>
+      </div>
+      <div id="sec-fills" class="hidden mb-4">
+        <h3 class="font-semibold text-gray-800 text-sm mb-1">Gap-fills <span class="font-normal text-gray-500">(empty → value; will apply)</span></h3>
+        <div id="fills"></div>
+      </div>
+      <div id="sec-overwrites" class="hidden mb-4">
+        <h3 class="font-semibold text-amber-700 text-sm mb-1">Overwrites <span class="font-normal text-amber-600">(already-filled values that would change)</span></h3>
+        <div id="overwrites"></div>
+        <label class="inline-flex items-center gap-2 text-sm text-amber-800 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <input type="checkbox" id="ackoverwrite" class="rounded border-amber-300">
+          Yes, overwrite these <span id="ovcount"></span> already-filled values on purpose.
+        </label>
+      </div>
+      <div id="sec-blocked" class="hidden mb-4">
+        <h3 class="font-semibold text-gray-500 text-sm mb-1">Skipped <span class="font-normal">(nothing written)</span></h3>
+        <div id="blocked" class="text-sm text-gray-500"></div>
+      </div>
+
+      <div class="mt-4 flex items-center gap-3">
+        <button id="commit" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-emerald-700 min-h-[40px] disabled:opacity-50">Apply changes</button>
+        <span id="commitnote" class="text-xs text-gray-500"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% comment %}board.js is loaded for its download receipts. The snapshot link has
+carried `data-receipt="snapshot-receipt"` since it was written, and nothing on
+this page ever called `OGABoard.downloadReceipts()` — so the attribute did
+nothing, the `<p role="status">` under it stayed empty forever, and all three
+downloads on the page announced nothing at all.{% endcomment %}
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+const CSRF = "{{ csrf_token }}";
+const EXPORT_URL = "{% url 'pipeline:dataset_export' %}";
+const PREVIEW_URL = "{% url 'pipeline:dataset_upload_preview' %}";
+const COMMIT_URL = "{% url 'pipeline:dataset_upload_commit' %}";
+const $ = (id) => document.getElementById(id);
+
+// ── field selector ──────────────────────────────────────────────────────────
+const FAMILIES = JSON.parse(document.getElementById("families-data").textContent);
+const DEFAULT_FAMS = ["targets", "antibodies", "cell_lines", "reports"];
+const PRESETS = {
+  current:    { tags: ["key", "default"],          fams: DEFAULT_FAMS },
+  everything: { tags: ["key", "default", "extra"], fams: "all" },
+  reagents:   { tags: ["key", "default", "extra"], fams: ["antibodies", "cell_lines", "vials"] },
+  reports:    { tags: ["key", "default", "extra"], fams: ["reports"] },
+};
+const PRESET_HINTS = {
+  current: "Current default — the columns exported today (antibody basics, cell-line basics, report DOIs).",
+  everything: "Everything — every field across every family (costs live on antibodies & cell lines).",
+  reagents: "Reagents only — antibodies, cell lines and their batches.",
+  reports: "Reports & DOIs — just the report family for bulk DOI gap-fill.",
+};
+
+/* `fieldTag`, not `chip` — this was a second function called `chip` in one
+ * script, and the *later* declaration wins for the whole scope, so every field
+ * in the picker was tagged by the upload panel's count chip instead: the label
+ * beside `id` read `key: undefined` rather than `key`, and the `+ db` tag the
+ * legend at the bottom of the panel explains was never drawn at all. Valid
+ * syntax, so `node --check` passes and the page renders 200 — the same shape as
+ * the `setCommitLabel` defect in board.js. */
+function fieldTag(kind) {
+  if (kind === "key") return '<span class="ml-1 px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-bold uppercase">key</span>';
+  if (kind === "extra") return '<span class="ml-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase">+ db</span>';
+  return "";
+}
+
+/* A family reaches the workbook only when something other than its keys is
+ * ticked — `selectionParam()` below skips it otherwise, and the server then
+ * writes no sheet for it. The key boxes were rendered `checked disabled`
+ * regardless, so all ten families showed ticks and a count ("Cell-line batches
+ * 3 / 15") while six of them produced no sheet at all: the field test read ten
+ * selected families off this list and got four. The locked keys are checked
+ * *with* the family now, by refreshCounts, and a family that will not be in the
+ * file says so beside its name. */
+function buildFamilies() {
+  const mount = $("families");
+  mount.innerHTML = FAMILIES.map(fam => {
+    const opts = fam.fields.map((f, i) => {
+      const locked = f.kind === "key";
+      return `<label class="flex items-center gap-2 py-1 px-1 rounded hover:bg-ycharos-50 text-sm ${locked ? 'opacity-70' : ''}">
+        <input type="checkbox" data-fam="${fam.key}" data-kind="${f.kind}" value="${f.header}" ${locked ? 'disabled' : ''}
+               class="rounded border-gray-300 text-ycharos-600">
+        <code class="text-xs text-gray-800">${f.header}</code>${fieldTag(f.kind)}</label>`;
+    }).join("");
+    return `<div class="fam border border-gray-200 rounded-lg" data-fam="${fam.key}">
+      <div class="fam-head flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-ycharos-50" role="button" tabindex="0" aria-expanded="false">
+        <span class="chev text-gray-400 transition-transform">▸</span>
+        <span class="font-semibold text-sm text-gray-800">${fam.title}</span>
+        <span class="ml-auto flex items-center gap-3">
+          <span class="text-xs text-gray-400 italic" data-note="${fam.key}"></span>
+          <span class="count text-xs font-semibold text-gray-500 tabular-nums" data-count="${fam.key}">0 / ${fam.fields.length}</span>
+          <button type="button" class="fam-all text-xs font-semibold text-ycharos-600 hover:underline" data-all="${fam.key}">select all</button>
+        </span>
+      </div>
+      <div class="fam-body hidden px-4 pb-3 pt-1 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4">${opts}</div>
+    </div>`;
+  }).join("");
+
+  mount.querySelectorAll(".fam-head").forEach(h => {
+    const toggle = () => {
+      const fam = h.closest(".fam");
+      const body = fam.querySelector(".fam-body");
+      const open = body.classList.toggle("hidden") === false;
+      h.setAttribute("aria-expanded", open ? "true" : "false");
+      h.querySelector(".chev").style.transform = open ? "rotate(90deg)" : "";
+    };
+    h.addEventListener("click", e => { if (e.target.closest(".fam-all")) return; toggle(); });
+    h.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  });
+  mount.querySelectorAll("[data-all]").forEach(btn => btn.addEventListener("click", () => {
+    const fam = btn.getAttribute("data-all");
+    const boxes = [...mount.querySelectorAll(`input[data-fam="${fam}"]:not([disabled])`)];
+    const allOn = boxes.every(b => b.checked);
+    boxes.forEach(b => b.checked = !allOn);
+    refreshCounts();
+  }));
+  mount.querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", refreshCounts));
+}
+
+/* Every number and every tick on this panel answers one question: what will be
+ * in the file. So the per-family count, the locked key boxes, the footer total
+ * and the download buttons are all derived here, together — the count and the
+ * ticks disagreeing is exactly what sent a reader looking for six sheets that
+ * were never going to be written. */
+function refreshCounts() {
+  let total = 0, fams = 0;
+  FAMILIES.forEach(fam => {
+    const boxes = [...document.querySelectorAll(`input[data-fam="${fam.key}"]`)];
+    const keys = boxes.filter(b => b.getAttribute("data-kind") === "key");
+    const chosen = boxes.filter(b => b.getAttribute("data-kind") !== "key" && b.checked).length;
+    const inFile = chosen > 0;
+    keys.forEach(b => { b.checked = inFile; });
+    const on = inFile ? chosen + keys.length : 0;
+    total += on; if (inFile) fams++;
+    const pill = document.querySelector(`[data-count="${fam.key}"]`);
+    pill.textContent = `${on} / ${boxes.length}`;
+    pill.classList.toggle("text-ycharos-700", inFile);
+    document.querySelector(`[data-note="${fam.key}"]`).textContent =
+      inFile ? "" : "not in the file";
+    const btn = document.querySelector(`[data-all="${fam.key}"]`);
+    btn.textContent = boxes.filter(b => !b.disabled).every(b => b.checked) ? "clear" : "select all";
+  });
+  $("selCount").textContent = total;
+  $("famCount").textContent = fams;
+  armDownloads(fams);
+}
+
+/* Ticking nothing at all used to hand back the *default* workbook — 54 columns
+ * across four families — because an empty selection string is what the export
+ * URL also uses to mean "the historical default". Nothing on screen said so.
+ * The buttons grey instead, with the reason on the page rather than on a title
+ * attribute no touch screen shows. */
+function armDownloads(fams) {
+  const why = fams ? "" : "Tick at least one field to download — a family with only its locked key columns is not written to the file.";
+  $("dlWhy").textContent = why;
+  [$("dlxlsx"), $("dljson")].forEach(a => {
+    a.classList.toggle("opacity-50", !fams);
+    a.classList.toggle("pointer-events-none", !fams);
+    a.setAttribute("aria-disabled", fams ? "false" : "true");
+  });
+  refreshHrefs();
+}
+
+function applyPreset(spec) {
+  document.querySelectorAll("#families input[type=checkbox]").forEach(cb => {
+    if (cb.disabled) return;                       // keys follow the family, in refreshCounts
+    const fam = cb.getAttribute("data-fam"), kind = cb.getAttribute("data-kind");
+    const inFam = spec.fams === "all" || spec.fams.includes(fam);
+    cb.checked = inFam && spec.tags.includes(kind);
+  });
+  refreshCounts();
+}
+
+// Build the ?fields= selection string. A family is included only if it has ≥1
+// non-key field ticked; keys are added server-side. Returns "" when the pick is
+// exactly the historical default (so we hit the byte-identical default path).
+function selectionParam() {
+  const parts = [];
+  FAMILIES.forEach(fam => {
+    const cols = [...document.querySelectorAll(`input[data-fam="${fam.key}"]:checked`)]
+      .filter(b => b.getAttribute("data-kind") !== "key")
+      .map(b => b.value);
+    if (cols.length) parts.push(fam.key + ":" + cols.join(","));
+  });
+  const str = parts.join("|");
+  return str === DEFAULT_SELECTION ? "" : str;
+}
+
+// The default-selection string (current preset), computed once for comparison.
+let DEFAULT_SELECTION = "";
+function computeDefaultSelection() {
+  const parts = [];
+  FAMILIES.forEach(fam => {
+    if (!DEFAULT_FAMS.includes(fam.key)) return;
+    const cols = fam.fields.filter(f => f.kind === "default").map(f => f.header);
+    if (cols.length) parts.push(fam.key + ":" + cols.join(","));
+  });
+  DEFAULT_SELECTION = parts.join("|");
+}
+
+function exportUrl(fmt) {
+  const g = $("genes").value.trim();
+  let u = EXPORT_URL + "?format=" + fmt;
+  if (g) u += "&genes=" + encodeURIComponent(g);
+  const fields = selectionParam();
+  if (fields) u += "&fields=" + encodeURIComponent(fields);
+  return u;
+}
+
+/* The href is kept current rather than built at click time, so the link is a
+ * real link — right-click and copy give the export you are looking at. The
+ * click still goes through OGABoard.downloadWithReceipt: a plain <a href> to an
+ * export writes the file and the page does not move, flash or speak, which is
+ * how an earlier field test filed a working download as a broken feature. */
+function refreshHrefs() {
+  $("dlxlsx").href = exportUrl("xlsx");
+  $("dljson").href = exportUrl("json");
+}
+[$("dlxlsx"), $("dljson")].forEach(a => a.addEventListener("click", (e) => {
+  e.preventDefault();
+  // `pointer-events-none` stops a mouse and not a keyboard, and pressing Enter
+  // on a greyed link would download the very default file the greying exists to
+  // prevent — the href is a real URL either way.
+  if (a.getAttribute("aria-disabled") === "true") { OGABoard.bringIntoView($("dlWhy")); return; }
+  refreshHrefs();
+  OGABoard.downloadWithReceipt(a, $("dlreceipt"));
+}));
+$("genes").addEventListener("input", refreshHrefs);
+
+document.querySelectorAll("#presets .preset").forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll("#presets .preset").forEach(b =>
+    b.classList.remove("bg-ycharos-50", "border-ycharos-500", "text-ycharos-700"));
+  btn.classList.add("bg-ycharos-50", "border-ycharos-500", "text-ycharos-700");
+  const key = btn.getAttribute("data-preset");
+  applyPreset(PRESETS[key]);
+  $("presetHint").textContent = PRESET_HINTS[key];
+}));
+
+buildFamilies();
+computeDefaultSelection();
+applyPreset(PRESETS.current);
+OGABoard.downloadReceipts();
+$("presetHint").textContent = PRESET_HINTS.current;
+document.querySelector("#presets .preset[data-preset='current']")
+  .classList.add("bg-ycharos-50", "border-ycharos-500", "text-ycharos-700");
+
+function showMsg(text, kind) {
+  const m = $("msg");
+  m.className = "mt-4 text-sm rounded-lg px-3 py-2 " +
+    (kind === "error" ? "bg-red-50 text-red-700 border border-red-200"
+     : kind === "ok" ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+     : "bg-gray-50 text-gray-700 border border-gray-200");
+  m.textContent = text;
+  m.classList.remove("hidden");
+}
+
+function chip(label, n, cls) {
+  return `<span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${cls}">${label}: ${n}</span>`;
+}
+
+function diffTable(items) {
+  if (!items.length) return "";
+  let rows = items.map(i =>
+    `<tr class="border-t border-gray-100">
+       <td class="py-1 pr-3 font-medium text-gray-800">${esc(i.label)}</td>
+       <td class="py-1 pr-3 text-gray-500">${esc(i.field)}</td>
+       <td class="py-1 pr-3 text-gray-400 line-through">${esc(i.old) || "—"}</td>
+       <td class="py-1 text-gray-900">${esc(i.new)}</td>
+     </tr>`).join("");
+  return `<table class="w-full text-sm"><thead><tr class="text-xs text-gray-400 text-left">
+      <th class="py-1 pr-3">record</th><th class="py-1 pr-3">field</th><th class="py-1 pr-3">current</th><th class="py-1">new</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+function esc(s) { return (s == null ? "" : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* What a save wrote, counted off one list.
+ *
+ * There were eight hand-written lines here and `apply_upload` returns eleven
+ * counters, so an edit to an assignment, a reagent request, a cell culture
+ * event or an inventory location was applied and then reported as
+ * "Done — no changes needed" — the app denying, in its own success message,
+ * the write it had just made. `skipped` was returned too and rendered nowhere,
+ * so a row the importer could not place vanished without a word.
+ *
+ * The nouns are the sheet names a reader edited, and `OGABoard.plural` decides
+ * the verb agreement: "1 targets updated" is the slip that makes a careful
+ * reader distrust the number beside it. */
+const SAVED_COUNTS = [
+  ["antibodies_created", "antibody", "antibodies", "created"],
+  ["antibodies_updated", "antibody", "antibodies", "updated"],
+  ["reports_created", "report", null, "created"],
+  ["reports_updated", "report", null, "updated"],
+  ["targets_updated", "target", null, "updated"],
+  ["cell_lines_updated", "cell line", null, "updated"],
+  ["samples_updated", "sample", null, "updated"],
+  ["assignments_updated", "assignment", null, "updated"],
+  ["reagent_requests_updated", "reagent request", null, "updated"],
+  ["culture_events_updated", "cell culture event", null, "updated"],
+  ["inventory_updated", "inventory location", null, "updated"],
+];
+
+function showSaved(res) {
+  const parts = SAVED_COUNTS
+    .filter(([k]) => res[k])
+    .map(([k, one, many, verb]) => `${OGABoard.plural(res[k], one, many)} ${verb}`);
+  const made = (res.targets_created || []).length;
+  if (made) parts.push(`${OGABoard.plural(made, "new target")} (${res.targets_created.map(esc).join(", ")})`);
+  const skipped = res.skipped || [];
+  const m = $("msg");
+  m.className = "mt-4 text-sm rounded-lg px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200";
+  m.innerHTML =
+    `<p>Done — ${parts.length ? esc(parts.join(", ")) : "no changes needed"}${
+      res.overwrites_applied ? " (overwrites included)." : "."}</p>` +
+    (skipped.length
+      ? `<p class="mt-2 font-semibold">${OGABoard.plural(skipped.length, "row")} nothing was written for:</p>
+         <ul class="list-disc ml-5">${skipped.map(s => `<li>${esc(s)}</li>`).join("")}</ul>`
+      : "");
+  m.classList.remove("hidden");
+  OGABoard.bringIntoView(m);
+}
+
+let hasChanges = false;
+
+function render(plan) {
+  if (!plan.ok) { showMsg(plan.error || "Could not read the file.", "error"); $("report").classList.add("hidden"); return; }
+  $("msg").classList.add("hidden");
+  const c = plan.counts;
+  const FAMS = ["antibodies", "reports", "targets", "cell_lines", "samples",
+                "assignments", "reagent_requests", "culture_events", "inventory"];
+  const creates = [], fills = [], overwrites = [], blocked = [];
+  FAMS.forEach(k => {
+    const g = plan[k]; if (!g) return;
+    creates.push(...(g.creates || []));
+    fills.push(...(g.fills || []));
+    overwrites.push(...(g.overwrites || []));
+    blocked.push(...(g.blocked || []));
+  });
+
+  $("counts").innerHTML =
+    chip("New", c.creates, "bg-sky-50 text-sky-700") +
+    chip("Gap-fills", c.fills, "bg-emerald-50 text-emerald-700") +
+    chip("Overwrites", c.overwrites, "bg-amber-50 text-amber-700") +
+    chip("Skipped", c.blocked, "bg-gray-100 text-gray-500");
+
+  // creates
+  $("sec-creates").classList.toggle("hidden", creates.length === 0);
+  $("creates").innerHTML = creates.map(i =>
+    `• ${esc(i.label)}${i.catalogue ? "" : (i.fields ? " <span class='text-gray-400'>(" + i.fields.join(", ") + ")</span>" : "")}`).join("<br>");
+
+  // fills
+  $("sec-fills").classList.toggle("hidden", fills.length === 0);
+  $("fills").innerHTML = diffTable(fills);
+
+  // overwrites
+  $("sec-overwrites").classList.toggle("hidden", overwrites.length === 0);
+  $("overwrites").innerHTML = diffTable(overwrites);
+  $("ovcount").textContent = overwrites.length;
+  $("ackoverwrite").checked = false;
+
+  // blocked
+  $("sec-blocked").classList.toggle("hidden", blocked.length === 0);
+  $("blocked").innerHTML = blocked.map(i => `• ${esc(i.label)} — ${esc(i.reason)}`).join("<br>");
+
+  hasChanges = (creates.length + fills.length + overwrites.length) > 0;
+  $("report").classList.remove("hidden");
+  $("commit").disabled = !hasChanges;
+  $("commitnote").textContent = overwrites.length
+    ? "Tick the overwrite box above to include the amber changes; otherwise only new records and gap-fills are applied."
+    : (hasChanges ? "" : "Nothing to apply.");
+}
+
+$("preview").addEventListener("click", async () => {
+  const f = $("file").files[0];
+  if (!f) { showMsg("Choose a file first.", "error"); return; }
+  showMsg("Reading file…", "info");
+  const fd = new FormData(); fd.append("file", f);
+  try {
+    const r = await fetch(PREVIEW_URL, { method: "POST", headers: { "X-CSRFToken": CSRF }, body: fd });
+    render(await r.json());
+  } catch (e) { showMsg("Upload failed: " + e, "error"); }
+});
+
+$("commit").addEventListener("click", async () => {
+  const f = $("file").files[0];
+  if (!f) { showMsg("Choose a file first.", "error"); return; }
+  $("commit").disabled = true; $("commitnote").textContent = "Applying…";
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("apply_overwrites", $("ackoverwrite").checked ? "true" : "false");
+  fd.append("create_targets", $("createtargets").checked ? "true" : "false");
+  try {
+    const r = await fetch(COMMIT_URL, { method: "POST", headers: { "X-CSRFToken": CSRF }, body: fd });
+    const res = await r.json();
+    if (!res.ok) { showMsg(res.error || "Commit failed.", "error"); $("commit").disabled = false; return; }
+    showSaved(res);
+    $("report").classList.add("hidden");
+  } catch (e) { showMsg("Commit failed: " + e, "error"); $("commit").disabled = false; }
+});
+</script>
+{% endblock %}

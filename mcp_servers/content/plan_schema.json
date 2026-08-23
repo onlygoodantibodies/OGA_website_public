@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://onlygoodantibodies.co.uk/schemas/validation-plan/0.1.json",
+  "title": "OGA validation plan",
+  "description": "The structured artifact a learner produces for THEIR OWN target during the interactive workshop. It encodes the framework's 7-item checklist (10_validation_framework.md §5). It is simultaneously the learning artifact, the assessment input for the rubric, and the evidence recorded behind a workshop certificate. Designed to be analysable/shareable for the eLife 'intervention' write-up, so keep fields structured.",
+  "pack_version": "0.1.0-draft",
+  "type": "object",
+  "required": [
+    "target_gene", "application", "sample_type",
+    "question_type", "evidence_search", "controls", "antibody_identity", "decision"
+  ],
+  "properties": {
+    "target_gene": {
+      "type": "string",
+      "description": "The protein/gene the plan is about (by value, e.g. 'SNCA'). Never a pipeline FK — cross-DB linkage is by value only."
+    },
+    "application": {
+      "type": "string",
+      "enum": ["WB", "IP", "IF", "ICC-IF", "FC", "IHC", "ELISA", "other"],
+      "description": "The antibody-based application (framework item 1)."
+    },
+    "sample_type": {
+      "type": "string",
+      "description": "The actual sample: cell line, primary cells, human FFPE tissue, plasma, etc. (framework item 1). Controls must match this context."
+    },
+    "question_type": {
+      "type": "string",
+      "enum": ["target_specific", "community_marker", "technical_function"],
+      "description": "What the scientific question requires of the antibody (framework item 2 / §1). Drives how much evidence is needed."
+    },
+    "question_statement": {
+      "type": "string",
+      "description": "One sentence: what the learner is trying to show."
+    },
+    "evidence_search": {
+      "type": "object",
+      "description": "What existing evidence was found or not found, and where (framework item 3 / §4).",
+      "required": ["sources_checked", "found_genetic_validation"],
+      "properties": {
+        "sources_checked": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["OGA", "BenchSci", "CiteAb", "Labome", "HCDM", "GoogleImages", "vendor", "literature", "other"]
+          },
+          "description": "Must include at least one real source; OGA lookups should be grounded via Server A (target_report / antibody_validation)."
+        },
+        "found_genetic_validation": {
+          "type": "boolean",
+          "description": "Whether knockout/knockdown-controlled evidence was found for the chosen antibody in this application/sample type."
+        },
+        "notes": { "type": "string", "description": "What the images/data actually showed (read images, not tick-boxes)." }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "description": "The positive and negative control strategy (framework item 4 / §2, Module 20). This is the crux the rubric grades hardest.",
+      "required": ["positive", "negative"],
+      "properties": {
+        "positive": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/control" },
+          "description": "At least one control that DEFINES/ADDS the target (overexpression lysate, transfection, knock-in, KO-WT pair)."
+        },
+        "negative": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/control" },
+          "description": "At least one control that REMOVES/REDUCES the target (KO, knockdown, non-expressing line)."
+        },
+        "how_matched": {
+          "type": "string",
+          "description": "How closely the controls match the experimental sample and assay (same cell type? same fixation? same protocol?)."
+        }
+      }
+    },
+    "antibody_identity": {
+      "type": "object",
+      "description": "Full antibody identity (framework item 5). Enables reproducibility and RRID lookup via Server A.",
+      "properties": {
+        "vendor": { "type": "string" },
+        "catalogue": { "type": "string" },
+        "lot": { "type": "string" },
+        "clone": { "type": "string" },
+        "rrid": { "type": "string" },
+        "host_species": { "type": "string" },
+        "clonality": { "type": "string", "enum": ["recombinant", "monoclonal", "polyclonal", "unknown"] },
+        "dilution": { "type": "string" }
+      }
+    },
+    "orthogonal_readouts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Antibody-independent corroboration planned (framework item 6): RT-qPCR, RNA-seq, mass spec, etc."
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["proceed", "reject", "test_further"],
+      "description": "The documented decision (framework item 7). For a plan (pre-validation) this is the intended next step; the Recorder captures the post-validation outcome."
+    },
+    "decision_rationale": { "type": "string" }
+  },
+  "definitions": {
+    "control": {
+      "type": "object",
+      "required": ["kind", "material"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "The control TYPE. The rubric classifies each as selectivity-establishing or not (Module 20).",
+          "enum": [
+            "knockout", "knockdown", "ko_wt_pair", "crispr_knock_in",
+            "tagged_transfection", "overexpression_lysate", "lentiviral_stable",
+            "non_expressing_line", "ffpe_ko_pellet",
+            "peptide_block", "isotype", "secondary_only", "loading_control", "other"
+          ]
+        },
+        "material": { "type": "string", "description": "The specific reagent/line and its source." },
+        "why": { "type": "string", "description": "Why this control answers (or supports) the selectivity question for this experiment." }
+      }
+    }
+  },
+  "rubric": {
+    "description": "How the tutor grades a plan before a workshop certificate can be claimed. Pass requires ALL hard gates. The reasoning checks are open-ended and LLM-graded against the framework; issuance is audited and bound to a verified institutional email.",
+    "selectivity_control_kinds": [
+      "knockout", "knockdown", "ko_wt_pair", "crispr_knock_in",
+      "tagged_transfection", "overexpression_lysate", "lentiviral_stable", "non_expressing_line", "ffpe_ko_pellet"
+    ],
+    "non_selectivity_control_kinds": ["peptide_block", "isotype", "secondary_only", "loading_control"],
+    "hard_gates": [
+      {
+        "id": "question_mapping",
+        "check": "question_type is set and the required evidence level is consistent with it (target_specific -> genetic-controlled evidence expected or a justified best-available fallback).",
+        "outcome": "Framework §1 understood."
+      },
+      {
+        "id": "meaningful_positive_control",
+        "check": "controls.positive contains at least one entry whose kind is in selectivity_control_kinds.",
+        "outcome": "Learner chose a positive control that DEFINES the target."
+      },
+      {
+        "id": "meaningful_negative_control",
+        "check": "controls.negative contains at least one entry whose kind is in selectivity_control_kinds (ideally knockout/knockdown, or a justified fallback).",
+        "outcome": "Learner chose a negative control that REMOVES/REDUCES the target."
+      },
+      {
+        "id": "not_fooled_by_pseudo_controls",
+        "check": "The learner does NOT rely on a non_selectivity_control_kind (peptide_block / isotype / secondary_only / loading_control) as their SELECTIVITY evidence. Such controls are fine to list as background/loading controls, but must not be offered as proof the signal is the target.",
+        "outcome": "The sharpest learning outcome (Module 20) is demonstrated. This is the gate the exercise exists to teach."
+      },
+      {
+        "id": "evidence_grounded",
+        "check": "evidence_search.sources_checked is non-empty and includes a real check (OGA lookups grounded via Server A). Absence of OGA data is acknowledged as non-verdict, not treated as failure.",
+        "outcome": "Framework §4 understood; evidence is grounded, not invented."
+      },
+      {
+        "id": "documented_decision",
+        "check": "decision is set with a rationale, and antibody_identity is sufficiently complete to be reproducible.",
+        "outcome": "Framework §5/§7 understood."
+      }
+    ],
+    "reasoning_checks": [
+      "Can the learner say WHY their negative control answers 'is the signal my protein?' where an isotype control does not?",
+      "Do they prefer the target at ENDOGENOUS/relevant levels (an expressing cell of interest paired with a KO/KD in that same cell) over overexpression — and can they say when overexpression IS appropriate (screening/ruling out antibodies, or targets hard to express at relevant levels, ideally level-controlled e.g. lentiviral)?",
+      "Can they name a feasible fallback if their gold-standard control isn't available, with its caveat?",
+      "Do they articulate the throughline — that the controls they make (e.g. a knockdown) double as research tools for studying the target, so the reagents feed the rest of the work?"
+    ]
+  }
+}

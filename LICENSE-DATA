@@ -1,0 +1,65 @@
+Data licence — Creative Commons Attribution 4.0 International (CC BY 4.0)
+=========================================================================
+
+The code in this repository is licensed under Apache License 2.0; see LICENSE.
+This file covers the *data* that ships alongside it.
+
+
+What this covers
+----------------
+
+The antibody characterisation data published by Only Good Antibodies, wherever
+you obtain it — through the data portal, the public API, the browser extension,
+the MCP server, or the following files in this repository:
+
+    core/data/citeab_papers_2026_05.json      citation index
+    browser-extension/data/index.json         published dataset the extension ships
+    browser-extension/data/aliases.json       gene alias table
+    pipeline/data/antibody_availability_*.csv supplier availability verdicts
+    pipeline/data/horizon_hap1_ko.csv         Horizon's public catalogue
+
+Everything else in this repository is code, and is covered by LICENSE.
+
+Two things this repository does *not* contain, so that nobody goes looking:
+the full internal characterisation database, and the figure images. The
+dataset is served from the site and its API; the images are served from object
+storage. See the data access page for how to reach both.
+
+
+Your rights
+-----------
+
+The data is published under the Creative Commons Attribution 4.0 International
+licence:
+
+    https://creativecommons.org/licenses/by/4.0/
+
+You may copy it, redistribute it in any medium or format, adapt it, and build
+on it — including commercially — provided you give appropriate credit. The
+canonical legal text at the URL above governs; this file is a description of
+it, not a substitute for it.
+
+
+How to attribute
+----------------
+
+**Cite the DOI, not this website.** Every gene we have reported carries the DOI
+of its report, shown on that gene's page and returned with the record. A DOI
+takes your reader to the experiments themselves, and will not move.
+
+A gene with no report published yet has no DOI to cite. Attribute it to Only
+Good Antibodies and link its gene page.
+
+If you are redistributing records rather than citing a result, please attribute
+the source and keep the gene page link that comes with every record, so a
+reader can reach the full result and the report behind it.
+
+
+Why the data is separate
+------------------------
+
+Creative Commons licences are written for content, not software: they do not
+address source availability, linking or patents, and Creative Commons
+themselves recommend against applying them to code. An open licence on the code
+and an open licence on the data are two different grants, so they are stated in
+two files rather than blurred into one.

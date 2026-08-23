@@ -1,0 +1,265 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% comment %}
+The end-to-end walkthrough — the cross-cutting "how do I do the whole thing"
+guide that the four per-board Markdown guides at the repo root do not provide.
+
+**It is the record of a run, not a document that gets edited**
+(PLATFORM_ROADMAP #37). Every screen was captured from the live pipeline on
+4 Aug 2026 by a field test driving a real browser, and every sentence was
+written against what that run actually saw. Run 7 produced one of these and it
+was stale within the week — its session section described the workbook and the
+bench sheet as two doors that could not do each other's job, which is exactly
+what the run-7 triage removed. So the standing decision is to **commission a
+fresh one from the next run whose arc walks without cuts**, never to rewrite
+this one: a rewritten walkthrough acquires a paragraph nobody has verified, and
+the screenshot beside it cannot be edited to agree.
+
+If a claim here stops being true, that is the signal the guide is due for
+replacement, not a line to patch. `tests_navigation.py` pins the wiring — that
+it is reachable, and that every image it names is on disk. Nothing pins the
+prose, deliberately.
+
+The page brings its own stylesheet because it was authored standalone, scoped
+under `.wt` so it cannot reach the chrome: `base.html` is Tailwind from a CDN
+and this is hand-written CSS, and an unscoped `body`, `:root` or `*` rule from
+here would repaint the nav on every page sharing the cascade.
+{% endcomment %}
+{% block title %}How the pipeline works — a visual walkthrough{% endblock %}
+
+{% block extra_head %}
+<style>
+
+  .wt { --ink:#12263a; --muted:#54657a; --blue:#14487f; --line:#e3e8ee; --bg:#f6f8fa;
+         --accent:#d64522; }
+  .wt *, .wt *::before, .wt *::after { box-sizing:border-box; }
+  .wt { margin:0; font:16.5px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+          color:var(--ink); background:var(--bg); }
+  .wt header { background:var(--blue); color:#fff; padding:48px 24px 44px; }
+  .wt header .wrap, .wt .wt-body, .wt footer { max-width:1000px; margin:0 auto; }
+  .wt header .kicker { letter-spacing:.14em; text-transform:uppercase; font-size:12px; opacity:.85; margin:0 0 10px; }
+  .wt header h1 { margin:0 0 14px; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-.01em; }
+  .wt header p { margin:0; max-width:62ch; opacity:.93; font-size:17px; }
+  .wt .wt-body { padding:0 24px 90px; }
+  .wt .intro { background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px 30px; margin:-26px 0 44px;
+            box-shadow:0 3px 14px rgba(18,38,58,.06); }
+  .wt .intro h2 { margin:0 0 10px; font-size:20px; }
+  .wt .intro p { margin:0 0 12px; }
+  .wt .routes { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:20px; }
+  .wt .route { border:1px solid var(--line); border-radius:10px; padding:16px 18px; background:var(--bg); }
+  .wt .route h3 { margin:0 0 6px; font-size:15px; color:var(--blue); }
+  .wt .route p { margin:0; font-size:15px; color:var(--muted); }
+  .wt .key { margin-top:20px; font-size:15px; color:var(--muted); }
+  .wt .key .cn { margin-right:8px; }
+  .wt .step { background:#fff; border:1px solid var(--line); border-radius:14px; padding:26px 28px 24px;
+           margin:0 0 30px; box-shadow:0 1px 5px rgba(18,38,58,.05); }
+  .wt .stephead { display:flex; align-items:center; gap:13px; margin-bottom:12px; flex-wrap:wrap; }
+  .wt .num { flex:0 0 32px; height:32px; border-radius:50%; background:var(--blue); color:#fff;
+          display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; }
+  .wt .step h3 { margin:0; font-size:21px; letter-spacing:-.01em; }
+  .wt .tag { font-size:12px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;
+          padding:3px 10px; border-radius:20px; }
+  .wt .tag.typed { background:#e8f0fb; color:#14487f; }
+  .wt .tag.sheet { background:#e7f4ec; color:#1c6b47; }
+  .wt .tag.both { background:#f0eef6; color:#57488a; }
+  .wt .lead { margin:0 0 18px; }
+  .wt figure { margin:0 0 18px; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+  .wt figure img { display:block; width:100%; height:auto; }
+  .wt ul.calls { list-style:none; margin:0; padding:0; }
+  .wt ul.calls li { display:flex; gap:12px; margin:11px 0; color:var(--muted); }
+  .wt .cn { flex:0 0 26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+         display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
+         margin-top:1px; }
+  .wt li b, .wt .lead b { color:var(--ink); }
+  .wt code { background:#eef2f6; padding:1px 6px; border-radius:4px; font-size:14px;
+          font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .wt footer { padding:24px; color:var(--muted); font-size:14.5px; border-top:1px solid var(--line); }
+  @media (max-width:700px) { .wt .routes { grid-template-columns:1fr; } .wt header h1 { font-size:27px; } }</style>
+{% endblock %}
+
+{% block content %}
+<div class="wt">
+<header><div class="wrap">
+  <p class="kicker">YCharOS Pipeline</p>
+  <h1>From a gene symbol to a Data Note, one screen at a time</h1>
+  <p>A walkthrough of the whole pipeline, taken from a single gene put through it end to end — twice over,
+  once by typing and once by spreadsheet.</p>
+</div></header>
+<div class="wt-body">
+  <div class="intro">
+    <h2>Two ways through, and they meet in the same place</h2>
+    <p>Every panel that lets you type also takes a spreadsheet, and the spreadsheet is always the same shape as
+    the thing on screen. Which one you use is a matter of how many rows you have and whether you are at the
+    bench or at your desk.</p>
+    <div class="routes">
+      <div class="route"><h3>In the browser</h3>
+        <p>Grids you tab through, panels that check before they save, fields that save on Enter. Best for a
+        handful of rows and anything you want to eyeball as you go.</p></div>
+      <div class="route"><h3>By spreadsheet</h3>
+        <p>Download the blank, fill it in, bring it back. Best for a batch, for work written up after the fact,
+        and for the sheet you actually carry to the bench.</p></div>
+    </div>
+    <p class="key"><span class="cn">1</span> Orange boxes and numbers on each screenshot match the numbered
+    notes underneath it.</p>
+  </div>
+
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">1</span>
+            <h3>Start at the hub</h3>
+            <span class="tag both">Either way</span>
+          </div>
+          <p class="lead"><code>/pipeline/start/</code> is the front door. The cards are in the order the work happens, not the order the app is built — and nothing makes you follow them.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/01-start-at-the-hub.jpg' %}" alt="Start at the hub"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The search box takes a gene symbol, a catalogue number or a cell line name and goes straight to it. Once a gene exists, this is the fastest way back to it.</span></li><li><span class="cn">2</span><span>The numbered steps are the shape of the job: start a gene, set up what you'll test, run and record, publish.</span></li><li><span class="cn">3</span><span><b>Look a gene up, then add it</b> is where a new target begins. Every card is a link — you can jump in anywhere.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">2</span>
+            <h3>Ask whether the gene is worth doing</h3>
+            <span class="tag both">Either way</span>
+          </div>
+          <p class="lead">Type the symbol and press <b>Search</b>. Six panels answer at their own pace — UniProt, DepMap expression, Horizon knockout availability, mass spec, pipeline status, and how many commercial antibodies exist.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/02-ask-whether-the-gene-is-worth-doing.jpg' %}" alt="Ask whether the gene is worth doing"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The verdict in one line. TRPA1 came back <i>worth a closer look — read the reasons before committing</i>.</span></li><li><span class="cn">2</span><span>The reasons, and this is the part that matters. HAP1 barely expresses TRPA1 (0.03 log₂(TPM+1), under the 2.5 threshold) but U2OS does (2.58), and no commercial HAP1 knockout exists. That decided the cell line for the whole run before anything was written.</span></li><li><span class="cn">3</span><span><b>Add to Pipeline</b> puts it on your site's list and takes you straight to the gene's page.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">3</span>
+            <h3>The gene&#x27;s page is the map</h3>
+            <span class="tag both">Either way</span>
+          </div>
+          <p class="lead">Every gene has one page, and the strip across the middle is the whole story: <b>Nominated → KO line → Antibodies → WB → KO confirmed → IP / IF / FC → Reported</b>.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/03-the-gene-s-page-is-the-map.jpg' %}" alt="The gene&#x27;s page is the map"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The strip is worked out from what is recorded. Nobody types a status, so it can't drift.</span></li><li><span class="cn">2</span><span><b>Next:</b> tells you the one thing to do now.</span></li><li><span class="cn">3</span><span>And the line underneath says why — <i>a knockout is what makes a result specific</i>.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">4</span>
+            <h3>Add the antibodies by pasting them</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead"><b>+ Add antibodies</b> has two modes. <b>Table</b> is a grid you tab through. <b>Paste</b> takes tab-separated rows straight out of Excel, in the order printed under the box. Leave the gene column blank — every row on this panel is already this gene.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/04-add-the-antibodies-by-pasting-them.jpg' %}" alt="Add the antibodies by pasting them"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The check counts what it read before anything is saved.</span></li><li><span class="cn">2</span><span>Each row is played back to you as the app understood it — catalogue, supplier, lot, site. Note <i>Bio-Techne (Novus Biologicals) (you typed "Novus Biologicals")</i>: supplier names are matched against what's on file, so one vendor never ends up under two spellings.</span></li><li><span class="cn">3</span><span><b>Create them</b> only lights up once the check has run. That's the pattern on every panel that writes.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">5</span>
+            <h3>Add the knockout line and its parent</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead"><b>+ Add cell lines</b> opens a spreadsheet-like grid, eighteen columns wide. Tab moves across, Enter moves down a row, and you can paste a block straight from Excel.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/05-add-the-knockout-line-and-its-parent.jpg' %}" alt="Add the knockout line and its parent"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The greyed row is an example, not data. It's ignored on save.</span></li><li><span class="cn">2</span><span>The least a row needs is a <b>name</b> and, for a knockout, the <b>gene</b> and the <b>parent</b>. The parent is the wild type by name (<code>U2OS</code>) or by C-number. Wild types already on your site are listed under the panel, so you don't create a second HeLa by accident.</span></li><li><span class="cn">3</span><span>There are more columns off to the right — storage, freezer, box, position, comments. Everything except name and gene can follow later on the board.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">6</span>
+            <h3>Check before you write</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead">Every panel in the pipeline that writes has this step, and it is worth reading rather than clicking past.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/06-check-before-you-write.jpg' %}" alt="Check before you write"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>What it read, and how much of it is new.</span></li><li><span class="cn">2</span><span>What it worked out for you — here, that <i>parent "U2OS" is your site's line</i> rather than another site's.</span></li><li><span class="cn">3</span><span>Only now does <b>Create them</b> turn blue. If something is wrong, the check says so in plain English and keeps your typing so you can fix the cell.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">7</span>
+            <h3>Or hand the same rows over as a spreadsheet</h3>
+            <span class="tag sheet">By spreadsheet</span>
+          </div>
+          <p class="lead">Every panel that lets you type also takes a file. <b>⬇ Blank template</b> gives you the columns; fill it in and bring it back with <b>⬆ Upload a sheet</b>. Same preview, same wording, no row limit.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/07-or-hand-the-same-rows-over-as-a-spreadsheet.jpg' %}" alt="Or hand the same rows over as a spreadsheet"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>Choose the file, then <b>Preview changes</b> shows the same row-by-row verdict as the typed route.</span></li><li><span class="cn">2</span><span><b>Save these changes</b> answers with what it did.</span></li><li><span class="cn">3</span><span>And offers to show you the rows without a page reload. The <b>Preview</b> button greys out at the same moment — <i>saved, choose another file to upload again</i> — so it's obvious the file has been used.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">8</span>
+            <h3>What is on file now</h3>
+            <span class="tag both">Either way</span>
+          </div>
+          <p class="lead">Both routes land in the same place. The gene page lists what exists, per site.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/08-what-is-on-file-now.jpg' %}" alt="What is on file now"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span><b>Procedure status</b> counts results per application, and only lights up the ones you have actually run.</span></li><li><span class="cn">2</span><span>The antibodies panel, with the site chip and the count.</span></li><li><span class="cn">3</span><span><b>Apps</b> is what the supplier recommends the antibody for — not what you found. What you found lives in the sessions.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">9</span>
+            <h3>One workbook, several sessions</h3>
+            <span class="tag sheet">By spreadsheet</span>
+          </div>
+          <p class="lead"><b>⬇ Bench workbook</b> arrives pre-filled with your antibodies, your WT and KO lines and your site's default protocol conditions, with one tab per application. Fill in the tabs you ran; the rest are ignored.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/09-one-workbook-several-sessions.jpg' %}" alt="One workbook, several sessions"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>Upload it back and preview first, as always.</span></li><li><span class="cn">2</span><span>It counts what it is about to create.</span></li><li><span class="cn">3</span><span>One line per tab, so you can see which knockout line, which experimenter and how many protocol conditions each session will carry. Uploading only ever <b>adds</b> — the same file twice records the work twice.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">10</span>
+            <h3>Or plan a session in the browser</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead"><b>+ Record a session</b> sets the header once, then you list the antibodies you are testing, one per row.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/10-or-plan-a-session-in-the-browser.jpg' %}" alt="Or plan a session in the browser"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The WT and KO boxes offer the lines already on file, each with its site after the dash. The site is part of the name — two institutes can have a cell line called the same thing.</span></li><li><span class="cn">2</span><span>One row per antibody. Anything genuinely new here — an unseen catalogue number, a cell line — is created together with the session, in one go, so a bad header creates nothing at all.</span></li><li><span class="cn">3</span><span>The check reads the whole thing back before it writes: how many antibodies are already on file, how many would be added, and which WT and KO lines it resolved to.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">11</span>
+            <h3>Write the results in</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead">A session opens as a panel with one card per antibody. Every field is click-to-edit and saves on Enter — there is no Save button and there doesn't need to be.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/11-write-the-results-in.jpg' %}" alt="Write the results in"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The fields change with the application. This is an immunoprecipitation, so it asks for enrichment and the IP assessment; a western blot asks for exposure time, signal and rating instead.</span></li><li><span class="cn">2</span><span><b>Method</b> holds the rest — the protocol detail that belongs to this antibody in this session.</span></li><li><span class="cn">3</span><span>And the same panel hands you the two files for taking this session to the bench.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">12</span>
+            <h3>Take a sheet to the bench, bring it back</h3>
+            <span class="tag sheet">By spreadsheet</span>
+          </div>
+          <p class="lead">Each session has its own printable <b>bench sheet</b> and its own <b>full workbook</b>, both stamped with that session's number. Write on the sheet at the bench, then upload it to the session it came from — rows are matched to antibodies by Ab# or catalogue number, so the order doesn't matter.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/12-take-a-sheet-to-the-bench-bring-it-back.jpg' %}" alt="Take a sheet to the bench, bring it back"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>The session you are recording into is named at the top of the panel.</span></li><li><span class="cn">2</span><span>The file you have chosen.</span></li><li><span class="cn">3</span><span>And if the two don't match, it stops you and says so, naming both numbers: <i>this sheet was downloaded for session #502, but you are recording into session #501. Nothing has been read from it.</i></span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">13</span>
+            <h3>Confirm the knockout</h3>
+            <span class="tag typed">In the browser</span>
+          </div>
+          <p class="lead">A knockout that has never been confirmed makes every result that used it provisional. This is the one step that has to be done in the browser — the cell lines spreadsheet marks both of these columns read-only.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/13-confirm-the-knockout.jpg' %}" alt="Confirm the knockout"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>Click the <b>KO validated</b> cell to flip it, then fill in <i>how was it confirmed?</i> — name the antibody and the session. This sentence is what a reader relies on later.</span></li><li><span class="cn">2</span><span>The gene's progress strip travels with you onto the boards, so you can see where you are without going back.</span></li><li><span class="cn">3</span><span>And it keeps telling you the next thing, with the reason attached.</span></li></ul>
+        </section>
+
+        <section class="step">
+          <div class="stephead">
+            <span class="num">14</span>
+            <h3>The strip fills itself in</h3>
+            <span class="tag both">Either way</span>
+          </div>
+          <p class="lead">Nothing on this page was typed as a status. Every green tick is there because a record exists behind it.</p>
+          <figure><img loading="lazy" src="{% static 'pipeline/walkthrough/14-the-strip-fills-itself-in.jpg' %}" alt="The strip fills itself in"></figure>
+          <ul class="calls"><li><span class="cn">1</span><span>Nominated, KO line, Antibodies, WB, KO confirmed, IP and IF — all derived. FC is still grey because no flow cytometry was run, and many targets never need all four.</span></li><li><span class="cn">2</span><span><b>KO Validated: Yes — 1 of 3 lines confirmed</b>. It counts rather than rounding up.</span></li><li><span class="cn">3</span><span><b>Next: Reported.</b> A gene counts as finished when it has a Zenodo DOI or a published F1000 paper. <b>Generate Report</b> on the same page writes a draft Data Note to your Downloads folder, with named gaps in square brackets wherever nothing was recorded.</span></li></ul>
+        </section>
+</div>
+<footer>
+  Screens captured from the live pipeline on 4 August 2026, using TRPA1 at Leicester.
+</footer>
+</div>
+{% endblock %}

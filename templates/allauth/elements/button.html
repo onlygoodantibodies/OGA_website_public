@@ -1,0 +1,23 @@
+{% comment %}
+Bootstrap styling for allauth's button element. Same markup as allauth's own
+(templates/allauth/elements/button.html in the installed package) with a class
+added, so it keeps working whichever attrs a page passes.
+
+`tags` arrives as a list — the {% templatetag openblock %} element {% templatetag closeblock %}
+tag splits it on commas. The three allauth uses are "secondary", "danger,delete"
+and none, which is why only those map here; an unknown tag falls through to the
+primary style rather than losing the class altogether.
+{% endcomment %}
+{% load allauth %}
+{% comment %} djlint:off {% endcomment %}
+<{% if attrs.href %}a href="{{ attrs.href }}"{% else %}button{% endif %}
+class="btn {% if 'danger' in attrs.tags %}btn-outline-danger{% elif 'secondary' in attrs.tags %}btn-outline-secondary{% else %}btn-primary{% endif %} me-2 mb-2"
+{% if attrs.form %}form="{{ attrs.form }}"{% endif %}
+{% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+{% if attrs.name %}name="{{ attrs.name }}"{% endif %}
+{% if attrs.value %}value="{{ attrs.value }}"{% endif %}
+{% if attrs.type %}type="{{ attrs.type }}"{% endif %}
+>
+{% slot %}
+{% endslot %}
+</{% if attrs.href %}a{% else %}button{% endif %}>

@@ -1,0 +1,135 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ lesson.title }} – OGA Academy</title>
+  <link rel="icon" href="{% static 'core/up-logo.ico' %}">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
+  <!-- CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+  <style>
+    .lesson-title { color: #10428a; font-weight: 700; margin-top:1rem; }
+    .accordion-button { font-weight:600; }
+    .accordion-body img { max-width:100%; height:auto; margin-top:1rem; }
+  </style>
+</head>
+<body>
+{% include 'academy/header.html' %}
+
+  <main class="container py-5">
+    <h1 class="text-center lesson-title">{{ lesson.title }}</h1>
+
+    {% if progress is not none %}
+      <div class="progress my-4" style="height:6px;">
+        <div class="progress-bar bg-success"
+             role="progressbar"
+             style="width:{{ progress }}%;"
+             aria-valuenow="{{ progress }}"
+             aria-valuemin="0"
+             aria-valuemax="100">
+        </div>
+      </div>
+      <p class="text-center small text-muted mb-5">{{ progress }}% complete</p>
+    {% endif %}
+
+    <!-- Accordion Sections -->
+    <div class="accordion" id="lessonAccordion">
+      {% for section in sections %}
+        <div class="accordion-item" data-section-id="{{ section.id }}">
+          <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#collapse{{ forloop.counter }}"
+                    aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                    aria-controls="collapse{{ forloop.counter }}">
+              {{ section.title }}
+            </button>
+          </h2>
+          <div id="collapse{{ forloop.counter }}"
+               class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+               aria-labelledby="heading{{ forloop.counter }}"
+               data-bs-parent="#lessonAccordion">
+            <div class="accordion-body">
+              {{ section.body|safe }}
+              {% if section.image %}
+                <img src="{{ section.image.url }}" alt="{{ section.title }}">
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <p class="text-muted">No sections have been added yet.</p>
+      {% endfor %}
+    </div>
+
+{% if lesson.has_quiz and lesson.quiz.id %}
+  {% if progress|default:0 >= 100 %}
+    <div class="text-center mt-5">
+      <p>Well done — you’ve completed this lesson. You can now take the quiz.</p>
+      <a class="btn btn-primary" href="{% url 'academy:quiz' quiz_id=lesson.quiz.id %}">
+        Start Quiz
+      </a>
+    </div>
+  {% else %}
+    <div class="text-center mt-5">
+      <p class="text-muted">You can access the quiz anytime for this lesson.</p>
+      <a class="btn btn-primary" href="{% url 'academy:quiz' quiz_id=lesson.quiz.id %}">
+        Start Quiz
+      </a>
+    </div>
+  {% endif %}
+{% else %}
+  <p class="text-center text-muted mt-5">This lesson doesn’t include a quiz.</p>
+{% endif %}
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <!-- your footer -->
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Section-view tracking -->
+  <script>
+    function getCSRFToken() {
+      return document.querySelector('meta[name="csrf-token"]').content;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#lessonAccordion .accordion-collapse').forEach(el => {
+        el.addEventListener('shown.bs.collapse', () => {
+          const sectionId = el.closest('.accordion-item').dataset.sectionId;
+
+          fetch("{% url 'academy:mark_section' %}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': getCSRFToken()
+            },
+            body: new URLSearchParams({ section_id: sectionId })
+          })
+          .then(res => res.json())
+          .then(data => {
+            const bar = document.querySelector('.progress-bar');
+            bar.style.width = data.progress + '%';
+            bar.setAttribute('aria-valuenow', data.progress);
+            document.querySelector('.progress + p')
+                    .textContent = data.progress + '% complete';
+          })
+          .catch(console.error);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

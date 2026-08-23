@@ -1,0 +1,695 @@
+{
+ "_comment": "Shared vectors pinning core/citations.py::normalise_title/title_key against browser-extension/src/paper.js::normaliseTitle/titleKey. Both suites read this file. A change to either normaliser fails here until the other changes too -- which is the point: a title that hashes differently on the two sides is a paper the extension silently fails to recognise. `doi_vectors` pins normalise_doi against paper.js::normaliseDoi for the same reason: a DOI stored in one case and looked up in another is a map of near misses.",
+ "_generated_from": "titles in oga_citeab.sqlite (2026-05 snapshot), stratified, plus hand-written edge cases",
+ "vectors": [
+  {
+   "title": "Neural stem cells are increased after loss of β-catenin, but neural progenitors undergo cell death.",
+   "normalised": "neural stem cells are increased after loss of beta catenin but neural progenitors undergo cell death",
+   "key": "4368af58"
+  },
+  {
+   "title": "Macrophage Infiltration Induces Gastric Cancer Invasiveness by Activating the β-Catenin Pathway.",
+   "normalised": "macrophage infiltration induces gastric cancer invasiveness by activating the beta catenin pathway",
+   "key": "814b0725"
+  },
+  {
+   "title": "Overexpression of Parkinson's Disease-Associated Mutation LRRK2 G2019S in Mouse Forebrain Induces Behavioral Deficits and α-Synuclein Pathology.",
+   "normalised": "overexpression of parkinson s disease associated mutation lrrk2 g2019s in mouse forebrain induces behavioral deficits and alpha synuclein pathology",
+   "key": "65ed6ff5"
+  },
+  {
+   "title": "Defects in the mitochondrial-tRNA modification enzymes MTO1 and GTPBP3 promote different metabolic reprogramming through a HIF-PPARγ-UCP2-AMPK axis.",
+   "normalised": "defects in the mitochondrial trna modification enzymes mto1 and gtpbp3 promote different metabolic reprogramming through a hif ppargamma ucp2 ampk axis",
+   "key": "bd64a596"
+  },
+  {
+   "title": "Spleen tyrosine kinase promotes NLR family pyrin domain containing 3 inflammasome‑mediated IL‑1β secretion via c‑Jun N‑terminal kinase activation and cell apoptosis during diabetic nephropathy.",
+   "normalised": "spleen tyrosine kinase promotes nlr family pyrin domain containing 3 inflammasome mediated il 1beta secretion via c jun n terminal kinase activation and cell apoptosis during diabetic nephropathy",
+   "key": "394e35f4"
+  },
+  {
+   "title": "Cullin5 deficiency promotes small-cell lung cancer metastasis by stabilizing integrin β1.",
+   "normalised": "cullin5 deficiency promotes small cell lung cancer metastasis by stabilizing integrin beta1",
+   "key": "c1a6aafc"
+  },
+  {
+   "title": "Salinomycin exerts anti-colorectal cancer activity by targeting the β-catenin/T-cell factor complex.",
+   "normalised": "salinomycin exerts anti colorectal cancer activity by targeting the beta catenin t cell factor complex",
+   "key": "5a7e4055"
+  },
+  {
+   "title": "Palmitoylome profiling indicates that androgens regulate the palmitoylation of α‑tubulin in prostate cancer‑derived LNCaP cells and supernatants.",
+   "normalised": "palmitoylome profiling indicates that androgens regulate the palmitoylation of alpha tubulin in prostate cancer derived lncap cells and supernatants",
+   "key": "e0a9b693"
+  },
+  {
+   "title": "Importance of γ-secretase in the regulation of liver X receptor and cellular lipid metabolism.",
+   "normalised": "importance of gamma secretase in the regulation of liver x receptor and cellular lipid metabolism",
+   "key": "ae89ce2b"
+  },
+  {
+   "title": "BET degrader inhibits tumor progression and stem-like cell growth via Wnt/β-catenin signaling repression in glioma cells.",
+   "normalised": "bet degrader inhibits tumor progression and stem like cell growth via wnt beta catenin signaling repression in glioma cells",
+   "key": "132e6e7c"
+  },
+  {
+   "title": "Circular RNA hsa_circ_0072309 inhibits the proliferation, invasion and migration of gastric cancer cells via inhibition of PI3K/AKT signaling by activating PPARγ/PTEN signaling.",
+   "normalised": "circular rna hsa circ 0072309 inhibits the proliferation invasion and migration of gastric cancer cells via inhibition of pi3k akt signaling by activating ppargamma pten signaling",
+   "key": "583ad552"
+  },
+  {
+   "title": "The self-regulated response of the Wnt pathway to an oncogenic mutation in β-catenin",
+   "normalised": "the self regulated response of the wnt pathway to an oncogenic mutation in beta catenin",
+   "key": "8ceda25c"
+  },
+  {
+   "title": "Quercetin Alleviates the Accumulation of Superoxide in Sodium Iodate-Induced Retinal Autophagy by Regulating Mitochondrial Reactive Oxygen Species Homeostasis through Enhanced Deacetyl-SOD2 via the Nrf2-PGC-1α-Sirt1 Pathway.",
+   "normalised": "quercetin alleviates the accumulation of superoxide in sodium iodate induced retinal autophagy by regulating mitochondrial reactive oxygen species homeostasis through enhanced deacetyl sod2 via the nrf2 pgc 1alpha sirt1 pathway",
+   "key": "997dce8a"
+  },
+  {
+   "title": "20-HETE synthesis inhibition attenuates traumatic brain injury-induced mitochondrial dysfunction and neuronal apoptosis via the SIRT1/PGC-1α pathway: A translational study.",
+   "normalised": "20 hete synthesis inhibition attenuates traumatic brain injury induced mitochondrial dysfunction and neuronal apoptosis via the sirt1 pgc 1alpha pathway a translational study",
+   "key": "9a50f46e"
+  },
+  {
+   "title": "Development of PDE6D and CK1α Degraders through Chemical Derivatization of FPFT-2216.",
+   "normalised": "development of pde6d and ck1alpha degraders through chemical derivatization of fpft 2216",
+   "key": "ea142b79"
+  },
+  {
+   "title": "Leonurine inhibits the TXNIP/NLRP3 and NF-κB pathways via Nrf2 activation to alleviate carrageenan-induced pleurisy in mice.",
+   "normalised": "leonurine inhibits the txnip nlrp3 and nf kappab pathways via nrf2 activation to alleviate carrageenan induced pleurisy in mice",
+   "key": "012fe3ad"
+  },
+  {
+   "title": "Inhibition of TRPA1 Ameliorates Periodontitis by Reducing Periodontal Ligament Cell Oxidative Stress and Apoptosis via PERK/eIF2α/ATF-4/CHOP Signal Pathway.",
+   "normalised": "inhibition of trpa1 ameliorates periodontitis by reducing periodontal ligament cell oxidative stress and apoptosis via perk eif2alpha atf 4 chop signal pathway",
+   "key": "2a297927"
+  },
+  {
+   "title": "Caffeine Inhibits NLRP3 Inflammasome Activation by Downregulating TLR4/MAPK/NF-κB Signaling Pathway in an Experimental NASH Model.",
+   "normalised": "caffeine inhibits nlrp3 inflammasome activation by downregulating tlr4 mapk nf kappab signaling pathway in an experimental nash model",
+   "key": "66e5c276"
+  },
+  {
+   "title": "Xanthine oxidoreductase mediates genotoxic drug-induced autophagy and apoptosis resistance by uric acid accumulation and TGF-β-activated kinase 1 (TAK1) activation.",
+   "normalised": "xanthine oxidoreductase mediates genotoxic drug induced autophagy and apoptosis resistance by uric acid accumulation and tgf beta activated kinase 1 tak1 activation",
+   "key": "5a48fc05"
+  },
+  {
+   "title": "Ge-Gen Decoction Exerts an Anti-Primary Dysmenorrhea Effect in Rats by Inactivating the HSP90/NLRP3/NF-κB/COX-2 Pathway.",
+   "normalised": "ge gen decoction exerts an anti primary dysmenorrhea effect in rats by inactivating the hsp90 nlrp3 nf kappab cox 2 pathway",
+   "key": "ae23bee5"
+  },
+  {
+   "title": "Methylglyoxal suppresses microglia inflammatory response through NRF2-IκBζ pathway.",
+   "normalised": "methylglyoxal suppresses microglia inflammatory response through nrf2 ikappabzeta pathway",
+   "key": "f93f49b7"
+  },
+  {
+   "title": "β-arrestin1 is an E3 ubiquitin ligase adaptor for substrate linear polyubiquitination.",
+   "normalised": "beta arrestin1 is an e3 ubiquitin ligase adaptor for substrate linear polyubiquitination",
+   "key": "9cb54d87"
+  },
+  {
+   "title": "Nrf-2/ROS/NF-κB pathway is modulated by cynarin in human mesenchymal stem cells in vitro from ankylosing spondylitis.",
+   "normalised": "nrf 2 ros nf kappab pathway is modulated by cynarin in human mesenchymal stem cells in vitro from ankylosing spondylitis",
+   "key": "86313cc8"
+  },
+  {
+   "title": "G protein subunit Gγ13-mediated signaling pathway is critical to the inflammation resolution and functional recovery of severely injured lungs",
+   "normalised": "g protein subunit ggamma13 mediated signaling pathway is critical to the inflammation resolution and functional recovery of severely injured lungs",
+   "key": "adc68d83"
+  },
+  {
+   "title": "Melatonergic Signaling Sustains Food Allergy Through FcεRI Recycling.",
+   "normalised": "melatonergic signaling sustains food allergy through fcepsilonri recycling",
+   "key": "75aabd9c"
+  },
+  {
+   "title": "ΔNp63α promotes radioresistance in esophageal squamous cell carcinoma through the PLEC-KEAP1-NRF2 feedback loop.",
+   "normalised": "deltanp63alpha promotes radioresistance in esophageal squamous cell carcinoma through the plec keap1 nrf2 feedback loop",
+   "key": "3dbb730f"
+  },
+  {
+   "title": "Pifithrin-μ sensitizes mTOR-activated liver cancer to sorafenib treatment.",
+   "normalised": "pifithrin mu sensitizes mtor activated liver cancer to sorafenib treatment",
+   "key": "2d13f794"
+  },
+  {
+   "title": "TREM2 deficiency exacerbates cognitive impairment by aggravating α-Synuclein-induced lysosomal dysfunction in Parkinson's disease.",
+   "normalised": "trem2 deficiency exacerbates cognitive impairment by aggravating alpha synuclein induced lysosomal dysfunction in parkinson s disease",
+   "key": "f33e43c5"
+  },
+  {
+   "title": "β-elemene promotes ferroptosis to improve the sensitivity of imatinib in gastrointestinal stromal tumours by targeting N6AMT1.",
+   "normalised": "beta elemene promotes ferroptosis to improve the sensitivity of imatinib in gastrointestinal stromal tumours by targeting n6amt1",
+   "key": "a0909c06"
+  },
+  {
+   "title": "Microneedle-facilitated Portulaca oleracea L.-derived nanovesicles ameliorate atopic dermatitis by modulating macrophage M1/M2 polarization and inhibiting NF-κB and STING signaling pathways.",
+   "normalised": "microneedle facilitated portulaca oleracea l derived nanovesicles ameliorate atopic dermatitis by modulating macrophage m1 m2 polarization and inhibiting nf kappab and sting signaling pathways",
+   "key": "79925a3e"
+  },
+  {
+   "title": "Ca2+-activated Cl− currents are dispensable for olfaction.",
+   "normalised": "ca2 activated cl currents are dispensable for olfaction",
+   "key": "6ae033a9"
+  },
+  {
+   "title": "Neuroprotective effects of hydrogen sulfide on sodium azide‑induced autophagic cell death in PC12 cells.",
+   "normalised": "neuroprotective effects of hydrogen sulfide on sodium azide induced autophagic cell death in pc12 cells",
+   "key": "db50b49c"
+  },
+  {
+   "title": "Resveratrol induced reactive oxygen species and endoplasmic reticulum stress‑mediated apoptosis, and cell cycle arrest in the A375SM malignant melanoma cell line.",
+   "normalised": "resveratrol induced reactive oxygen species and endoplasmic reticulum stress mediated apoptosis and cell cycle arrest in the a375sm malignant melanoma cell line",
+   "key": "986c6159"
+  },
+  {
+   "title": "Inhibition of autophagy enhances adenosine‑induced apoptosis in human hepatoblastoma HepG2 cells.",
+   "normalised": "inhibition of autophagy enhances adenosine induced apoptosis in human hepatoblastoma hepg2 cells",
+   "key": "8f111b61"
+  },
+  {
+   "title": "Nobiletin alleviates palmitic acid‑induced NLRP3 inflammasome activation in a sirtuin 1‑dependent manner in AML‑12 cells.",
+   "normalised": "nobiletin alleviates palmitic acid induced nlrp3 inflammasome activation in a sirtuin 1 dependent manner in aml 12 cells",
+   "key": "30f9f805"
+  },
+  {
+   "title": "Diallyl disulfide attenuates non‑alcoholic steatohepatitis by suppressing key regulators of lipid metabolism, lipid peroxidation and inflammation in mice.",
+   "normalised": "diallyl disulfide attenuates non alcoholic steatohepatitis by suppressing key regulators of lipid metabolism lipid peroxidation and inflammation in mice",
+   "key": "ff69cea1"
+  },
+  {
+   "title": "MicroRNA‑33 regulates the NLRP3 inflammasome signaling pathway in macrophages.",
+   "normalised": "microrna 33 regulates the nlrp3 inflammasome signaling pathway in macrophages",
+   "key": "32a6905e"
+  },
+  {
+   "title": "Novel compound heterozygous PLEC mutations lead to early‑onset limb‑girdle muscular dystrophy 2Q.",
+   "normalised": "novel compound heterozygous plec mutations lead to early onset limb girdle muscular dystrophy 2q",
+   "key": "3b959e61"
+  },
+  {
+   "title": "Halofuginone protects against advanced glycation end products‑induced injury of H9C2 cells via alleviating endoplasmic reticulum stress‑associated apoptosis and inducing autophagy.",
+   "normalised": "halofuginone protects against advanced glycation end products induced injury of h9c2 cells via alleviating endoplasmic reticulum stress associated apoptosis and inducing autophagy",
+   "key": "bb4bccf2"
+  },
+  {
+   "title": "Circular RNA_101237 mediates anoxia/reoxygenation injury by targeting let‑7a‑5p/IGF2BP3 in cardiomyocytes.",
+   "normalised": "circular rna 101237 mediates anoxia reoxygenation injury by targeting let 7a 5p igf2bp3 in cardiomyocytes",
+   "key": "2995b73f"
+  },
+  {
+   "title": "Juglanin administration protects skin against UVB‑induced injury by reducing Nrf2‑dependent ROS generation.",
+   "normalised": "juglanin administration protects skin against uvb induced injury by reducing nrf2 dependent ros generation",
+   "key": "bc1a7284"
+  },
+  {
+   "title": "S100A8 promotes chemoresistance via augmenting autophagy in B‑cell lymphoma cells.",
+   "normalised": "s100a8 promotes chemoresistance via augmenting autophagy in b cell lymphoma cells",
+   "key": "8a7c8e8e"
+  },
+  {
+   "title": "miR‑155 modulates high glucose‑induced cardiac fibrosis via the Nrf2/HO‑1 signaling pathway.",
+   "normalised": "mir 155 modulates high glucose induced cardiac fibrosis via the nrf2 ho 1 signaling pathway",
+   "key": "4d1edd89"
+  },
+  {
+   "title": "Transcription factor EB‑mediated autophagy promotes dermal fibroblast differentiation and collagen production by regulating endoplasmic reticulum stress and autophagy‑dependent secretion.",
+   "normalised": "transcription factor eb mediated autophagy promotes dermal fibroblast differentiation and collagen production by regulating endoplasmic reticulum stress and autophagy dependent secretion",
+   "key": "edfdcc7e"
+  },
+  {
+   "title": "Sirt3 promotes the autophagy of HK‑2 human proximal tubular epithelial cells via the inhibition of Notch‑1/Hes‑1 signaling.",
+   "normalised": "sirt3 promotes the autophagy of hk 2 human proximal tubular epithelial cells via the inhibition of notch 1 hes 1 signaling",
+   "key": "c8937afd"
+  },
+  {
+   "title": "N‑acetylcysteine inhibits atherosclerosis by correcting glutathione‑dependent methylglyoxal elimination and dicarbonyl/oxidative stress in the aorta of diabetic mice.",
+   "normalised": "n acetylcysteine inhibits atherosclerosis by correcting glutathione dependent methylglyoxal elimination and dicarbonyl oxidative stress in the aorta of diabetic mice",
+   "key": "efa763f9"
+  },
+  {
+   "title": "Exploration of the hepatoprotective effect and mechanism of magnesium isoglycyrrhizinate in mice with arsenic trioxide‑induced acute liver injury.",
+   "normalised": "exploration of the hepatoprotective effect and mechanism of magnesium isoglycyrrhizinate in mice with arsenic trioxide induced acute liver injury",
+   "key": "99045684"
+  },
+  {
+   "title": "miR‑30a‑5p mitigates autophagy by regulating the Beclin‑1/ATG16 pathway in renal ischemia/reperfusion injury.",
+   "normalised": "mir 30a 5p mitigates autophagy by regulating the beclin 1 atg16 pathway in renal ischemia reperfusion injury",
+   "key": "8e4eb10b"
+  },
+  {
+   "title": "Ginsenoside Rg3 ameliorates acute pancreatitis by activating the NRF2/HO‑1‑mediated ferroptosis pathway.",
+   "normalised": "ginsenoside rg3 ameliorates acute pancreatitis by activating the nrf2 ho 1 mediated ferroptosis pathway",
+   "key": "5998984b"
+  },
+  {
+   "title": "Protective effect of hydroxysafflor yellow A on renal ischemia‑-reperfusion injury by targeting the Akt‑Nrf2 axis in mice.",
+   "normalised": "protective effect of hydroxysafflor yellow a on renal ischemia reperfusion injury by targeting the akt nrf2 axis in mice",
+   "key": "9c3a6383"
+  },
+  {
+   "title": "Tumor suppressive functions of hsa‑miR‑34a on cell cycle, migration and protective autophagy in bladder cancer.",
+   "normalised": "tumor suppressive functions of hsa mir 34a on cell cycle migration and protective autophagy in bladder cancer",
+   "key": "61f04cf1"
+  },
+  {
+   "title": "Combined proteomics and CRISPR‒Cas9 screens in PDX identify ADAM10 as essential for leukemia in vivo.",
+   "normalised": "combined proteomics and crispr cas9 screens in pdx identify adam10 as essential for leukemia in vivo",
+   "key": "883407d2"
+  },
+  {
+   "title": "Subcellular trafficking and transcytosis efficacy of different receptor types for therapeutic antibody delivery at the blood‒brain barrier.",
+   "normalised": "subcellular trafficking and transcytosis efficacy of different receptor types for therapeutic antibody delivery at the blood brain barrier",
+   "key": "fd664f75"
+  },
+  {
+   "title": "Chemokine‑like receptor 1‑positive cells are present in the odontoblast layer in tooth tissue in rats and humans.",
+   "normalised": "chemokine like receptor 1 positive cells are present in the odontoblast layer in tooth tissue in rats and humans",
+   "key": "bfade931"
+  },
+  {
+   "title": "Icariin‑curcumol promotes ferroptosis in prostate cancer cells through Nrf2/HO‑1 signaling.",
+   "normalised": "icariin curcumol promotes ferroptosis in prostate cancer cells through nrf2 ho 1 signaling",
+   "key": "4c4edabe"
+  },
+  {
+   "title": "Aurantio‑obtusin regulates lipogenesis and ferroptosis of liver cancer cells through inhibiting SCD1 and sensitizing RSL3.",
+   "normalised": "aurantio obtusin regulates lipogenesis and ferroptosis of liver cancer cells through inhibiting scd1 and sensitizing rsl3",
+   "key": "fffaf5be"
+  },
+  {
+   "title": "NEDD4 enhances bone‑tendon healing in rotator cuff tears by reducing fatty infiltration.",
+   "normalised": "nedd4 enhances bone tendon healing in rotator cuff tears by reducing fatty infiltration",
+   "key": "8522a233"
+  },
+  {
+   "title": "NLRP3 inflammasome expression affects immune cell infiltration and clinical prognosis in Helicobacter pylori infection‑associated gastric cancer.",
+   "normalised": "nlrp3 inflammasome expression affects immune cell infiltration and clinical prognosis in helicobacter pylori infection associated gastric cancer",
+   "key": "563dc65e"
+  },
+  {
+   "title": "CENPU promotes tumorigenesis and stem cell properties in triple‑negative breast cancer by suppressing lysosomal furin degradation.",
+   "normalised": "cenpu promotes tumorigenesis and stem cell properties in triple negative breast cancer by suppressing lysosomal furin degradation",
+   "key": "c9e30fbe"
+  },
+  {
+   "title": "Export‑biased, 3′UTR‑preserving TDP‑43 model links nuclear loss to cytoplasmic aggregation in ALS/FTLD",
+   "normalised": "export biased 3 utr preserving tdp 43 model links nuclear loss to cytoplasmic aggregation in als ftld",
+   "key": "b03b6fd0"
+  },
+  {
+   "title": "Adenovirus-delivered microRNA targeting the vitamin D receptor reduces intracellular Ca²⁺ concentrations by regulating the expression of Ca²⁺-transport proteins in renal epithelial cells.",
+   "normalised": "adenovirus delivered microrna targeting the vitamin d receptor reduces intracellular ca2 concentrations by regulating the expression of ca2 transport proteins in renal epithelial cells",
+   "key": "2bfdeb04"
+  },
+  {
+   "title": "Surface PD-L1, E-cadherin, CD24, and VEGFR2 as markers of epithelial cancer stem cells associated with rapid tumorigenesis.",
+   "normalised": "surface pd l1 e cadherin cd24 and vegfr2 as markers of epithelial cancer stem cells associated with rapid tumorigenesis",
+   "key": "a99f32c5"
+  },
+  {
+   "title": "Mitochondrial ascorbic acid prevents mitochondrial O₂·⁻ formation, an event critical for U937 cell apoptosis induced by arsenite through both autophagic-dependent and independent mechanisms.",
+   "normalised": "mitochondrial ascorbic acid prevents mitochondrial o2 formation an event critical for u937 cell apoptosis induced by arsenite through both autophagic dependent and independent mechanisms",
+   "key": "3b7d2317"
+  },
+  {
+   "title": "Genipin protects against H2O2-induced oxidative damage in retinal pigment epithelial cells by promoting Nrf2 signaling.",
+   "normalised": "genipin protects against h2o2 induced oxidative damage in retinal pigment epithelial cells by promoting nrf2 signaling",
+   "key": "d686321f"
+  },
+  {
+   "title": "Identification of Cellular Pathogenicity Markers for SIL1 Mutations Linked to Marinesco-Sjögren Syndrome.",
+   "normalised": "identification of cellular pathogenicity markers for sil1 mutations linked to marinesco sjo gren syndrome",
+   "key": "38cb14bb"
+  },
+  {
+   "title": "Filamin A regulates EGFR/ERK/Akt signaling and affects colorectal cancer cell growth and migration.",
+   "normalised": "filamin a regulates egfr erk akt signaling and affects colorectal cancer cell growth and migration",
+   "key": "a0b7550d"
+  },
+  {
+   "title": "Yersinia pseudotuberculosis YopH targets SKAP2-dependent and independent signaling pathways to block neutrophil antimicrobial mechanisms during infection.",
+   "normalised": "yersinia pseudotuberculosis yoph targets skap2 dependent and independent signaling pathways to block neutrophil antimicrobial mechanisms during infection",
+   "key": "2d238ffb"
+  },
+  {
+   "title": "Grooved hydroxyapatite scaffold modulates mitochondria homeostasis and thus promotes osteogenesis in bone mesenchymal stromal cells.",
+   "normalised": "grooved hydroxyapatite scaffold modulates mitochondria homeostasis and thus promotes osteogenesis in bone mesenchymal stromal cells",
+   "key": "8da2c024"
+  },
+  {
+   "title": "Tumor-derived exosomal microRNA-7-5p enhanced by verbascoside inhibits biological behaviors of glioblastoma in vitro and in vivo.",
+   "normalised": "tumor derived exosomal microrna 7 5p enhanced by verbascoside inhibits biological behaviors of glioblastoma in vitro and in vivo",
+   "key": "3aebb61d"
+  },
+  {
+   "title": "Kaposi’s sarcoma-associated herpesvirus (KSHV) utilizes the NDP52/CALCOCO2 selective autophagy receptor to disassemble processing bodies",
+   "normalised": "kaposi s sarcoma associated herpesvirus kshv utilizes the ndp52 calcoco2 selective autophagy receptor to disassemble processing bodies",
+   "key": "a3a3e9c2"
+  },
+  {
+   "title": "Truncated Caveolin-3 Mutation In Familial Barrett’s Esophagus",
+   "normalised": "truncated caveolin 3 mutation in familial barrett s esophagus",
+   "key": "62e5a526"
+  },
+  {
+   "title": "Platelet proteolytic machinery assessment in Alzheimer’s Diseases",
+   "normalised": "platelet proteolytic machinery assessment in alzheimer s diseases",
+   "key": "f02ed78c"
+  },
+  {
+   "title": "Generation of a set of isogenic iPSC lines carrying all APOE genetic variants (Ɛ2/Ɛ3/Ɛ4) and knock-out for the study of APOE biology in health and disease.",
+   "normalised": "generation of a set of isogenic ipsc lines carrying all apoe genetic variants 2 3 4 and knock out for the study of apoe biology in health and disease",
+   "key": "3ca4ca09"
+  },
+  {
+   "title": "Insect High Five™ cell line development using site-specific flipase recombination technology.",
+   "normalised": "insect high fivetm cell line development using site specific flipase recombination technology",
+   "key": "4cefb35c"
+  },
+  {
+   "title": "MEF2C ameliorates learning, memory, and molecular pathological changes in Alzheimer’s disease in vivo and in vitro",
+   "normalised": "mef2c ameliorates learning memory and molecular pathological changes in alzheimer s disease in vivo and in vitro",
+   "key": "13a2be5e"
+  },
+  {
+   "title": "Genome-wide CRISPR screens of T cell exhaustion identify chromatin remodeling factors that limit T cell persistence.",
+   "normalised": "genome wide crispr screens of t cell exhaustion identify chromatin remodeling factors that limit t cell persistence",
+   "key": "128c9a80"
+  },
+  {
+   "title": "Development of a Novel Bruton’s Tyrosine Kinase Inhibitor that exerts Anti-Cancer Activities Potentiates Response of Chemotherapeutic Agents In Multiple Myeloma Stem Cell-Like Cells",
+   "normalised": "development of a novel bruton s tyrosine kinase inhibitor that exerts anti cancer activities potentiates response of chemotherapeutic agents in multiple myeloma stem cell like cells",
+   "key": "0fdb0184"
+  },
+  {
+   "title": "A multiplexed in vivo approach to identify driver genes in small cell lung cancer.",
+   "normalised": "a multiplexed in vivo approach to identify driver genes in small cell lung cancer",
+   "key": "04999e33"
+  },
+  {
+   "title": "Comparison of Injection Saline and External Fixator in Rat Tail’s Disc Degeneration",
+   "normalised": "comparison of injection saline and external fixator in rat tail s disc degeneration",
+   "key": "9bb3f77c"
+  },
+  {
+   "title": "Extracellular vesicles enhance pulmonary transduction of stably associated adeno-associated virus following intratracheal administration.",
+   "normalised": "extracellular vesicles enhance pulmonary transduction of stably associated adeno associated virus following intratracheal administration",
+   "key": "946f3c93"
+  },
+  {
+   "title": "P38-DAPK1 axis regulated LC3-associated phagocytosis (LAP) of microglia in an in vitro subarachnoid hemorrhage model.",
+   "normalised": "p38 dapk1 axis regulated lc3 associated phagocytosis lap of microglia in an in vitro subarachnoid hemorrhage model",
+   "key": "edca956a"
+  },
+  {
+   "title": "4,4'-Methylene diphenyl diisocyanate exposure induces expression of alternatively activated macrophage-associated markers and chemokines partially through Krüppel-like factor 4 mediated signaling in macrophages.",
+   "normalised": "4 4 methylene diphenyl diisocyanate exposure induces expression of alternatively activated macrophage associated markers and chemokines partially through kru ppel like factor 4 mediated signaling in macrophages",
+   "key": "101a0e3d"
+  },
+  {
+   "title": "Alzheimer’s disease-linked risk alleles elevate microglial cGAS-associated senescence and neurodegeneration in a tauopathy model",
+   "normalised": "alzheimer s disease linked risk alleles elevate microglial cgas associated senescence and neurodegeneration in a tauopathy model",
+   "key": "e26f0d19"
+  },
+  {
+   "title": "Advance Glycation End-products accelerate amyloid deposits in adipocyte’s lipid droplets",
+   "normalised": "advance glycation end products accelerate amyloid deposits in adipocyte s lipid droplets",
+   "key": "3a59ebc4"
+  },
+  {
+   "title": "Loss of neuronal lysosomal acid lipase drives amyloid pathology in Alzheimer’s disease",
+   "normalised": "loss of neuronal lysosomal acid lipase drives amyloid pathology in alzheimer s disease",
+   "key": "16e67627"
+  },
+  {
+   "title": "Extract of Araçá-Boi and Its Major Phenolic Compound, Trans-Cinnamic Acid, Reduce Viability and Inhibit Migration of Human Metastatic Melanoma Cells.",
+   "normalised": "extract of arac a boi and its major phenolic compound trans cinnamic acid reduce viability and inhibit migration of human metastatic melanoma cells",
+   "key": "6b61a232"
+  },
+  {
+   "title": "Acetylation of STX17 promotes its cytosol-to-autophagosome sorting by myosin Ⅵ",
+   "normalised": "acetylation of stx17 promotes its cytosol to autophagosome sorting by myosin vi",
+   "key": "7342322e"
+  },
+  {
+   "title": "KCa3.1 Contributes to Neuroinflammation and Nigral Dopaminergic Neurodegeneration in Experimental models of Parkinson’s Disease",
+   "normalised": "kca3 1 contributes to neuroinflammation and nigral dopaminergic neurodegeneration in experimental models of parkinson s disease",
+   "key": "c11f24f5"
+  },
+  {
+   "title": "Cellular and molecular changes in mucopolysaccharidosis-plus syndrome caused by a homozygous c.599G &gt; C (p.Arg200Pro) variant of the VPS33A gene.",
+   "normalised": "cellular and molecular changes in mucopolysaccharidosis plus syndrome caused by a homozygous c 599g gt c p arg200pro variant of the vps33a gene",
+   "key": "d48841c8"
+  },
+  {
+   "title": "Parkinson’s disease risk factors are expressed at brain barriers",
+   "normalised": "parkinson s disease risk factors are expressed at brain barriers",
+   "key": "fe9a3e94"
+  },
+  {
+   "title": "Long-term observational study of sporadic inclusion body myositis.",
+   "normalised": "long term observational study of sporadic inclusion body myositis",
+   "key": "ab33189e"
+  },
+  {
+   "title": "MiRNA-1/133a clusters regulate adrenergic control of cardiac repolarization.",
+   "normalised": "mirna 1 133a clusters regulate adrenergic control of cardiac repolarization",
+   "key": "e3c14d7b"
+  },
+  {
+   "title": "Polyubiquitination of apurinic/apyrimidinic endonuclease 1 by Parkin.",
+   "normalised": "polyubiquitination of apurinic apyrimidinic endonuclease 1 by parkin",
+   "key": "61de9b81"
+  },
+  {
+   "title": "RANKL-mediated harmonious dialogue between fetus and mother guarantees smooth gestation by inducing decidual M2 macrophage polarization.",
+   "normalised": "rankl mediated harmonious dialogue between fetus and mother guarantees smooth gestation by inducing decidual m2 macrophage polarization",
+   "key": "6d84be38"
+  },
+  {
+   "title": "PBX3/MEK/ERK1/2/LIN28/let-7b positive feedback loop enhances mesenchymal phenotype to promote glioblastoma migration and invasion.",
+   "normalised": "pbx3 mek erk1 2 lin28 let 7b positive feedback loop enhances mesenchymal phenotype to promote glioblastoma migration and invasion",
+   "key": "56d69923"
+  },
+  {
+   "title": "Long Noncoding RNA HOTTIP Promotes Mouse Hepatic Stellate Cell Activation via Downregulating miR-148a.",
+   "normalised": "long noncoding rna hottip promotes mouse hepatic stellate cell activation via downregulating mir 148a",
+   "key": "cfc8a7f7"
+  },
+  {
+   "title": "Inhibition of LRRK2 or Casein Kinase 1 Results in LRRK2 Protein Destabilization.",
+   "normalised": "inhibition of lrrk2 or casein kinase 1 results in lrrk2 protein destabilization",
+   "key": "3d0eec29"
+  },
+  {
+   "title": "Restriction of intracellular Salmonella replication by restoring TFEB-mediated xenophagy.",
+   "normalised": "restriction of intracellular salmonella replication by restoring tfeb mediated xenophagy",
+   "key": "bf3a5b7f"
+  },
+  {
+   "title": "Galectin-1 promotes vasculogenic mimicry in gastric adenocarcinoma via the Hedgehog/GLI signaling pathway.",
+   "normalised": "galectin 1 promotes vasculogenic mimicry in gastric adenocarcinoma via the hedgehog gli signaling pathway",
+   "key": "b4dc3969"
+  },
+  {
+   "title": "Apoptosis signal-regulating kinase 1 regulates immune-mediated thrombocytopenia, thrombosis, and systemic shock.",
+   "normalised": "apoptosis signal regulating kinase 1 regulates immune mediated thrombocytopenia thrombosis and systemic shock",
+   "key": "2569e96c"
+  },
+  {
+   "title": "Acidified Pepsin Promotes Laryngeal Precancerosis by Upregulating H+/K+-ATPase and Activating Mitophagy in Laryngeal Epithelial Cells",
+   "normalised": "acidified pepsin promotes laryngeal precancerosis by upregulating h k atpase and activating mitophagy in laryngeal epithelial cells",
+   "key": "1a0b33c5"
+  },
+  {
+   "title": "A single genetic locus controls both expression of DPEP1/CHMP1A and kidney disease development via ferroptosis.",
+   "normalised": "a single genetic locus controls both expression of dpep1 chmp1a and kidney disease development via ferroptosis",
+   "key": "1ecd505b"
+  },
+  {
+   "title": "Simultaneous binding of Guidance Cues NET1 and RGM blocks extracellular NEO1 signaling.",
+   "normalised": "simultaneous binding of guidance cues net1 and rgm blocks extracellular neo1 signaling",
+   "key": "530256de"
+  },
+  {
+   "title": "R-loops trigger the release of cytoplasmic ssDNAs leading to chronic inflammation upon DNA damage.",
+   "normalised": "r loops trigger the release of cytoplasmic ssdnas leading to chronic inflammation upon dna damage",
+   "key": "a428ebb9"
+  },
+  {
+   "title": "Single-Cell RNA-Seq Analysis of Olfactory Mucosal Cells of Alzheimer's Disease Patients.",
+   "normalised": "single cell rna seq analysis of olfactory mucosal cells of alzheimer s disease patients",
+   "key": "a6416ddf"
+  },
+  {
+   "title": "Catalpol Exerts Antidepressant-Like Effects by Enhancing Anti-oxidation and Neurotrophy and Inhibiting Neuroinflammation via Activation of HO-1.",
+   "normalised": "catalpol exerts antidepressant like effects by enhancing anti oxidation and neurotrophy and inhibiting neuroinflammation via activation of ho 1",
+   "key": "a053908c"
+  },
+  {
+   "title": "Human Oral Mucosa Stem Cells Increase Survival of Neurons Affected by In Vitro Anoxia and Improve Recovery of Mice Affected by Stroke Through Time-limited Secretion of miR-514A-3p.",
+   "normalised": "human oral mucosa stem cells increase survival of neurons affected by in vitro anoxia and improve recovery of mice affected by stroke through time limited secretion of mir 514a 3p",
+   "key": "773324f0"
+  },
+  {
+   "title": "Canagliflozin Attenuates Hepatic Steatosis and Atherosclerosis Progression in Western Diet-Fed ApoE-Knockout Mice.",
+   "normalised": "canagliflozin attenuates hepatic steatosis and atherosclerosis progression in western diet fed apoe knockout mice",
+   "key": "b7f9ef40"
+  },
+  {
+   "title": "Flaviviruses alter endoplasmic reticulum-mitochondria contacts to regulate respiration and apoptosis",
+   "normalised": "flaviviruses alter endoplasmic reticulum mitochondria contacts to regulate respiration and apoptosis",
+   "key": "c47e6c96"
+  },
+  {
+   "title": "G<sub>2</sub>C<sub>4</sub>targeting antisense oligonucleotides potently mitigate TDP-43 dysfunction in C9orf72 ALS/FTD human neurons",
+   "normalised": "g sub 2 sub c sub 4 sub targeting antisense oligonucleotides potently mitigate tdp 43 dysfunction in c9orf72 als ftd human neurons",
+   "key": "42cb32f1"
+  },
+  {
+   "title": "FOXA2 Suppression by TRIM36 Exerts Anti-Tumor Role in Colorectal Cancer Via Inducing NRF2/GPX4-Regulated Ferroptosis.",
+   "normalised": "foxa2 suppression by trim36 exerts anti tumor role in colorectal cancer via inducing nrf2 gpx4 regulated ferroptosis",
+   "key": "2b4b82dc"
+  },
+  {
+   "title": "Lysosomal degradation of PD-L1 is associated with immune-related adverse events during anti-PD-L1 immunotherapy in NSCLC patients",
+   "normalised": "lysosomal degradation of pd l1 is associated with immune related adverse events during anti pd l1 immunotherapy in nsclc patients",
+   "key": "05df3e6d"
+  },
+  {
+   "title": "Effect of Chloroquine on Type 2 Inflammatory Response in MC903-Induced Atopic Dermatitis Mice.",
+   "normalised": "effect of chloroquine on type 2 inflammatory response in mc903 induced atopic dermatitis mice",
+   "key": "a4439ad2"
+  },
+  {
+   "title": "IFIH1 (MDA5) is required for innate immune detection of intron-containing RNA expressed from the HIV-1 provirus.",
+   "normalised": "ifih1 mda5 is required for innate immune detection of intron containing rna expressed from the hiv 1 provirus",
+   "key": "6e32acc0"
+  },
+  {
+   "title": "MPV17 Prevented Myocardial Ferroptosis and Ischemic Cardiac Injury through Maintaining SLC25A10 Mediated Mitochondrial Glutathione Import",
+   "normalised": "mpv17 prevented myocardial ferroptosis and ischemic cardiac injury through maintaining slc25a10 mediated mitochondrial glutathione import",
+   "key": "e23995ac"
+  },
+  {
+   "title": "Cardamonin anticancer effects through the modulation of the tumor immune microenvironment in triple-negative breast cancer cells.",
+   "normalised": "cardamonin anticancer effects through the modulation of the tumor immune microenvironment in triple negative breast cancer cells",
+   "key": "98ad6e52"
+  },
+  {
+   "title": "TPM4 influences the initiation and progression of gastric cancer by modulating ferroptosis via SCD1.",
+   "normalised": "tpm4 influences the initiation and progression of gastric cancer by modulating ferroptosis via scd1",
+   "key": "6ef7b5b9"
+  },
+  {
+   "title": "Lyophilized apoptotic vesicles restore DNA damage and mitochondria dysfunction to ameliorate radiation enteritis.",
+   "normalised": "lyophilized apoptotic vesicles restore dna damage and mitochondria dysfunction to ameliorate radiation enteritis",
+   "key": "447ecee1"
+  },
+  {
+   "title": "Bilirubin-polymer nanocarriers enable targeted farrerol delivery for glaucoma neuroprotection via Nrf2-mediated ferroptosis/apoptosis inhibition.",
+   "normalised": "bilirubin polymer nanocarriers enable targeted farrerol delivery for glaucoma neuroprotection via nrf2 mediated ferroptosis apoptosis inhibition",
+   "key": "e92e67f6"
+  },
+  {
+   "title": "BATF2 is a glutamine-responsive tumour suppressor required for type-I interferon-dependent anti-tumour immunity.",
+   "normalised": "batf2 is a glutamine responsive tumour suppressor required for type i interferon dependent anti tumour immunity",
+   "key": "526deb83"
+  },
+  {
+   "title": "",
+   "normalised": "",
+   "key": "811c9dc5"
+  },
+  {
+   "title": "   ",
+   "normalised": "",
+   "key": "811c9dc5"
+  },
+  {
+   "title": "β-catenin",
+   "normalised": "beta catenin",
+   "key": "33164c37"
+  },
+  {
+   "title": "beta-catenin",
+   "normalised": "beta catenin",
+   "key": "33164c37"
+  },
+  {
+   "title": "Δ-Np63 and δ-catenin",
+   "normalised": "delta np63 and delta catenin",
+   "key": "d94a74f9"
+  },
+  {
+   "title": "TGF-β1/Smad3",
+   "normalised": "tgf beta1 smad3",
+   "key": "833d15ed"
+  },
+  {
+   "title": "NF-κB",
+   "normalised": "nf kappab",
+   "key": "7dd2f0b8"
+  },
+  {
+   "title": "A  title   with    spaces",
+   "normalised": "a title with spaces",
+   "key": "7bc99759"
+  },
+  {
+   "title": "Title—with—em—dashes",
+   "normalised": "title with em dashes",
+   "key": "b43ca595"
+  },
+  {
+   "title": "ÅNGSTRÖM effects",
+   "normalised": "a ngstro m effects",
+   "key": "267cfdae"
+  },
+  {
+   "title": "50% α/β ratio",
+   "normalised": "50 alpha beta ratio",
+   "key": "1300a559"
+  }
+ ],
+ "doi_vectors": [
+  {
+   "raw": "10.1038/S41586-020-1234-5",
+   "normalised": "10.1038/s41586-020-1234-5"
+  },
+  {
+   "raw": " doi:10.1016/j.cell.2019.01.001 ",
+   "normalised": "10.1016/j.cell.2019.01.001"
+  },
+  {
+   "raw": "https://doi.org/10.1101/2020.05.06.081414",
+   "normalised": "10.1101/2020.05.06.081414"
+  },
+  {
+   "raw": "HTTPS://DX.DOI.ORG/10.7554/eLife.12345",
+   "normalised": "10.7554/elife.12345"
+  },
+  {
+   "raw": "10.1371/journal.pone.0123456",
+   "normalised": "10.1371/journal.pone.0123456"
+  },
+  {
+   "raw": "",
+   "normalised": null
+  },
+  {
+   "raw": "   ",
+   "normalised": null
+  },
+  {
+   "raw": null,
+   "normalised": null
+  }
+ ]
+}

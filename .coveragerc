@@ -1,0 +1,24 @@
+# Coverage config used ONLY to build the test-selection map (test_map.json).
+#
+# This is not here to measure how much of the code is covered. It is here so
+# `manage.py test_changed` can answer one question: which test modules actually
+# execute this file? `dynamic_context = test_function` records, per line, the
+# test that ran it — which is the only way to see the coupling in this suite,
+# because almost every test reaches its code over HTTP (`self.client.get(...)`)
+# rather than by importing it. A static import graph maps tests_navigation.py to
+# `pipeline.models` and nothing else, which is useless.
+#
+# Rebuild with: python manage.py test_changed --rebuild-map
+
+[run]
+source = pipeline,core,academy,credentials,selector
+dynamic_context = test_function
+branch = False
+omit =
+    */migrations/*
+    */tests.py
+    */tests_*.py
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */.venv/*

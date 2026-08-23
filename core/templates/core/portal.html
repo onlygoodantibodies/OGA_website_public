@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OGA Data Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --navy: #0d2b5e; --blue: #10428a; --mid: #4a8ec9; --light: #86bef0;
+      --pale: #eef4fb; --bg: #f5f7fa; --card: #fff; --border: #e2e8f0;
+      --text: #333; --muted: #777; --green: #16a34a; --amber: #d97706; --red: #dc2626;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Open Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .hidden { display: none !important; }
+    button { font-family: inherit; cursor: pointer; border: none; border-radius: 6px; font-size: 0.85rem; padding: 8px 16px; transition: all 0.15s; }
+    input, select { font-family: inherit; font-size: 0.85rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; }
+    input:focus, select:focus { outline: none; border-color: var(--mid); box-shadow: 0 0 0 3px rgba(74,142,201,0.15); }
+    .btn-primary { background: var(--blue); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: var(--navy); }
+    .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--blue); color: var(--blue); font-weight: 600; }
+    .btn-outline:hover { background: var(--pale); }
+    .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-outline:disabled:hover { background: transparent; }
+    .btn-ghost { background: transparent; color: var(--muted); padding: 6px 10px; }
+    .btn-ghost:hover { color: var(--text); }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+    .btn-danger-outline { background: transparent; border: 1.5px solid var(--red); color: var(--red); font-weight: 600; font-size: 0.78rem; padding: 5px 10px; }
+    .btn-danger-outline:hover { background: #fef2f2; }
+    .btn-save { background: var(--green); color: #fff; font-weight: 600; }
+    .btn-save:hover { background: #15803d; }
+    #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+    .login-card { background: var(--card); border-radius: 12px; padding: 3rem; box-shadow: 0 4px 24px rgba(13,43,94,0.08); max-width: 420px; width: 100%; text-align: center; }
+    .login-brand { font-size: 1.6rem; font-weight: 700; color: var(--navy); }
+    .login-brand span { color: var(--mid); }
+    .login-card h2 { font-size: 1rem; color: var(--muted); font-weight: 400; margin: 0.5rem 0 2rem; }
+    .login-card input { width: 100%; margin-bottom: 1rem; padding: 12px; font-size: 0.9rem; }
+    .login-card button { width: 100%; padding: 12px; font-size: 0.95rem; }
+    .error-msg { color: var(--red); font-size: 0.82rem; margin-top: 0.8rem; min-height: 1.2em; }
+    #portal-header { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 100; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-brand { font-weight: 700; font-size: 1.1rem; }
+    .header-brand span { opacity: 0.7; font-weight: 400; font-size: 0.85rem; margin-left: 8px; }
+    .header-stats { display: flex; gap: 16px; font-size: 0.82rem; }
+    .header-stats .stat b { font-weight: 700; }
+    .header-stats .new-stat b { color: var(--amber); }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .header-right button { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.3); }
+    .header-right button:hover { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.1); }
+    .tabs { display: flex; background: var(--card); border-bottom: 2px solid var(--border); padding: 0 24px; }
+    .tab { padding: 0.75rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    #settings-panel { background: var(--card); border-bottom: 1px solid var(--border); padding: 20px 24px; }
+    #settings-panel h3 { font-size: 0.95rem; color: var(--navy); margin-bottom: 12px; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
+    .setting-field label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+    .setting-field input, .setting-field select { width: 100%; }
+    .setting-hint { font-size: 0.72rem; color: #aaa; margin-top: 2px; display: block; }
+    .settings-preview { margin-top: 12px; padding: 10px 14px; background: var(--pale); border-radius: 6px; font-size: 0.82rem; }
+    .settings-preview code { color: var(--blue); word-break: break-all; }
+    .settings-actions { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+    .status-msg { font-size: 0.8rem; color: var(--green); }
+    #filter-bar { padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .filter-group select { min-width: 140px; }
+    .toggle-label { font-size: 0.82rem; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+    .toggle-label input { width: 16px; height: 16px; accent-color: var(--blue); }
+    .filter-actions { display: flex; gap: 6px; }
+    #antibody-grid { padding: 20px 24px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px; }
+    /* The clearance for the fixed action bar moved off the grid and onto the
+       tab, so the pager underneath the grid is not hidden behind the bar. */
+    #tab-data { padding-bottom: 100px; }
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--muted); font-size: 0.95rem; }
+    .pager { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px 24px 24px; }
+    /* One page draws no pager at all, and its padding has to go with it or
+       every short result set carries a band of empty space under it. */
+    .pager:empty { display: none; }
+    .pager-count { font-size: 0.82rem; color: var(--muted); }
+    .ab-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: box-shadow 0.15s; }
+    .ab-card:hover { box-shadow: 0 4px 16px rgba(13,43,94,0.08); }
+    .card-new { border-left: 3px solid var(--amber); }
+    .card-yours { border-left: 3px solid var(--green); }
+    .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .card-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .cat-num { font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+    .gene-tag { font-size: 0.78rem; font-weight: 600; background: var(--pale); color: var(--blue); padding: 2px 8px; border-radius: 4px; }
+    .supplier-tag { font-size: 0.72rem; font-weight: 600; background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 4px; }
+    .yours-tag { font-size: 0.65rem; font-weight: 700; background: #dcfce7; color: var(--green); padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+    .new-badge { font-size: 0.65rem; font-weight: 700; background: var(--amber); color: #fff; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+    .reviewed-btn { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 3px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--muted); margin-left: auto; }
+    .reviewed-btn:hover { border-color: var(--green); color: var(--green); }
+    .reviewed-btn.is-reviewed { background: #dcfce7; color: var(--green); border-color: var(--green); cursor: default; }
+    .card-meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .meta-sep { margin: 0 2px; opacity: 0.4; }
+    .card-recs { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+    /* Three results, three looks. The transparent border on the base keeps all
+       four badges the same size whether or not the state they carry draws one. */
+    .app-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 3px; border: 1px solid transparent; }
+    .app-badge.rec { background: #dcfce7; color: var(--green); }
+    /* Assessed with knockout controls and not recommended. That is a real
+       finding about a named commercial product, so it reads as one. */
+    /* Never assessed. An empty dashed outline, because the one thing this must
+       not look like is a judgement: a filled grey pill said "we tested this and
+       it failed" about antibodies nobody has ever tested. */
+    /* The old two-state grey, kept only for a cached response carrying no
+       `oga_recommendations` key — there the booleans are all there is to draw. */
+    .result-legend { padding: 8px 24px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.74rem; color: var(--muted); }
+    .result-legend .legend-item { display: flex; align-items: center; gap: 6px; }
+    .result-legend b { color: var(--text); font-weight: 600; }
+    .card-actions-row { padding: 6px 16px; border-top: 1px solid var(--border); display: flex; gap: 6px; justify-content: flex-end; }
+    .card-images { display: flex; flex-wrap: wrap; gap: 0; }
+    .exp-thumb { flex: 1 1 100px; min-width: 90px; max-width: 160px; border-right: 1px solid var(--border); position: relative; text-align: center; }
+    .exp-thumb:last-child { border-right: none; }
+    .exp-recommended { background: #f0fdf4; }
+    .thumb-label { font-size: 0.68rem; font-weight: 700; color: var(--blue); padding: 4px 2px 2px; background: var(--pale); border-bottom: 1px solid #e8eef6; }
+    .exp-recommended .thumb-label { background: #dcfce7; color: var(--green); }
+    .thumb-select { position: absolute; top: 24px; left: 4px; z-index: 2; }
+    .thumb-select input { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
+    .exp-thumb img { display: block; width: 100%; max-height: 120px; object-fit: contain; padding: 4px; cursor: pointer; }
+    .no-images { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; font-style: italic; width: 100%; }
+    .embed-gallery { padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.5rem; }
+    .embed-item { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .embed-item iframe { width: 100%; height: 420px; border: none; }
+    .embed-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+    .embed-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .embed-meta .ab-name { font-size: 0.82rem; font-weight: 600; color: var(--navy); }
+    .embed-meta .gene-name { font-size: 0.75rem; color: var(--muted); }
+    .iframe-string { display: flex; gap: 0.5rem; align-items: stretch; }
+    .iframe-string input { flex: 1; font-family: 'Courier New', monospace; font-size: 0.72rem; color: var(--muted); background: #f8fafc; }
+    .copied { background: var(--green) !important; color: #fff !important; }
+    .embed-app-links { display: flex; gap: 6px; margin-top: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .embed-app-links .app-link-label { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+    .embed-app-links button { font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; background: var(--pale); color: var(--blue); border: 1px solid #d0dff0; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .embed-app-links button:hover { background: #dce8f8; }
+    .embed-app-links button.copied { background: var(--green) !important; color: #fff !important; border-color: var(--green) !important; }
+    .instructions-banner { background: var(--pale); border: 1px solid #c7d9f0; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 20px 24px 0; }
+    .instructions-banner h3 { font-size: 0.9rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .instructions-banner p { font-size: 0.82rem; color: var(--text); line-height: 1.6; margin-bottom: 0.5rem; }
+    .instructions-banner code { background: #fff; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Courier New', monospace; word-break: break-all; }
+    .instructions-toggle { font-size: 0.8rem; color: var(--blue); cursor: pointer; font-weight: 600; border: none; background: none; padding: 0; }
+    .competitor-section { margin: 0 24px 16px; }
+    .competitor-section h3 { font-size: 0.95rem; color: var(--navy); margin-bottom: 8px; padding-top: 16px; border-top: 2px solid var(--border); }
+    .competitor-section:first-child h3 { border-top: none; padding-top: 0; }
+    .landscape-summary { background: var(--card); border-radius: 8px; padding: 1.25rem; margin: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .landscape-summary h3 { font-size: 0.95rem; color: var(--navy); margin-bottom: 0.75rem; }
+    .landscape-stats { display: flex; gap: 2rem; flex-wrap: wrap; }
+    .landscape-stats .big-num { font-size: 1.3rem; font-weight: 700; color: var(--navy); }
+    .landscape-stats .label { font-size: 0.8rem; color: var(--muted); }
+    .rec-badges { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .rec-badge-item { font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: #dcfce7; color: #15803d; text-transform: uppercase; }
+    #action-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 2px solid var(--blue); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); z-index: 100; }
+    .action-left { font-size: 0.9rem; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 16px; }
+    .action-right { display: flex; gap: 8px; }
+    .dirty-indicator { font-size: 0.78rem; color: var(--amber); font-weight: 600; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--card); border-radius: 12px; padding: 2rem; max-width: 480px; width: 90%; }
+    .modal h2 { font-size: 1.1rem; color: var(--navy); margin-bottom: 0.25rem; }
+    .modal .modal-subtitle { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .modal label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .modal select, .modal textarea { width: 100%; margin-bottom: 1rem; }
+    .modal textarea { min-height: 80px; resize: vertical; font-family: inherit; font-size: 0.85rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; }
+    .modal .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+    #image-preview { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 200; cursor: pointer; }
+    #image-preview img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+    #download-overlay { position: fixed; inset: 0; background: rgba(13,43,94,0.7); display: flex; align-items: center; justify-content: center; z-index: 300; }
+    .overlay-card { background: var(--card); border-radius: 12px; padding: 2.5rem; text-align: center; min-width: 320px; }
+    .overlay-card h3 { color: var(--navy); margin-bottom: 1rem; }
+    .overlay-card { max-width: 520px; }
+    /* A failed or partial download reports into here and stays on the screen.
+       It replaced a `toast()`, which cleared after 2.5 seconds — so the one
+       message explaining why a zip was empty was gone before the reader had
+       finished opening it. */
+    #download-result { margin-top: 1rem; text-align: left; max-height: 40vh; overflow-y: auto; }
+    #download-result ul { margin: 0.6rem 0 0 1.1rem; font-size: 0.78rem; color: var(--muted); }
+    #download-result li { margin-bottom: 2px; }
+    .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; margin-top: 1rem; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--blue); border-radius: 4px; transition: width 0.2s; width: 0%; }
+    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--navy); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600; z-index: 2000; transition: transform 0.3s ease; pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 900px) { #antibody-grid, .embed-gallery { grid-template-columns: 1fr; } .settings-grid { grid-template-columns: 1fr; } #portal-header { flex-direction: column; align-items: flex-start; } .tabs { padding: 0 12px; overflow-x: auto; } .tab { padding: 0.6rem 0.75rem; font-size: 0.78rem; white-space: nowrap; } }
+  </style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">Only Good Antibodies<span> Data Portal</span></div>
+    <h2>Enter your API key to access your data feed</h2>
+    <input type="text" id="api-key-input" placeholder="API Key (e.g. a1b2c3d4-e5f6-...)" autocomplete="off" spellcheck="false">
+    <button class="btn-primary" onclick="connect()">Connect</button>
+    <div id="login-error" class="error-msg"></div>
+  </div>
+</div>
+<div id="dashboard" class="hidden">
+  <header id="portal-header">
+    <div class="header-left"><div class="header-brand">OGA<span id="consumer-name"></span></div></div>
+    <div class="header-stats">
+      <span class="stat"><b id="stat-total">0</b> antibodies</span>
+      <span class="stat"><b id="stat-rec">0</b> recommended</span>
+      <span class="stat hidden" id="stat-untested-wrap"><b id="stat-untested">0</b> not yet assessed</span>
+      <span class="stat new-stat" id="stat-new-wrap"><b id="stat-new">0</b> new since review</span>
+    </div>
+    <div class="header-right">
+      {% comment %}
+        One name, because this was two: the button said "Settings" and the panel
+        it opens was headed "Download Configuration", so from outside there was
+        no way to tell they were one destination. It matters more than a tidy-up
+        — Image Format lives in there, and a JPG setting is what sends every
+        figure through a canvas conversion on the way into the zip, so somebody
+        told to check it has to be able to find it.
+      {% endcomment %}
+      <button class="btn-outline btn-sm" id="btn-settings" onclick="toggleSettings()">Download settings</button>
+      <button class="btn-ghost btn-sm" onclick="disconnect()">Sign out</button>
+    </div>
+  </header>
+  <div class="tabs" id="tab-bar">
+    <div class="tab active" data-tab="embed" onclick="switchTab('embed')">Embed Cards</div>
+    <div class="tab" data-tab="data" onclick="switchTab('data')">Images &amp; Downloads</div>
+    <div class="tab hidden" data-tab="competitor" onclick="switchTab('competitor')">Competitor View</div>
+    <!-- Pipeline data: the pre-release window. Shown to everybody rather than
+         hidden for keys without a supplier scope — a control that is simply
+         absent is a feature a reader concludes does not exist, so the tab is
+         here and the reason it is empty is printed inside it. -->
+    <div class="tab" data-tab="pipeline" onclick="switchTab('pipeline')">Pipeline Data</div>
+  </div>
+  <div id="settings-panel" class="hidden">
+    <h3>Download settings</h3>
+    <div class="settings-grid">
+      <div class="setting-field"><label>Filename Pattern</label><input type="text" id="cfg-filename" placeholder="{catalogue}_{application}" oninput="updatePreview()"><span class="setting-hint">Variables: {gene} {catalogue} {rrid} {application}</span></div>
+      <div class="setting-field"><label>Target URL Pattern</label><input type="text" id="cfg-url" placeholder="https://images.example.com/val/{catalogue}_{application}.png" oninput="updatePreview()"><span class="setting-hint">Used in manifest CSV</span></div>
+      {% comment %}
+        The value stays "png" though the label no longer says so: consumers have
+        that string stored in `portal_config`, and handing a <select> a value no
+        option carries leaves it showing the placeholder — which reads exactly
+        like the setting being ignored.
+      {% endcomment %}
+      <div class="setting-field"><label>Image Format</label><select id="cfg-format" onchange="updatePreview()"><option value="png">Original &mdash; no conversion</option><option value="jpg">JPG (converted in your browser)</option></select><span class="setting-hint">Original is the default. Figures are published as PNG.</span></div>
+      <div class="setting-field"><label>CC Email for Reports</label><input type="email" id="cfg-cc-email" placeholder="your@company.com"><span class="setting-hint">Receives a copy of issue reports</span></div>
+    </div>
+    <div class="settings-preview" id="settings-preview"></div>
+    {% comment %}
+      Both resets are the consumer's own, because the state they clear is
+      theirs and asking OGA to do it by email is a day's round trip for a
+      checkbox. They are two controls and not one "clear everything": resetting
+      the download settings costs nothing and is the fix for a filename pattern
+      or an image format that is not what you want, while clearing the review
+      progress destroys what somebody has ticked off. Folding the second into
+      the first would throw away a week's reviewing to get a filename back.
+    {% endcomment %}
+    <div class="settings-actions"><button class="btn-primary" onclick="saveSettings()">Save settings</button><button class="btn-outline" onclick="resetSettings()">Reset to defaults</button><button class="btn-ghost" onclick="clearReviewProgress()">Clear review progress</button><span id="settings-status" class="status-msg"></span></div>
+    <p class="setting-hint" style="margin-top:8px">&ldquo;Reset to defaults&rdquo; puts the filename pattern and image format back to how they started. &ldquo;Clear review progress&rdquo; removes what you have marked as reviewed, so everything reads as new again. Neither touches your antibodies or their images.</p>
+  </div>
+  <div id="filter-bar">
+    <div class="filter-group">
+      <select id="filter-gene" onchange="filtersChanged()"><option value="">All Genes</option></select>
+      <select id="filter-app" onchange="filtersChanged()"><option value="">All Applications</option><option value="WB">Western Blot</option><option value="IP">Immunoprecipitation</option><option value="ICC-IF">ICC / IF</option><option value="FC">Flow Cytometry</option></select>
+      <label class="toggle-label" id="filter-rec-wrap"><input type="checkbox" id="filter-rec" onchange="filtersChanged()"> Recommended only</label>
+      <label class="toggle-label" id="filter-new-wrap"><input type="checkbox" id="filter-new" onchange="filtersChanged()"> New only</label>
+    </div>
+    <div class="filter-actions hidden" id="data-actions">
+      <button class="btn-primary btn-sm" id="bulk-download-btn" onclick="downloadEverything()">Download everything</button>
+      <span id="bulk-download-note" class="setting-hint"></span>
+      <button class="btn-outline btn-sm" onclick="selectAllRecommended()">Select All Recommended</button>
+      <button class="btn-ghost btn-sm" onclick="clearSelection()">Clear Selection</button>
+    </div>
+  </div>
+  <div id="result-legend" class="result-legend hidden">
+    <span class="legend-item"><span class="app-badge rec">WB &#10003;</span><span><b>Recommended</b> for that application, in the conditions tested.</span></span>
+    <span class="legend-item"><span><b>No pill</b> &mdash; either tested and not recommended, or not tested. Use the API if you need to know which.</span></span>
+    <span class="legend-item"><span>{% include 'core/_recommendation_caveat.html' %}</span></span>
+  </div>
+  <div id="tab-embed">
+    <div class="instructions-banner" id="embed-instructions">
+      <h3>How to embed OGA validation data on your product pages</h3>
+      <p>Each card below previews your antibody's independent characterisation data exactly as it will appear when embedded. The <strong>Copy</strong> button copies an iframe showing all tested applications in one card.</p>
+      <p>To embed data for a single application only, use the <strong>WB</strong>, <strong>IP</strong>, <strong>ICC-IF</strong>, or <strong>FC</strong> buttons below each card. These copy an iframe that shows only that application's data.</p>
+      <p>Paste any of these iframe snippets into your product page HTML. The cards update automatically when new data is added. For CMS help, contact <a href="mailto:onlygoodantibodies@gmail.com" style="color:var(--blue);">onlygoodantibodies@gmail.com</a>.</p>
+      <button class="instructions-toggle" onclick="this.closest('.instructions-banner').classList.add('hidden')">Hide instructions</button>
+    </div>
+    <div id="embed-gallery" class="embed-gallery"></div>
+    <div id="pager-embed" class="pager"></div>
+  </div>
+  <div id="tab-data" class="hidden"><div id="antibody-grid"></div><div id="pager-data" class="pager"></div></div>
+  <div id="tab-competitor" class="hidden"><div id="competitor-content"></div></div>
+  <div id="tab-pipeline" class="hidden"><div id="pipeline-content"></div></div>
+  <div id="action-bar" class="hidden">
+    <div class="action-left">
+      <span id="selection-count">0 images selected</span>
+      <span id="dirty-indicator" class="dirty-indicator hidden"></span>
+    </div>
+    <div class="action-right">
+      <button class="btn-save btn-sm hidden" id="save-progress-btn" onclick="saveReviewProgress()">Save Progress</button>
+      <button class="btn-primary" id="download-btn" onclick="downloadSelected()">Download Selected</button>
+      <button class="btn-outline" onclick="confirmMarkReviewed()">Mark All as Reviewed</button>
+    </div>
+  </div>
+</div>
+<div id="report-modal" class="modal-overlay hidden" onclick="if(event.target===this) hide('report-modal')">
+  <div class="modal"><h2>Report an issue</h2><div class="modal-subtitle" id="report-ab-info"></div>
+    <label for="report-type">Issue type</label>
+    <select id="report-type"><option value="recommendation">Recommendation concern</option><option value="discontinued">Discontinued product</option><option value="technical">Technical image problem</option></select>
+    <label for="report-details">Details (optional)</label><textarea id="report-details" placeholder="Describe the issue..."></textarea>
+    <div class="modal-actions"><button class="btn-ghost" onclick="hide('report-modal')">Cancel</button><button class="btn-primary" onclick="submitReport()">Send Report</button></div>
+  </div>
+</div>
+<div id="image-preview" class="hidden" onclick="this.classList.add('hidden')"><img id="preview-img" src="" alt="Preview"></div>
+<div id="download-overlay" class="hidden"><div class="overlay-card"><h3 id="download-title">Preparing Download</h3><div id="download-progress">Starting...</div><div class="progress-bar" id="download-bar"><div id="progress-fill" class="progress-fill"></div></div><div id="download-result" class="hidden"></div><button id="download-close" class="btn-primary hidden" style="margin-top:1.25rem" onclick="hide('download-overlay')">Close</button></div></div>
+<div id="toast"></div>
+<script>
+'use strict';
+const API_BASE = '/api';
+const EMBED_BASE = 'https://onlygoodantibodies.co.uk/embed/';
+/* The four applications OGA assesses, in the order every OGA surface prints
+   them (core/recommendations.py::APPLICATIONS). It was written out three times in
+   here, which is three places to forget one. */
+const APPS = ['WB', 'IP', 'ICC-IF', 'FC'];
+/* Cards per page. The whole feed is still fetched and still filtered in the
+   browser — see pageOf() for why only the drawing is paged. */
+const PAGE_SIZE = 60;
+const S = {
+  key: '', consumer: null, antibodies: [], selected: new Map(),
+  config: {}, lastReviewedAt: null, genes: [], currentTab: 'embed', competitorCache: {},
+  reviewed: new Set(),
+  reviewedDirty: new Set(),
+  page: 1
+};
+const $ = id => document.getElementById(id);
+const show = id => $(id).classList.remove('hidden');
+const hide = id => $(id).classList.add('hidden');
+const esc = s => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const escAttr = s => s.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/* No tiers anywhere. Nothing on this page and nothing in /api/v1/ asks what a
+   consumer pays — images, downloads, settings, the results and issue reporting
+   are all unconditional now. `hasTier`, `TIER_LEVEL`, `S.tier` and the header
+   badge went in one go, because a badge naming a tier that no longer decides
+   anything is a label a reader will try to act on, and a helper with no callers
+   is an invitation to gate the next thing on it. */
+/* The competitor view is gated by WHO IS ASKING, not by what they pay:
+   /v1/gene-detail/ 403s anybody whose consumer_type is not 'manufacturer'
+   (naming `your_consumer_type`), so offering the tab to a registry would be a
+   tab that only ever errors. */
+function isManufacturer() { return !!S.consumer && S.consumer.consumer_type === 'manufacturer'; }
+
+/* An antibody's result for one application is three-valued
+   (core/recommendations.py). A bare `false` in `recommendations` answers two
+   different questions with one value — "we assessed this and it did not meet
+   the bar" and "nobody has assessed it" — and printing the first when you mean
+   the second is a false claim about a named commercial product.
+   The server sends `oga_recommendations: {}` rather than omitting the key when
+   it strips OGA's results, so an empty object counts as absent here. */
+function hasRecommendations(ab) {
+  return !!ab.oga_recommendations && Object.keys(ab.oga_recommendations).length > 0;
+}
+/* Owner's decision: carry the positive result and nothing else. A pill is drawn
+   only where OGA recommends the antibody for that application; every other
+   case -- assessed and did not meet the bar, and never assessed -- is simply
+   the absence of a pill.
+
+   That gives up a distinction the card used to draw, and it is the safe one to
+   lose. The failure this file has been correcting all along runs the other way:
+   drawing "not assessed" as though it were a finding tells a reader a named
+   commercial product failed a test nobody ran on it. Drawing nothing makes no
+   claim at all. And the distinction is not lost from the data --
+   `oga_recommendations` still carries all three values per application on
+   every row of /api/v1/, so anything built on the API keeps it. */
+const RECOMMENDED_WHY =
+  'Recommended for this application in the conditions tested.';
+function recommendationBadge(ab, app) {
+  /* Falls back to the raw booleans for a payload with no `oga_recommendations`
+     key, which is the same answer here: `true` is the only value that draws
+     anything. */
+  const recommended = hasRecommendations(ab)
+    ? ab.oga_recommendations[app] === 'recommended'
+    : (ab.recommendations || {})[app] === true;
+  if (!recommended) return '';
+  return '<span class="app-badge rec" title="' + escAttr(RECOMMENDED_WHY) + '">'
+    + app + ' ✓</span>';
+}
+/* Nothing assessed at all, in any application — the count that stops
+   "0 recommended" reading as "OGA rejected the lot". */
+function isUnassessed(ab) {
+  return hasRecommendations(ab)
+    && APPS.every(app => ab.oga_recommendations[app] === 'not_tested');
+}
+
+function isNewAb(ab) {
+  if (S.reviewed.has(ab.antibody_name)) return false;
+  if (!S.lastReviewedAt) return true;
+  return ab.created_at && ab.created_at > S.lastReviewedAt;
+}
+function countNew() { return S.antibodies.filter(isNewAb).length; }
+function refreshNewStat() { $('stat-new').textContent = countNew(); }
+
+async function apiGet(path) { const r = await fetch(API_BASE + path, { headers: { 'X-API-Key': S.key } }); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiPut(path, body) { const r = await fetch(API_BASE + path, { method: 'PUT', headers: { 'X-API-Key': S.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiPost(path, body) { const opts = { method: 'POST', headers: { 'X-API-Key': S.key } }; if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); } const r = await fetch(API_BASE + path, opts); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiDelete(path) { const r = await fetch(API_BASE + path, { method: 'DELETE', headers: { 'X-API-Key': S.key } }); const d = await r.json(); if (!r.ok) throw d; return d; }
+/* Written out three times and now four. The reset needs the same string the
+   fallbacks use, or "back to how they started" lands somewhere else. */
+const DEFAULT_FILENAME_PATTERN = '{gene}_{catalogue}_{application}';
+
+async function connect() {
+  S.key = $('api-key-input').value.trim();
+  if (!S.key) { $('login-error').textContent = 'Please enter your API key.'; return; }
+  $('login-error').textContent = '';
+  try {
+    const status = await apiGet('/v1/status/');
+    S.consumer = status; S.lastReviewedAt = status.last_queried_at; S.config = status.portal_config || {};
+    const feed = await apiGet('/v1/antibodies/?preview=true');
+    S.antibodies = feed.antibodies; S.genes = [...new Set(S.antibodies.map(a => a.gene))].sort();
+    try { const rev = await apiGet('/v1/reviewed/'); (rev.reviewed || []).forEach(c => S.reviewed.add(c)); } catch(e) {}
+    S.reviewedDirty.clear();
+    hide('login-screen'); show('dashboard'); sessionStorage.setItem('oga_portal_key', S.key); initDashboard();
+  } catch (err) { $('login-error').textContent = err.error || 'Connection failed.'; }
+}
+function disconnect() { S.key = ''; S.consumer = null; S.antibodies = []; S.selected.clear(); S.reviewed.clear(); S.reviewedDirty.clear(); S.page = 1; sessionStorage.removeItem('oga_portal_key'); hide('dashboard'); show('login-screen'); $('api-key-input').value = ''; }
+window.addEventListener('DOMContentLoaded', () => {
+  const p = new URLSearchParams(window.location.search);
+  const k = p.get('key') || sessionStorage.getItem('oga_portal_key');
+  /* A key in the URL is a key in the browser history, in the referer of every
+     outbound click, and in any log that records query strings. It stays
+     supported because people have bookmarked and mailed those links, but it is
+     taken out of the address bar the moment it has been read — the session
+     continues from sessionStorage. */
+  if (p.has('key')) {
+    p.delete('key');
+    const rest = p.toString();
+    history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''));
+  }
+  if (k) { $('api-key-input').value = k; connect(); }
+});
+
+function initDashboard() {
+  $('consumer-name').textContent = ' \u2014 ' + S.consumer.consumer;
+  const recCount = S.antibodies.filter(a => a.recommendations && Object.values(a.recommendations).some(v => v === true)).length;
+  $('stat-total').textContent = S.antibodies.length; $('stat-rec').textContent = recCount;
+  /* "N recommended" on its own is read as a judgement on the whole set — a
+     supplier seeing "0 recommended" concludes OGA assessed their catalogue and
+     rejected every product in it. Most of those rows have simply never been
+     assessed, so the count that says so goes beside it. It needs
+     `oga_recommendations` to
+     be answerable at all: on an older cached response the stat stays hidden,
+     because a 0 there would claim everything has a result. */
+  const unassessed = S.antibodies.filter(isUnassessed).length;
+  if (S.antibodies.some(hasRecommendations)) { $('stat-untested').textContent = unassessed; show('stat-untested-wrap'); }
+  else { hide('stat-untested-wrap'); }
+  refreshNewStat();
+  const gs = $('filter-gene'); gs.innerHTML = '<option value="">All Genes (' + S.genes.length + ')</option>';
+  S.genes.forEach(g => { gs.innerHTML += '<option value="' + g + '">' + g + '</option>'; });
+  /* The images, the filters, the settings and the downloads used to be behind
+     the `data` tier and the competitor view behind `intel`. There is nothing to
+     buy any more, so the only question left is the server's own: the competitor
+     view is for manufacturers. */
+  $('cfg-filename').value = S.config.filename_pattern || DEFAULT_FILENAME_PATTERN;
+  $('cfg-url').value = S.config.url_pattern || ''; $('cfg-format').value = S.config.image_format || 'png'; $('cfg-cc-email').value = S.config.contact_email || '';
+  if (isManufacturer()) { document.querySelector('[data-tab="competitor"]').classList.remove('hidden'); }
+  applyFilters(); updatePreview(); refreshBulkDownload();
+}
+
+function switchTab(tab) {
+  S.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  hide('tab-embed'); hide('tab-data'); hide('tab-competitor'); hide('tab-pipeline'); show('tab-' + tab);
+  /* Select/Clear act on the image checkboxes, and only the data grid draws
+     those. The legend explains the result badges, and only the two card tabs
+     draw those — a legend for something not on the screen is noise. */
+  if (tab === 'data') { show('data-actions'); refreshBulkDownload(); } else { hide('data-actions'); }
+  if (tab === 'embed') { hide('result-legend'); } else { show('result-legend'); }
+  if (tab === 'competitor' && isManufacturer()) { loadCompetitorView(); }
+  /* The gene and application filters above are about the published feed held
+     in S.antibodies; the pipeline tab is a different dataset fetched from a
+     different endpoint, and a filter bar that silently does nothing is worse
+     than none. */
+  if (tab === 'pipeline') { hide('filter-bar'); loadPipelineData(); } else { show('filter-bar'); }
+  applyFilters();
+}
+
+function getFiltered() {
+  let list = S.antibodies; const gene = $('filter-gene').value; const app = $('filter-app').value;
+  const recOnly = $('filter-rec').checked; const newOnly = $('filter-new').checked;
+  if (gene) list = list.filter(a => a.gene === gene);
+  if (app) list = list.filter(a => a.recommendations && a.recommendations[app] === true);
+  if (recOnly) list = list.filter(a => a.recommendations && Object.values(a.recommendations).some(v => v === true));
+  if (newOnly) list = list.filter(isNewAb);
+  return list;
+}
+function applyFilters() {
+  const filtered = getFiltered();
+  if (S.currentTab === 'embed') renderEmbedGallery(filtered);
+  if (S.currentTab === 'data') renderDataGrid(filtered);
+  if (S.currentTab === 'competitor' && isManufacturer()) loadCompetitorView();
+}
+/* Every filter control comes through here rather than calling applyFilters
+   directly: a filter changes which rows exist at all, so page 4 of the old set
+   is not a place in the new one. Everything else that redraws — paging,
+   selecting, marking reviewed — deliberately keeps the page you are on. */
+function filtersChanged() { S.page = 1; applyFilters(); }
+
+/* The whole feed is fetched once and filtered in the browser, which is what
+   makes the filters instant over all ~1,645 rows — but drawing all of them was
+   ~1,645 cards and ~5,000 <img> tags built into one innerHTML, and that is why
+   this page felt slow. So the filtering still sees everything and only the
+   drawing is paged. The count stays the count of the whole filtered set. */
+function pageOf(list) {
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  /* A filter can narrow the set under a page number that no longer exists —
+     land on the last page rather than on a blank grid that reads as no matches. */
+  if (S.page > pages) S.page = pages;
+  if (S.page < 1) S.page = 1;
+  const start = (S.page - 1) * PAGE_SIZE;
+  return { items: list.slice(start, start + PAGE_SIZE), start: start, pages: pages, total: list.length };
+}
+function renderPager(elId, p) {
+  const el = $(elId);
+  /* One page is not pagination. Drawing "1–12 of 12" with two dead buttons
+     invents a control the reader then tries to use. */
+  if (p.pages <= 1) { el.innerHTML = ''; return; }
+  const from = p.start + 1; const to = p.start + p.items.length;
+  el.innerHTML = '<button class="btn-outline btn-sm" onclick="goPage(-1)"' + (S.page === 1 ? ' disabled' : '') + '>Previous</button>'
+    + '<span class="pager-count">' + from + '–' + to + ' of ' + p.total + '</span>'
+    + '<button class="btn-outline btn-sm" onclick="goPage(1)"' + (S.page === p.pages ? ' disabled' : '') + '>Next</button>';
+}
+/* Selection is keyed by image URL and lives in S.selected, so it survives a
+   redraw untouched — paging must never quietly drop what somebody has ticked. */
+function goPage(delta) { S.page += delta; applyFilters(); window.scrollTo(0, 0); }
+
+function renderEmbedGallery(antibodies) {
+  const c = $('embed-gallery');
+  const p = pageOf(antibodies);
+  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderPager('pager-embed', p); return; }
+  c.innerHTML = p.items.map(ab => {
+    const meta = ab.metadata || {}; const eu = ab.embed_urls || {};
+    const iframeUrl = eu.all || (EMBED_BASE + '?catalogue=' + encodeURIComponent(ab.antibody_name));
+    const iframeCode = '<iframe src="' + iframeUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
+    const rb = ' <button class="btn-danger-outline" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid||'') + '\')">Report issue</button>';
+
+    // Build per-application copy buttons
+    const appBtns = APPS.map(app => {
+      const appUrl = eu[app] || (iframeUrl + '&application=' + app);
+      const appIframe = '<iframe src="' + appUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
+      return '<button onclick="copyAppEmbed(this,' + escAttr(JSON.stringify(appIframe)) + ')">' + app + '</button>';
+    }).join('');
+
+    return '<div class="embed-item">'
+      + '<iframe src="' + iframeUrl + '" loading="lazy"></iframe>'
+      + '<div class="embed-footer">'
+      + '<div class="embed-meta"><span class="ab-name">' + esc(ab.antibody_name) + '</span><span class="gene-name">' + esc(ab.gene) + (meta.rrid ? ' \u00b7 ' + esc(meta.rrid) : '') + '</span></div>'
+      + '<div class="iframe-string"><input type="text" value="' + escAttr(iframeCode) + '" readonly onclick="this.select()"><button class="btn-outline btn-sm" onclick="copyIframe(this)">Copy</button>' + rb + '</div>'
+      + '<div class="embed-app-links"><span class="app-link-label">Single application:</span>' + appBtns + '</div>'
+      + '</div></div>';
+  }).join('');
+  renderPager('pager-embed', p);
+}
+
+function copyAppEmbed(btn, iframeCode) {
+  navigator.clipboard.writeText(iframeCode).then(() => {
+    const orig = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  }).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = iframeCode; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    const orig = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function renderDataGrid(antibodies) {
+  const c = $('antibody-grid');
+  const p = pageOf(antibodies);
+  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderPager('pager-data', p); updateActionBar(); return; }
+  c.innerHTML = p.items.map(ab => renderAbCard(ab, false)).join(''); renderPager('pager-data', p); updateActionBar();
+}
+
+function renderAbCard(ab, showSupplier) {
+  const abIsNew = isNewAb(ab);
+  const abIsReviewed = S.reviewed.has(ab.antibody_name);
+  const recs = ab.recommendations || {};
+  const meta = ab.metadata || {};
+  const exps = (ab.experiments || []).filter(e => e.image_url);
+  const appFilter = $('filter-app').value;
+  const isYours = showSupplier && S.consumer.supplier_filter && S.consumer.supplier_filter.split(',').map(s => s.trim()).includes(meta.supplier);
+  const badges = APPS.map(app => recommendationBadge(ab, app)).join('');
+  const filteredExps = appFilter ? exps.filter(e => e.experiment_type === appFilter) : exps;
+
+  const showReviewBtn = !showSupplier;
+  const reviewBtnHtml = showReviewBtn
+    ? (abIsReviewed
+      ? '<button class="reviewed-btn is-reviewed">\u2713 Reviewed</button>'
+      : '<button class="reviewed-btn" onclick="toggleReviewed(\'' + esc(ab.antibody_name) + '\',this)">\u2713 Mark reviewed</button>')
+    : '';
+
+  const thumbs = filteredExps.map(exp => {
+    const url = exp.image_url;
+    const isRec = recs[exp.experiment_type] === true;
+    const checked = S.selected.has(url) ? 'checked' : '';
+    const showCb = !showSupplier;
+    return '<div class="exp-thumb ' + (isRec ? 'exp-recommended' : '') + '">'
+      + (showCb ? '<label class="thumb-select"><input type="checkbox" ' + checked + ' onchange="toggleImg(this,\'' + esc(url) + '\',\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\',\'' + exp.experiment_type + '\',' + isRec + ')"></label>' : '')
+      + '<div class="thumb-label">' + (exp.experiment_type_display || exp.experiment_type) + (isRec ? ' \u2605' : '') + '</div>'
+      + '<img src="' + url + '" alt="' + exp.experiment_type + '" loading="lazy" onclick="previewImage(\'' + esc(url) + '\')"></div>';
+  }).join('');
+
+  /* Still only on your own rows in the competitor view: reporting a problem
+     with somebody else's product is a different act from reporting one with
+     your own, and not one this button should invite. */
+  const rb = (!showSupplier || isYours) ? '<button class="btn-danger-outline" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\')">Report issue</button>' : '';
+
+  return '<div class="ab-card ' + (abIsNew ? 'card-new' : '') + ' ' + (isYours ? 'card-yours' : '') + '">'
+    + '<div class="card-header"><div class="card-title">'
+    + (abIsNew ? '<span class="new-badge">NEW</span>' : '')
+    + (isYours ? '<span class="yours-tag">YOURS</span>' : '')
+    + '<span class="cat-num">' + esc(ab.antibody_name) + '</span>'
+    + '<span class="gene-tag">' + esc(ab.gene) + '</span>'
+    + (showSupplier ? '<span class="supplier-tag">' + esc(meta.supplier || 'Unknown') + '</span>' : '')
+    + reviewBtnHtml
+    + '</div>'
+    + '<div class="card-meta">'
+    + (meta.rrid ? '<span>' + esc(meta.rrid) + '</span><span class="meta-sep">\u00b7</span>' : '')
+    + '<span>' + esc(meta.host || '') + '</span><span class="meta-sep">\u00b7</span><span>' + esc(meta.clonality || '') + '</span>'
+    + '</div>'
+    + '<div class="card-recs">' + badges + '</div>'
+    + '</div>'
+    + '<div class="card-images">' + (thumbs || '<span class="no-images">No experiment images</span>') + '</div>'
+    + (rb ? '<div class="card-actions-row">' + rb + '</div>' : '')
+    + '</div>';
+}
+
+function toggleReviewed(catalogue, btnEl) {
+  S.reviewed.add(catalogue);
+  S.reviewedDirty.add(catalogue);
+  btnEl.textContent = '\u2713 Reviewed';
+  btnEl.classList.add('is-reviewed');
+  btnEl.onclick = null;
+  const card = btnEl.closest('.ab-card');
+  if (card) { card.classList.remove('card-new'); const nb = card.querySelector('.new-badge'); if (nb) nb.remove(); }
+  refreshNewStat();
+  updateActionBar();
+}
+
+async function saveReviewProgress() {
+  if (S.reviewedDirty.size === 0) return;
+  const catalogues = [...S.reviewedDirty];
+  try {
+    await apiPost('/v1/reviewed/', { catalogues });
+    S.reviewedDirty.clear();
+    updateActionBar();
+    toast('Progress saved \u2014 ' + catalogues.length + ' antibod' + (catalogues.length === 1 ? 'y' : 'ies') + ' marked as reviewed');
+  } catch (err) { toast('Error saving: ' + (err.error || 'Failed'), true); }
+}
+
+async function loadCompetitorView() {
+  const gene = $('filter-gene').value; const c = $('competitor-content');
+  if (!gene) { c.innerHTML = '<div class="empty-state"><h3 style="font-size:1rem;color:var(--text);margin-bottom:0.5rem;">Select a gene to see the competitive landscape</h3><p>Use the gene filter above to compare antibodies.</p></div>'; return; }
+  if (!S.competitorCache[gene]) {
+    c.innerHTML = '<div class="empty-state"><div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="margin-top:1rem;">Loading...</p></div>';
+    try { S.competitorCache[gene] = await apiGet('/v1/gene-detail/?gene=' + encodeURIComponent(gene)); }
+    catch (err) { c.innerHTML = '<div class="empty-state">Error: ' + (err.error||'Unknown') + '</div>'; return; }
+  }
+  const data = S.competitorCache[gene]; const cs = data.consumer_suppliers || []; const allAbs = data.antibodies || [];
+  const yours = allAbs.filter(a => cs.includes((a.metadata||{}).supplier));
+  const others = allAbs.filter(a => !cs.includes((a.metadata||{}).supplier));
+  const bySupplier = {}; others.forEach(a => { const sup = (a.metadata||{}).supplier||'Unknown'; if (!bySupplier[sup]) bySupplier[sup] = []; bySupplier[sup].push(a); });
+  const ss = data.supplier_summary || {};
+  const recBadges = Object.keys(ss).map(sup => '<span class="rec-badge-item">' + esc(sup) + ': ' + ss[sup].recommended + '/' + ss[sup].count + '</span>').join('');
+  let html = '<div class="landscape-summary"><h3>' + esc(gene) + ' \u2014 Landscape Summary</h3><div class="landscape-stats">'
+    + '<div><span class="big-num">' + data.total_antibodies + '</span> <span class="label">total tested</span></div>'
+    + '<div><span class="big-num">' + yours.length + '</span> <span class="label">from your company</span></div>'
+    + '<div><span class="big-num">' + Object.keys(ss).length + '</span> <span class="label">suppliers</span></div></div>'
+    + (recBadges?'<div class="rec-badges">' + recBadges + '</div>':'') + '</div>';
+  if (yours.length > 0) {
+    html += '<div class="competitor-section"><h3>Your Antibodies</h3></div><div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;">';
+    yours.forEach(ab => { html += renderAbCard(ab, true); }); html += '</div>';
+  }
+  Object.keys(bySupplier).sort().forEach(sup => {
+    html += '<div class="competitor-section"><h3>' + esc(sup) + ' (' + bySupplier[sup].length + ')</h3></div><div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;">';
+    bySupplier[sup].forEach(ab => { html += renderAbCard(ab, true); }); html += '</div>';
+  });
+  html += '<p style="padding:0 24px;font-size:0.82rem;color:var(--muted);"><a href="' + (data.gene_page_url||'#') + '" target="_blank" style="color:var(--blue);">View full gene page on OGA \u2192</a></p>';
+  c.innerHTML = html;
+}
+
+/* ── Pipeline data: your reagents before they are published ─────────────────
+ *
+ * OGA's figure cropper no longer publishes straight to the website — crops wait
+ * for a review meeting — and this tab is that window, for the one group outside
+ * the lab who can use it: the manufacturer of the reagent in the figure. A
+ * wrong catalogue number, a withdrawn lot or a mistaken RRID is far cheaper to
+ * fix here than on a live page carrying your product's name.
+ *
+ * Two things it must keep straight. The rows are **not published** and the tab
+ * says so at the top rather than per card, because a caveat on every row is a
+ * caveat nobody reads. And the images are behind the key — `<img src>` cannot
+ * send a header, so each one is fetched with the key and handed to the browser
+ * as a blob rather than putting the key in a URL, where it would land in
+ * history and in every log.
+ */
+async function loadPipelineData() {
+  const c = $('pipeline-content');
+  c.innerHTML = '<div class="empty-state"><div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="margin-top:1rem;">Loading...</p></div>';
+  let figures, genes;
+  try {
+    figures = await apiGet('/v1/pipeline-data/');
+    genes = await apiGet('/v1/gene-progress/');
+  } catch (err) {
+    /* The server's own refusal, printed as it was written. It names what is
+       missing and what still works, so replacing it with "Error" here would
+       throw away the only part a reader can act on. */
+    c.innerHTML = '<div class="empty-state"><h3 style="font-size:1rem;color:var(--text);margin-bottom:0.5rem;">'
+      + esc(err.error || 'This could not be loaded') + '</h3><p style="max-width:44rem;margin:0 auto;">'
+      + esc(err.detail || 'Please try again, or email onlygoodantibodies@gmail.com.') + '</p></div>';
+    return;
+  }
+  c.innerHTML = renderPipelineTab(figures, genes);
+  loadPipelineThumbs();
+}
+
+function renderPipelineTab(figures, genes) {
+  const rows = figures.figures || [];
+  let html = '<div class="instructions-banner"><h3>Not published yet</h3><p>'
+    + esc(figures.note) + '</p></div>';
+
+  html += '<div class="competitor-section"><h3>Your figures awaiting release ('
+    + rows.length + ')</h3></div>';
+  if (!rows.length) {
+    html += '<div class="empty-state">Nothing of yours is waiting. When OGA crops a '
+      + 'figure of one of your reagents, it appears here before it goes on the website.</div>';
+  } else {
+    html += '<div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">';
+    rows.forEach(function (r) {
+      html += '<div class="ab-card">'
+        + '<div class="card-header"><div class="card-title">'
+        + '<span class="cat-num">' + esc(r.catalogue_number) + '</span>'
+        + '<span class="gene-tag">' + esc(r.gene) + '</span>'
+        + '<span class="supplier-tag">' + esc(r.application) + '</span></div>'
+        + '<div class="card-meta">staged ' + esc((r.staged_at || '').slice(0, 10))
+        + (r.replaces_a_published_figure ? ' · replaces a published figure' : '')
+        + '</div></div>'
+        + '<img data-pipeline-src="' + escAttr(API_BASE + '/v1/pipeline-image/?id=' + r.id) + '" alt="Pre-release '
+        + esc(r.application) + ' figure for ' + esc(r.catalogue_number)
+        + '" style="width:100%;background:#f8fafc;min-height:80px">'
+        + '<div class="card-actions-row" style="justify-content:flex-start;font-size:0.75rem;color:var(--muted)">'
+        + (r.provisional_recommendation
+            ? 'provisional: recommended for ' + esc(r.application) + ' — not yet published'
+            : 'no provisional recommendation')
+        + '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="competitor-section"><h3>Where your genes have got to</h3></div>'
+    + '<p style="padding:0 24px 8px;font-size:0.8rem;color:var(--muted);max-width:60rem;">'
+    + esc(genes.note) + '</p>';
+  const gs = genes.genes || [];
+  if (!gs.length) {
+    html += '<div class="empty-state">No genes yet — this lists every gene you have a reagent in.</div>';
+  } else {
+    html += '<div style="padding:0 24px 24px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.82rem">'
+      + '<thead><tr style="text-align:left;color:var(--muted)">'
+      + '<th style="padding:6px 8px">Gene</th><th style="padding:6px 8px">Your antibodies</th>'
+      + '<th style="padding:6px 8px">WB</th><th style="padding:6px 8px">IP</th>'
+      + '<th style="padding:6px 8px">ICC-IF</th><th style="padding:6px 8px">FC</th>'
+      + '<th style="padding:6px 8px">Report</th></tr></thead><tbody>';
+    gs.forEach(function (g) {
+      html += '<tr style="border-top:1px solid var(--border)">'
+        + '<td style="padding:6px 8px;font-weight:600">'
+        + (g.public_url ? '<a href="' + escAttr(g.public_url) + '" target="_blank" style="color:var(--blue)">' + esc(g.gene) + '</a>' : esc(g.gene))
+        + '</td><td style="padding:6px 8px">' + g.your_antibodies + '</td>';
+      APPS.forEach(function (app) {
+        html += '<td style="padding:6px 8px">' + pipelineAppCell(g.applications[app]) + '</td>';
+      });
+      html += '<td style="padding:6px 8px">' + pipelineReportCell(g.report) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  return html;
+}
+
+/* Three states, three words. "Published" and "waiting" are facts; a blank cell
+   is neither a failure nor a promise, so it says nothing rather than "no". */
+function pipelineAppCell(a) {
+  if (!a) return '<span style="color:var(--muted)">—</span>';
+  if (a.published) return '<span class="app-badge rec">published</span>';
+  if (a.awaiting_release) return '<span class="app-badge" style="background:#fef3c7;color:var(--amber)">awaiting release</span>';
+  if ((a.run_at_sites || []).length) return '<span style="color:var(--muted)">run, no figure yet</span>';
+  return '<span style="color:var(--muted)">—</span>';
+}
+
+function pipelineReportCell(r) {
+  if (!r || r.status !== 'published') return '<span style="color:var(--muted)">not yet</span>';
+  const label = esc(r.doi || 'published');
+  return r.url ? '<a href="' + escAttr(r.url) + '" target="_blank" style="color:var(--blue)">' + label + '</a>' : label;
+}
+
+/* The key is a header, so an <img src> cannot carry it. Each thumbnail is
+   fetched with the key and handed over as a blob: no key in a URL, and no
+   pre-release figure on a public, guessable address. */
+async function loadPipelineThumbs() {
+  const imgs = document.querySelectorAll('#pipeline-content img[data-pipeline-src]');
+  for (const img of imgs) {
+    const url = img.getAttribute('data-pipeline-src');
+    img.removeAttribute('data-pipeline-src');
+    try {
+      const res = await fetch(url, { headers: { 'X-API-Key': S.key } });
+      if (!res.ok) throw new Error(res.status);
+      img.src = URL.createObjectURL(await res.blob());
+    } catch (e) {
+      img.replaceWith(Object.assign(document.createElement('div'), {
+        className: 'card-meta',
+        style: 'padding:12px;color:var(--muted)',
+        textContent: 'That figure could not be loaded. The record is fine; the image behind it did not arrive.'
+      }));
+    }
+  }
+}
+
+function toggleImg(cb, url, cat, gene, rrid, app, isRec) { if (cb.checked) S.selected.set(url, {catalogue:cat,gene,rrid,app,recommended:isRec}); else S.selected.delete(url); updateActionBar(); }
+/* The whole filtered set, never the drawn page: the button sits in the filter
+   bar, so the filters are what it is about, and a bulk action that quietly
+   meant "the 60 cards in front of you" would be the worst thing paging could
+   do to this page. */
+function selectAllRecommended() { getFiltered().forEach(ab => { const r = ab.recommendations||{}; const m = ab.metadata||{}; (ab.experiments||[]).forEach(e => { if (e.image_url && r[e.experiment_type]) S.selected.set(e.image_url, {catalogue:ab.antibody_name,gene:ab.gene,rrid:m.rrid||'',app:e.experiment_type,recommended:true}); }); }); applyFilters(); }
+function clearSelection() { S.selected.clear(); applyFilters(); }
+function updateActionBar() {
+  const n = S.selected.size;
+  const dirtyN = S.reviewedDirty.size;
+  if (S.currentTab === 'data') {
+    show('action-bar');
+    $('selection-count').textContent = n > 0 ? n + ' image' + (n !== 1 ? 's' : '') + ' selected' : 'No images selected';
+    $('download-btn').disabled = n === 0;
+    if (dirtyN > 0) {
+      show('save-progress-btn');
+      $('dirty-indicator').textContent = dirtyN + ' unsaved review' + (dirtyN !== 1 ? 's' : '');
+      show('dirty-indicator');
+    } else { hide('save-progress-btn'); hide('dirty-indicator'); }
+  } else { hide('action-bar'); }
+}
+let reportTarget = null;
+function openReport(cat, gene, rrid) { reportTarget = {catalogue:cat,gene,rrid}; $('report-ab-info').textContent = cat + ' (' + gene + ')' + (rrid?' \u2014 '+rrid:''); $('report-type').selectedIndex = 0; $('report-details').value = ''; show('report-modal'); }
+async function submitReport() { try { await apiPost('/v1/report-issue/', {catalogue:reportTarget.catalogue,gene:reportTarget.gene,rrid:reportTarget.rrid||'',issue_type:$('report-type').value,details:$('report-details').value.trim()}); hide('report-modal'); toast('Report sent successfully'); } catch (err) { toast('Error: ' + (err.error||'Failed'), true); } }
+
+function toggleSettings() { $('settings-panel').classList.toggle('hidden'); }
+function updatePreview() {
+  const fp = $('cfg-filename').value || DEFAULT_FILENAME_PATTERN; const up = $('cfg-url').value || ''; const ext = $('cfg-format').value || 'png';
+  const ex = S.antibodies.find(a => a.experiments && a.experiments.length > 0);
+  if (!ex) { $('settings-preview').innerHTML = '<em>Load data to see preview</em>'; return; }
+  const meta = {gene:ex.gene,catalogue:ex.antibody_name,rrid:(ex.metadata||{}).rrid||'AB_000000',app:(ex.experiments[0]||{}).experiment_type||'WB'};
+  const fn = applyPattern(fp, meta) + '.' + ext; const url = up ? applyPattern(up, meta) : '';
+  let html = '<strong>Filename:</strong> <code>' + esc(fn) + '</code>'; if (url) html += '<br><strong>Target URL:</strong> <code>' + esc(url) + '</code>';
+  $('settings-preview').innerHTML = html;
+}
+/* One writer for the line under the buttons. It set the colour to red on a
+   failure and never set it back, so the next successful save reported
+   "Saved" in the colour of an error. */
+function settingsStatus(msg, isErr) {
+  const el = $('settings-status');
+  el.textContent = msg;
+  el.style.color = isErr ? 'var(--red)' : 'var(--green)';
+  if (!isErr) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3000);
+}
+async function saveSettings() { const config = {filename_pattern:$('cfg-filename').value,url_pattern:$('cfg-url').value,image_format:$('cfg-format').value,contact_email:$('cfg-cc-email').value}; try { await apiPut('/v1/portal-config/', config); S.config = config; settingsStatus('Saved \u2713'); } catch(e) { settingsStatus('Could not save \u2014 ' + ((e && e.error) || 'please try again'), true); } }
+
+/* An empty config is the default on the server side too, so this is the same
+   state a consumer starts in rather than a second idea of what "default"
+   means \u2014 `initDashboard` falls back on read for every one of these. */
+async function resetSettings() {
+  try {
+    await apiPut('/v1/portal-config/', {});
+    S.config = {};
+    $('cfg-filename').value = DEFAULT_FILENAME_PATTERN;
+    $('cfg-url').value = '';
+    $('cfg-format').value = 'png';
+    $('cfg-cc-email').value = '';
+    updatePreview();
+    settingsStatus('Reset to defaults \u2713');
+  } catch (e) { settingsStatus('Could not reset \u2014 ' + ((e && e.error) || 'please try again'), true); }
+}
+
+/* Says what goes before it goes, and how much of it. */
+async function clearReviewProgress() {
+  const n = S.reviewed.size;
+  if (!confirm('Clear review progress?\n\nThis removes the '
+      + n + ' antibod' + (n === 1 ? 'y' : 'ies') + ' marked as reviewed, so '
+      + 'everything reads as new again.\n\nYour download settings, your '
+      + 'antibodies and their images are not affected.')) return;
+  try {
+    const r = await apiDelete('/v1/reviewed/clear/');
+    S.reviewed.clear(); S.reviewedDirty.clear();
+    refreshNewStat(); applyFilters(); updateActionBar();
+    toast('Review progress cleared' + (r && typeof r.deleted === 'number' ? ' \u2014 ' + r.deleted + ' removed' : ''));
+  } catch (e) { toast('Could not clear \u2014 ' + ((e && e.error) || 'please try again'), true); }
+}
+function applyPattern(p, m) { return p.replace(/\{gene\}/g,m.gene||'').replace(/\{catalogue\}/g,m.catalogue||'').replace(/\{rrid\}/g,m.rrid||'').replace(/\{application\}/g,m.app||''); }
+/* FIX 1: sanitise filenames — strip characters illegal on Windows */
+function sanitiseFilename(fn) { return fn.replace(/[*?"<>|:]/g, ''); }
+
+/* FIX 2: rasterise SVGs (and convert PNG→JPG) via canvas — replaces old toJpg */
+function rasterise(blob, format) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth || 800;
+      c.height = img.naturalHeight || 600;
+      const ctx = c.getContext('2d');
+      if (format === 'jpg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+      ctx.drawImage(img, 0, 0);
+      c.toBlob(bl => { URL.revokeObjectURL(img.src); res(bl); }, format === 'jpg' ? 'image/jpeg' : 'image/png', 0.92);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); res(blob); };
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+// The one-file download. `S.consumer.bulk_download` comes from /v1/status/ on
+// connect, and carries the object-storage URL of the prepared archive.
+//
+// The page navigates straight to that URL rather than fetching it: the archive
+// is a few hundred megabytes, and `fetch` would pull all of it into a blob in
+// this tab before the browser saved anything — the same trap that makes the
+// selection zip below unsuitable for the whole dataset. It also cannot go via
+// /api/v1/download/, because the key is a header and a browser cannot set one
+// on a navigation; putting the key in a URL would leave it in history and in
+// every log this request passes through.
+function bulkDownloadState() { return (S.consumer && S.consumer.bulk_download) || {}; }
+
+function refreshBulkDownload() {
+  const btn = $('bulk-download-btn'); const note = $('bulk-download-note');
+  if (!btn) return;
+  const bulk = bulkDownloadState();
+
+  if (bulk.scope === 'built_per_request') {
+    // A scoped key has no shared archive to point at, and its own set is small
+    // enough that Select All + Download Selected is the right route. Hide the
+    // button rather than offering one that cannot work — but say where the
+    // download is, or an absent control reads as a missing feature.
+    btn.classList.add('hidden');
+    note.textContent = 'Your key covers part of the dataset — use Select All Recommended, then Download Selected.';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  if (!bulk.ready) {
+    // Disabled with the reason on the page, never on a `title` no touch screen
+    // shows — and never phrased as data missing, because nothing is.
+    btn.disabled = true;
+    note.textContent = 'Being rebuilt after a recent update — every image is still available below.';
+    return;
+  }
+  btn.disabled = false;
+  note.textContent = 'One zip of every figure' + (bulk.bytes ? ' (' + humanSize(bulk.bytes) + ')' : '') + ', with a manifest.';
+}
+
+function humanSize(bytes) {
+  if (!bytes) return '';
+  const mb = bytes / 1048576;
+  return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB';
+}
+
+function downloadEverything() {
+  const bulk = bulkDownloadState();
+  if (!bulk.ready || !bulk.url) { toast('The archive is being rebuilt. Try again shortly.', true); return; }
+  // A download the page does not acknowledge reads as a button that did
+  // nothing — the receipt rule. Navigation to an attachment leaves this page
+  // in place, so the toast is the only thing that says it started.
+  toast('Starting download — ' + (bulk.filename || 'the full archive') + '. This may take a few minutes.');
+  window.location.href = bulk.url;
+}
+
+/* How many figures to fetch at once, and how many times to re-ask.
+ *
+ * This was one `await fetch` per figure in a `for` loop, with no retry — which
+ * is a defensible shape for the fourteen images a gene-filtered key selects and
+ * the wrong one for a supplier-scoped key, where "Select All Recommended" is
+ * 203 figures and there is no other route: `refreshBulkDownload` hides
+ * "Download everything" for a scoped key and sends the reader here. At the
+ * 267 ms per object `core/bulk_archive.py` measured against R2, that is a
+ * minute of sequential round trips, and one transient failure anywhere in it
+ * was permanent for that figure.
+ *
+ * Modest on purpose. The point is not speed — it is that a burst does not look
+ * like something worth rate-limiting, and that a figure which failed once gets
+ * asked for again.
+ */
+const DOWNLOAD_CONCURRENCY = 6;
+const DOWNLOAD_RETRIES = 1;
+
+/* What a figure actually IS, from the bytes first and the URL second.
+ *
+ * The extension used to come from the Image Format setting alone, so every
+ * file in the zip was named `.png` or `.jpg` whatever it held. The published
+ * set is 4,309 PNG and 12 SVG (no JPEG at all), so the two agreed for almost
+ * every figure and disagreed silently for the rest — and the moment a
+ * conversion is allowed to fall back to the original bytes, a name that is
+ * decided by the setting rather than by the content is wrong on purpose. A
+ * file named for something it is not is the same defect as a unit that is not
+ * the column's unit: openable-looking, and wrong. */
+function extensionOf(blob, imgUrl) {
+  const type = (blob && blob.type) || '';
+  if (type.includes('svg')) return 'svg';
+  if (type.includes('jpeg') || type.includes('jpg')) return 'jpg';
+  if (type.includes('png')) return 'png';
+  const m = /\.([A-Za-z0-9]{2,4})(?:[?#]|$)/.exec(imgUrl || '');
+  return m ? m[1].toLowerCase() : 'png';
+}
+
+/* One figure's bytes, what they turned out to be, or why not. Retries a 429
+   and a 5xx, never a 404 — a figure that is not there will not be there on
+   the second ask either. */
+async function fetchFigure(imgUrl, want) {
+  let why = 'could not be fetched';
+  for (let attempt = 0; attempt <= DOWNLOAD_RETRIES; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 400 * attempt));
+    try {
+      /* `cache: 'reload'` skips the browser's own copy and re-asks the network.
+         Not about freshness — about CORS. A figure the grid has already drawn
+         as a thumbnail was fetched by an <img> with no `Origin`, so what the
+         browser stored carries no `Access-Control-Allow-Origin`; a later
+         `fetch()` reusing that stored copy fails the CORS check against it and
+         reports "Failed to fetch" for a file that is present, public, and
+         served correctly. Only the figures somebody had looked at failed, which
+         is why the set differed between two people downloading the same 203.
+         The edge is fixed at the CDN; this is the half that lives in the
+         reader's own machine, where nothing we deploy can reach it. */
+      const resp = await fetch(imgUrl, {cache: 'reload'});
+      if (!resp.ok) {
+        why = 'HTTP ' + resp.status;
+        if (resp.status !== 429 && resp.status < 500) break;
+        continue;
+      }
+      let blob = await resp.blob();
+      if (!blob || !blob.size) { why = 'empty response'; continue; }
+      let actual = extensionOf(blob, imgUrl);
+      /* An SVG is rasterised whatever the setting says, because a vector file
+         is not what somebody dropping a figure into a slide deck expects. */
+      if (actual === 'svg' || (want === 'jpg' && actual === 'png')) {
+        const target = want === 'jpg' ? 'jpg' : 'png';
+        const converted = await rasterise(blob, target);
+        /* A canvas that could not produce bytes must never become a zero-byte
+           file. `toBlob` answers null under memory pressure — which is what
+           hundreds of conversions in one pass produces — and JSZip writes null
+           as an empty entry without complaining, so the zip looks full and
+           every image in it is unopenable. Keep the original instead, under
+           its own name: a PNG where a JPG was asked for is a far smaller loss
+           than nothing, and an SVG called `.png` is a third failure again. */
+        if (converted && converted.size) { blob = converted; actual = target; }
+      }
+      return { blob: blob, ext: actual, error: null };
+    } catch (e) {
+      /* A browser tells scripts nothing about why a cross-origin request
+         failed — deliberately, since the detail would itself leak across
+         origins — so `e.message` is a bare "Failed to fetch" whatever went
+         wrong. That string reaches a customer in missing.csv naming no cause
+         and suggesting no action, which is the same shape as "not a number"
+         for a concentration: true, and useless about the case that matters.
+         Say what is actually known, and keep any message that is not one of
+         the three browsers' versions of that non-answer. */
+      const raw = (e && e.message) || '';
+      why = (!raw || /failed to fetch|load failed|networkerror/i.test(raw))
+        ? 'the browser could not fetch it (blocked or offline) — no further detail is given to the page'
+        : raw;
+    }
+  }
+  return { blob: null, ext: null, error: why };
+}
+
+/* Two rows can pattern to one filename — {gene}_{application} over a gene with
+   several antibodies does it immediately. `zip.file` overwrites silently while
+   both rows stay in the manifest, so the CSV lists files the archive does not
+   hold: a count that disagrees with its own list. */
+function uniqueName(name, used) {
+  if (!used.has(name)) return name;
+  const dot = name.lastIndexOf('.');
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const tail = dot > 0 ? name.slice(dot) : '';
+  let n = 2;
+  while (used.has(stem + '_' + n + tail)) n++;
+  return stem + '_' + n + tail;
+}
+
+function csvRow(values) {
+  return values.map(v => '"' + ((v === null || v === undefined ? '' : String(v)).replace(/"/g, '""')) + '"').join(',');
+}
+
+/* What did NOT come, as a file rather than as a sentence on a screen.
+ *
+ * The manifest lists one row per figure in the archive, which is right and is
+ * the join everything downstream depends on — so what is absent from it is
+ * absent twice over: not in the zip, and not named anywhere the reader can
+ * keep. A count on screen ("47 images could not be downloaded") cannot be
+ * forwarded, sorted or checked against a catalogue, and it is the one artefact
+ * that says whether the missing figures are a storage problem (HTTP 404, the
+ * object is gone) or a transport one (network error, ask again). It is written
+ * only when something is missing: an empty one every time is noise, and its
+ * presence is then itself the signal. */
+const MISSING_HEADER =
+  'original_url,intended_filename,gene,catalogue_number,rrid,application,recommended,reason\n';
+function missingCsv(failures, fp, want) {
+  return MISSING_HEADER + failures.map(f => csvRow([
+    f.url,
+    sanitiseFilename(applyPattern(fp, f.meta) + '.' + (extensionOf(null, f.url) || want)),
+    f.meta.gene, f.meta.catalogue, f.meta.rrid, f.meta.app,
+    f.meta.recommended ? 'true' : 'false',
+    f.why,
+  ])).join('\n');
+}
+
+/* Held so the panel's own button can hand it over when there is no zip to put
+   it in — the total-failure case, which is exactly when the list matters most
+   and is also the one case that produces no file at all. */
+function downloadMissingList() {
+  if (!S.missingCsv) return;
+  triggerDownload(new Blob([S.missingCsv], {type: 'text/csv'}),
+    'OGA_missing_' + new Date().toISOString().slice(0, 10) + '.csv');
+}
+
+function failureList(failures) {
+  const rows = failures.slice(0, 10).map(f =>
+    '<li>' + esc(f.meta.catalogue || '') + ' ' + esc(f.meta.app || '')
+    + ' — ' + esc(f.why) + '</li>').join('');
+  return '<ul>' + rows
+    + (failures.length > 10 ? '<li>… and ' + (failures.length - 10) + ' more</li>' : '')
+    + '</ul>';
+}
+
+/* The overlay stops being a progress bar and becomes the receipt. */
+function downloadOutcome(title, html) {
+  $('download-title').textContent = title;
+  $('download-progress').textContent = '';
+  hide('download-bar');
+  $('download-result').innerHTML = html;
+  show('download-result');
+  show('download-close');
+}
+
+async function downloadSelected() {
+  if (S.selected.size === 0) return;
+  show('download-overlay'); hide('download-result'); hide('download-close'); show('download-bar');
+  $('download-title').textContent = 'Preparing Download';
+  $('download-progress').textContent = 'Starting...'; $('progress-fill').style.width = '0%';
+  const zip = new JSZip(); const manifest = []; const failures = []; const used = new Set();
+  /* A preference, not the answer: what each file is named comes back from
+     `fetchFigure` with the bytes, because only that knows what arrived and
+     whether converting it worked. */
+  const want = $('cfg-format').value||'png'; const fp = $('cfg-filename').value||DEFAULT_FILENAME_PATTERN; const up = $('cfg-url').value||'';
+  const entries = [...S.selected]; const total = entries.length; let done = 0;
+
+  for (let i = 0; i < entries.length; i += DOWNLOAD_CONCURRENCY) {
+    const batch = entries.slice(i, i + DOWNLOAD_CONCURRENCY);
+    const results = await Promise.all(batch.map(pair => fetchFigure(pair[0], want)));
+    batch.forEach((pair, n) => {
+      const imgUrl = pair[0]; const meta = pair[1]; const r = results[n];
+      done++;
+      if (!r.blob) { failures.push({url: imgUrl, meta: meta, why: r.error}); return; }
+      const newFn = uniqueName(sanitiseFilename(applyPattern(fp, meta) + '.' + r.ext), used);
+      used.add(newFn);
+      zip.file(newFn, r.blob);
+      manifest.push({original_url:imgUrl,new_filename:newFn,target_url:up?applyPattern(up, meta):'',gene:meta.gene,catalogue_number:meta.catalogue,rrid:meta.rrid,application:meta.app,recommended:meta.recommended?'true':'false'});
+    });
+    $('download-progress').textContent = done + ' of ' + total + ' processed';
+    $('progress-fill').style.width = (done/total*100) + '%';
+  }
+
+  /* A zip with no figures in it is not a download. It was handed over anyway —
+     210 bytes, a manifest holding nothing but its header row, and a toast that
+     cleared after 2.5 seconds — which from outside is indistinguishable from
+     the feature being broken, and was reported as exactly that. Refuse to write
+     the file, and say what went wrong somewhere it stays on the screen. */
+  S.missingCsv = failures.length ? missingCsv(failures, fp, want) : '';
+
+  if (!manifest.length) {
+    downloadOutcome('Nothing could be downloaded',
+      '<p style="font-size:0.85rem">None of the ' + total + ' selected image'
+      + (total !== 1 ? 's' : '') + ' could be fetched, so no zip has been saved. '
+      + 'Nothing is wrong with the records — this is the images not arriving.</p>'
+      + '<p style="font-size:0.85rem;margin-top:0.6rem">The list below is also '
+      + 'available as a file, which is the useful thing to send on: it names '
+      + 'every figure and why it did not come.</p>'
+      + failureList(failures)
+      + '<button class="btn-outline" style="margin-top:0.9rem" onclick="downloadMissingList()">Download the list (CSV)</button>');
+    return;
+  }
+
+  $('download-progress').textContent = 'Generating zip...';
+  const csvH = 'original_url,new_filename,target_url,gene,catalogue_number,rrid,application,recommended\n';
+  const csvR = manifest.map(r => csvRow([r.original_url,r.new_filename,r.target_url,r.gene,r.catalogue_number,r.rrid,r.application,r.recommended])).join('\n');
+  zip.file('manifest.csv', csvH + csvR);
+  /* Beside the manifest, never merged into it: every row of manifest.csv is a
+     file in this archive, and a row naming a file that is not here would break
+     the one join the CSV exists for. */
+  if (failures.length) zip.file('missing.csv', S.missingCsv);
+  if (up) { const um = manifest.filter(r=>r.target_url).map(r=>r.new_filename+'\t'+r.target_url).join('\n'); zip.file('url_mapping.tsv', 'filename\ttarget_url\n' + um); }
+  const content = await zip.generateAsync({type:'blob'}); const safeName = (S.consumer.consumer||'OGA').replace(/[^a-zA-Z0-9_-]/g,'_'); const date = new Date().toISOString().slice(0,10);
+  triggerDownload(content, 'OGA_' + safeName + '_' + date + '.zip');
+
+  if (failures.length) {
+    /* Leave exactly what failed ticked, so pressing Download Selected again
+       retries those and nothing else. */
+    S.selected.clear();
+    failures.forEach(f => S.selected.set(f.url, f.meta));
+    applyFilters();
+    downloadOutcome(manifest.length + ' of ' + total + ' downloaded',
+      '<p style="font-size:0.85rem">Your zip holds ' + manifest.length + ' image'
+      + (manifest.length !== 1 ? 's' : '') + ', a <code>manifest.csv</code> listing them, '
+      + 'and a <code>missing.csv</code> naming the ' + failures.length
+      + ' that did not come and why. Those ' + failures.length + ' are still '
+      + 'selected — press Download Selected again to retry just those.</p>'
+      + failureList(failures));
+    return;
+  }
+
+  /* Nothing cleared the selection, so ticking three more boxes after a
+     203-image run downloaded 206 — which reads as the three not working. */
+  S.selected.clear(); applyFilters();
+  hide('download-overlay');
+  toast('Downloaded ' + manifest.length + ' image' + (manifest.length !== 1 ? 's' : '') + ' with a manifest');
+}
+function triggerDownload(b,f) { const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href); }
+
+function confirmMarkReviewed() { const n = countNew(); if (!confirm('Mark all current data as reviewed?\n\nThis will update your review timestamp immediately.\n\n' + n + ' item(s) currently flagged as new.')) return; markReviewed(); }
+async function markReviewed() {
+  try {
+    const r = await apiPost('/v1/mark-reviewed/');
+    S.lastReviewedAt = r.last_queried_at;
+    S.reviewedDirty.clear();
+    refreshNewStat();
+    applyFilters();
+    toast('All data marked as reviewed');
+  } catch(e) { alert('Error: ' + (e.error||'Failed')); }
+}
+
+function previewImage(url) { $('preview-img').src = url; show('image-preview'); }
+function copyIframe(btn) { const input = btn.previousElementSibling; navigator.clipboard.writeText(input.value).then(()=>{ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1500); }).catch(()=>{ input.select(); document.execCommand('copy'); btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1500); }); }
+function toast(msg, isErr) { const el=$('toast'); el.textContent=msg; el.style.background=isErr?'var(--red)':'var(--navy)'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+</script>
+</body>
+</html>

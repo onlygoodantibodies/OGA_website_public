@@ -1,0 +1,11 @@
+/* Source for the pipeline's stylesheet. Built by bin/build_css.sh into
+   pipeline/static/pipeline/tailwind.css, which is generated and not in git.
+
+   `base` is Tailwind's preflight — the reset the CDN was also supplying, and the
+   reason base.html has a `bg-transparent border-0` note on its logout button.
+   Nothing hand-written belongs in here: the fallback for a stylesheet that never
+   arrives is inline in pipeline/templates/pipeline/_styling.html, because a file
+   that failed to load cannot carry its own contingency. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

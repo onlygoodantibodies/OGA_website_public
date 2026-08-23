@@ -1,0 +1,68 @@
+{% comment %}Where this gene has got to, and the one thing to do next.
+
+The owner's review: *"Once someone has added the target, there should probably
+be a way of guiding them sequentially to each step they need to do -> add cell
+lines -> add antibodies -> plan experiments/ download worksheets -> upload
+worksheets/ record results. This is not a demand for a complete redesign, just a
+request to a pointer to the next step for each target. Perhaps at the top
+[ Cell lines ready? check/add antibodies] and similar message for each page?"*
+
+Everything here is **derived** — `services/gene_progress.py`, where each step is
+done because a record exists — so this cannot disagree with the gene's own page,
+which reads the same function. Deliberately no percentage: many genes never need
+all four applications, so a fraction would call finished work incomplete.
+
+It appears only when a board is filtered to one gene, because that is the only
+state in which "the next step" names a single thing.
+
+**It is a snapshot, not a live reading.** Adding a cell line or ticking a
+knockout on the very board this sits above changes what it should say, and
+nothing redraws a server-rendered strip. Rather than let it go quietly stale it
+offers a refresh — one click, not an instruction to reload, which is the rule
+this file would otherwise be breaking.{% endcomment %}
+{% if next_step_gene %}
+<div class="mt-3 border border-ycharos-200 bg-ycharos-50 rounded-xl px-4 py-3"
+     data-next-step="{{ next_step_gene }}">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+    {% comment %}The gene's name is the way to the gene's own page. This strip is
+    the one thing on a filtered board that is about the gene rather than about
+    the rows, and it named it without offering it — so on three of the four
+    boards there was nothing on screen that reached the page holding everything
+    recorded for it.{% endcomment %}
+    {% if next_step_target_id %}
+      <a href="{% url 'pipeline:target_detail' next_step_target_id %}"
+         class="text-xs font-bold uppercase tracking-widest text-ycharos-700 hover:underline"
+         title="Everything recorded for {{ next_step_gene }}">{{ next_step_gene }}</a>
+    {% else %}
+      <span class="text-xs font-bold uppercase tracking-widest text-ycharos-700">{{ next_step_gene }}</span>
+    {% endif %}
+    <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ next_step_headline.tone }}">{{ next_step_headline.label }}</span>
+    {% for s in next_step_steps %}
+      <span class="text-xs {% if s.done %}text-gray-600{% else %}text-gray-400{% endif %}">
+        {% if s.done %}✓{% else %}○{% endif %} {{ s.label }}</span>
+    {% endfor %}
+    <button type="button" id="next-step-refresh"
+            class="ml-auto text-xs font-semibold text-ycharos-700 hover:underline">Refresh</button>
+  </div>
+  {% if next_step %}
+  <p class="mt-2 text-sm text-gray-800">
+    <span class="font-bold">Next:</span> {{ next_step.hint }}
+    {% if next_step.url %}
+      <a href="{{ next_step.url }}" class="font-semibold text-ycharos-700 hover:underline whitespace-nowrap">{{ next_step.label }} →</a>
+    {% endif %}
+  </p>
+  {% else %}
+  <p class="mt-2 text-sm text-gray-800">
+    Every step on file for this gene. Anything further is a choice rather than a gap.
+  </p>
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var b = document.getElementById('next-step-refresh');
+    // Reloading the page is what this button does, and it says so by being a
+    // button rather than a sentence telling somebody to do it themselves.
+    if (b) b.addEventListener('click', function () { window.location.reload(); });
+  })();
+</script>
+{% endif %}

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Funders — Only Good Antibodies Community</title>
+    <meta name="description" content="For research funders: four practical, staged interventions across the grant lifecycle that require antibody validation without unrealistic applicant burden — ready-to-adopt language and the tools to support it.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+.fun-hero{background:linear-gradient(160deg,#0d2b5e 0%,#10428a 40%,#4a8ec9 100%);color:#fff;padding:72px 24px 56px;text-align:center;position:relative;overflow:hidden}
+.fun-hero::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,.15) 0%,transparent 70%);border-radius:50%}
+.fun-hero-inner{max-width:820px;margin:0 auto;position:relative;z-index:1}
+.fun-hero-label{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 18px;border-radius:100px;font-size:.85rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px;color:rgba(255,255,255,.9)}
+.fun-hero h1{font-family:'Open Sans',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
+.fun-hero p{font-size:1.1rem;line-height:1.7;color:rgba(255,255,255,.85);max-width:720px;margin:0 auto}
+.fun-hero h1,.fun-hero p,.fun-hero span{color:#fff!important}
+
+.fun-contents{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px}
+.fun-contents-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fun-contents-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;padding-right:12px;border-right:1px solid #e2e8f0;margin-right:6px}
+.fun-contents-link{padding:5px 14px;font-size:.86rem;font-weight:600;color:#10428a;text-decoration:none;border-radius:6px;transition:background .2s}
+.fun-contents-link:hover{background:#f5f8ff}
+html{scroll-behavior:smooth}
+
+.fun-section{padding:64px 24px;scroll-margin-top:24px}
+.fun-section-inner{max-width:1000px;margin:0 auto}
+.fun-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:8px}
+.fun-title{font-family:'Open Sans',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
+.fun-desc{color:#444;font-size:1rem;line-height:1.7;margin-bottom:28px;max-width:780px}
+.fun-bg-light{background:#f5f8ff}
+.fun-bg-white{background:#fff}
+.fun-section h3{color:#10428a!important}
+
+/* Lifecycle — vertical timeline */
+.fun-lifecycle{position:relative;padding-left:42px}
+.fun-lifecycle::before{content:'';position:absolute;left:16px;top:14px;bottom:14px;width:2px;background:linear-gradient(180deg,#4a8ec9 0%,#86bef0 50%,#dbeafe 100%)}
+.fun-stage{position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:22px 24px;margin-bottom:18px}
+.fun-stage:last-child{margin-bottom:0}
+.fun-stage-num{position:absolute;left:-42px;top:18px;width:34px;height:34px;background:#10428a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;border:3px solid #fff;box-shadow:0 0 0 1px #e2e8f0}
+.fun-stage-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fun-stage-head h3{font-family:'Open Sans',sans-serif;font-size:1.08rem;font-weight:700;margin:0;line-height:1.3}
+.fun-stage-refs{font-size:.72rem;font-weight:700;color:#10428a;background:#e8f1fa;padding:2px 8px;border-radius:4px;letter-spacing:.5px}
+.fun-stage-effort{font-size:.74rem;color:#6b7280;font-style:italic}
+.fun-stage-body{font-size:.92rem;color:#444;line-height:1.65}
+.fun-stage-body strong{color:#10428a}
+.fun-stage-body .fun-stage-change{display:block;margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;font-size:.86rem;color:#555}
+.fun-stage-body .fun-stage-change strong{color:#166534}
+
+/* Toolkit */
+.fun-toolkit-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.fun-toolkit-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:28px 24px;transition:box-shadow .3s,transform .2s;display:flex;flex-direction:column}
+.fun-toolkit-card:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
+.fun-toolkit-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:16px;flex-shrink:0}
+.fun-icon-budget{background:#dcfce7}
+.fun-icon-tools{background:#e8f1fa}
+.fun-icon-standards{background:#fef3c7}
+.fun-icon-guide{background:#ede9fe}
+.fun-toolkit-card h3{font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.fun-toolkit-card>p{font-size:.9rem;color:#555;line-height:1.6;margin-bottom:16px}
+.fun-toolkit-card .fun-meta{font-size:.82rem;color:#6b7280;margin-bottom:16px;line-height:1.5}
+.fun-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:#10428a;color:#fff;text-decoration:none;border-radius:8px;font-size:.88rem;font-weight:600;transition:background .2s;border:none;cursor:pointer}
+.fun-btn:hover{background:#4a8ec9}
+.fun-btn-outline{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:1px solid #e2e8f0;color:#10428a;text-decoration:none;border-radius:8px;font-size:.84rem;font-weight:600;transition:background .2s;background:transparent}
+.fun-btn-outline:hover{background:#f5f8ff}
+.fun-btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto}
+
+/* Budgeting table inline */
+.fun-budget-table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px;margin-bottom:14px}
+.fun-budget-table th{background:#f0f4f9;color:#10428a;font-family:'Open Sans',sans-serif;font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+.fun-budget-table td{padding:8px 10px;border-bottom:1px solid #f0f4f9;color:#333;line-height:1.45;vertical-align:top}
+.fun-budget-table tr:last-child td{border-bottom:none}
+.fun-budget-total{background:#fef3c7;padding:10px 14px;border-radius:8px;font-size:.86rem;color:#713f12;line-height:1.6;margin-bottom:14px}
+.fun-budget-total strong{color:#78350f}
+
+/* Tools sub-list */
+.fun-sublist{border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px}
+.fun-sublist-item{padding:10px 0;border-bottom:1px dashed #e2e8f0;font-size:.86rem;color:#444;line-height:1.55}
+.fun-sublist-item:last-child{border-bottom:none}
+.fun-sublist-item strong{color:#10428a;display:block;font-size:.88rem;margin-bottom:2px}
+.fun-sublist-item a{color:#10428a;font-weight:600;text-decoration:none}
+.fun-sublist-item a:hover{text-decoration:underline}
+
+/* Accordions (shared for language blocks) */
+.fun-accordion{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff}
+.fun-bg-light .fun-accordion{background:#fff}
+.fun-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Open Sans',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
+.fun-accordion-trigger:hover{background:#f5f8ff}
+.fun-accordion-arrow{font-size:.75rem;color:#86bef0;transition:transform .3s;flex-shrink:0;margin-left:12px}
+.fun-accordion.open .fun-accordion-arrow{transform:rotate(180deg)}
+.fun-accordion-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.fun-accordion-body-inner{padding:0 20px 20px;font-size:.9rem;color:#444;line-height:1.7}
+.fun-accordion-body-inner p{margin-bottom:12px}
+.fun-accordion-body-inner p:last-child{margin-bottom:0}
+
+/* Language text blocks */
+.fun-placement{font-size:.82rem;color:#555;margin-bottom:14px;padding:10px 14px;background:#f0f4f9;border-radius:6px;line-height:1.55}
+.fun-placement strong{color:#10428a}
+.fun-policy-text{font-size:.9rem;color:#1e293b;line-height:1.7;padding:16px 18px;background:#fafbfd;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;font-family:Georgia,'Times New Roman',serif}
+.fun-copy-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#fff;color:#10428a;border:1px solid #10428a;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.fun-copy-btn:hover{background:#10428a;color:#fff}
+.fun-copy-btn.copied{background:#dcfce7;color:#166534;border-color:#86efac}
+
+/* Contacts */
+.fun-contact-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:600px}
+.fun-contact-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
+.fun-contact-card h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
+.fun-contact-card p{font-size:.88rem;color:#555;line-height:1.55;margin-bottom:4px}
+.fun-contact-card a{color:#10428a;text-decoration:none;font-weight:600}
+.fun-contact-card a:hover{text-decoration:underline}
+
+.fun-funder-footer{background:#f0f4f9;padding:20px 24px;text-align:center;font-size:.82rem;color:#6b7280;max-width:1000px;margin:0 auto}
+
+@media(max-width:768px){
+  .fun-toolkit-grid{grid-template-columns:1fr}
+  .fun-contents-label{display:none}
+  .fun-contents-inner{gap:4px}
+  .fun-contents-link{padding:5px 10px;font-size:.82rem}
+  .fun-budget-table th,.fun-budget-table td{padding:6px 8px;font-size:.78rem}
+}
+@media(max-width:480px){
+  .fun-hero{padding:48px 20px 40px}
+  .fun-section{padding:40px 20px}
+  .fun-lifecycle{padding-left:36px}
+  .fun-lifecycle::before{left:13px}
+  .fun-stage-num{left:-36px;width:28px;height:28px;font-size:.88rem}
+}
+</style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+{% include 'core/header.html' %}
+
+<section class="fun-hero">
+  <div class="fun-hero-inner">
+    <span class="fun-hero-label">Roadmap — For Funders</span>
+    <h1>Good Antibody Practice Across the Grant Lifecycle</h1>
+    <p>Four practical, staged interventions that require antibody validation without placing unrealistic burden on grant applicants. Each stage corresponds to a Delphi consensus recommendation and comes with ready-to-adopt language and the tools that make it work.</p>
+  </div>
+</section>
+
+<div class="fun-contents">
+  <div class="fun-contents-inner">
+    <span class="fun-contents-label">On this page</span>
+    <a href="#lifecycle" class="fun-contents-link">Grant Lifecycle</a>
+    <a href="#toolkit" class="fun-contents-link">Toolkit</a>
+    <a href="#language" class="fun-contents-link">Ready-to-Adopt Language</a>
+    <a href="#support" class="fun-contents-link">Support</a>
+  </div>
+</div>
+
+<!-- WHY THIS MATTERS -->
+<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:36px 24px;">
+  <div style="max-width:860px;margin:0 auto;">
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:6px;">Why this matters for funders</div>
+    <p style="font-size:.95rem;color:#333;line-height:1.7;margin:0 0 14px;">Antibody-related failures account for an estimated $1 billion annually in wasted US preclinical research spending alone. Every grant funding antibody-dependent work carries a risk that key findings rest on tools that do not perform as assumed — leading to misdirected follow-on research, unreliable preliminary data in future applications, and the consumption of irreplaceable animal and human tissue samples without valid scientific return. The four staged interventions on this page make antibody validation a visible, budgeted, and reportable part of the research you fund — without creating new review burden.</p>
+    <details style="margin-top:8px;">
+      <summary style="font-size:.86rem;font-weight:600;color:#10428a;cursor:pointer;padding:6px 0;">Watch: Why antibody choice matters (5 min) ▸</summary>
+      <div style="position:relative;width:100%;padding-bottom:56.25%;border-radius:10px;overflow:hidden;margin-top:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);">
+        <iframe src="https://www.youtube.com/embed/LDjt1fEdmuI" allowfullscreen title="Why antibody choice matters" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;"></iframe>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- LIFECYCLE -->
+<section class="fun-section fun-bg-white" id="lifecycle">
+  <div class="fun-section-inner">
+    <div class="fun-label">The Grant Lifecycle</div>
+    <div class="fun-title">Four Staged Interventions</div>
+    <div class="fun-desc">A Delphi consensus study with 32 international experts identified six funder-facing recommendations as both effective and feasible. These map onto four stages of the grant lifecycle, starting with the lightest intervention (a paragraph in applicant guidance) and building towards comprehensive oversight. Each stage is a complete, free-standing action — funders can adopt Stage 1 alone and add the later stages over time.</div>
+
+    <div class="fun-lifecycle">
+
+      <div class="fun-stage">
+        <div class="fun-stage-num">1</div>
+        <div class="fun-stage-head">
+          <h3>Signal importance in applicant guidance</h3>
+          <span class="fun-stage-refs">R13</span>
+          <span class="fun-stage-effort">Zero cost · no form changes</span>
+        </div>
+        <div class="fun-stage-body">
+          Add a short paragraph to applicant guidance telling applicants that antibody-dependent research should demonstrate awareness of validation — checking independent characterisation data, planning controls, and budgeting for validation materials.
+          <span class="fun-stage-change"><strong>What changes:</strong> applicants prime themselves to think about validation before they write. This single action creates the demand signal that downstream interventions depend on.</span>
+        </div>
+      </div>
+
+      <div class="fun-stage">
+        <div class="fun-stage-num">2</div>
+        <div class="fun-stage-head">
+          <h3>At application — budget awareness and preliminary evidence</h3>
+          <span class="fun-stage-refs">R11 · R13</span>
+          <span class="fun-stage-effort">Form changes · no new review burden</span>
+        </div>
+        <div class="fun-stage-body">
+          Two complementary expectations. First, a budget line for antibody validation materials (with indicative costs provided — see toolkit below). Second, for any antibody-derived preliminary data, a structured documentation of what validation was performed, using the OGA Validation Record.
+          <span class="fun-stage-change"><strong>What changes:</strong> validation is costed realistically rather than unfunded; preliminary antibody data becomes reviewable; applicants are not asked to speculate about antibodies they haven't yet selected.</span>
+        </div>
+      </div>
+
+      <div class="fun-stage">
+        <div class="fun-stage-num">3</div>
+        <div class="fun-stage-head">
+          <h3>During funded projects — host institutional oversight</h3>
+          <span class="fun-stage-refs">R10</span>
+          <span class="fun-stage-effort">Condition of funding · institution-delivered</span>
+        </div>
+        <div class="fun-stage-body">
+          Rather than demanding detailed prospective validation plans at application (which are guesswork), require the host institution to provide validation oversight infrastructure as a condition of funding — training, structured planning tools, and supervisory oversight.
+          <span class="fun-stage-change"><strong>What changes:</strong> detailed validation planning happens at the right moment (after antibody selection) and by the right actor (the supervisor). The funder shifts from evaluating technical content to requiring that the infrastructure exists.</span>
+        </div>
+      </div>
+
+      <div class="fun-stage">
+        <div class="fun-stage-num">4</div>
+        <div class="fun-stage-head">
+          <h3>At publication — transparency reporting and endorsed standards</h3>
+          <span class="fun-stage-refs">R14 · R15</span>
+          <span class="fun-stage-effort">Terms-and-conditions change · low effort</span>
+        </div>
+        <div class="fun-stage-body">
+          At the end of a funded project, require structured validation reporting with publications (the Validation Record produces supplementary-material-ready output), and formally endorse community reporting standards — the IWGAV five-pillar framework, the MDAR checklist, and the OGA Planning Framework that operationalises them.
+          <span class="fun-stage-change"><strong>What changes:</strong> validation reporting becomes a consistent language from application to publication; community standards gain leverage when backed by funder endorsement; the same tool (the Validation Record) documents preliminary evidence at Stage 2b and final outcomes here, closing the loop.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- TOOLKIT -->
+<section class="fun-section fun-bg-light" id="toolkit">
+  <div class="fun-section-inner">
+    <div class="fun-label">Your Toolkit</div>
+    <div class="fun-title">Resources to Operationalise Each Stage</div>
+    <div class="fun-desc">Four resources that directly support the stages above. Each is free, open, and designed to slot into existing grant processes without new review machinery.</div>
+
+    <div class="fun-toolkit-grid">
+
+      <!-- 1. Budgeting -->
+      <div class="fun-toolkit-card">
+        <div class="fun-toolkit-icon fun-icon-budget">💷</div>
+        <h3>Validation Budgeting Guide</h3>
+        <p>Indicative UK costs for common validation controls, so applicants can budget realistically at Stage 2a. The table below is reproduced from the full Funder Adoption Guide, which also lists suppliers for each control type.</p>
+
+        <table class="fun-budget-table">
+          <thead>
+            <tr><th>Control type</th><th>Cost range</th><th>Timeline</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Knockout cell line (catalogue)</td><td>£1,500–£2,500</td><td>1–2 wk</td></tr>
+            <tr><td>Knockout cell line (custom)</td><td>£800–£3,000+</td><td>4–10 wk</td></tr>
+            <tr><td>siRNA reagents (per target)</td><td>£200–£400</td><td>1–2 wk</td></tr>
+            <tr><td>Overexpression lysate</td><td>£100–£400</td><td>~1 wk</td></tr>
+            <tr><td>Plasmid / transfection construct</td><td>£100–£500</td><td>1–2 wk</td></tr>
+            <tr><td>Additional comparison antibody</td><td>£150–£400</td><td>~1 wk</td></tr>
+            <tr><td>Researcher time (per target)</td><td>Variable</td><td>2–8 wk</td></tr>
+          </tbody>
+        </table>
+
+        <div class="fun-budget-total"><strong>Typical total per target: £500–£3,500.</strong> A project using 3–5 target-specific antibodies should budget £1,500–£10,000 for validation materials.</div>
+
+        <div class="fun-btn-row"><a href="{% static 'core/docs/OGA_Adoption_Guide_Funders_v2.pdf' %}" class="fun-btn-outline" target="_blank">Full guide with supplier listings (PDF) ↓</a></div>
+      </div>
+
+      <!-- 2. OGA tools -->
+      <div class="fun-toolkit-card">
+        <div class="fun-toolkit-icon fun-icon-tools">🧰</div>
+        <h3>OGA Tools for Applicants and Grantees</h3>
+        <p>The tools that make each stage practical. Free, open, and designed to be referenced directly from applicant guidance or terms and conditions.</p>
+        <div class="fun-sublist">
+          <div class="fun-sublist-item">
+            <strong>OGA Validation Planner</strong>
+            For funded grantees to document a proportionate validation strategy once antibodies are selected (Stage 3). Output is a structured PDF. <a href="{% url 'validation_planner' %}">Open the Planner →</a>
+          </div>
+          <div class="fun-sublist-item">
+            <strong>OGA Validation Record</strong>
+            For documenting preliminary antibody data at application (Stage 2b) and final validation reporting at publication (Stage 4). Single tool, two uses. <a href="{% url 'validation_record' %}">Open the Validation Record →</a>
+          </div>
+          <div class="fun-sublist-item">
+            <strong>OGA Academy</strong>
+            Free self-paced e-learning covering antibody selection, validation frameworks, and data interpretation. Suitable for applicant and grantee training requirements, with QR-verifiable completion certificates. <a href="{% url 'academy:academy_home' %}">Go to the Academy ↗</a>
+          </div>
+          <div class="fun-sublist-item">
+            <strong>OGA Antibody Database</strong>
+            Curated independent characterisation data that applicants should check before proposing antibody-dependent experiments. <a href="{% url 'home' %}">Search the database →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Standards (Framework-led) -->
+      <div class="fun-toolkit-card">
+        <div class="fun-toolkit-icon fun-icon-standards">📐</div>
+        <h3>Standards to Endorse</h3>
+        <p>Stage 4 asks funders to formally endorse community reporting standards. These three together form a coherent stack: the IWGAV framework sets the scientific vocabulary, MDAR sets the reporting minimum, and the OGA Planning Framework operationalises both into a workflow researchers can actually follow.</p>
+        <div class="fun-sublist">
+          <div class="fun-sublist-item">
+            <strong>OGA Framework for Planning Antibody Validation</strong>
+            The operationalisation layer. Sets out proportionate validation decisions by scientific question, control matching, and assay-specific testing. Available as a document, a downloadable PDF, and an interactive tool. <a href="{% url 'validation_framework' %}">Read the Framework →</a> · <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.pdf' %}" target="_blank">PDF ↓</a>
+          </div>
+          <div class="fun-sublist-item">
+            <strong>IWGAV five-pillar framework</strong>
+            Community standard for describing validation approaches (genetic, orthogonal, independent antibody, tagged expression, IP-MS). <a href="https://doi.org/10.1038/nmeth.3995" target="_blank">Uhlén et al., Nat Methods 2016 ↗</a>
+          </div>
+          <div class="fun-sublist-item">
+            <strong>MDAR reporting checklist</strong>
+            Community standard for transparent reporting in the life sciences, including antibody metadata. <a href="https://doi.org/10.1073/pnas.2103238118" target="_blank">Macleod et al., PNAS 2021 ↗</a>
+          </div>
+        </div>
+        <div class="fun-meta" style="margin-top:14px;">Paste-ready endorsement language is in Block 5 below.</div>
+      </div>
+
+      <!-- 4. Full adoption guide -->
+      <div class="fun-toolkit-card">
+        <div class="fun-toolkit-icon fun-icon-guide">📄</div>
+        <h3>Full Funder Adoption Guide</h3>
+        <p>A single document covering the four stages in detail, the full validation budgeting guide with suppliers, the quality-assurance-through-institutional-oversight model, and the relationship to institutional and publisher interventions.</p>
+        <div class="fun-meta">Useful as a reference for funder policy teams, programme managers, and scientific advisory boards considering adoption of any of the four stages.</div>
+        <div class="fun-btn-row"><a href="{% static 'core/docs/OGA_Adoption_Guide_Funders_v2.pdf' %}" class="fun-btn" target="_blank">Download adoption guide (PDF) ↓</a></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- READY-TO-ADOPT LANGUAGE -->
+<section class="fun-section fun-bg-white" id="language">
+  <div class="fun-section-inner">
+    <div class="fun-label">Ready-to-Adopt</div>
+    <div class="fun-title">Language Blocks</div>
+    <div class="fun-desc">Expand the block relevant to the stage you are adopting. Each includes a placement note, the recommended text, and a copy-to-clipboard button. Adapt freely to your house style.</div>
+
+    <div class="fun-accordion">
+      <button class="fun-accordion-trigger" aria-expanded="false">Block 1: Applicant guidance paragraph (Stage 1, R13)<span class="fun-accordion-arrow">▼</span></button>
+      <div class="fun-accordion-body"><div class="fun-accordion-body-inner">
+        <div class="fun-placement"><strong>Placement:</strong> Applicant guidance notes, scheme webpage, or "before you apply" documentation. No form changes required.</div>
+        <div class="fun-policy-text" id="lang-block-1">Applicants proposing antibody-dependent experiments should demonstrate awareness of antibody validation requirements. This includes checking whether independent characterisation data exists for proposed antibodies (e.g. via the OGA Antibody Database or YCharOS reports), planning appropriate controls, and budgeting for validation materials. Free training is available through the OGA Academy (onlygoodantibodies.co.uk/academy).</div>
+        <button class="fun-copy-btn" data-copy-target="lang-block-1">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="fun-accordion">
+      <button class="fun-accordion-trigger" aria-expanded="false">Block 2: Budget line expectation (Stage 2a, R11)<span class="fun-accordion-arrow">▼</span></button>
+      <div class="fun-accordion-body"><div class="fun-accordion-body-inner">
+        <div class="fun-placement"><strong>Placement:</strong> Budget guidance or application form instructions for schemes funding antibody-dependent research.</div>
+        <div class="fun-policy-text" id="lang-block-2">If your project involves the use of antibodies, include a line in your budget for antibody validation materials. Typical costs include knockout or knockdown controls, positive control reagents, and researcher time. See the OGA Validation Budgeting Guide (onlygoodantibodies.co.uk/roadmap/funders) for indicative costs. For projects where key experimental conclusions will depend on antibody-derived data, we recommend using the OGA Validation Planner (onlygoodantibodies.co.uk/tools/validation-planner) to develop a detailed validation strategy.</div>
+        <button class="fun-copy-btn" data-copy-target="lang-block-2">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="fun-accordion">
+      <button class="fun-accordion-trigger" aria-expanded="false">Block 3: Preliminary data documentation (Stage 2b)<span class="fun-accordion-arrow">▼</span></button>
+      <div class="fun-accordion-body"><div class="fun-accordion-body-inner">
+        <div class="fun-placement"><strong>Placement:</strong> Application form instructions for preliminary-data or case-for-support sections where antibody-derived data is presented.</div>
+        <div class="fun-policy-text" id="lang-block-3">Where your application includes preliminary data generated using antibodies, provide a completed OGA Validation Record (onlygoodantibodies.co.uk/tools/validation-record) or equivalent structured summary for each antibody used. This should document: the antibody identity (including RRID where available), the controls performed, and the results of those controls.</div>
+        <button class="fun-copy-btn" data-copy-target="lang-block-3">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="fun-accordion">
+      <button class="fun-accordion-trigger" aria-expanded="false">Block 4: Host institutional oversight condition (Stage 3, R10)<span class="fun-accordion-arrow">▼</span></button>
+      <div class="fun-accordion-body"><div class="fun-accordion-body-inner">
+        <div class="fun-placement"><strong>Placement:</strong> Terms and conditions of award, or expectations of host institutions, for schemes funding antibody-dependent research.</div>
+        <div class="fun-policy-text" id="lang-block-4">The host institution is expected to provide antibody validation support for funded researchers, including access to training (e.g. OGA Academy), structured validation planning tools (e.g. OGA Validation Planner), and supervisory oversight of validation strategy for antibody-dependent experiments.</div>
+        <button class="fun-copy-btn" data-copy-target="lang-block-4">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="fun-accordion">
+      <button class="fun-accordion-trigger" aria-expanded="false">Block 5: Publication reporting and endorsement of community standards (Stage 4, R14 &amp; R15)<span class="fun-accordion-arrow">▼</span></button>
+      <div class="fun-accordion-body"><div class="fun-accordion-body-inner">
+        <div class="fun-placement"><strong>Placement:</strong> Open access / data sharing policy, or reporting requirements in terms and conditions of award.</div>
+        <div class="fun-policy-text" id="lang-block-5">We expect grantees to include structured validation reporting in publications arising from funded research. For each antibody whose performance is critical to the interpretation of results, publications should include a completed OGA Validation Record (onlygoodantibodies.co.uk/tools/validation-record) or equivalent structured summary documenting the antibody identity, controls used, and outcomes.
+
+We endorse the International Working Group on Antibody Validation (IWGAV) five-pillar framework, the MDAR reporting checklist, and the OGA Framework for Planning Antibody Validation as community standards for antibody validation and reporting.</div>
+        <button class="fun-copy-btn" data-copy-target="lang-block-5">📋 Copy text</button>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- SUPPORT -->
+<section class="fun-section fun-bg-light" id="support">
+  <div class="fun-section-inner">
+    <div class="fun-label">Getting Help</div>
+    <div class="fun-title">Support &amp; Contacts</div>
+    <div class="fun-contact-grid">
+      <div class="fun-contact-card">
+        <h3>Adoption Enquiries &amp; Pilots</h3>
+        <p>Dr Harvinder Virk, University of Leicester</p>
+        <p><a href="mailto:hsv6@leicester.ac.uk">hsv6@leicester.ac.uk</a></p>
+        <p style="margin-top:8px;font-size:.84rem;color:#6b7280;">Discussion of stage adoption, scheme pilots, adaptation of the recommended language, and feedback on the Funder Adoption Guide.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="fun-funder-footer">
+  <p>This guidance is derived from the MRC-funded Delphi consensus study (NC3Rs Ref: NC/NAM0019/1, MRC UKRI076) on improving antibody validation in biomedical research.</p>
+</div>
+
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a>
+      <a href="{% url 'about' %}">About Us</a>
+      <a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'news_publications' %}">Publications</a>
+      <a href="{% url 'news_publications' %}">News</a>
+      <a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+<script>
+// ── Accordion toggle ──
+document.querySelectorAll('.fun-accordion-trigger').forEach(function(trigger){
+  trigger.addEventListener('click', function(){
+    var accordion = this.closest('.fun-accordion');
+    var body = accordion.querySelector('.fun-accordion-body');
+    var isOpen = accordion.classList.contains('open');
+    if(isOpen){
+      body.style.maxHeight = null;
+      accordion.classList.remove('open');
+      this.setAttribute('aria-expanded', 'false');
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      accordion.classList.add('open');
+      this.setAttribute('aria-expanded', 'true');
+    }
+  });
+});
+
+// ── Copy-to-clipboard ──
+document.querySelectorAll('.fun-copy-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var targetId = this.getAttribute('data-copy-target');
+    var el = document.getElementById(targetId);
+    if(!el) return;
+    var text = el.innerText || el.textContent;
+    var self = this;
+    navigator.clipboard.writeText(text).then(function(){
+      self.classList.add('copied');
+      self.innerHTML = '✓ Copied';
+      setTimeout(function(){
+        self.classList.remove('copied');
+        self.innerHTML = '📋 Copy text';
+      }, 2000);
+    }).catch(function(){
+      var range = document.createRange();
+      range.selectNode(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      try { document.execCommand('copy'); } catch(e){}
+      window.getSelection().removeAllRanges();
+      self.classList.add('copied');
+      self.innerHTML = '✓ Copied';
+      setTimeout(function(){
+        self.classList.remove('copied');
+        self.innerHTML = '📋 Copy text';
+      }, 2000);
+    });
+  });
+});
+
+// ── Recalc open accordions on resize ──
+window.addEventListener('resize', function(){
+  document.querySelectorAll('.fun-accordion.open .fun-accordion-body').forEach(function(body){
+    body.style.maxHeight = body.scrollHeight + 'px';
+  });
+});
+</script>
+</body>
+</html>

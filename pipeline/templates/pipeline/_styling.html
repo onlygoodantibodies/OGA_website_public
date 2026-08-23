@@ -1,0 +1,108 @@
+{% comment %}The pipeline's stylesheet, and the one place that decides where it
+comes from. base.html and login.html both include this; neither names a source.
+
+Preferred is the file this site builds and serves itself
+(`bin/build_css.sh` → `pipeline/static/pipeline/tailwind.css`). Second is
+Tailwind's Play CDN, which builds the CSS in the browser on every page load —
+Tailwind's own development build, and what the app ran on until now. Which one
+is in use is `pipeline/styling.py`, and `pipeline.W003` says at deploy time if
+production ended up on the CDN.
+
+Everything under `.no-tailwind` is the fallback for the stylesheet that never
+arrives, whichever of the two it was. Without it there is no `.hidden` — and
+`.hidden` is how every dropdown, modal, delete confirmation and upload panel in
+this app is kept shut, 250 times over across these templates and board.js, so
+they all render open and stacked down the page. The nav is white text on
+`bg-ycharos-800`, so it disappears entirely. Plain is survivable; that is not.
+
+It cannot reach a page whose stylesheet loaded: the class is added only by the
+two failure paths at the bottom. It covers blocked, 404 and down — not slow. A
+stylesheet that hangs holds the page whatever is written here, which is one of
+the reasons for serving it from this origin rather than somebody else's.
+{% endcomment %}
+<style>
+  .no-tailwind body { margin: 0; line-height: 1.5; background: #f9fafb; color: #111827;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .no-tailwind .hidden { display: none; }
+  .no-tailwind a { color: #0070c4; }
+  .no-tailwind nav { background: #064c83; padding: 0.5rem 1rem; }
+  .no-tailwind nav a, .no-tailwind nav p, .no-tailwind nav span,
+  .no-tailwind nav button { color: #fff; }
+  .no-tailwind nav a { display: inline-block; margin-right: 1rem; }
+  .no-tailwind table { border-collapse: collapse; width: 100%; }
+  .no-tailwind th, .no-tailwind td { border: 1px solid #d1d5db; padding: 0.25rem 0.5rem;
+    text-align: left; font-size: 0.875rem; }
+  .no-tailwind input, .no-tailwind select, .no-tailwind textarea {
+    border: 1px solid #9ca3af; border-radius: 0.25rem; padding: 0.25rem 0.5rem; }
+  .no-tailwind button { cursor: pointer; }
+  .no-tailwind main { max-width: 80rem; margin: 0 auto; padding: 0 1rem; }
+
+  {% comment %}The nav's links, the search box and the account controls are all
+  `hidden md:flex`, so `.hidden` alone hides them at every width and takes the
+  navigation with it. These come after that rule deliberately — same
+  specificity, so source order decides.{% endcomment %}
+  @media (min-width: 768px) {
+    .no-tailwind .md\:flex { display: flex; }
+    .no-tailwind .md\:inline-flex { display: inline-flex; }
+    .no-tailwind .md\:block { display: block; }
+    .no-tailwind .md\:grid { display: grid; }
+    .no-tailwind .md\:hidden { display: none; }
+  }
+
+  #styling-fallback-note { margin: 0; padding: 0.6rem 1rem; font-size: 0.875rem;
+    background: #fef3c7; color: #78350f; border-bottom: 1px solid #fcd34d; }
+</style>
+<script>
+  // Declared before either source is requested, because the `onerror` below
+  // fires the moment a stylesheet 404s and there is no second chance.
+  window.OGAStyling = {
+    missing: function () {
+      var root = document.documentElement;
+      if (root.classList.contains('no-tailwind')) { return; }
+      root.classList.add('no-tailwind');
+      // Say what happened. A page that renders plain with no explanation reads
+      // as the app being broken, and the fear on reaching a screen that looks
+      // wrong is that the records behind it went too.
+      var draw = function () {
+        var note = document.createElement('p');
+        note.id = 'styling-fallback-note';
+        note.setAttribute('role', 'status');
+        note.textContent = 'This page could not load its styling from the network, '
+          + 'so it is showing plain. The pipeline is working normally and nothing '
+          + 'about your records is affected.';
+        document.body.insertBefore(note, document.body.firstChild);
+      };
+      if (document.body) { draw(); }
+      else { document.addEventListener('DOMContentLoaded', draw); }
+    }
+  };
+</script>
+{% if pipeline_stylesheet %}
+<link rel="stylesheet" href="{{ pipeline_stylesheet }}" onerror="window.OGAStyling.missing()">
+{% else %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  (function () {
+    // The Play CDN defines a global `tailwind`. If it was blocked or 404'd, the
+    // tag above ran nothing and that global is missing — which is the whole
+    // test. Guarded rather than assigned straight onto `tailwind`, which is what
+    // the config block used to do: on a blocked network that threw a
+    // ReferenceError on every page in the app.
+    if (!window.tailwind) { window.OGAStyling.missing(); return; }
+    // The built stylesheet gets these from tailwind.config.js. Kept identical.
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ycharos: {
+              50: '#f0f7ff', 100: '#e0effe', 200: '#b9dffc', 300: '#7cc5fa',
+              400: '#36a8f5', 500: '#0c8de6', 600: '#0070c4', 700: '#01599f',
+              800: '#064c83', 900: '#0b406d'
+            }
+          }
+        }
+      }
+    };
+  })();
+</script>
+{% endif %}

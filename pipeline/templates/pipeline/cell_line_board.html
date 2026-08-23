@@ -1,0 +1,729 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Cell lines board — find and edit any line{% endblock %}
+
+{% block extra_head %}
+<style>
+  .help { border-bottom: 1px dotted #9ca3af; cursor: help; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto">
+
+  <p class="text-xs font-bold uppercase tracking-widest text-ycharos-700">Cell lines board</p>
+  <h1 class="text-3xl font-bold text-gray-900 mt-1">Every cell line</h1>
+  <p class="text-gray-600 mt-1 max-w-3xl">
+    Click a cell to edit it — changes save straight away.
+  </p>
+
+  <div class="flex flex-wrap gap-2 mt-4">
+    <a href="{% url 'pipeline:cell_line_board_guide' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Guide</a>
+    <button type="button" id="new-btn"
+            class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold hover:bg-ycharos-700">Add cell lines</button>
+    {% comment %}Download carries the filters you can see, and the way back is
+    here rather than on the whole-dataset page — same round trip as the target
+    and sessions boards, same per-row preview as a paste.{% endcomment %}
+    <a id="dl-btn" href="{% url 'pipeline:cell_line_export' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Download these</a>
+    <button type="button" id="upload-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Upload a sheet</button>
+  </div>
+  <div id="upload-panel"></div>
+  <div id="identity-panel"></div>
+
+  {# New entries, on the board rather than a page of their own #}
+  {{ new_columns|json_script:"new-columns" }}
+  {{ new_example|json_script:"new-example" }}
+  <div id="new-panel"></div>
+
+  {# ── Filters ── #}
+  <form id="filters" method="get" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Search</span>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Name, C-number, Cellosaurus…"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Gene</span>
+      <input type="text" name="gene" value="{{ filters.gene }}" placeholder="SOD1, or a list — NA for wild types"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      {% comment %}A wild type has no gene, so a gene filter can never return
+      one — which left every parental line unreachable by the one filter that
+      narrows this board to what you came for. `NA` is already the app's word
+      for "there isn't one" in the gene column, so it means the wild types here
+      too. A placeholder is not a statement (it vanishes as you type), so it is
+      said underneath as well.
+
+      It says "no gene" rather than "the wild types", which is what it used to
+      say and is what the filter actually does: `apply_filters` matches any row
+      with no target at all. A knockout can end up there too — the eleventh
+      field test found one, left behind by a gene that was deleted — and being
+      told the box only reaches wild types is what made that row look
+      unreachable.{% endcomment %}
+      <span class="block text-xs text-gray-400 mt-1">
+        Type <b>NA</b> for the lines with no gene recorded — the wild types, and
+        anything else left without one. A gene never finds those.</span>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Genotype</span>
+      <select name="genotype" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any</option>
+        {% for g in genotypes %}
+          <option value="{{ g.value }}" {% if filters.genotype == g.value %}selected{% endif %}>{{ g.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+      <select name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All sites</option>
+        {% for s in sites %}
+          <option value="{{ s.pk }}" {% if filters.site == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+        {% comment %}"No site recorded" is a real answer, not the absence of a
+        filter — see services/sites.py::NONE. It is what the Portfolio's
+        "210 have no nomination naming a site" links to, and it has to be an
+        option on the form rather than only a URL value: board.js rebuilds
+        its query from the form, so a filter the select cannot carry is
+        dropped by the first rows fetch and the page looks filtered while the
+        data is not.{% endcomment %}
+        <option value="none" {% if filters.site == 'none' %}selected{% endif %}>No site recorded</option>
+        {% include "pipeline/_unknown_site_option.html" %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">KO confirmed</span>
+      {% comment %}The options are the outcomes the badge draws, because a
+      filter that means something other than the column it narrows is how this
+      was found: filtering to "Validated" put a row reading *check this row* at
+      the top of the list. `services/ko_validation.py` answers both.{% endcomment %}
+      <select name="ko_validated" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any</option>
+        <option value="yes" {% if filters.ko_validated == 'yes' %}selected{% endif %}>Confirmed</option>
+        <option value="no" {% if filters.ko_validated == 'no' %}selected{% endif %}>Not confirmed</option>
+        <option value="disputed" {% if filters.ko_validated == 'disputed' %}selected{% endif %}>Tick and reason disagree</option>
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Received</span>
+      <select name="received" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Either</option>
+        <option value="yes" {% if filters.received == 'yes' %}selected{% endif %}>Received</option>
+        <option value="no" {% if filters.received == 'no' %}selected{% endif %}>Not yet</option>
+      </select>
+    </label>
+    <div class="flex items-end gap-3 lg:col-span-2">
+      <button type="submit" class="px-5 py-2 rounded-lg bg-gray-900 text-white font-semibold">Apply</button>
+      <a href="{% url 'pipeline:cell_line_board' %}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+      <span id="row-count" class="ml-auto text-sm text-gray-500"></span>
+    </div>
+  </form>
+
+  {# ── Save errors ── #}
+  <div id="board-error"
+       class="hidden mt-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div id="delete-panel"></div>
+
+  {% comment %}
+    Add a freeze-down batch. Deliberately a small dialog rather than a pop-out
+    grid: one press is one batch, so there is nothing to paste and no row set to
+    preview. The C-number is not offered as a field first — the common case is
+    that the app issues it — and the freeze date arrives filled in with today,
+    which is what a freeze-down almost always is.
+  {% endcomment %}
+  <div id="add-batch-panel"
+       class="hidden fixed inset-0 z-40 bg-black/40 flex items-start justify-center p-4 overflow-y-auto"
+       role="dialog" aria-modal="true" aria-labelledby="add-batch-title">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mt-16 p-5">
+      <h2 id="add-batch-title" class="text-lg font-semibold text-gray-900">
+        Add a freeze-down batch</h2>
+      <p class="text-sm text-gray-600 mt-1">
+        <span id="add-batch-who" class="font-medium"></span> — one batch, given
+        this site's next C-number. The vials in it <em>share</em> that one
+        number.
+      </p>
+      <form id="add-batch-form" class="mt-4 space-y-3">
+        <div>
+          <label for="ab-vials" class="block text-sm font-medium text-gray-700">
+            Vials in this batch <span class="text-gray-400">(optional)</span></label>
+          <input id="ab-vials" name="vial_count" type="number" min="1" step="1"
+                 class="mt-1 w-full border rounded px-2 py-1" placeholder="e.g. 6">
+          <p class="text-xs text-gray-500 mt-1">
+            How many tubes this freeze-down produced. They all carry the one
+            C-number.</p>
+        </div>
+        <div>
+          <label for="ab-date" class="block text-sm font-medium text-gray-700">
+            Freeze date</label>
+          <input id="ab-date" name="freeze_date" type="date"
+                 class="mt-1 w-full border rounded px-2 py-1">
+          <p class="text-xs text-gray-500 mt-1">Today unless you change it.</p>
+        </div>
+        <details class="text-sm">
+          <summary class="cursor-pointer text-gray-600">
+            Set the C-number by hand</summary>
+          <input name="c_number" type="text"
+                 class="mt-2 w-full border rounded px-2 py-1" placeholder="e.g. C-744">
+          <p class="text-xs text-gray-500 mt-1">
+            Only if the tube is already labelled. Leave blank and the next free
+            number is issued; a number another record holds is refused by name.</p>
+        </details>
+        <p id="add-batch-why" class="text-sm text-red-700" role="alert"></p>
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" data-close
+                  class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm rounded bg-ycharos-700 text-white hover:bg-ycharos-800">
+            Add batch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% comment %}Why there is no Delete on these rows until a gene is picked. A
+  control that is simply absent is a feature a reader concludes does not exist,
+  so the gate names itself — same rule as a save button disabled with a reason
+  rather than hidden. Written by OGABoard.geneGate on every draw, because the
+  Gene box can be cleared without pressing Apply.{% endcomment %}
+  <p id="delete-gate" class="hidden mt-3 text-sm text-gray-500"></p>
+
+  {% include "pipeline/_gene_next_step.html" %}
+
+  {# ── Grid ── #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mt-3">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0 z-10">
+          {% comment %}Hover text comes from services/cell_line_board.py::COLUMN_TIPS,
+          the one registry a future workbook export will read too.{% endcomment %}
+          {% comment %}Headings, order and hover text from
+          services/board_columns.py — the registry the .xlsx download reads too.
+          The Supplier / catalogue heading covers two values, which is why that
+          column's catalogue half has no heading of its own: 528 of the 562 lines
+          have no supplier recorded, so a heading naming only one of them made
+          most of the board look like a filing error.{% endcomment %}
+          <tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            {% for c in columns %}
+            {% comment %}A unit is drawn `normal-case` because this row is styled
+            `uppercase`, and CSS uppercases µ (U+00B5) to Μ (U+039C GREEK
+            CAPITAL MU) — the same glyph as a Latin M. "Conc. (µg/mL)" rendered
+            as CONC. (MG/ML) over microgram values: a thousandfold misreading
+            produced by a stylesheet. See services/board_columns.py.
+            {% endcomment %}
+            <th class="px-3 py-2{% if forloop.first %} sticky left-0 bg-gray-50 z-20{% endif %}"><span class="help" title="{{ c.tip }}">{{ c.th }}{% if c.unit %} <span class="normal-case">({{ c.unit }})</span>{% endif %}</span></th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody id="grid" class="divide-y divide-gray-100">
+          <tr><td colspan="{{ columns|length }}" class="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% comment %}The pager sits inside the card, under the grid, and is hidden
+    entirely when everything fits — so the small boards look exactly as they
+    did. `board.js` fills it; the page number is board state and never a filter
+    field, or it would ride along into every download href.{% endcomment %}
+    <div id="row-pager"
+         class="hidden flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-gray-200 bg-gray-50"></div>
+  </div>
+  {% comment %}
+    This footnote used to name an internal function and a page that no longer
+    exists — "Supplier goes through Company.resolve, so it is edited on the cell
+    line page" — so it told a scientist a function name they cannot use and sent
+    them to a dead link. Name the button on this page instead.
+  {% endcomment %}
+  <p class="text-xs text-gray-400 mt-2">
+    Name, gene, genotype, parent and supplier aren't editable in the grid — they
+    are what the line <em>is</em>, and every session that used it still points at
+    this row. <b>Click the line's name</b> to change them: it says what is
+    attached before you type, and it matches a supplier against the ones already
+    on file so one vendor never ends up under two spellings.
+  </p>
+</div>
+
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  const csrf = "{{ csrf_token }}";
+  const grid = document.getElementById('grid');
+  const filtersForm = document.getElementById('filters');
+  const rowsUrl = "{% url 'pipeline:cell_line_board_rows' %}";
+  const patchUrl = "{% url 'pipeline:cell_line_board_patch' %}";
+
+  const {esc, pill, banner} = OGABoard;
+  const cell = (r, field, value, opts) => OGABoard.cell(r.id, field, value, null, opts);
+
+  const GENOTYPE_TONE = {WT: 'flat', KO: 'cool', other: 'flat'};
+
+  /* A tick's accessible name has to name the field it changes, not just say
+   * "click to change" — three ticks in a row all reading "Click to change" tell
+   * a screen-reader user nothing, and tell a sighted user nothing either until
+   * they click one and watch what moves.
+   *
+   * **An off tick says the opposite word, not the same word in grey.** Where
+   * the label *is* the claim — received, thawed, validated — a greyed
+   * "validated" reads as validated to anybody scanning the column, and the
+   * twelfth field test reported exactly that: "every single row appears to say
+   * validated; you have to notice the grey to know it means the opposite."
+   * Colour is not a value. (The antibodies board's ticks are the other case and
+   * keep the one word: there the label is *which application*, WB or IP, and
+   * "not WB" would be the wrong sentence.) */
+  function tick(r, field, on, label, what, offLabel) {
+    const name = what || label;
+    const off = offLabel || `not ${label}`;
+    return `<button class="toggle mr-1" data-target="${r.id}" data-field="${field}"
+              data-value="${on ? '' : 'yes'}"
+              aria-pressed="${on ? 'true' : 'false'}"
+              aria-label="${esc(name)}: ${on ? 'yes' : 'no'}. Click to change."
+              title="${esc(name)} — ${on ? 'yes' : 'no'}. Click to change.">
+      ${on ? pill(label, 'good') : `<span class="text-gray-300 text-xs">${esc(off)}</span>`}
+    </button>`;
+  }
+
+  /* Whether the knockout is confirmed — read off the tick **and** the reason
+   * beside it, which on the live data disagree on 54 rows.
+   *
+   * The tick alone was drawn as a green pill reading "validated", so six rows
+   * showed a green confirmation directly above their own record saying
+   * "Failed-Decreased protein level", and forty-eight showed the reverse. Green
+   * does not read as "somebody looked"; it reads as "the knockout is good".
+   * The verdict comes from the server (`services/ko_validation.py`), which is
+   * also what the KO filter above and the gene page's table ask, so the three
+   * cannot say different things about one row. It stays a toggle: a disputed
+   * row is one click from settled. */
+  function koBadge(r) {
+    return `<button class="toggle" data-target="${r.id}" data-field="ko_validated"
+              data-value="${r.ko_validated ? '' : 'yes'}"
+              aria-pressed="${r.ko_validated ? 'true' : 'false'}"
+              aria-label="knockout confirmed: ${esc(r.ko_label)}. Click to change."
+              title="Knockout confirmation — ${esc(r.ko_label)}. Click to ${
+                r.ko_validated ? 'untick' : 'tick'} the box.">
+      ${pill(r.ko_label, r.ko_tone)}
+    </button>${r.ko_note ? `<span class="block text-xs text-amber-700 mt-0.5">${
+      esc(r.ko_note)}</span>` : ''}`;
+  }
+
+  function rowHtml(r) {
+    return `<tr data-row="${r.id}" class="hover:bg-gray-50 align-top">
+      <td class="px-3 py-2 sticky left-0 bg-white font-semibold text-gray-900">
+        ${/* The name is part of what the line is, so clicking it opens the
+              identity dialog rather than a read-only page. */''}
+        <button type="button" class="identity text-left hover:text-ycharos-700 underline decoration-dotted"
+                data-id="${r.id}" title="Name, gene, genotype and parent — what this line is. Click to change them.">
+          ${esc(r.name) || '—'}</button>
+        ${/* Quiet by design: a control that catches the eye is one
+              somebody presses to find out what it does — and it is only
+              here at all once the board is narrowed to a single gene
+              (OGABoard.oneGene), so it never sits beside a record you
+              were not thinking about. */''}
+        ${OGABoard.oneGene(filtersForm) ? `
+        <button type="button" class="delete-row block mt-1 text-xs text-gray-300 hover:text-red-700"
+                data-id="${r.id}" title="Delete this cell line">Delete</button>` : ''}
+      </td>
+      ${/* A wild-type line is recorded once with no gene attached, and the empty
+            Gene column is correct. It reads as missing data, and a curator
+            helpfully filling it in makes a second, wrong line — so the cell says
+            so where it is, not only in the guide. */''}
+      ${/* Where there is a gene, its name goes to the gene's page — the same
+            thing the targets board's first column does. Only where there *is*
+            one: a wild type has none, and the NA placeholder 96 of them point
+            at is not a gene either (`gene_of` already returns "" for it), so
+            neither ever becomes a link to a page about nothing. */''}
+      <td class="px-3 py-2 font-medium text-gray-800">${(r.gene && r.target_id
+          ? `<a href="/pipeline/target/${r.target_id}/" class="hover:text-ycharos-700 hover:underline"
+                title="Everything recorded for ${esc(r.gene)}">${esc(r.gene)}</a>`
+          : esc(r.gene))
+          || (r.genotype === 'WT'
+              ? `<span class="text-gray-400 italic text-xs help"
+                       title="A wild-type parental line is recorded once, with no gene attached — one HAP1 WT serves every knockout made from it. This blank is deliberate: filling it in would create a second, wrong line.">no gene — wild type</span>`
+              : OGABoard.DASH)}</td>
+      <td class="px-3 py-2">${r.genotype ? pill(r.genotype, GENOTYPE_TONE[r.genotype] || 'flat') : OGABoard.DASH}</td>
+      <td class="px-3 py-2 text-gray-600 text-xs">${esc(r.parent) || OGABoard.DASH}</td>
+      ${/* The editable cell is the line's own number — the first batch's, which
+            the Access-era importer bridged up onto the line. Every freeze-down
+            batch is listed under it, because searching a *second* batch's
+            number now finds this row, which would otherwise show a different
+            number and read as a wrong hit. `format_batches` collapses genuinely
+            consecutive runs: C-numbers are issued per site in freeze order, so
+            HeLa's 17 batches span 15 to 742 and a range would claim 728. */''}
+      <td class="px-3 py-2">
+        ${cell(r, 'c_number', r.c_number, {label: 'C-number'})}
+        ${r.batches && r.batches !== r.c_number
+          ? `<div class="text-xs text-gray-500 mt-0.5" title="Every freeze-down batch on this line. One C-number per batch; the vials in a batch share it.">${esc(r.batches)}</div>`
+          : ''}
+      ${/* Drawn as a control rather than as more grey text. It shipped
+            `text-gray-400` under a `text-gray-500` list of numbers — 12px and
+            *fainter* than the data above it — and run 17 read this cell three
+            times without registering it as something you could press, finding
+            it only because the brief named it. A control that is merely present
+            is one a reader concludes does not exist. The border and the app's
+            own link colour are what every other pressable thing on these boards
+            uses; the size stays 12px, because the cell it lives in is. */''}
+        <button type="button" class="add-batch inline-block mt-1 px-1.5 py-0.5 rounded border
+                       border-gray-300 text-xs font-medium text-ycharos-700
+                       hover:bg-ycharos-50 hover:border-ycharos-300"
+                data-id="${r.id}" data-name="${esc(r.name)}"
+                title="Record a freeze-down: one batch, given this site's next C-number.">+ batch</button>
+      </td>
+      <td class="px-3 py-2 text-xs">${cell(r, 'cellosaurus_id', r.cellosaurus_id,
+          {label: 'Cellosaurus ID', empty: 'add CVCL_'})}</td>
+      <td class="px-3 py-2 text-gray-600 text-xs">
+        <div>${esc(r.company) || OGABoard.DASH}</div>
+        <div>${cell(r, 'catalogue_number', r.catalogue_number, {label: 'catalogue number'})}</div>
+      </td>
+      ${/* The reason box had no label at all: the header said KO VALIDATED, the
+            tick rendered as the word "validated", and the reason sat under it
+            showing a bare dash. Nothing said that is where the reason goes. */''}
+      <td class="px-3 py-2">
+        <div>${koBadge(r)}</div>
+        <div class="text-xs mt-1">${cell(r, 'ko_validation_notes', r.ko_validation_notes,
+            {label: 'how the knockout was confirmed, or why it is not',
+             empty: r.ko_validated ? 'how was it confirmed?' : 'why not? add a reason'})}</div>
+      </td>
+      <td class="px-3 py-2 text-gray-600 text-xs">${cell(r, 'medium', r.medium)}</td>
+      <td class="px-3 py-2 text-xs whitespace-nowrap">
+        <div>${cell(r, 'site', r.site, {empty: 'set site'})}</div>
+        <div class="mt-1">${tick(r, 'received', r.received, 'received', 'vial received',
+                                 'not received')}${
+          tick(r, 'thawed', r.thawed, 'thawed', 'vial thawed', 'not thawed')}</div>
+      </td>
+    </tr>`;
+  }
+
+  const errors = banner('board-error', 'board-error-text', 'board-error-close');
+
+  const board = OGABoard.create({
+    grid, filtersForm, errors, csrf,
+    countEl: document.getElementById('row-count'),
+    pagerEl: document.getElementById('row-pager'),
+    urls: {rows: rowsUrl, patch: patchUrl},
+    colspan: {{ columns|length }},
+    emptyMessage: 'No cell lines match these filters.',
+    countLabel: n => `${n} cell line${n === 1 ? '' : 's'}`,
+    rowHtml,
+    // The Delete on each row only exists while the board is one gene's worth of
+    // records, so the line explaining its absence is rewritten on every draw —
+    // the Gene box can be cleared without pressing Apply, and the grid redraws
+    // from the form after an add or a delete.
+    afterLoad: () => OGABoard.geneGate(
+      filtersForm, document.getElementById('delete-gate')),
+  });
+
+  // ── Add cell lines, in a pop-out on this page ─────────────────────────
+  const newEntry = OGABoard.newEntry({
+    mount: document.getElementById('new-panel'),
+    csrf,
+    columns: JSON.parse(document.getElementById('new-columns').textContent),
+    example: JSON.parse(document.getElementById('new-example').textContent),
+    templateUrl: "{% url 'pipeline:import_template' kind='cell-lines' %}",
+    urls: {
+      preview: "{% url 'pipeline:bulk_cell_lines_parse' %}",
+      commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
+    },
+    /* The wild-type rule is the one a person who never opens a guide gets wrong:
+     * from the screen the empty Gene column reads as missing data, and helpfully
+     * filling it in makes a second, wrong line. So it is stated where the lines
+     * are typed, not only in the guide. */
+    /* What a row needs, before it is typed rather than after it is refused.
+     *
+     * The check said "could not be placed — usually a KO with no gene, no name,
+     * or a site that is not on file" about a row with exactly one problem, so it
+     * named three possibilities and the reader had to work out which. Each row
+     * says which now (`bulk_cell_lines.plan`), and the minimum is stated here so
+     * the commonest refusals never happen.
+     *
+     * The naming rule is the lab's own, read off the database: `name` is the
+     * bare parental line — HAP1 151 times, HeLa 54 — with the gene in its own
+     * column. The panel used to teach `HAP1 SNCA KO` in its example, which is
+     * not how any of the 564 rows on file are named. */
+    intro: `<b class="text-gray-900">Add cell lines.</b> Type them in the table, or
+            switch to Paste if you already have a list. Existing lines are updated
+            rather than duplicated, and blank cells never overwrite what is
+            already there.
+            <span class="block mt-2 border-l-4 border-gray-300 bg-gray-50 pl-3 py-2 text-gray-800">
+              <b>The least a row needs:</b> a <b>name</b> — and for a knockout, the
+              <b>gene</b> it knocks out. Everything else can be filled in later on
+              the board.
+            </span>
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              <b>Name</b> is the line itself as it is written on the flask —
+              <span class="font-mono">HAP1</span>, <span class="font-mono">HeLa</span>,
+              <span class="font-mono">U2OS</span>. The gene goes in the gene column,
+              not the name.
+              <span class="block mt-1">A <b>KO</b> line needs its <b>gene</b> and its
+              <b>parent</b> — that pairing is what makes a knockout mean anything.</span>
+              <span class="block mt-1">A <b>WT</b> parental line is recorded
+              <b>once, with no gene</b>: one HAP1 WT serves every knockout made
+              from it. Leave its gene blank, or write
+              <span class="font-mono">NA</span> — both mean the same and neither
+              creates a gene. Filling in a real gene creates a second, wrong line.</span>
+              <span class="block mt-1">The <b>parent</b> is that wild type, by
+              <b>name</b> (<span class="font-mono">HAP1</span>) or by
+              <b>C-number</b> (<span class="font-mono">C-48</span>) — most rows on
+              file use the C-number. Its own
+              <span class="font-mono">c number</span> column is this line's
+              freeze-down batch, and
+              <span class="font-mono">paired ko</span> is only for a WT that arrived
+              beside a knockout.</span>
+            </span>`,
+    extraHtml: `<div class="flex flex-wrap items-end gap-4">
+        <label class="block max-w-xs">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Gene for rows that don't name one</span>
+          <input type="text" id="ne-default-gene" placeholder="e.g. SOD1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </label>
+        <label class="block max-w-[10rem]">
+          <span class="block text-xs font-semibold text-gray-500 mb-1">Default genotype</span>
+          <select id="ne-default-genotype" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">None</option>
+            <option value="WT">WT</option>
+            <option value="KO">KO</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="ne-create-targets" class="rounded border-gray-300">
+          Add the gene as a new target if it isn't one yet
+        </label>
+      </div>`,
+    extraValues: () => ({
+      default_gene: document.getElementById('ne-default-gene').value.trim(),
+      default_genotype: document.getElementById('ne-default-genotype').value,
+      create_targets: document.getElementById('ne-create-targets').checked,
+    }),
+    buildBody: (text, extra, phase) => ({text, ...extra, dry_run: phase !== 'commit'}),
+    renderPreview: d => {
+      const s = d.summary || {};
+      const sites = s.sites || [];
+      return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
+        <ul class="mt-1 text-gray-700 list-disc list-inside">
+          <li>${s.create || 0} new, ${s.update || 0} already known (will be updated)</li>
+          ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
+            sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
+          ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
+          ${(s.new_companies || []).length ? `<li>New supplier(s): ${s.new_companies.map(esc).join(', ')}</li>` : ''}
+          ${s.blocked ? `<li class="text-amber-800">${s.blocked} could not be placed — usually a KO with no gene, no name, or a site that is not on file</li>` : ''}
+          ${OGABoard.checkNotes(s)}
+        </ul></div>
+        ${OGABoard.previewRows(d.items, i =>
+            [i.name, i.gene, i.genotype, i.site].filter(Boolean).join(' · '))}`;
+    },
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+    onDone: () => board.load(),
+  });
+  document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  // Arriving from a gene's page with "add" in the query means: open the Add
+  // panel, ready to type, with the gene already filled in. The gene filter is
+  // applied too, so you can see what is there before adding to it.
+  (function () {
+    const p = new URLSearchParams(location.search);
+    if (!p.get('add')) return;
+    const gene = p.get('gene') || '';
+    const box = document.getElementById('ne-default-gene');
+    if (box && gene) box.value = gene;
+    newEntry.open();
+  })();
+
+
+  // ── The other half of the round trip ──────────────────────────────────
+  const exportUrl = "{% url 'pipeline:cell_line_export' %}";
+  const dl = document.getElementById('dl-btn');
+  const syncDownload = () => { dl.href = `${exportUrl}?${OGABoard.formQuery(filtersForm)}`; };
+  syncDownload();
+  /* An unfiltered download is the whole dataset, from a button beside the
+   * one you wanted — the review did exactly that on the sessions board. */
+  dl.addEventListener('click', e => {
+    if (!OGABoard.confirmWholeDownload(filtersForm, board.count, 'cell line')) {
+      e.preventDefault();
+    }
+  });
+  filtersForm.addEventListener('change', syncDownload);
+  filtersForm.addEventListener('submit', syncDownload);
+
+  const upload = OGABoard.uploadPanel({
+    mount: document.getElementById('upload-panel'),
+    csrf,
+    templateUrl: "{% url 'pipeline:import_template' kind='cell-lines' %}",
+    urls: {
+      preview: "{% url 'pipeline:import_upload' kind='cell-lines' %}",
+      commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
+    },
+    intro: `<b class="text-gray-900">Upload a sheet of cell lines.</b>
+            Download these, edit them in Excel, and put them back. Same columns as
+            the Add grid and the template, and you see what will happen to every
+            row before anything is saved. A <b>WT</b> line keeps its gene blank —
+            filling it in makes a second, wrong line.
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              Keep the <b>site</b> column as it came. It says whose line each row
+              is, so leaving it alone is what makes a row you downloaded update
+              itself rather than be copied to your own bench. A <b>blank</b> site
+              means yours.
+            </span>`,
+    /* The site is in the label because it is half of what makes a row the line
+     * it is, and an upload is exactly where that goes wrong: a sheet with no
+     * site column had every row stamped with whoever uploaded it, so putting
+     * McGill's lines back as a Leicester user offered to create Leicester copies
+     * of them. The column is in the download now; showing it here is how you
+     * check before saving. */
+    label: i => [i.name || (i.row || {}).name,
+                 (i.row || {}).genotype, i.gene || (i.row || {}).gene, i.site]
+                .filter(Boolean).join(' · '),
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${(r.notes || []).length ? `<span class="block mt-1 text-xs">${
+          r.notes.map(OGABoard.esc).join('<br>')}</span>` : ''}</div>`;
+    },
+    onDone: () => board.load(),
+  });
+  document.getElementById('upload-btn').addEventListener('click', upload.open);
+
+
+  // ── Identity, deliberately ────────────────────────────────────────────
+  const identity = OGABoard.identityDialog({
+    mount: document.getElementById('identity-panel'),
+    csrf,
+    urls: {deletePreview: "{% url 'pipeline:delete_preview' %}",
+           deleteCommit: "{% url 'pipeline:delete_commit' %}",
+           load: "{% url 'pipeline:cell_line_identity' %}",
+           save: "{% url 'pipeline:cell_line_identity_save' %}"},
+    idParam: 'cell_line_id',
+    // Deleting lives behind this dialog for the same reason identity does:
+    // it is the surface whose whole point is that changes here are deliberate.
+    deleteKind: 'cell-line',
+    onDeleted: OGABoard.rowDeleted(board, errors),
+    query: board.query,
+    fields: [
+      {name: 'name', label: 'Name'},
+      {name: 'genotype', label: 'Genotype', options: ['WT', 'KO', 'other']},
+      {name: 'gene', label: 'Gene',
+       hint: 'A KO needs one. A WT parental line is recorded once with no gene — leave it blank.'},
+      {name: 'parent', label: 'Parent line',
+       hint: 'The wild type a knockout was made from. Must be a line already on file.'},
+      {name: 'company', label: 'Supplier',
+       hint: 'Matched against the suppliers already on file, so one vendor never ends up under two spellings. Blank for a line made in-house.'},
+    ],
+    describe: i => {
+      const a = i.attached || {};
+      const bits = [];
+      /* Both verbs agree with their own count. "1 knockout were made from it" was
+       * on screen, which is the kind of slip that makes a careful reader distrust
+       * the number next to it. */
+      if (a.sessions) {
+        bits.push(`${a.sessions} session${a.sessions === 1 ? ' has' : 's have'} used this line`);
+      }
+      if (a.derivatives) {
+        bits.push(`${a.derivatives} knockout${a.derivatives === 1 ? ' was' : 's were'} made from it`);
+      }
+      if (!bits.length) {
+        return `<div class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-gray-700">
+          Nothing points at this line yet, so changing it is safe.</div>`;
+      }
+      return `<div class="border border-amber-300 bg-amber-50 rounded-lg p-3 text-amber-900">
+        <b>${OGABoard.esc(bits.join(', '))}</b>. Every one of those results means
+        what it means because of which line was the wild type and which the
+        knockout — so change this only if the line was recorded wrongly.</div>`;
+    },
+    onSaved: (id, d) => board.replaceRow(id, d),
+  });
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.identity');
+    if (btn) identity.open(btn.dataset.id);
+  });
+
+  /* Deleting, on every board rather than only the two with an identity
+   * dialog — targets were the one actually asked for and were one of the two
+   * without. `services/deletion.py` decides: another site's record is refused
+   * by name, and work behind your own is a manifest you have to tick past. */
+  const del = OGABoard.deleteDialog({
+    mount: document.getElementById('delete-panel'),
+    csrf, kind: 'cell-line',
+    urls: {preview: "{% url 'pipeline:delete_preview' %}",
+           commit: "{% url 'pipeline:delete_commit' %}"},
+    onDeleted: OGABoard.rowDeleted(board, errors),
+  });
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('.delete-row');
+    if (b) del.open(b.dataset.id);
+  });
+
+  // Add a freeze-down batch. One press is one batch and one C-number — the
+  // count typed is how many vials that freeze-down produced, and they share the
+  // number, so the panel says so rather than leaving "how many" to be read as
+  // "how many numbers". The number itself is not promised here: lab_numbers
+  // issues it on save and the receipt names what was issued.
+  const batchPanel = document.getElementById('add-batch-panel');
+  const batchForm = document.getElementById('add-batch-form');
+  const batchWho = document.getElementById('add-batch-who');
+  const batchWhy = document.getElementById('add-batch-why');
+  let batchLineId = null;
+
+  function closeBatch() { batchPanel.classList.add('hidden'); batchLineId = null; }
+  OGABoard.escapeCloses(() => !batchPanel.classList.contains('hidden'), closeBatch);
+  batchPanel.querySelectorAll('[data-close]').forEach(
+      el => el.addEventListener('click', closeBatch));
+
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('.add-batch');
+    if (!b) return;
+    batchLineId = b.dataset.id;
+    batchWho.textContent = b.dataset.name || 'this line';
+    batchWhy.textContent = '';
+    batchForm.reset();
+    // Today, filled in and editable — a freeze-down is recorded on the day it
+    // happened, and a value the app supplies is shown rather than assumed.
+    batchForm.freeze_date.value = new Date().toISOString().slice(0, 10);
+    batchPanel.classList.remove('hidden');
+    batchForm.vial_count.focus();
+  });
+
+  batchForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!batchLineId) return;
+    const batchId = batchLineId;
+    const body = new FormData(batchForm);
+    body.append('cell_line_id', batchLineId);
+    for (const [k, v] of new URLSearchParams(board.query() || '')) body.append(k, v);
+    const btn = batchForm.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      // `requestJson` hands a refusal to its third argument and returns null,
+      // so the sink *is* the placement decision: pointing it at the box puts
+      // "C-48 is already a freeze-down batch of HAP1" where the number was
+      // typed, rather than in the banner behind the open dialog where the
+      // person cannot see it.
+      const d = await OGABoard.requestJson(
+        "{% url 'pipeline:cell_line_add_batch' %}",
+        {method: 'POST', headers: {'X-CSRFToken': csrf}, body},
+        msg => { batchWhy.textContent = msg; }, 'write');
+      if (!d) return;
+      closeBatch();
+      // `replaceRow` takes the id and the whole reply — it reads `matches` off
+      // it to drop a row an edit pushed out of the filter.
+      board.replaceRow(batchId, d);
+      // The same channel the delete receipt uses: it scrolls itself into view,
+      // and a save that announced nothing is the failure that matters most.
+      errors.show(d.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  board.load();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+asgiref==3.8.1
+certifi==2025.6.15
+cffi==1.17.1
+chardet==5.2.0
+charset-normalizer==3.4.2
+crispy-bootstrap5==2025.6
+cryptography==45.0.4
+dj-database-url==2.2.0
+Django==5.1
+django-allauth==65.9.0
+django-ckeditor==6.7.3
+django-crispy-forms==2.4
+django-extensions==3.2.3
+django-grappelli==4.0.2
+django-js-asset==3.1.2
+gunicorn==23.0.0
+idna==3.10
+packaging==24.1
+pillow==10.4.0
+pycparser==2.22
+PyJWT==2.10.1
+reportlab==4.4.1
+requests==2.32.4
+sqlparse==0.5.1
+typing_extensions==4.12.2
+urllib3==2.4.0
+whitenoise==6.8.2
+openpyxl==3.1.5
+psycopg2-binary==2.9.11
+python-docx==1.2.0
+django-storages==1.14.4
+# Only used when CACHE_URL / REDIS_URL is set (see settings.py CACHES). It is
+# django-redis rather than Django's built-in RedisCache for IGNORE_EXCEPTIONS:
+# an unreachable cache must not 500 the pages that read it.
+django-redis==5.4.0
+boto3==1.35.49
+numpy==2.1.3
+pytesseract==0.3.13
+rapidfuzz==3.10.1
+markdown==3.7

@@ -1,0 +1,335 @@
+"""Build one gene's Zenodo deposit, preview it, submit it.
+
+``parse → plan → apply`` like every other write path here, and for the sharpest
+possible reason: this one leaves the building. A preview that costs nothing is
+the last place a person can see what is about to carry their name and a DOI.
+
+**What one press deposits** (owner's decision, 4 Aug): the data and the Data Note
+as one record, not two and not the document alone. Three files, which is what
+keeps it well inside Zenodo's 100-file ceiling:
+
+* ``<GENE>_underlying_data.zip`` — the raw files, in ``Wb/ IP/ IF/ FC/`` folders,
+  which is the layout the existing YCharOS records already use
+* ``<GENE>_results.xlsx`` — the tabular results, from ``services/dataset.py``
+* ``<GENE>_data_note.docx`` — the draft Data Note
+
+The order of the calls is the interesting part and it lives in
+``services/zenodo.py``: the DOI is reserved on the draft **before** the Data Note
+is generated, so the document inside the record cites the record rather than
+carrying ``[DOI to be assigned upon deposit]``.
+
+Nothing here publishes anything. The last call submits the draft to the `ycharos`
+community for review, and a curator accepting it is what makes it public.
+"""
+from __future__ import annotations
+
+import io
+import logging
+import os
+import tempfile
+import zipfile
+from datetime import date
+
+from django.db import transaction
+
+from pipeline.models import Antibody, ExperimentSession, FileAttachment, Report
+from pipeline.services import dataset, session_board, zenodo
+
+logger = logging.getLogger(__name__)
+
+DB = "pipeline_db"
+
+# The folder each procedure's raw files go into inside the zip. Matches the
+# published records rather than inventing a layout — somebody who has downloaded
+# a YCharOS dataset before should not have to learn a second one.
+ZIP_FOLDER = {"WB": "Wb", "IP": "IP", "IF": "IF", "FC": "FC"}
+
+LICENCE = "cc-by-4.0"
+
+
+def _gene(target) -> str:
+    return target.gene_name or target.protein_name or f"target-{target.pk}"
+
+
+def _protein(target) -> str:
+    return target.protein_name or target.gene_name or ""
+
+
+def title_for(target) -> str:
+    """The house title, unchanged since the first YCharOS deposit — and already
+    the sentence ``report_generator`` writes into Data availability."""
+    return f"Dataset for the {_protein(target)} antibody screening study"
+
+
+def _sessions_with_readings(target):
+    """Sessions that actually recorded something.
+
+    A session with no readings is not an experiment — the rule
+    ``session_import._has_result`` applies at the writing end and
+    ``report_generator._get_sessions`` at the reporting end. A deposit is the
+    furthest end of all, so it applies here too: depositing a planned-only
+    session claims work nobody did.
+    """
+    out = []
+    for s in (ExperimentSession.objects.using(DB)
+              .filter(target_id=target.pk).select_related("experimenter")):
+        rows = session_board.results_for(s)["rows"]
+        fields = session_board.result_field_names(s.procedure_type)
+        if any(any(str(r["values"].get(f, "")).strip() for f in fields)
+               for r in rows):
+            out.append(s)
+    return out
+
+
+def creators_for(target, sessions) -> list[dict]:
+    """Who the record names as authors.
+
+    Derived from the people who ran the work, because that is the only record
+    the app has — and shown in the preview precisely because it is a *guess at a
+    social question*. Who counts as an author on a public record is not the same
+    question as who ran a session, and it is not the app's to settle: the
+    preview is where a person corrects it before anything leaves.
+    """
+    seen, out = set(), []
+    for s in sessions:
+        m = s.experimenter
+        if m is None or m.pk in seen:
+            continue
+        seen.add(m.pk)
+        entry = {"person_or_org": {"type": "personal", "name": str(m)}}
+        # Zenodo takes a plain name. ORCID is what would make the deposit land
+        # on the scientist's own record, and `Member` has no field for one —
+        # roadmap item, deliberately not invented here.
+        if getattr(m, "site_id", None) and m.site:
+            entry["affiliations"] = [{"name": m.site.name}]
+        out.append(entry)
+    return out or [{"person_or_org": {"type": "organizational", "name": "YCharOS"}}]
+
+
+def description_for(target, sessions, antibodies) -> str:
+    """A factual summary. States what is on file and nothing else.
+
+    Same rule as the generated Data Note: a draft leaves a named gap and never
+    invents a number, because a deposit is published and a hole is not.
+    """
+    procedures = sorted({s.procedure_type for s in sessions if s.procedure_type})
+    names = {"WB": "western blot", "IP": "immunoprecipitation",
+             "IF": "immunofluorescence", "FC": "flow cytometry"}
+    did = ", ".join(names.get(p, p) for p in procedures)
+    return (
+        f"<p>Antibody characterisation data for {_protein(target)} "
+        f"({_gene(target)}), generated by YCharOS to community consensus "
+        f"protocols using knockout cell lines as the specificity control.</p>"
+        f"<p>{len(antibodies)} antibod{'y' if len(antibodies) == 1 else 'ies'} "
+        f"assessed across {len(sessions)} experimental "
+        f"session{'' if len(sessions) == 1 else 's'}"
+        f"{' by ' + did if did else ''}.</p>"
+        f"<p>The deposit contains the underlying raw data, the tabular results, "
+        f"and the draft Data Note describing them.</p>")
+
+
+def metadata_for(target, sessions, antibodies) -> dict:
+    """The record as Zenodo will receive it.
+
+    ``access.record`` is ``public`` and that is not a contradiction: a draft
+    under review is not published, and this only takes effect when a curator
+    accepts it. Nothing here makes anything public on its own.
+    """
+    report = Report.objects.using(DB).filter(target_id=target.pk).order_by("pk").first()
+    related = []
+    if report and report.f1000_doi:
+        related.append({"identifier": report.f1000_doi,
+                        "relation_type": {"id": "isdocumentedby"},
+                        "scheme": "url"})
+    return {
+        "access": {"record": "public", "files": "public"},
+        "files": {"enabled": True},
+        "metadata": {
+            "resource_type": {"id": "dataset"},
+            "title": title_for(target),
+            "publication_date": date.today().isoformat(),
+            "creators": creators_for(target, sessions),
+            "description": description_for(target, sessions, antibodies),
+            "rights": [{"id": LICENCE}],
+            "subjects": [{"subject": s} for s in
+                         [_gene(target), "antibody characterisation",
+                          "knockout validation"] if s],
+            "related_identifiers": related,
+            "publisher": "Zenodo",
+        },
+    }
+
+
+def _attachments_for(target):
+    return list(FileAttachment.objects.using(DB)
+                .filter(session__target_id=target.pk)
+                .select_related("session").order_by("pk"))
+
+
+def manifest_for(target, sessions, attachments) -> list[dict]:
+    """The files the deposit would contain, named and sized, before any is built.
+
+    A preview that says "3 files" and nothing else is not a preview. This is
+    what a person checks.
+    """
+    gene = _gene(target)
+    raw_bytes = sum(a.file_size_bytes or 0 for a in attachments)
+    return [
+        {"name": f"{gene}_underlying_data.zip",
+         "what": (f"{len(attachments)} raw "
+                  f"file{'' if len(attachments) == 1 else 's'} from "
+                  f"{len(sessions)} session{'' if len(sessions) == 1 else 's'}"),
+         "size_bytes": raw_bytes, "empty": not attachments},
+        {"name": f"{gene}_results.xlsx",
+         "what": "the tabular results for this gene", "size_bytes": 0,
+         "empty": False},
+        {"name": f"{gene}_data_note.docx",
+         "what": "the draft Data Note, carrying the reserved DOI",
+         "size_bytes": 0, "empty": False},
+    ]
+
+
+def plan(target) -> dict:
+    """What would be deposited. **Makes no network call at all.**
+
+    So it works with no token, on a blocked network, and in dev — which matters
+    because it is the half a person actually reads.
+    """
+    sessions = _sessions_with_readings(target)
+    antibodies = list(Antibody.objects.using(DB).filter(target_id=target.pk))
+    attachments = _attachments_for(target)
+
+    blocking = []
+    if not sessions:
+        blocking.append(
+            "No session on this gene has a recorded reading yet, so there is "
+            "nothing to deposit. A planned session with no results is not an "
+            "experiment.")
+    not_connected = zenodo.configured()
+
+    existing = (Report.objects.using(DB).filter(target_id=target.pk)
+                .exclude(zenodo_doi="").order_by("pk").first())
+
+    return {
+        "gene": _gene(target),
+        "title": title_for(target),
+        "community": zenodo.community(),
+        "where": zenodo.base_url(),
+        "licence": LICENCE,
+        "metadata": metadata_for(target, sessions, antibodies),
+        "creators": [c["person_or_org"]["name"]
+                     for c in creators_for(target, sessions)],
+        "files": manifest_for(target, sessions, attachments),
+        "sessions": len(sessions),
+        "antibodies": len(antibodies),
+        "attachments": len(attachments),
+        "blocking": blocking,
+        "not_connected": not_connected,
+        "already_deposited": existing.zenodo_doi if existing else "",
+        "can_submit": not blocking and not not_connected,
+    }
+
+
+def _build_zip(target, attachments, path) -> int:
+    """The raw files, in the folder layout the published records use.
+
+    Streamed file by file into a temporary archive rather than held in memory —
+    raw scans are the largest thing this app handles.
+    """
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for a in attachments:
+            folder = ZIP_FOLDER.get(a.session.procedure_type or "", "Other")
+            name = f"{folder}/session-{a.session_id}/{a.original_filename or a.file.name}"
+            try:
+                with a.file.open("rb") as fh:
+                    zf.writestr(name, fh.read())
+            except Exception:
+                # One unreadable file must not cost the whole deposit. It is
+                # named in the archive so the gap is visible rather than silent.
+                logger.exception("attachment %s could not be read for deposit", a.pk)
+                zf.writestr(f"{folder}/MISSING-{a.pk}-{a.original_filename}.txt",
+                            "This file could not be read from storage when the "
+                            "deposit was built. The record of it is in the "
+                            "pipeline database.")
+    return os.path.getsize(path)
+
+
+def apply(target, *, member=None, message="") -> dict:
+    """Create the draft, reserve its DOI, upload, and submit it for review.
+
+    **Never publishes.** The last call hands the draft to the community's
+    curators; their acceptance is what makes it public.
+
+    No network call happens inside a transaction — the only write to this
+    database is the ``Report`` row at the end, once Zenodo has already answered.
+    """
+    from pipeline.services.report_generator import generate_report
+
+    p = plan(target)
+    if not p["can_submit"]:
+        return {"ok": False,
+                "errors": p["blocking"] + ([p["not_connected"]]
+                                           if p["not_connected"] else [])}
+
+    gene = _gene(target)
+    sessions = _sessions_with_readings(target)
+    attachments = _attachments_for(target)
+
+    record = zenodo.create_draft(p["metadata"])
+    record_id = record.get("id")
+    if not record_id:
+        return {"ok": False, "errors": [
+            "Zenodo accepted the request but returned no record, so nothing "
+            "was submitted."]}
+
+    # Before the document is written, so the document can cite it.
+    doi = zenodo.reserve_doi(record_id)
+
+    with tempfile.TemporaryDirectory() as workspace:
+        zip_path = os.path.join(workspace, f"{gene}_underlying_data.zip")
+        _build_zip(target, attachments, zip_path)
+        with open(zip_path, "rb") as fh:
+            zenodo.upload_file(record_id, os.path.basename(zip_path), fh)
+
+        results = dataset.build_workbook(
+            dataset.resolve_targets("target", target_id=target.pk))
+        zenodo.upload_file(record_id, f"{gene}_results.xlsx",
+                           io.BytesIO(results))
+
+        # The Data Note reads the Report row, so the reserved DOI has to be on
+        # it before the document is generated — this is the whole reason the
+        # DOI is reserved rather than left to publication.
+        report = _record_deposit(target, doi, member, status=Report.ReportStatus.SUBMITTED)
+        note_path = os.path.join(workspace, f"{gene}_data_note.docx")
+        generate_report(target.pk, output_path=note_path)
+        with open(note_path, "rb") as fh:
+            zenodo.upload_file(record_id, f"{gene}_data_note.docx", fh)
+
+    zenodo.attach_to_community(record_id, zenodo.community_id())
+    zenodo.submit_for_review(record_id, message)
+
+    return {"ok": True, "record_id": record_id, "doi": doi,
+            "url": zenodo.record_url(record_id), "report_id": report.pk,
+            "files": 3, "attachments": len(attachments),
+            "sessions": len(sessions)}
+
+
+@transaction.atomic(using=DB)
+def _record_deposit(target, doi, member, status) -> Report:
+    """Write the DOI onto the gene's ``Report`` row.
+
+    Fill-only-blank on the DOI, the house rule: a re-deposit must not silently
+    replace the link to a record somebody has already cited.
+    """
+    report = (Report.objects.using(DB).filter(target_id=target.pk)
+              .order_by("pk").first())
+    if report is None:
+        report = Report(target_id=target.pk)
+    if doi and not report.zenodo_doi:
+        report.zenodo_doi = zenodo.record_url_for_doi(doi)
+        report.zenodo_date = date.today()
+    report.status = status
+    if member is not None:
+        report.generated_by_id = member.pk
+    report.save(using=DB)
+    return report

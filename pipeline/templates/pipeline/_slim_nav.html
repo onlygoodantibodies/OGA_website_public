@@ -1,0 +1,72 @@
+{% comment %}
+The pipeline's top bar for pages that cannot extend base.html.
+
+Two kinds of page are in that position and neither is going to change:
+
+  * the figure cropper, a self-contained tool with its own <head> and its own
+    stylesheet, which is why it carries this bar rather than base.html's;
+  * the account pages — change password, email addresses, connected accounts —
+    which are django-allauth's and are shared with the Academy, so they are
+    rendered from templates/allauth/layouts/base.html.
+
+Both used to carry somebody else's chrome. The cropper had none at all until the
+third field test found that "Publish figures" was a dead end. The account pages
+had the *public website's* header — Home, About Us, Publications, Roadmap,
+Partners, Contact — so a person who pressed "Change password" on the sessions
+board landed on a page offering seven ways out to the marketing site and none
+back to the work they were doing.
+
+Styled inline, with no class on anything. That is not laziness: this bar renders
+on a page that loads Bootstrap (the account card and its form are Bootstrap, via
+crispy) and on a page that loads neither Bootstrap nor Tailwind (the cropper).
+An inline style is the only thing that means the same on both, and it cannot be
+reached by a page's own stylesheet — which is exactly how the real nav lost every
+link on Set recommendations, to one `.hidden { display:none !important }`.
+
+The colours and proportions are base.html's: #064c83 is `bg-ycharos-800`, 4rem is
+`h-16`, and the links are its `text-sm`. It should read as the same bar with
+fewer things on it, because that is what it is.
+
+Add a destination here and add it to base.html's two Browse menus as well —
+there are three lists now and a link in one of them is a link on a third of the
+app's pages.
+{% endcomment %}
+<nav style="background:#064c83;color:#fff;display:flex;align-items:center;gap:8px;
+            min-height:4rem;padding:0 16px;flex-wrap:wrap;
+            font:14px ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+  <a href="{% url 'pipeline:hub' %}"
+     style="color:#fff;font-weight:700;font-size:1.125rem;text-decoration:none;margin-right:12px">YCharOS Pipeline</a>
+
+  {% comment %}Signed out, none of these is reachable — every pipeline page is
+  @pipeline_member_required, so offering them would be five links that bounce
+  straight back to the sign-in page you are already on.{% endcomment %}
+  {% if user.is_authenticated %}
+    <a href="{% url 'pipeline:hub' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Task hub</a>
+    <a href="{% url 'pipeline:target_board' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Target board</a>
+    <a href="{% url 'pipeline:antibody_board' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Antibodies</a>
+    <a href="{% url 'pipeline:cell_line_board' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Cell lines</a>
+    <a href="{% url 'pipeline:session_board' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Sessions</a>
+    <a href="{% url 'pipeline:recommendations' %}" style="color:#e5e7eb;text-decoration:none;padding:6px 10px;border-radius:6px">Set recommendations</a>
+
+    <form action="{% url 'pipeline:find' %}" method="get" role="search"
+          style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <label for="slim-nav-find" style="position:absolute;left:-9999px">Search genes, antibodies, cell lines and sessions</label>
+      <input id="slim-nav-find" type="search" name="q"
+             placeholder="Search a gene, catalogue number, cell line…"
+             style="background:#0b406d;color:#fff;border:1px solid #01599f;border-radius:6px;
+                    padding:6px 10px;min-width:14rem;font-size:14px">
+    </form>
+
+    <span style="color:#d1d5db;margin-left:12px">{{ user.get_full_name|default:user.username }}</span>
+    {% comment %}A form, not a link: a GET that ends a session is fetched by
+    anything that follows links without a person deciding to, and the twelfth
+    field test lost its run to a link prefetcher. The view refuses to act on GET
+    regardless; this is what keeps the ordinary path one click.{% endcomment %}
+    <form action="{% url 'pipeline:pipeline_logout' %}" method="post" style="display:inline;margin:0">
+      {% csrf_token %}
+      <button type="submit"
+              style="background:transparent;border:0;padding:0;color:#d1d5db;cursor:pointer;
+                     font:inherit;text-decoration:underline">Logout</button>
+    </form>
+  {% endif %}
+</nav>

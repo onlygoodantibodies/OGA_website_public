@@ -1,0 +1,29 @@
+{% load static %}
+<header class="header">
+  <div class="logo">
+    <a href="{% url 'home' %}">
+      <img src="{% static 'core/logo.png' %}" alt="Logo" class="logo-img">
+    </a>
+  </div>
+  <div class="hamburger">☰</div>
+  <nav>
+    <ul class="menu">
+      <li><a href="{% url 'home' %}">Home</a></li>
+      <li><a href="{% url 'tools_hub' %}">Tools</a></li>
+      <li><a href="{% url 'about' %}">About Us</a></li>
+      <li><a href="{% url 'roadmap' %}">Roadmap</a></li>
+      <li><a href="{% url 'champions' %}">Champions</a></li>
+      <li><a href="{% url 'news_publications' %}">News &amp; Publications</a></li>
+      <li><a href="{% url 'partners' %}">Partners</a></li>
+      <li><a href="{% url 'contact' %}">Contact</a></li>
+      {% if user.is_authenticated %}
+        <li><a href="{% url 'academy:account' %}">My Account</a></li>
+        <li><a href="{% url 'academy:logout' %}">Log Out</a></li>
+      {% else %}
+        <li><a href="{% url 'academy:login' %}">Sign In</a></li>
+        <li><a href="{% url 'academy:signup' %}">Sign Up</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+</header>
+{% include 'core/nav_toggle.html' %}

@@ -1,0 +1,392 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OGA Academy – Your modules</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+  <style>
+  .academy-dashboard {
+    background: linear-gradient(180deg, #eaf4fc 0%, #f7fbff 100%);
+    min-height: 100vh;
+    padding-bottom: 4rem;
+  }
+  .academy-container {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .academy-title {
+    color: #10428a;
+    font-size: 2.3rem;
+    text-align: center;
+    margin-bottom: 0.6rem;
+    border-bottom: 4px solid #86bef0;
+    display: inline-block;
+    padding-bottom: 0.3rem;
+  }
+  .academy-intro {
+    color: #3b5573;
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto 2.2rem;
+    font-size: 1.05rem;
+  }
+
+  /* ── WHERE YOU ARE: the one thing to press ── */
+  .next-step {
+    background: #ffffff;
+    border: 1px solid #dde8f5;
+    border-radius: 1.1rem;
+    box-shadow: 0 6px 26px rgba(16, 66, 138, 0.12);
+    padding: 2rem 2rem 1.8rem;
+    max-width: 900px;
+    margin: 0 auto 2.6rem;
+    text-align: center;
+  }
+  .next-step-count {
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #6b8fc0;
+    margin-bottom: .7rem;
+  }
+  .next-step-label {
+    font-size: .95rem;
+    color: #45566d;
+    margin-bottom: .2rem;
+  }
+  .next-step-title {
+    color: #10428a;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+  }
+  .next-step-sub {
+    color: #45566d;
+    font-size: .98rem;
+    margin-bottom: 0;
+  }
+  .next-step-cta {
+    display: inline-block;
+    background: linear-gradient(90deg, #165aaf 30%, #52aaff 100%);
+    color: #fff;
+    border-radius: 50px;
+    border: none;
+    font-weight: 600;
+    font-size: 1.05rem;
+    padding: .8rem 2.4rem;
+    text-decoration: none;
+    transition: all .3s ease;
+  }
+  .next-step-cta:hover {
+    transform: translateY(-2px); color: #fff;
+    background: linear-gradient(90deg, #86bef0 0%, #165aaf 100%);
+  }
+
+  .section-heading {
+    color: #10428a; font-size: 1.6rem; font-weight: 700;
+    margin: 1.5rem 0 .6rem; text-align: center;
+  }
+
+  /* ── MODULES ── */
+  .module-card {
+    background: #f7faff; border: 1px solid #dde8f5; border-radius: 1.2rem;
+    padding: 1.6rem 2rem; box-shadow: 0 4px 24px rgba(16, 66, 138, 0.08);
+    margin: 0 auto 1.2rem; max-width: 1000px;
+    /* A grid rather than a flex row: with space-between, a module carrying a
+       Certificate button pushed its ring left of the modules that do not, so
+       five cards read as five different layouts down one list. */
+    display: grid;
+    grid-template-columns: 1fr 84px 21rem;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .module-card--done { background: #f2fbf6; border-color: #cfe9da; }
+  .module-lead { min-width: 0; }
+  .module-card .module-header { font-size: .85rem; font-weight: 700; color: #86bef0;
+    text-transform: uppercase; letter-spacing: 1px; }
+  .module-card .module-title { font-size: 1.3rem; font-weight: 700; color: #10428a; }
+  .module-state {
+    display: inline-block; margin-top: .45rem;
+    font-size: .78rem; font-weight: 700; letter-spacing: .5px;
+    border-radius: 50px; padding: .18rem .8rem;
+    background: #e9eff6; color: #5c6b7d;
+  }
+  .module-state--done      { background: #d8f0e3; color: #1c6b45; }
+  .module-state--progress  { background: #dfeafc; color: #1d4e93; }
+  .module-state--new       { background: #eceff3; color: #5c6b7d; }
+  .circular-chart { max-width: 84px; }
+  .circle-bg { fill: none; stroke: #e9eff6; stroke-width: 3.8; }
+  .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #86bef0; }
+  .module-card--done .circle { stroke: #3fae7c; }
+  .percentage { fill: #10428a; font-size: 0.5em; text-anchor: middle; font-weight: 600; }
+  .module-actions {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: .8rem; flex-wrap: wrap;
+  }
+  @media (max-width: 820px) {
+    .module-card { grid-template-columns: 1fr; }
+    .module-actions { justify-content: flex-start; }
+  }
+  .btn-academy {
+    background: linear-gradient(90deg, #165aaf 30%, #52aaff 100%); color: #fff;
+    border-radius: 50px; border: none; font-weight: 600; padding: .6rem 1.8rem;
+    text-decoration: none; transition: all .3s ease; white-space: nowrap;
+  }
+  .btn-academy:hover { transform: translateY(-2px); color: #fff;
+    background: linear-gradient(90deg, #86bef0 0%, #165aaf 100%); }
+  .btn-academy-quiet {
+    background: #fff; color: #10428a; border: 1px solid #b9d3ef;
+    border-radius: 50px; font-weight: 600; padding: .6rem 1.4rem;
+    text-decoration: none; transition: all .3s ease; white-space: nowrap;
+  }
+  .btn-academy-quiet:hover { background: #eef4fb; color: #10428a; }
+
+  /* ── OTHER TOOLS: present, current, and not competing with the course ── */
+  .more-tools { margin-top: 3.2rem; }
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.2rem;
+    max-width: 1000px;
+    margin: 0 auto 1.4rem;
+  }
+  .tool-card {
+    background: #ffffff;
+    border: 1px solid #dde8f5;
+    border-radius: 1rem;
+    padding: 1.4rem 1.5rem;
+    box-shadow: 0 2px 12px rgba(16, 66, 138, 0.06);
+    display: flex;
+    flex-direction: column;
+    /* core/styles.css centres headings site-wide, which left these h4s centred
+       over left-aligned body copy. */
+    text-align: left;
+  }
+  .tool-card .badge-kind {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #6b8fc0;
+    margin-bottom: .4rem;
+  }
+  .tool-card h4 {
+    color: #10428a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: .45rem;
+    /* core/styles.css centres every h1–h6 site-wide with a direct rule, which
+       beats the inherited left on .tool-card — so these headings sat centred
+       over left-aligned body copy. */
+    text-align: left;
+  }
+  .tool-card p {
+    color: #45566d;
+    font-size: .92rem;
+    flex-grow: 1;
+    margin-bottom: 1rem;
+  }
+  .tool-cta {
+    align-self: flex-start;
+    color: #10428a;
+    font-weight: 600;
+    font-size: .95rem;
+    text-decoration: none;
+    border-bottom: 2px solid #b9d3ef;
+    padding-bottom: 2px;
+  }
+  .tool-cta:hover { color: #165aaf; border-color: #165aaf; }
+  .tool-cta.ai { color: #12867a; border-color: #9fdfd3; }
+  .tool-cta.ai:hover { color: #0e6b61; border-color: #12867a; }
+  .byo-strip {
+    text-align: center;
+    background: #eef4fb;
+    border: 1px dashed #b9d3ef;
+    border-radius: .8rem;
+    padding: .9rem 1.2rem;
+    color: #385b86;
+    max-width: 1000px;
+    margin: 0 auto;
+    font-size: .93rem;
+  }
+  .byo-strip a { color: #10428a; font-weight: 600; }
+  </style>
+</head>
+<body class="no-wobble">
+
+    {% include 'academy/header.html' %}
+
+<main class="academy-dashboard py-5">
+  <div class="academy-container">
+    <div class="text-center">
+      <h2 class="academy-title fw-bold">OGA Academy</h2>
+    </div>
+    <p class="academy-intro">
+      Free, self-paced training in choosing and validating antibodies. Work through
+      the modules in order — each one ends in a quiz, and passing it earns you a
+      certificate.
+    </p>
+
+    {% comment %}Where you are, and the one thing to press. This page used to open
+    with three equal cards — the modules, the Selection Tool and bring-your-own-AI
+    — so the page answered "what am I here for?" three times over, and the modules'
+    own card was a jump link to a section further down the same page. The count
+    here has the list it counted directly underneath it.{% endcomment %}
+    {% if progress_data %}
+      <section class="next-step">
+        <div class="next-step-count">
+          {{ completed_total }} of {{ module_total }} module{{ module_total|pluralize }} complete
+        </div>
+        {% if next_up %}
+          <div class="next-step-label">
+            {% if next_up.started %}Pick up where you left off{% else %}Your next module{% endif %}
+          </div>
+          <div class="next-step-title">
+            Module {{ next_up.lesson.order }} — {{ next_up.lesson.title }}
+          </div>
+          <a class="next-step-cta"
+             href="{% url 'academy:lesson_detail' lesson_id=next_up.lesson.id %}">
+            {% if next_up.started %}Continue this module{% else %}Start this module{% endif %}
+          </a>
+        {% else %}
+          <div class="next-step-title">You've passed every module.</div>
+          <p class="next-step-sub">
+            Your certificates are on the modules below — open one to view it or
+            download the PDF.
+          </p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <!-- The modules themselves -->
+    <div id="modules">
+      <h3 class="section-heading">The modules</h3>
+      {% if progress_data %}
+        {% for item in progress_data %}
+          <div class="module-card{% if item.completed %} module-card--done{% endif %}">
+            <div class="module-lead">
+              <div class="module-header">Module {{ item.lesson.order }}</div>
+              <div class="module-title">{{ item.lesson.title }}</div>
+              {% if item.completed %}
+                <span class="module-state module-state--done">Passed</span>
+              {% elif item.started %}
+                <span class="module-state module-state--progress">In progress</span>
+              {% else %}
+                <span class="module-state module-state--new">Not started</span>
+              {% endif %}
+            </div>
+
+            <svg viewBox="0 0 36 36" class="circular-chart"
+                 role="img" aria-label="{{ item.progress }}% of this module read">
+              <path class="circle-bg"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831
+                       a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <path class="circle" stroke-dasharray="{{ item.progress }}, 100"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831
+                       a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <text x="18" y="20.35" class="percentage">{{ item.progress }}%</text>
+            </svg>
+
+            <div class="module-actions">
+              {% comment %}"Continue module" on a module nobody has opened is the
+              app telling you where you are and getting it wrong.{% endcomment %}
+              <a href="{% url 'academy:lesson_detail' lesson_id=item.lesson.id %}"
+                 class="btn-academy">
+                {% if item.completed %}Review module{% elif item.started %}Continue module{% else %}Start module{% endif %}
+              </a>
+              {% comment %}Until now the only way back to a certificate was the page
+              shown immediately after passing the quiz — leave it and the PDF was
+              unreachable from anywhere in the site.{% endcomment %}
+              {% if item.certificate %}
+                <a href="{% url 'academy:certificate' cert_id=item.certificate.id %}"
+                   class="btn-academy-quiet">Certificate</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-center text-muted">No modules are published yet — check back soon.</p>
+      {% endif %}
+    </div>
+
+    {% comment %}Kept, and current — neither of these is a legacy option. They are
+    simply not what somebody signs in to the Academy to do, so they sit under the
+    course rather than beside it.{% endcomment %}
+    <section class="more-tools">
+      <h3 class="section-heading">Other OGA tools</h3>
+      <p class="academy-intro">
+        Separate from the course, and free to use any time.
+      </p>
+
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="badge-kind">Choose an antibody · Prototype</div>
+          <h4>Antibody Selection Tool</h4>
+          <p>Answer a few questions about your target and application and get a specific
+             plan: which antibody to choose, the knockout-controlled validation that proves
+             it, and the controls to run — grounded in independent YCharOS characterisation
+             data. Generates a downloadable PDF plan.</p>
+          <a class="tool-cta" href="{% url 'selector:tool' %}">Open the Selection Tool →</a>
+        </div>
+
+        <div class="tool-card">
+          <div class="badge-kind">Use your own AI · Prototype</div>
+          <h4>Check a paper with your AI</h4>
+          <p>Connect the OGA database to Claude, ChatGPT, or any MCP-capable assistant and
+             have it read a manuscript or preprint — flagging which antibodies are
+             independently knockout-characterised by YCharOS, with per-application results.</p>
+          <a class="tool-cta ai" href="{% url 'connect_your_ai' %}">Connect your AI →</a>
+        </div>
+      </div>
+
+      <div class="byo-strip">
+        Browse the antibody database, the validation framework,
+        and all our free tools on the <a href="{% url 'tools_hub' %}">Tools page ↗</a>.
+      </div>
+    </section>
+  </div>
+</main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-column">
+        <h4>Quick Links</h4>
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'about' %}">About Us</a>
+        <a href="{% url 'publications' %}">Publications</a>
+        <a href="{% url 'news' %}">News</a>
+        <a href="{% url 'contact' %}">Contact</a>
+      </div>
+      <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        <p><a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">LinkedIn</a></p>
+        <p><a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">BlueSky</a></p>
+      </div>
+      <div class="footer-column">
+        <h4>Follow Us</h4>
+        <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+          <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+        </a>
+        <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+          <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+      <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+  </footer>
+</body>
+</html>

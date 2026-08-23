@@ -1,0 +1,50 @@
+{% comment %}
+The same family as 404.html, and deliberately more careful.
+
+Django renders a 500 with an EMPTY context and no context processors — by design,
+because whatever broke may be exactly what a context processor would touch. So
+there is no `request` here, nothing dynamic, and no `{% templatetag openblock %}
+static {% templatetag closeblock %}`: `staticfiles` needs its storage backend,
+which is one of the things that can be broken when this page is what the reader
+gets. Plain paths and inline styles only.
+
+What it must say is the thing a scientist actually needs to know: the failure was
+in showing a page, not in the data. Every write path in this app previews before
+it commits, so a 500 during a save means nothing was saved — a much better
+message than a stack trace, and the one the default page cannot give.
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Something went wrong – Only Good Antibodies</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+           background: #f8faff; color: #333; margin: 0;
+           display: flex; flex-direction: column; align-items: center;
+           justify-content: center; min-height: 100vh; text-align: center;
+           padding: 2rem; }
+    h1 { color: #10428a; margin: .5rem 0 1rem; }
+    p { max-width: 34rem; line-height: 1.6; color: #555; }
+    .tag { text-transform: uppercase; letter-spacing: .1em; font-size: .8rem;
+           color: #888; margin: 0; }
+    a.btn { display: inline-block; margin-top: 1.5rem; padding: .6rem 1.4rem;
+            background: #10428a; color: #fff; text-decoration: none;
+            border-radius: .35rem; }
+  </style>
+</head>
+<body>
+  <p class="tag">Error 500</p>
+  <h1>Something went wrong at our end</h1>
+  <p>
+    Your data is safe. If you were part way through saving something, nothing
+    was saved — you will need to enter it again.
+  </p>
+  <p>
+    Try again in a moment. If it keeps happening, tell Harvinder what you were
+    doing and roughly when.
+  </p>
+  <a class="btn" href="/">Back to the site</a>
+</body>
+</html>

@@ -1,0 +1,2 @@
+tesseract.js 5.1.1 | core 5.1.1
+tesseract eng.traineddata: from tesseract-ocr 5 tessdata (LSTM), gzipped

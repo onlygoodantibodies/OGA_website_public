@@ -1,0 +1,709 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Set recommendations — YCharOS Pipeline{% endblock %}
+
+{% block extra_head %}
+<style>
+  .rec-tool {
+    --navy: #0b406d;
+    --blue: #0070c4;
+    --mid: #36a8f5;
+    --pale: #e0effe;
+    --border: #e2e8f0;
+    --muted: #777;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --amber: #d97706;
+    --red: #dc2626;
+    --grey-bg: #f9fafb;
+    color: #333;
+  }
+  .rec-tool select { font-family: inherit; font-size: 0.85rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; }
+  .rec-tool select:focus { outline: none; border-color: var(--mid); box-shadow: 0 0 0 3px rgba(54,168,245,0.15); }
+
+  /* ── Stats ── */
+  .rec-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .rec-stat { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; color: var(--muted); }
+  .rec-stat b { color: var(--navy); font-weight: 700; }
+
+  /* ── Filter Bar ── */
+  #filter-bar {
+    padding: 12px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  #filter-bar select { min-width: 220px; }
+  .gene-stats { font-size: 0.82rem; color: var(--muted); margin-left: 8px; }
+  {% comment %}This was `.hidden { display: none !important; }`, for the image
+  overlay at the bottom of this page, and it took the whole navigation bar with
+  it. The chrome shows its desktop links, its search box and the user block with
+  Tailwind's `hidden md:flex` — hidden on a phone, flex on a wide screen — and an
+  `!important` on a bare `.hidden` beats `md:flex` whatever the specificity or
+  the order. So the top bar rendered with nothing in it but the wordmark: no Task
+  hub, no Browse, no search, no Change password and no way to sign out. All of it
+  was in the page and none of it was visible, which is why the source-level
+  chrome test passed — it asks whether the markup is there (twentieth field
+  test).
+
+  Named for this page and scoped to the one element it is for. No `!important`
+  either: `#image-preview.rec-hidden` already outranks `#image-preview`'s own
+  `display: flex`, and reaching for `!important` in a page's private stylesheet
+  is what made a local rule global in the first place.{% endcomment %}
+  #image-preview.rec-hidden { display: none; }
+
+  /* ── Grid ── */
+  #antibody-grid {
+    padding: 8px 0 40px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 16px;
+  }
+  .empty-state { grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--muted); font-size: 0.95rem; }
+
+  /* ── Card ── */
+  .ab-card {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: box-shadow 0.15s;
+  }
+  .ab-card:hover { box-shadow: 0 4px 16px rgba(11,64,109,0.08); }
+  .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .card-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cat-num { font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+  .gene-tag { font-size: 0.78rem; font-weight: 600; background: var(--pale); color: var(--blue); padding: 2px 8px; border-radius: 4px; }
+  .card-meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+  .meta-sep { margin: 0 2px; opacity: 0.4; }
+  .card-recs { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .app-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 3px; }
+  .app-badge.rec { background: var(--green-bg); color: var(--green); }
+  .app-badge.not-rec { background: #f3f4f6; color: #999; }
+
+  /* ── Experiment thumbnails ── */
+  .card-images { display: flex; flex-wrap: wrap; gap: 0; }
+  .exp-thumb {
+    flex: 1 1 100px; min-width: 90px; max-width: 180px;
+    border-right: 1px solid var(--border); position: relative; text-align: center;
+    cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .exp-thumb:last-child { border-right: none; }
+  .exp-thumb:hover { background: #f0f7ff; }
+
+  /* Recommended state */
+  .exp-thumb.is-recommended {
+    background: var(--green-bg);
+    border-bottom: 3px solid var(--green);
+  }
+  .exp-thumb.is-recommended .thumb-label {
+    background: var(--green-bg); color: var(--green);
+  }
+
+  /* Not recommended state */
+  .exp-thumb.not-recommended { background: var(--grey-bg); }
+
+  .thumb-label {
+    font-size: 0.68rem; font-weight: 700; color: var(--blue);
+    padding: 4px 2px 2px; background: var(--pale);
+    border-bottom: 1px solid #e8eef6;
+    transition: all 0.15s;
+  }
+  .thumb-status {
+    position: absolute; top: 24px; right: 4px; z-index: 2;
+    font-size: 0.65rem; font-weight: 700; padding: 2px 5px; border-radius: 3px;
+  }
+  .thumb-status.on { background: var(--green); color: #fff; }
+  .thumb-status.off { background: #e5e7eb; color: #999; }
+
+  /* Enlarge — an ordinary button, because the only way to enlarge one of these
+     used to be right-click, which is also how you open the browser's own menu.
+     Choosing a recommended antibody off a 120px-tall thumbnail of a western
+     blot is the most consequential judgement anybody makes in this app, so the
+     control that lets you look properly cannot be a hidden gesture. Left-click
+     on the thumbnail itself is taken — it toggles the recommendation, and a
+     write is the wrong thing to fire when somebody wanted a closer look — so
+     enlarging gets a target of its own. */
+  .thumb-zoom {
+    position: absolute; top: 24px; left: 4px; z-index: 2;
+    font-size: 0.72rem; line-height: 1; font-family: inherit;
+    padding: 3px 5px; border-radius: 3px; cursor: zoom-in;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.92);
+    color: var(--blue); opacity: 0.5; transition: opacity 0.15s;
+  }
+  .exp-thumb:hover .thumb-zoom { opacity: 1; }
+  .thumb-zoom:hover { background: #fff; border-color: var(--mid); }
+  .thumb-zoom:focus-visible { opacity: 1; outline: 2px solid var(--mid); outline-offset: 1px; }
+
+  .exp-thumb img {
+    display: block; width: 100%; max-height: 120px;
+    object-fit: contain; padding: 4px;
+  }
+  .no-images { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; font-style: italic; width: 100%; }
+
+  /* Click feedback */
+  .exp-thumb.flash-on { animation: flashGreen 0.3s; }
+  .exp-thumb.flash-off { animation: flashGrey 0.3s; }
+  @keyframes flashGreen { 0% { box-shadow: inset 0 0 0 3px var(--green); } 100% { box-shadow: none; } }
+  @keyframes flashGrey { 0% { box-shadow: inset 0 0 0 3px #aaa; } 100% { box-shadow: none; } }
+
+  /* ── Toast notifications ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--navy); color: #fff; padding: 10px 20px;
+    border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 200;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── Image Preview ── */
+  #image-preview {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; z-index: 200; cursor: zoom-out;
+  }
+  #image-preview img { max-width: 90vw; max-height: 84vh; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  /* Which antibody and which application, because enlarged the image fills the
+     screen and the card it came from is no longer on it. */
+  #preview-caption { color: #fff; font-size: 0.85rem; font-weight: 600; text-align: center; }
+  #preview-caption span { font-weight: 400; opacity: 0.7; margin-left: 8px; }
+
+  @media (max-width: 900px) {
+    #antibody-grid { grid-template-columns: 1fr; }
+  }
+
+/* ── Withdraw a gene from the public site ── */
+/* Scoped per element, never a bare `.rec-hidden { display:none }`. This page
+   already learned that once: a global `.hidden` rule declared for its overlay
+   also caught the top bar's `hidden md:flex`, and the chrome rendered empty
+   with no sign-out at all, every element present in the HTML. */
+#withdraw-bar.rec-hidden,
+#withdraw-panel.rec-hidden,
+#rec-banner.rec-hidden { display: none; }
+#withdraw-bar { margin: 0 0 14px; display: flex; align-items: center; gap: 10px;
+                flex-wrap: wrap; }
+.withdraw-btn { background: var(--red, #b91c1c); color: #fff; border: 0;
+                border-radius: 6px; padding: 8px 14px; font-size: .9rem;
+                font-weight: 600; cursor: pointer; }
+.withdraw-btn:disabled { background: #d4d4d8; color: #52525b; cursor: not-allowed; }
+/* The reason a control is off is on the page, never on a `title` — a tooltip is
+   invisible to anybody who does not hover, and a control that is merely greyed
+   reads as a feature that does not exist. */
+.withdraw-why { font-size: .82rem; color: #92400e; background: #fffbeb;
+                border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px;
+                max-width: 52ch; }
+#withdraw-panel { position: fixed; inset: 0; background: rgba(15,23,42,.55);
+                  display: flex; align-items: center; justify-content: center;
+                  z-index: 60; padding: 20px; }
+.withdraw-card { background: #fff; border-radius: 10px; padding: 22px;
+                 max-width: 34rem; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+.withdraw-card h2 { margin: 0 0 12px; font-size: 1.15rem; }
+.withdraw-card ul { margin: 0 0 12px; padding-left: 1.2rem; font-size: .9rem; }
+.withdraw-card li { margin-bottom: 4px; }
+.withdraw-note { font-size: .85rem; color: #475569; margin: 0 0 16px; }
+.withdraw-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.withdraw-cancel { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;
+                   padding: 8px 14px; font-size: .9rem; cursor: pointer; }
+#rec-banner { margin: 0 0 14px; border-radius: 8px; padding: 10px 14px;
+              font-size: .9rem; border: 1px solid; }
+#rec-banner.ok  { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+#rec-banner.bad { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-tool">
+
+  <div class="mb-4">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Pipeline workspace</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">Set recommendations</h1>
+    <p class="text-gray-600 mt-1 max-w-2xl">Pick a gene, then click a validation image to mark that antibody
+      as recommended for that application. Every click saves instantly.
+      Use the <span class="font-semibold text-gray-800">⤢</span> button on an image to enlarge it before
+      you judge it — right-click still works too.</p>
+    {% if gene_note %}
+    {% comment %}A `?gene=` this page cannot open. Two cases that look the same
+    from outside and are not — a gene that is not in the pipeline, and one that
+    is but has no published figures — so the note says which, rather than the
+    picker sitting silently on "Select a gene".{% endcomment %}
+    <p class="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl"
+       role="status">{{ gene_note }}</p>
+    {% endif %}
+    <div class="rec-stats mt-3">
+      <span class="rec-stat"><b id="stat-total">0</b> antibodies</span>
+      <span class="rec-stat"><b id="stat-rec">0</b> recommended</span>
+      <span class="rec-stat"><b id="stat-changes">0</b> changes this session</span>
+    </div>
+  </div>
+
+  <div id="filter-bar">
+    <select id="filter-gene">
+      <option value="">— Select a gene —</option>
+    </select>
+    <span class="gene-stats" id="gene-stats"></span>
+  </div>
+
+  {% comment %}
+    Withdrawing a gene from the public site. It lives here because this is the
+    screen where somebody looks at a gene's figures and judges them — the press
+    that says "none of this should be public yet" belongs beside the one that
+    says "this is the antibody to buy", not on a board three clicks away.
+
+    A manifest, not a wall (services/deletion.py): the panel says what goes
+    before it goes, and the figure count it prints is handed back to the server
+    as `count` so a set that grew underneath it is refused. The button is
+    disabled with the reason ON THE PAGE, never on a title attribute.
+  {% endcomment %}
+  <div id="withdraw-bar" class="rec-hidden">
+    <button type="button" id="withdraw-open" class="withdraw-btn">
+      Withdraw this gene from the public site
+    </button>
+    <span id="withdraw-why" class="withdraw-why"></span>
+  </div>
+
+  <div id="withdraw-panel" class="rec-hidden" role="dialog" aria-modal="true"
+       aria-labelledby="withdraw-title">
+    <div class="withdraw-card">
+      <h2 id="withdraw-title">Withdraw <span id="withdraw-gene"></span>?</h2>
+      <div id="withdraw-manifest"></div>
+      <p class="withdraw-note">
+        This is not a delete. The figures go back to the
+        <a href="/pipeline/review/">review queue</a>, where they can be released
+        again once the question is settled.
+      </p>
+      <div class="withdraw-actions">
+        <button type="button" id="withdraw-cancel" class="withdraw-cancel">Cancel</button>
+        <button type="button" id="withdraw-confirm" class="withdraw-btn"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rec-banner" class="rec-hidden" role="alert"></div>
+
+  <div id="antibody-grid">
+    <div class="empty-state">Select a gene above to start managing recommendations.</div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="image-preview" class="rec-hidden" role="dialog" aria-modal="true" aria-label="Enlarged figure">
+    <img id="preview-img" src="" alt="Enlarged validation figure">
+    <p id="preview-caption"></p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+'use strict';
+
+const CSRF = '{{ csrf_token }}';
+const URL_GENES = "{% url 'pipeline:rec_genes' %}";
+const URL_ANTIBODIES = "{% url 'pipeline:rec_antibodies' %}";
+const URL_TOGGLE = "{% url 'pipeline:rec_toggle' %}";
+  const URL_WITHDRAW  = '{% url 'pipeline:rec_withdraw' %}';
+
+/* The gene ?gene= asked for, already resolved server-side to the spelling the
+   <option> values carry — so a link written `?gene=ace`, or one carrying a gene
+   whose symbol is stored in an odd case, still selects the right row. Empty
+   when nothing was asked for or the request could not be honoured, and in that
+   second case the page is already showing a note saying which. */
+const WANTED_GENE = '{{ requested_gene|escapejs }}';
+
+let genes = [];
+let antibodies = [];
+let changeCount = 0;
+
+/* ── Load gene list on page load ── */
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('filter-gene').addEventListener('change', loadGene);
+  document.getElementById('image-preview').addEventListener('click', closePreview);
+  document.getElementById('withdraw-open').addEventListener('click', openWithdraw);
+  document.getElementById('withdraw-cancel').addEventListener('click', closeWithdraw);
+  document.getElementById('withdraw-confirm').addEventListener('click', doWithdraw);
+  /* Escape dismisses whatever is open — the habit every pop-out in the app
+     teaches, and this overlay covers the entire screen. */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closePreview(); closeWithdraw(); }
+  });
+
+  const resp = await fetch(URL_GENES);
+  const data = await resp.json();
+  genes = data.genes;
+
+  const sel = document.getElementById('filter-gene');
+  genes.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.name;
+    opt.textContent = g.name + ' (' + g.antibody_count + ' antibodies, ' + g.rec_count + ' rec)';
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('stat-total').textContent = data.total_antibodies;
+  document.getElementById('stat-rec').textContent = data.total_recommended;
+
+  /* Open the gene the link named. After the options exist, or there is nothing
+     to select. The server has already checked this gene is one of them, so a
+     value that does not match is a genuine disagreement rather than a normal
+     miss — say so instead of leaving the picker on its placeholder, which is
+     what "?gene= is ignored" looked like from outside. */
+  if (WANTED_GENE) {
+    sel.value = WANTED_GENE;
+    if (sel.value === WANTED_GENE) {
+      await loadGene();
+    } else {
+      document.getElementById('gene-stats').textContent =
+        WANTED_GENE + ' is not in this list — pick it by hand.';
+    }
+  }
+});
+
+/* ── Load antibodies for selected gene ── */
+async function loadGene() {
+  const gene = document.getElementById('filter-gene').value;
+  if (!gene) {
+    document.getElementById('antibody-grid').innerHTML =
+      '<div class="empty-state">Select a gene above to start managing recommendations.</div>';
+    document.getElementById('gene-stats').textContent = '';
+    document.getElementById('withdraw-bar').classList.add('rec-hidden');
+    withdrawInfo = null;
+    return;
+  }
+
+  const resp = await fetch(URL_ANTIBODIES + '?gene=' + encodeURIComponent(gene));
+  /* A failed read is not an empty result: falling through here would draw
+     "0 antibodies" and a working Withdraw button over a gene nobody had read. */
+  if (!resp.ok) {
+    withdrawInfo = null;
+    document.getElementById('withdraw-bar').classList.add('rec-hidden');
+    document.getElementById('antibody-grid').innerHTML =
+      '<div class="empty-state">Could not read ' + esc(gene) + '. Try again.</div>';
+    banner('Could not read ' + gene + ' — nothing has been changed.', true);
+    return;
+  }
+  const data = await resp.json();
+  antibodies = data.antibodies;
+  withdrawInfo = data.withdraw || null;
+  drawWithdrawButton();
+
+  const recCount = antibodies.filter(a => Object.values(a.recommendations).some(v => v)).length;
+  document.getElementById('gene-stats').textContent =
+    antibodies.length + ' antibodies, ' + recCount + ' with recommendations';
+
+  renderGrid();
+}
+
+/* ── Render antibody cards ── */
+function renderGrid() {
+  const container = document.getElementById('antibody-grid');
+
+  if (!antibodies.length) {
+    container.innerHTML = '<div class="empty-state">No antibodies found for this gene.</div>';
+    return;
+  }
+
+  container.innerHTML = antibodies.map(renderCard).join('');
+}
+
+function renderCard(ab) {
+  const recs = ab.recommendations;
+
+  const badges = ['WB','IP','ICC-IF','FC'].map(app => {
+    const isRec = recs[app] === true;
+    return '<span class="app-badge ' + (isRec ? 'rec' : 'not-rec') + '" id="badge-' + ab.id + '-' + app + '">'
+      + app + (isRec ? ' ✓' : '') + '</span>';
+  }).join('');
+
+  const thumbs = ab.experiments.map(exp => {
+    const isRec = recs[exp.app] === true;
+    /* `js()` for anything going into an inline handler's quoted argument, and
+       `esc()` for anything going into an attribute or the page text — a
+       catalogue number carrying an apostrophe would otherwise close the string
+       and break the handler. */
+    const open = 'previewImage(\'' + js(exp.image_url) + '\', \''
+      + js(ab.name) + '\', \'' + js(exp.app_display) + '\')';
+    return '<div class="exp-thumb ' + (isRec ? 'is-recommended' : 'not-recommended') + '"'
+      + ' id="thumb-' + ab.id + '-' + exp.app + '"'
+      + ' onclick="toggleRec(' + ab.id + ', \'' + exp.app + '\')"'
+      + ' oncontextmenu="event.preventDefault(); ' + esc(open) + '">'
+      + '<div class="thumb-label">' + exp.app_display + '</div>'
+      + '<button type="button" class="thumb-zoom"'
+      + ' title="Enlarge this ' + esc(exp.app_display) + ' image"'
+      + ' aria-label="Enlarge the ' + esc(exp.app_display) + ' image for ' + esc(ab.name) + '"'
+      // The thumbnail's own click writes a recommendation, so this must not
+      // reach it: looking closer is not deciding.
+      + ' onclick="event.stopPropagation(); ' + esc(open) + '">⤢</button>'
+      + '<span class="thumb-status ' + (isRec ? 'on' : 'off') + '"'
+      + ' id="status-' + ab.id + '-' + exp.app + '">'
+      + (isRec ? 'REC' : '—') + '</span>'
+      + '<img src="' + esc(exp.image_url) + '" alt="' + esc(exp.app_display)
+      + ' figure for ' + esc(ab.name) + '" loading="lazy">'
+      + '</div>';
+  }).join('');
+
+  return '<div class="ab-card" id="card-' + ab.id + '">'
+    + '<div class="card-header">'
+    + '<div class="card-title">'
+    + '<span class="cat-num">' + esc(ab.name) + '</span>'
+    + '<span class="gene-tag">' + esc(ab.gene) + '</span>'
+    + '</div>'
+    + '<div class="card-meta">'
+    + (ab.rrid ? '<span>' + esc(ab.rrid) + '</span><span class="meta-sep">·</span>' : '')
+    + '<span>' + esc(ab.supplier || '') + '</span>'
+    + '<span class="meta-sep">·</span>'
+    + '<span>' + esc(ab.host || '') + '</span>'
+    + '<span class="meta-sep">·</span>'
+    + '<span>' + esc(ab.clonality || '') + '</span>'
+    + '</div>'
+    + '<div class="card-recs">' + badges + '</div>'
+    + '</div>'
+    + '<div class="card-images">'
+    + (thumbs || '<span class="no-images">No experiment images</span>')
+    + '</div>'
+    + '</div>';
+}
+
+/* ── Toggle recommendation ── */
+async function toggleRec(antibodyId, app) {
+  const ab = antibodies.find(a => a.id === antibodyId);
+  if (!ab) return;
+
+  const currentState = ab.recommendations[app] || false;
+  const newState = !currentState;
+
+  try {
+    const resp = await fetch(URL_TOGGLE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ antibody_id: antibodyId, application: app, value: newState }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw data;
+
+    ab.recommendations[app] = newState;
+    changeCount++;
+    document.getElementById('stat-changes').textContent = changeCount;
+
+    updateThumb(antibodyId, app, newState);
+    updateBadge(antibodyId, app, newState);
+
+    const totalRec = antibodies.filter(a => Object.values(a.recommendations).some(v => v)).length;
+    document.getElementById('gene-stats').textContent =
+      antibodies.length + ' antibodies, ' + totalRec + ' with recommendations';
+
+    toast(ab.name + ' ' + app + ': ' + (newState ? 'RECOMMENDED ✓' : 'removed'));
+
+  } catch (err) {
+    toast('Error: ' + (err.error || 'Failed to update'), true);
+  }
+}
+
+function updateThumb(abId, app, isRec) {
+  const thumb = document.getElementById('thumb-' + abId + '-' + app);
+  if (!thumb) return;
+
+  thumb.className = 'exp-thumb ' + (isRec ? 'is-recommended flash-on' : 'not-recommended flash-off');
+  setTimeout(() => {
+    thumb.className = 'exp-thumb ' + (isRec ? 'is-recommended' : 'not-recommended');
+  }, 300);
+
+  const status = document.getElementById('status-' + abId + '-' + app);
+  if (status) {
+    status.className = 'thumb-status ' + (isRec ? 'on' : 'off');
+    status.textContent = isRec ? 'REC' : '—';
+  }
+
+  const label = thumb.querySelector('.thumb-label');
+  if (label) {
+    label.style.background = isRec ? 'var(--green-bg)' : 'var(--pale)';
+    label.style.color = isRec ? 'var(--green)' : 'var(--blue)';
+  }
+}
+
+function updateBadge(abId, app, isRec) {
+  const badge = document.getElementById('badge-' + abId + '-' + app);
+  if (!badge) return;
+  badge.className = 'app-badge ' + (isRec ? 'rec' : 'not-rec');
+  badge.textContent = app + (isRec ? ' ✓' : '');
+}
+
+/* ── Withdraw this gene from the public site ──────────────────────────────
+   The other half of the press this page has always had: setting a
+   recommendation says which antibody the field should buy; this says the
+   evidence should not be public at all yet.
+
+   Not a delete — review.withdraw re-stages the crops into /pipeline/review/
+   first, so releasing them again is one press. The count printed on the button
+   is handed back to the server, which refuses a set that has grown since. */
+let withdrawInfo = null;
+
+function drawWithdrawButton() {
+  const bar = document.getElementById('withdraw-bar');
+  const btn = document.getElementById('withdraw-open');
+  const why = document.getElementById('withdraw-why');
+  if (!withdrawInfo || !withdrawInfo.figures) {
+    bar.classList.add('rec-hidden');
+    return;
+  }
+  bar.classList.remove('rec-hidden');
+  /* Disabled WITH the reason beside it, never hidden and never a `title`. */
+  btn.disabled = !!withdrawInfo.why_not;
+  why.textContent = withdrawInfo.why_not || '';
+  why.style.display = withdrawInfo.why_not ? '' : 'none';
+}
+
+function openWithdraw() {
+  if (!withdrawInfo || withdrawInfo.why_not) return;
+  const w = withdrawInfo;
+  document.getElementById('withdraw-gene').textContent = w.gene;
+
+  /* A count with no list under it invents the noun, so each line says what it
+     counts. Verbs agree with counts, and counts are often 1. */
+  const items = [];
+  items.push('<li><b>' + w.figures + '</b> published figure' + (w.figures === 1 ? '' : 's')
+             + ' come' + (w.figures === 1 ? 's' : '') + ' off the site, across <b>'
+             + w.antibodies + '</b> antibod' + (w.antibodies === 1 ? 'y' : 'ies')
+             + ' (' + esc(w.applications.join(', ')) + ').</li>');
+  if (w.recommendations) {
+    items.push('<li><b>' + w.recommendations + '</b> recommendation'
+               + (w.recommendations === 1 ? '' : 's')
+               + ' come' + (w.recommendations === 1 ? 's' : '') + ' off the antibod'
+               + (w.recommendations === 1 ? 'y' : 'ies')
+               + ', and ride' + (w.recommendations === 1 ? 's' : '')
+               + ' back with the figure' + (w.recommendations === 1 ? '' : 's') + '.</li>');
+  }
+  if (w.already_queued) {
+    items.push('<li><b>' + w.already_queued + '</b> ha' + (w.already_queued === 1 ? 's' : 've')
+               + ' a newer crop already queued; those crops are left as they are.</li>');
+  }
+  if (w.leaves_public_site) {
+    items.push('<li>This was ' + esc(w.gene) + '\u2019s last published figure, so '
+               + '<b>onlygoodantibodies.co.uk/antibodies/' + esc(w.gene) + '/ '
+               + 'stops being a page</b>.</li>');
+  }
+  document.getElementById('withdraw-manifest').innerHTML = '<ul>' + items.join('') + '</ul>';
+
+  /* The number on the button is what is being consented to. */
+  document.getElementById('withdraw-confirm').textContent =
+    'Withdraw ' + w.figures + ' figure' + (w.figures === 1 ? '' : 's');
+  document.getElementById('withdraw-panel').classList.remove('rec-hidden');
+  document.getElementById('withdraw-cancel').focus();
+}
+
+function closeWithdraw() {
+  document.getElementById('withdraw-panel').classList.add('rec-hidden');
+}
+
+async function doWithdraw() {
+  if (!withdrawInfo) return;
+  const gene = withdrawInfo.gene;
+  const confirm = document.getElementById('withdraw-confirm');
+  confirm.disabled = true;
+  try {
+    const resp = await fetch(URL_WITHDRAW, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      /* `count` is the number the panel printed. */
+      body: JSON.stringify({ gene: gene, count: withdrawInfo.figures }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw data;
+
+    closeWithdraw();
+    /* A page that a save changes must be redrawn by that save, and this save
+       changes the picker as well as the grid: the gene is no longer one with
+       published figures, so it leaves the list it was selected from. Redrawn
+       here rather than reloaded — never tell the reader to reload. */
+    banner(data.gene + ' is off the public website. ' + data.withdrawn
+           + ' figure' + (data.withdrawn === 1 ? '' : 's') + ' now waiting in the '
+           + 'review queue, where they can be released again.', false,
+           { href: data.review_url, label: 'Open the review queue' });
+    await refreshGeneList(gene);
+  } catch (err) {
+    /* Never alert(str(e)) — a sentence, in a banner that brings itself into
+       view. A refusal that shows nothing reads as an accepted one. */
+    closeWithdraw();
+    banner(err && err.error ? err.error
+                            : 'Could not withdraw ' + gene + '. Nothing was changed.', true);
+  } finally {
+    confirm.disabled = false;
+  }
+}
+
+async function refreshGeneList(withdrawnGene) {
+  const sel = document.getElementById('filter-gene');
+  const resp = await fetch(URL_GENES);
+  if (!resp.ok) return;
+  const data = await resp.json();
+  genes = data.genes;
+  sel.innerHTML = '<option value="">\u2014 Select a gene \u2014</option>';
+  genes.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.name;
+    opt.textContent = g.name + ' (' + g.antibody_count + ' antibodies, ' + g.rec_count + ' rec)';
+    sel.appendChild(opt);
+  });
+  document.getElementById('stat-total').textContent = data.total_antibodies;
+  document.getElementById('stat-rec').textContent = data.total_recommended;
+  sel.value = '';
+  antibodies = [];
+  withdrawInfo = null;
+  document.getElementById('withdraw-bar').classList.add('rec-hidden');
+  document.getElementById('gene-stats').textContent = '';
+  document.getElementById('antibody-grid').innerHTML =
+    '<div class="empty-state">' + esc(withdrawnGene) + ' is no longer published. '
+    + 'Select another gene to carry on.</div>';
+}
+
+/* ── Banner ─────────────────────────────────────────────────────────────────
+   The toast is for a reversible one-click toggle. This is for the press that
+   changes the website: it stays on screen, and it scrolls itself into view,
+   because a receipt nobody sees is the same failure as a refusal nobody sees. */
+function banner(msg, isError, link) {
+  const el = document.getElementById('rec-banner');
+  el.className = isError ? 'bad' : 'ok';
+  el.textContent = msg;
+  if (link) {
+    el.appendChild(document.createTextNode(' '));
+    const a = document.createElement('a');
+    a.href = link.href;
+    a.textContent = link.label;
+    a.style.textDecoration = 'underline';
+    el.appendChild(a);
+  }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/* ── Toast ── */
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? 'var(--red)' : 'var(--navy)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+/* ── Image Preview ── */
+function previewImage(url, name, app) {
+  document.getElementById('preview-img').src = url;
+  document.getElementById('preview-caption').innerHTML =
+    esc(name || '') + (app ? '<span>' + esc(app) + '</span>' : '')
+    + '<span>click anywhere or press Escape to close</span>';
+  document.getElementById('image-preview').classList.remove('rec-hidden');
+}
+
+function closePreview() {
+  document.getElementById('image-preview').classList.add('rec-hidden');
+}
+
+/* ── Escape HTML ── */
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* For a value being pasted into a single-quoted JS string inside an inline
+   handler — a different job from esc(), which is for HTML. Both are needed on
+   the same value there: js() first so the string cannot be closed, esc() after
+   so the attribute cannot be. */
+function js(s) {
+  if (!s) return '';
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
+}
+</script>
+{% endblock %}

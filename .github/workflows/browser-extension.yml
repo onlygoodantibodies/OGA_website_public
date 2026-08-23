@@ -1,0 +1,102 @@
+# Regression tests for the browser extension.
+#
+# Two jobs, matching the two tiers in browser-extension/test/run.mjs. The fast
+# one gates every push; the browser one loads the real unpacked extension into
+# Chromium and is slower but still runs on every push, because the failures it
+# catches ("the page rendered and the script never wired up") are invisible to
+# the fast tier.
+#
+# Scoped by path: this repository is a Django site with the extension inside it,
+# so a change to the pipeline app should not spend minutes here.
+name: browser extension
+
+on:
+  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
+  # The month's GitHub Actions minutes are spent, so every automatic run was
+  # failing before a single test executed -- a red tick on `beta` that says
+  # nothing about the code and trains everyone to ignore red ticks.
+  #
+  # The automatic triggers below are commented out, NOT deleted, so restoring
+  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
+  # left on, so the Actions tab can still run this by hand.
+  #
+  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
+  # is off is a suite nobody runs, and it looks exactly like a suite that
+  # passes.
+  # ───────────────────────────────────────────────────────────────────────
+#   push:
+#     paths:
+#       - 'browser-extension/**'
+#       # The extension's title normaliser is pinned against the SAME vector file
+#       # the Django side reads, and that file lives in core/. Without this path a
+#       # change to the shared vectors would run the Python half and not the
+#       # JavaScript half -- which is the exact drift the vectors exist to catch.
+#       - 'core/data/title_normalisation_vectors.json'
+#       - '.github/workflows/browser-extension.yml'
+#   pull_request:
+#     paths:
+#       - 'browser-extension/**'
+#       # The extension's title normaliser is pinned against the SAME vector file
+#       # the Django side reads, and that file lives in core/. Without this path a
+#       # change to the shared vectors would run the Python half and not the
+#       # JavaScript half -- which is the exact drift the vectors exist to catch.
+#       - 'core/data/title_normalisation_vectors.json'
+#       - '.github/workflows/browser-extension.yml'
+  workflow_dispatch:
+
+# One run per branch. Pushing a series of commits used to leave every superseded
+# run going to completion -- eight commits in one session meant eight full
+# rounds, seven of them answering a question about code that had already moved.
+# The only run whose answer anybody acts on is the one on the tip commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: browser-extension
+
+jobs:
+  unit:
+    name: matcher + page fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-package-lock
+      - run: npm test
+
+  browser:
+    name: real extension in Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-package-lock
+      # Chromium only: Playwright can load an extension in Chromium and nowhere
+      # else, so Firefox has no automated coverage at all. See README.md.
+      - run: npx playwright install --with-deps chromium
+      # Chrome will not load an unpacked extension headlessly, so the suites
+      # need a framebuffer. run.mjs reaches for xvfb-run itself when DISPLAY is
+      # unset; installing it is all this step has to do.
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npm run test:browser
+
+  lint:
+    name: Mozilla add-on linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The same validator AMO runs, so manifest problems surface while they
+      # are still cheap. Warnings are expected and documented in README.md;
+      # only errors fail the job. The ignore list mirrors the packaging
+      # excludes in core/extension_index.py — linting the source tree
+      # otherwise flags dev files that never reach a store.
+      - run: npx --yes web-ext lint --source-dir=. --self-hosted --ignore-files 'test/**' 'package*.json' 'node_modules/**' 'signed/**' 'icons/make_icons.py'

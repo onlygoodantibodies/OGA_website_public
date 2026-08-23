@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Only Good Antibodies — settings</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0 auto; padding: 32px 24px; max-width: 620px;
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #16202b; background: #fff;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #5d6b7a; margin: 0 0 26px; }
+    fieldset { border: 1px solid #e2e8ee; border-radius: 10px; padding: 16px 18px; margin: 0 0 18px; }
+    fieldset.feature { border-color: #bcd6ea; background: #f7fbfe; }
+    legend { font-weight: 650; padding: 0 6px; font-size: 13px; }
+    .row { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 14px; }
+    .row:last-child { margin-bottom: 0; }
+    .row input { margin-top: 3px; flex: 0 0 auto; }
+    .row label { flex: 1; }
+    .row label b { display: block; font-weight: 600; }
+    .row label span { color: #5d6b7a; font-size: 12.5px; }
+    .row label code { background: #eef2f6; border-radius: 3px; padding: 0 4px; font-size: .92em; }
+    button {
+      font: inherit; font-weight: 600; padding: 8px 15px; border-radius: 7px;
+      border: 1px solid #12639e; background: #12639e; color: #fff; cursor: pointer;
+    }
+    button.secondary { background: transparent; color: #12639e; }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .status { color: #14713b; font-size: 12.5px; }
+    .stamp { color: #77838f; font-size: 12px; margin-top: 12px; }
+    a { color: #12639e; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1b2027; color: #e7edf3; }
+      .sub, .row label span, .stamp { color: #9fadbb; }
+      fieldset { border-color: #333d48; }
+      fieldset.feature { border-color: #2d4a63; background: #1e242c; }
+      button.secondary { color: #6fb6ec; border-color: #6fb6ec; }
+      a { color: #6fb6ec; }
+      .status { color: #7ddba3; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Only Good Antibodies</h1>
+  <p class="sub">Matching happens entirely in your browser. No page text is ever sent anywhere.</p>
+
+  <!-- First, not last. Eleven of the 34 publisher hostnames in the v0.1.6
+       benchmark corpus were not in the default match list, so on a default
+       install roughly one paper in three from it was never scanned — silently,
+       with nothing on screen to say so. This is the setting that fixes that,
+       and it was buried under four highlighting options. -->
+  <fieldset class="feature">
+    <legend>Where it runs</legend>
+    <div class="row">
+      <input type="checkbox" id="allSites">
+      <label for="allSites"><b>Run on any site</b><span>Recommended. Without it,
+        the extension only runs on a fixed list of publisher domains — so papers
+        read through an <b>institutional proxy</b> (those rewrite the address, so
+        <code>nature.com</code> arrives as <code>nature-com.ezproxy…</code> and no
+        list can match it), <b>society journals</b>, and the long tail of smaller
+        publishers are all skipped with no marks and no explanation.
+        <b>No page content ever leaves your browser</b> — matching is regexes and
+        a lookup table that ship inside the extension — so the broad permission
+        carries no data cost.</span></label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="vendorSites">
+      <label for="vendorSites"><b>Also run on supplier catalogue pages</b><span>Shows the same results while you are choosing what to buy. Off by default — grant the extra site access when you turn it on.</span></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Highlighting</legend>
+    <div class="row">
+      <input type="checkbox" id="enabled">
+      <label for="enabled"><b>Highlight antibodies</b><span>Turn the extension off without uninstalling it.</span></label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="showAmber">
+      <label for="showAmber"><b>Show amber (tested alternatives exist)</b><span>The antibody itself has not been tested, but its target has been characterised.</span></label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="showGrey">
+      <!-- Not "no data either way": a reagent we hold nothing on is not marked
+           at all (matcher.js::worthShowing), so every grey mark on a page is an
+           antibody that IS in the dataset. What is missing is a result in the
+           application this page used it for. -->
+      <label for="showGrey"><b>Show grey (application not assessed)</b><span>The antibody is in the dataset, but nobody has assessed it in the application this page used it for. A result in another application does not carry over.</span></label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="patterns">
+      <label for="patterns"><b>Use line styles as well as colour</b><span>Solid, wavy, double and dotted underlines, so colour is never the only signal.</span></label>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button id="save">Save</button>
+    <button id="refresh" class="secondary">Refresh data now</button>
+    <span class="status" id="status"></span>
+  </div>
+  <p class="stamp" id="stamp"></p>
+
+  <script src="options.js"></script>
+</body>
+</html>

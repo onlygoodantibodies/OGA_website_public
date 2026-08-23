@@ -1,0 +1,83 @@
+{% extends "pipeline/base.html" %}
+{% block title %}{% if term %}{{ term }} — search{% else %}Search{% endif %} — YCharOS Pipeline{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Search</p>
+  {% if term %}
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">
+      {{ results.total }} match{{ results.total|pluralize:"es" }} for &ldquo;{{ term }}&rdquo;
+    </h1>
+  {% else %}
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">Search the pipeline</h1>
+  {% endif %}
+
+  <form method="get" action="{% url 'pipeline:find' %}" class="mt-4 flex gap-2">
+    <input type="search" name="q" value="{{ term }}" autofocus
+           placeholder="Gene, catalogue number, RRID, cell line, clone…"
+           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    <button class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold">Search</button>
+  </form>
+  <p class="text-xs text-gray-500 mt-2">
+    A gene name goes straight to that gene&rsquo;s page. Anything else lands here.
+  </p>
+
+  {% if exact_gene %}
+    {% comment %}Only reachable with ?all=1 — someone who wanted the full list
+    rather than the jump. Say the jump exists.{% endcomment %}
+    <div class="mt-4 border border-ycharos-200 bg-ycharos-50 rounded-lg px-4 py-3 text-sm">
+      <a href="{% url 'pipeline:target_detail' exact_gene.pk %}"
+         class="font-semibold text-ycharos-800 hover:underline">Go to {{ exact_gene.gene_name }}&rsquo;s page &rsaquo;</a>
+      <span class="text-gray-600">— everything recorded for this gene, in one place.</span>
+    </div>
+  {% endif %}
+
+  {% if term and not results.total %}
+    <div class="mt-6 border border-gray-200 rounded-xl px-4 py-8 text-center">
+      <p class="text-gray-700 font-medium">Nothing matches &ldquo;{{ term }}&rdquo;.</p>
+      <p class="text-sm text-gray-500 mt-1">
+        Searched genes (name, protein, other names, UniProt), antibodies and cell
+        lines (catalogue, lot, supplier, gene, and RRID or Cellosaurus), and
+        sessions (gene and comments). Each result says which field matched.
+      </p>
+      <p class="text-sm text-gray-500 mt-3">
+        If it is a gene you want to start work on,
+        <a href="{% url 'pipeline:feasibility' %}?gene={{ term|urlencode }}"
+           class="text-ycharos-700 font-semibold hover:underline">check its feasibility and add it &rsaquo;</a>
+      </p>
+    </div>
+  {% endif %}
+
+  {% for g in results.groups %}
+  <div class="mt-6 bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="flex items-baseline justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-gray-700">
+        {{ g.label }} <span class="text-gray-400 font-normal">({{ g.count }})</span>
+      </h2>
+      <a href="{% url g.board %}?{{ g.param }}={{ term|urlencode }}"
+         class="text-sm font-semibold text-ycharos-700 hover:underline">
+        {% if g.count > g.rows|length %}See all {{ g.count }}{% else %}Open the board{% endif %} &rsaquo;
+      </a>
+    </div>
+    <ul class="divide-y divide-gray-100">
+      {% for r in g.rows %}
+      <li>
+        {% comment %}Why a row matched, when the reason is not in its title.
+        Searching HAP1 returned UBQLN2 under Genes and said nothing about why —
+        its alternative name is Chap1. Correct and unreadable.{% endcomment %}
+        <a href="{{ r.url }}" class="block px-4 py-2.5 hover:bg-ycharos-50">
+          <span class="flex items-baseline gap-3">
+            <span class="font-semibold text-gray-900">{{ r.title }}</span>
+            {% if r.detail %}<span class="text-sm text-gray-500">{{ r.detail }}</span>{% endif %}
+          </span>
+          {% if r.why %}<span class="block text-xs text-gray-400 mt-0.5">{{ r.why }}</span>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

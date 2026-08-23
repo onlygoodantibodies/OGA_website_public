@@ -1,0 +1,123 @@
+# Regression tests for the Django site.
+#
+# AUDIT.md §5 recorded this gap for a long time: "Tests exist but there is no
+# CI. Nothing runs them automatically on push." The cost was not theoretical —
+# with nothing else checking, each coding session had to run the whole suite
+# itself before every merge to `beta`, which is the live branch.
+#
+# Scoped by path the same way browser-extension.yml is: that workflow owns
+# `browser-extension/**`, and this one ignores it, so neither spends minutes on
+# the other's change. `benchmarks/` is an archive that is never re-run and
+# `*.md` is prose, so both are ignored here too.
+#
+# This workflow is the one that runs on almost any change: the Django runner
+# and the pytest suites, ~40 s between them. The two narrow, slow suites live
+# in their own path-scoped workflows — `mcp.yml` and `browser.yml` — because a
+# change to a board template cannot affect the MCP servers and a change to a
+# service cannot affect the login page, and running them anyway is minutes
+# spent proving nothing. There is no `beta` gate here on purpose: `beta`
+# deploys by the owner clicking Manual Deploy.
+name: django
+
+on:
+  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
+  # The month's GitHub Actions minutes are spent, so every automatic run was
+  # failing before a single test executed -- a red tick on `beta` that says
+  # nothing about the code and trains everyone to ignore red ticks.
+  #
+  # The automatic triggers below are commented out, NOT deleted, so restoring
+  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
+  # left on, so the Actions tab can still run this by hand.
+  #
+  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
+  # is off is a suite nobody runs, and it looks exactly like a suite that
+  # passes.
+  # ───────────────────────────────────────────────────────────────────────
+#   push:
+#     paths-ignore:
+#       - 'browser-extension/**'
+#       - 'benchmarks/**'
+#       - '**.md'
+#       # Skills are instructions for a coding agent, and the citation-DOIs job is
+#       # a manual data pull -- neither can change what a Django test does. The
+#       # other workflow files are NOT ignored: a change to CI should run CI.
+#       - '.claude/**'
+#       - '.github/workflows/citation-dois.yml'
+#   pull_request:
+#     paths-ignore:
+#       - 'browser-extension/**'
+#       - 'benchmarks/**'
+#       - '**.md'
+#       # Skills are instructions for a coding agent, and the citation-DOIs job is
+#       # a manual data pull -- neither can change what a Django test does. The
+#       # other workflow files are NOT ignored: a change to CI should run CI.
+#       - '.claude/**'
+#       - '.github/workflows/citation-dois.yml'
+  workflow_dispatch:
+
+# One run per branch. Pushing a series of commits used to leave every superseded
+# run going to completion -- eight commits in one session meant eight full
+# rounds, seven of them answering a question about code that had already moved.
+# The only run whose answer anybody acts on is the one on the tip commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # No PIPELINE_DATABASE_URL, so pipeline_db falls back to local SQLite exactly
+  # as it does in dev. CI never touches live PostgreSQL, and must not: the live
+  # data is the lab's, and a test run is not a thing to point at it.
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  django:
+    name: Django runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      # node is here so tests_board_fieldtest.py::BoardScriptsParseTests
+      # actually runs. Each board's behaviour is a <script> block inside its
+      # Django template, where a stray brace is invisible to `manage.py check`
+      # and to every response-based test — the page still renders 200 and the
+      # grid simply never loads. That suite skips where node is absent, so
+      # without this step CI would report success having never checked it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        # mysqlclient needs system libraries and none of the three databases use
+        # MySQL, so it is filtered out — the same thing CLAUDE.md tells a human
+        # to do for a local venv. pytest is not in requirements.txt.
+        run: |
+          grep -v '^mysqlclient' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt pytest coverage
+      - run: python manage.py check
+      # The five apps are named rather than left to discovery: bare
+      # `manage.py test` walks into mcp_servers/tests/, which is pytest-only,
+      # and reports 4 import errors on an otherwise-clean run.
+      - name: Django tests
+        run: python manage.py test pipeline core academy credentials selector
+
+  pytest:
+    name: pytest suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          grep -v '^mysqlclient' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt pytest
+      # Every module under pipeline/services/tests/ is pytest-style — bare
+      # `def test_...` with fixtures — so Django's runner collects ZERO tests
+      # from all eighteen and says nothing about it. 208 tests were not running
+      # anywhere. This job is the only thing that runs them.
+      - name: pipeline services
+        run: python -m pytest pipeline/services/tests pipeline/services/cropper/tests -q

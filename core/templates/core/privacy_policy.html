@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Load Static Files -->
+    {% load static %}
+    
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <title>Privacy Policy</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+
+</head>
+<body class="policy-page">
+
+    {% include 'core/cookie_banner.html' %}
+    <script src="{% static 'core/script.js' %}"></script>
+    
+    {% include 'core/header.html' %}
+
+    <!-- Banner Section -->
+    <section class="banner about-banner">
+        <div class="banner-text">
+            <h2 style="color: white;">Privacy Policy</h2>
+        </div>
+    </section>
+
+    <section class="policy-content">
+        <p>The Only Good Antibodies Community (OGA) is committed to protecting your privacy in accordance with the <strong>UK General Data Protection Regulation (UK GDPR)</strong> and the <strong>Privacy and Electronic Communications Regulations (PECR)</strong>. This policy outlines how we collect, use, and safeguard your personal data when you use this website.</p>
+        <p><strong>Last updated: August 2026</strong></p>
+
+        <div class="policy-section">
+            <h2>Who We Are</h2>
+            <p>This website is operated by the Only Good Antibodies Community, based at the University of Leicester. For any queries, contact us at:</p>
+            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Information We Collect</h2>
+            <p>We collect and process personal data when you interact with our website, including:</p>
+            <p>- Information you provide via contact forms (name, email address, message content).</p>
+            <p>- Account information if you register for the OGA Academy (username, email address).</p>
+            <p>- The plan you build with the <strong>Antibody &amp; Controls Selection Tool</strong> (your target, technique, controls and notes) and — if you save it as a compliance record — your name, institutional email and institution.</p>
+            <p>- Messages you type into our AI assistant (see “AI-powered features” below).</p>
+            <p>- Anonymous usage data collected through our analytics service (see below).</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Website Analytics</h2>
+            <p>We use <a href="https://plausible.io" target="_blank" rel="noopener noreferrer">Plausible Analytics</a> to understand how our website is used. Plausible is a privacy-friendly analytics service that:</p>
+            <p>- Does not use cookies.</p>
+            <p>- Does not collect personal data.</p>
+            <p>- Does not track individuals across websites.</p>
+            <p>- Processes all data in the EU.</p>
+            <p>Because Plausible does not use cookies or collect personal data, no consent is required under PECR or UK GDPR. All data collected is aggregate and anonymous — we can see how many people visited a page, but not who they are.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Data API usage counts</h2>
+            <p>Organisations we have issued an API key to — manufacturers, registries and data partners — query our data through the <a href="{% url 'data_access' %}">data API</a>. We keep a running count of those requests: how many, to which endpoint, on which day, for each key. The key belongs to an organisation, not to a person, and we do not record who within that organisation made a request or what any request contained.</p>
+            <p>Requests to the API that arrive <strong>without</strong> a usable key are counted too, as a daily total per endpoint, with no record of who sent them — no address, no identifier, nothing that could single anybody out.</p>
+            <p>We use these counts to understand how the data is used and to spot a client stuck in a loop before it affects the site.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Cookies</h2>
+            <p>This website uses only <strong>strictly necessary cookies</strong> that are required for core functionality. These do not require consent under PECR.</p>
+            <table>
+                <tr>
+                    <th>Cookie</th>
+                    <th>Purpose</th>
+                    <th>When Set</th>
+                </tr>
+                <tr>
+                    <td>sessionid</td>
+                    <td>Maintains your login session in the OGA Academy</td>
+                    <td>When you log in</td>
+                </tr>
+                <tr>
+                    <td>csrftoken</td>
+                    <td>Protects against cross-site request forgery attacks</td>
+                    <td>On form pages</td>
+                </tr>
+            </table>
+            <p>These cookies are deleted when you close your browser or after 8 hours of inactivity. We do not use any analytics, advertising, or tracking cookies.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>OGA Academy Accounts</h2>
+            <p>If you register for the OGA Academy, we store your username, email address, quiz progress, and certificate records. This data is necessary to provide the e-learning service and issue certificates. You can request deletion of your account and associated data at any time by contacting us.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>The Antibody &amp; Controls Selection Tool (compliance records)</h2>
+            <p>Our <a href="{% url 'selector:tool' %}">Antibody &amp; Controls Selection Tool</a> helps you choose an antibody and the controls to validate it, and produces a downloadable plan (PDF). When you save a plan, we store it as a record with a unique reference code. You choose what the record is for:</p>
+            <p>- <strong>A compliance record.</strong> This is attributable to you and requires your name, institution and institutional email. Because its purpose is to evidence good practice to the body that asked you to use the tool, <strong>we may share this record — the plan together with your name, institution and email — with that funder or organisation</strong> (for example Cancer Research UK / Cancer Research Horizons, or the NC3Rs). You are recording your plan precisely so that it can be shared for this purpose.</p>
+            <p>- <strong>“Just for me” (a personal plan).</strong> This needs no name or affiliation, is for your own use, and is <strong>not</strong> offered to any funder as evidence. You may still add your name for your own reference.</p>
+            <p>You can ask us to delete a saved record at any time by quoting its reference code to <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Contact Form</h2>
+            <p>When you submit the <a href="{% url 'contact' %}">contact form</a>, the details you enter are <strong>sent to the OGA team by email</strong> so we can respond. We do not store these submissions in a database and we do not use them for marketing.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>AI-powered features</h2>
+            <p>Some features use a third-party AI service (<a href="https://www.anthropic.com/" target="_blank" rel="noopener noreferrer">Anthropic</a>, provider of the Claude models) to generate responses:</p>
+            <p>- The <strong>OGA Academy AI assistant</strong> sends the messages you type to Anthropic to produce a reply. We keep only a per-day message count on our server; the conversation itself is not stored by us.</p>
+            <p>- The <strong>“connect your own AI”</strong> option lets you use our database from your own AI tool (e.g. Claude or ChatGPT). Anything you paste there is processed by <em>your</em> AI provider under their terms, not ours.</p>
+            <p>Please do not paste confidential or personal data into AI features. Anthropic acts as our data processor and, under our business terms, does not use your inputs to train its models.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>External reference lookups</h2>
+            <p>To enrich what you type, some tools query external scientific databases. These lookups send only the identifier you enter (a gene symbol) — never your name or contact details:</p>
+            <p>- Gene symbols are sent to <a href="https://www.uniprot.org/" target="_blank" rel="noopener noreferrer">UniProt</a> and public expression datasets (e.g. DepMap) to map the protein and show where it is expressed.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>The browser extension</h2>
+            <p>Our <strong><a href="{% url 'extension' %}">browser extension</a></strong> marks antibodies mentioned in a paper you are reading with our knockout-controlled testing data. It is designed so that we never learn what you read, and that is a property of how it works rather than a promise about how we behave:</p>
+            <p>- <strong>The page you are reading never leaves your browser.</strong> The extension downloads a copy of our antibody data and compares it against the text of the page on your own device. No page content, page address, or any part of it is sent to us or to anyone else.</p>
+            <p>- <strong>Identifying the paper also happens on your device.</strong> To show what a paper used an antibody for, the extension matches the paper’s title, DOI or PubMed identifier against a list it has already downloaded. Those identifiers are not sent to us.</p>
+            <p>- <strong>There is no account, no analytics and no tracking in the extension.</strong> We cannot tell how many antibodies were marked for you, which ones, or on what.</p>
+            <p>What the extension does fetch from us is our own published data: two data files, refreshed about once a day, and the validation images shown when you open a card. Our server receives those requests the way any web server receives a request for a file — including your IP address — and they carry nothing about the paper you were reading or the antibodies on it. This is the same public data available on this website and through our data API.</p>
+            <p>Your extension settings, and the copy of our data it keeps so it can work without going online for every page, are stored by your browser on your own device. We have no access to them, and uninstalling the extension removes them.</p>
+            <p><strong>Site access.</strong> When you install it, the extension can read pages on the journal, preprint and repository sites it lists — that is where antibodies are cited. Two further kinds of access are switched off unless you turn them on yourself in its settings: supplier catalogue sites, so a recommendation is visible while you are ordering; and all websites, which exists only so the extension still works when your institution’s proxy rewrites journal addresses. Turning either on changes which pages are marked. It does not change any of the above — the matching still happens on your device, and nothing is transmitted.</p>
+            <p>Where the extension offers a link — to a published report, a supplier’s product page, an RRID record, or to check a paper with your own AI tool — following it takes you to that site under its own privacy terms, as any link does.</p>
+            <p><strong>Chrome Web Store User Data Policy.</strong> The Only Good Antibodies extension’s use of information received from Google APIs, and its handling of any user data, adheres to the <a href="https://developer.chrome.com/docs/webstore/program-policies/limited-use" target="_blank" rel="noopener noreferrer">Chrome Web Store User Data Policy</a>, including the Limited Use requirements. As described above, the extension does not collect, transmit, sell or transfer user data of any kind.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>reCAPTCHA</h2>
+            <p>Registration and password-reset pages are protected by <strong>Google reCAPTCHA</strong> to prevent automated abuse. This is subject to Google’s <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>How We Use Your Data</h2>
+            <p>We use collected data to:</p>
+            <p>- Provide and improve website functionality.</p>
+            <p>- Deliver the OGA Academy e-learning service and the antibody selection, validation and AI-assistant tools you use.</p>
+            <p>- Monitor aggregate site performance and usage patterns.</p>
+            <p>- Respond to contact form enquiries.</p>
+            <p>- Ensure website security.</p>
+            <p>We do not sell your personal data or use it for advertising. We share it only in these specific circumstances:</p>
+            <p>- With your funder or organisation, when you choose to save a <strong>compliance record</strong> in the Selection Tool (as described above) — that is the record’s purpose.</p>
+            <p>- With the service providers that operate features on our behalf (our AI provider Anthropic, Google reCAPTCHA, and the reference databases above), strictly to deliver the function you asked for.</p>
+            <p>- Where required by law.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Your Rights</h2>
+            <p>Under UK GDPR, you have the following rights over your personal data:</p>
+            <p>- Right to access your data.</p>
+            <p>- Right to rectification (correcting inaccurate data).</p>
+            <p>- Right to erasure (deletion of your data).</p>
+            <p>- Right to withdraw consent where consent was given.</p>
+            <p>- Right to object to data processing.</p>
+            <p>- Right to data portability.</p>
+            <p>To exercise any of these rights, contact us at <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Updates to This Policy</h2>
+            <p>This policy may be updated to reflect legal or website changes. The most recent version will always be available on this page.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <!-- Quick Links Column -->
+            <div class="footer-column">
+                <h4>Quick Links</h4>
+                <a href="{% url 'home' %}" class="active">Home</a>
+                <a href="{% url 'about' %}">About Us</a>
+                <a href="{% url 'publications' %}">Publications</a>
+                
+                <a href="{% url 'news' %}">News</a>
+                <a href="{% url 'contact' %}">Contact</a>
+            </div>
+
+            <!-- Contact Information Column -->
+            <div class="footer-column">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+            </div>
+
+            <!-- Social Media Column -->
+            <div class="footer-column">
+                <h4>Follow Us</h4>
+                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+                </a>
+                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+                </a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

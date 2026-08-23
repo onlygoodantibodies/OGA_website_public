@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - Only Good Antibodies Community</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+
+<style>
+/* ══════════════════════════════════════
+   CONTACT PAGE STYLES
+   ══════════════════════════════════════ */
+
+/* ── HERO ── */
+.contact-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff;
+  padding: 72px 24px 56px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.contact-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%; right: -15%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.contact-hero-inner {
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.contact-hero-label {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  color: rgba(255,255,255,0.9);
+}
+.contact-hero h1 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+  color: #fff !important;
+}
+.contact-hero p {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+}
+
+/* ── BODY ── */
+.contact-body {
+  background: #f5f8ff;
+  padding: 64px 24px 80px;
+}
+.contact-body-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── INFO CARD ── */
+.contact-info-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 36px 40px;
+}
+.contact-info-card h2 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 20px;
+}
+.contact-info-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.contact-info-card ul li {
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.5;
+}
+.contact-info-card ul li strong {
+  color: #10428a;
+  margin-right: 6px;
+}
+.contact-info-card ul li a {
+  color: #4a8ec9;
+  text-decoration: none;
+  font-weight: 500;
+}
+.contact-info-card ul li a:hover {
+  text-decoration: underline;
+}
+
+/* ── FORM CARD ── */
+.contact-form-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 36px 40px;
+}
+.contact-form-card h2 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 24px;
+}
+.contact-form-card label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  margin-top: 18px;
+}
+.contact-form-card label:first-of-type { margin-top: 0; }
+.contact-form-card input[type="text"],
+.contact-form-card input[type="email"],
+.contact-form-card select,
+.contact-form-card textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.93rem;
+  font-family: 'Open Sans', sans-serif;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+.contact-form-card input:focus,
+.contact-form-card select:focus,
+.contact-form-card textarea:focus {
+  outline: none;
+  border-color: #86bef0;
+  box-shadow: 0 0 0 3px rgba(134,190,240,0.2);
+}
+.contact-form-card textarea { resize: vertical; }
+.contact-form-card button[type="submit"] {
+  margin-top: 24px;
+  padding: 11px 28px;
+  background: #10428a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.93rem;
+  font-weight: 700;
+  font-family: 'Open Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.contact-form-card button[type="submit"]:hover { background: #4a8ec9; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .contact-info-card, .contact-form-card { padding: 28px 22px; }
+  .contact-hero { padding: 48px 20px 40px; }
+}
+</style>
+</head>
+
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+
+<!-- ═══════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════ -->
+<section class="contact-hero">
+    <div class="contact-hero-inner">
+        <div class="contact-hero-label">Get in Touch</div>
+        <h1>Contact Us</h1>
+        <p>Questions, feedback, collaboration enquiries, or target suggestions — we'd love to hear from you.</p>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     CONTACT BODY
+     ═══════════════════════════════════════ -->
+<section class="contact-body">
+    <div class="contact-body-inner">
+
+        <!-- Contact info -->
+        <div class="contact-info-card">
+            <h2>Other ways to reach us</h2>
+            <ul>
+                <li>
+                    <strong>Email:</strong>
+                    <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>
+                </li>
+                <li>
+                    <strong>LinkedIn:</strong>
+                    <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/people/" target="_blank" rel="noopener">Visit our LinkedIn page</a>
+                </li>
+                <li>
+                    <strong>Project information:</strong>
+                    <a href="https://le.ac.uk/research/institutes/precision-health/projects/collaboration/only-good-antibodies-community" target="_blank" rel="noopener">Learn more about the OGA community</a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Contact form -->
+        <div class="contact-form-card">
+            <h2>Send us a message</h2>
+            <form action="#" method="POST">
+                {% csrf_token %}
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" required>
+
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+
+                <label for="enquiry-type">Enquiry Type</label>
+                <select id="enquiry-type" name="enquiry-type" onchange="toggleFields()">
+                    <option value="general">General Enquiry</option>
+                    <option value="suggest-target">Suggest a Target</option>
+                </select>
+
+                <div id="suggest-target-fields" style="display: none;">
+                    <label for="gene">Gene of Interest</label>
+                    <input type="text" id="gene" name="gene">
+
+                    <label for="antibody">Application of Interest</label>
+                    <input type="text" id="antibody" name="antibody">
+
+                    <label for="target-details">Additional Details</label>
+                    <textarea id="target-details" name="target-details" rows="4"></textarea>
+                </div>
+
+                <label for="message">Message</label>
+                <textarea id="message" name="message" rows="5" required></textarea>
+
+                <button type="submit">Send Message</button>
+                <p style="margin-top:14px;font-size:.82rem;color:#666;line-height:1.5">
+                    The details you enter here are emailed to the OGA team so we can reply — we don't store
+                    them in a database or use them for anything else. See our
+                    <a href="{% url 'privacy_policy' %}">Privacy Policy</a>.
+                </p>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- Footer -->
+<div class="footer-wrapper">
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'roadmap' %}">Roadmap</a>
+            <a href="{% url 'publications' %}">Publications</a>
+            <a href="{% url 'news' %}">News</a>
+            <a href="{% url 'contact' %}" class="active">Contact</a>
+        </div>
+        <div class="footer-column">
+            <h4>Contact Us</h4>
+            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+            <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+            <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+        </div>
+        <div class="footer-column">
+            <h4>Follow Us</h4>
+            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+            </a>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+</footer>
+</div>
+
+</body>
+</html>

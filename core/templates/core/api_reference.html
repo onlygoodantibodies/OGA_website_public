@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API reference — Only Good Antibodies</title>
+    <meta name="description" content="The complete OGA Data API reference: every endpoint, every parameter, and a working sync client.">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    {% comment %}
+      Every rule here is prefixed `da-` and scoped to this page's own elements.
+      A bare utility selector in a page stylesheet is how the pipeline's top bar
+      once lost its whole navigation: `.hidden { display:none !important }`
+      declared for one overlay beat the chrome's own `hidden md:flex` everywhere.
+      Never reach for a shared class name or `!important` from a page.
+    {% endcomment %}
+    <style>
+      /* Every rule scoped to #api-doc, for the reason the comment above gives:
+         a bare `.table` or `.code` in a page stylesheet reaches the chrome. */
+      #api-doc { max-width: 62rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; line-height: 1.65; }
+      #api-doc h1 { font-size: 1.9rem; margin: 0 0 .5rem; }
+      #api-doc h2 { font-size: 1.35rem; margin: 2.5rem 0 .75rem; padding-top: 1.25rem;
+                    border-top: 1px solid #dde3ec; }
+      #api-doc h3 { font-size: 1.08rem; margin: 1.75rem 0 .5rem; }
+      #api-doc p, #api-doc li { font-size: .95rem; }
+      #api-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                      font-size: .85em; background: #eef2f8; padding: .12em .35em; border-radius: 3px; }
+      #api-doc pre { background: #0d2b5e; color: #e8f0fb; padding: 1rem 1.15rem; border-radius: 6px;
+                     overflow-x: auto; }   /* wide code scrolls itself, never the page */
+      #api-doc pre code { background: none; padding: 0; color: inherit; font-size: .82rem; line-height: 1.5; }
+      #api-doc table { width: 100%; border-collapse: collapse; margin: 1rem 0; display: block; overflow-x: auto; }
+      #api-doc th, #api-doc td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #dde3ec; font-size: .9rem; }
+      #api-doc blockquote { margin: 1rem 0; padding: .5rem 1rem; border-left: 3px solid #b9c6da; }
+      #api-doc .doc-lead { padding: 1rem 1.15rem; border-radius: 6px; background: #eef2f8; margin-bottom: 2rem; }
+      #api-doc .doc-lead a { font-weight: 600; }
+    </style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+<section class="banner about-banner">
+    <div class="banner-text">
+        <h2>API reference</h2>
+    </div>
+</section>
+
+<div id="api-doc">
+  {% if error %}
+    <p role="alert">{{ error }}</p>
+    <p>The endpoint catalogue is at <a href="/api/v1/">/api/v1/</a>, and the
+       overview at <a href="{% url 'data_access' %}">Portal &amp; API</a>.</p>
+  {% else %}
+    <div class="doc-lead">
+      <strong>You need a key for everything below.</strong>
+      <a href="{% url 'data_access' %}">Portal &amp; API</a> explains what the API
+      is for and how to ask for one. The machine-readable specification is at
+      <a href="/api/v1/openapi.json">/api/v1/openapi.json</a>.
+    </div>
+    {{ body|safe }}
+  {% endif %}
+</div>
+
+<div class="footer-wrapper">
+    <footer class="footer footer-publications">
+        <div class="footer-container">
+            <div class="footer-column">
+                <h4>Quick Links</h4>
+                <a href="{% url 'home' %}">Home</a>
+                <a href="{% url 'about' %}">About Us</a>
+                <a href="{% url 'publications' %}">Publications</a>
+                <a href="{% url 'news' %}">News</a>
+                <a href="{% url 'contact' %}">Contact</a>
+            </div>
+
+            <div class="footer-column">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" rel="noopener">Follow us on LinkedIn</a></p>
+                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" rel="noopener">Follow us on BlueSky</a></p>
+            </div>
+
+            <div class="footer-column">
+                <h4>Follow Us</h4>
+                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" rel="noopener">
+                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+                </a>
+                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" rel="noopener">
+                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+                </a>
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,320 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}People — logins and access{% endblock %}
+
+{% block extra_head %}
+<style>
+  .help { border-bottom: 1px dotted #9ca3af; cursor: help; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto">
+
+  <p class="text-xs font-bold uppercase tracking-widest text-ycharos-700">People</p>
+  <h1 class="text-3xl font-bold text-gray-900 mt-1">Who can sign in, and what they may do</h1>
+  <p class="text-gray-600 mt-1 max-w-3xl">
+    A working account is <b>three records in two databases</b>: a login, a pipeline
+    record, and the access itself. This is the only screen that shows all three at
+    once — the <b>SIGN IN</b> and <b>PIPELINE</b> columns are the two halves, and a
+    person only actually works when both are green.
+  </p>
+
+  {% comment %}The Superuser and Django admin toggles were here for a few hours
+  and are gone. They are not pipeline permissions — is_staff is raw access to
+  every table on the site, the academy and the public pages included — so they
+  belong in Django admin where the change is logged. Who *is* a superuser is
+  still shown, as a read-only mark beside the name, because you need to know who
+  else can open this page.{% endcomment %}
+  <div class="mt-4 border-l-4 border-gray-300 bg-gray-50 rounded px-4 py-3 text-sm text-gray-700 max-w-3xl">
+    This page manages <b>pipeline membership</b> — who is on the pipeline, at
+    which site, doing what, and whether they can sign in. Django-level
+    permissions (superuser, admin-site access) are deliberately not here: they
+    reach the whole site, not just the pipeline, so they stay in Django admin.
+  </div>
+
+  <div class="flex flex-wrap gap-2 mt-4">
+    <button type="button" id="new-btn"
+            class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold hover:bg-ycharos-700">Add people</button>
+  </div>
+
+  {{ roles|json_script:"roles-json" }}
+  {{ new_columns|json_script:"new-columns" }}
+  {{ new_example|json_script:"new-example" }}
+  <div id="new-panel"></div>
+
+  {# ── Filters ── #}
+  <form id="filters" method="get" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Search</span>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Name, username, email…"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+      <select name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All sites</option>
+        {% for s in sites %}
+          <option value="{{ s.pk }}" {% if filters.site == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+        {% include "pipeline/_unknown_site_option.html" %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Role</span>
+      <select name="role" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any</option>
+        {% for r in roles %}
+          <option value="{{ r.value }}" {% if filters.role == r.value %}selected{% endif %}>{{ r.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Pipeline access</span>
+      <select name="active" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Either</option>
+        <option value="yes" {% if filters.active == 'yes' %}selected{% endif %}>Active</option>
+        <option value="no" {% if filters.active == 'no' %}selected{% endif %}>Deactivated</option>
+      </select>
+    </label>
+    {% comment %}The Access import's own records — access_nicolas_curdy and the
+    rest — are Members with no login. They are attached to real historical
+    sessions so they cannot be deleted, and they are not people who sign in, so
+    they are out of the way by default rather than gone. The count of what is
+    hidden goes on the chip: a short list that does not say it is short reads as
+    the whole list.{% endcomment %}
+    <label class="flex items-center gap-2 text-sm text-gray-700 lg:col-span-2">
+      <input type="checkbox" name="imported" value="yes" class="rounded border-gray-300"
+             {% if filters.imported == 'yes' %}checked{% endif %}>
+      <span>Also show records imported from Access
+        <span class="block text-xs text-gray-500">Historical people with no login,
+        kept because sessions point at them.</span>
+      </span>
+    </label>
+    <div class="flex items-end gap-3 lg:col-span-4">
+      <button type="submit" class="px-5 py-2 rounded-lg bg-gray-900 text-white font-semibold">Apply</button>
+      <a href="{% url 'pipeline:user_board' %}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+      <span id="row-count" class="ml-auto text-sm text-gray-500"></span>
+    </div>
+  </form>
+
+  {# ── Save errors ── #}
+  <div id="board-error"
+       class="hidden mt-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  {# ── The password receipt: shown once, never stored, never logged ── #}
+  <div id="pw-box" class="hidden mt-3 border border-emerald-200 bg-emerald-50 rounded-lg px-4 py-3 text-sm"
+       role="status" aria-live="polite"></div>
+
+  {# ── Grid ── #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mt-3">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0 z-10">
+          <tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            <th class="px-3 py-2 sticky left-0 bg-gray-50 z-20"><span class="help" title="The username is what links the login to the pipeline record. It is not editable here — changing it would break that link.">Person</span></th>
+            <th class="px-3 py-2"><span class="help" title="Which bench their records are filed under. Click to change.">Site</span></th>
+            <th class="px-3 py-2"><span class="help" title="What they do here. This is the pipeline permission — everybody needs one.">Role</span></th>
+            <th class="px-3 py-2"><span class="help" title="Whether they can sign in at all: a login account exists, it is active, and it has a password. Reset the password if they cannot.">Sign in</span></th>
+            <th class="px-3 py-2"><span class="help" title="Whether the pipeline lets them in once signed in: a pipeline record plus active access.">Pipeline</span></th>
+            <th class="px-3 py-2"><span class="help" title="Where password resets and notifications would go. Click to change.">Email</span></th>
+            <th class="px-3 py-2"><span class="help" title="The last time they actually signed in.">Last seen</span></th>
+            <th class="px-3 py-2">Password</th>
+          </tr>
+        </thead>
+        <tbody id="grid" class="divide-y divide-gray-100">
+          <tr><td colspan="8" class="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% comment %}The same pager the other four boards carry — hidden while
+    everything fits, which today it does.{% endcomment %}
+    <div id="row-pager"
+         class="hidden flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-gray-200 bg-gray-50"></div>
+  </div>
+  <p class="text-xs text-gray-400 mt-2">
+    The <b>username</b> is not editable: it is the only thing linking the login to
+    the pipeline record, so retyping it here would cut a working account in half.
+    Somebody whose records were imported before they had a login can be joined up
+    with <span class="font-mono">pipeline_users add --from-username</span>.
+  </p>
+
+</div>
+
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  const csrf = "{{ csrf_token }}";
+  const ME = "{{ me|escapejs }}";
+  const rowsUrl  = "{% url 'pipeline:user_board_rows' %}";
+  const patchUrl = "{% url 'pipeline:user_board_patch' %}";
+  const checkUrl = "{% url 'pipeline:user_board_check' %}";
+  const commitUrl = "{% url 'pipeline:user_board_commit' %}";
+  const pwUrl    = "{% url 'pipeline:user_reset_password' %}";
+
+  const {esc, pill, formQuery, banner} = OGABoard;
+  const grid = document.getElementById('grid');
+  const filtersForm = document.getElementById('filters');
+  const cell = (row, field, value, opts = {}) =>
+    OGABoard.cell(row.id, field, value, {}, opts);
+
+  const ROLES = JSON.parse(document.getElementById('roles-json').textContent);
+  // Set by afterLoad before setCount runs, so the chip can say what it omits.
+  let hiddenNote = '';
+
+  /* The two halves, said in words rather than as a tick.
+   *
+   * "Can this person work?" is the question this page exists to answer, and it
+   * is two separate answers that look identical when they fail. So each column
+   * says which of its parts is missing rather than showing a red cross. */
+  function signIn(r) {
+    if (!r.login_exists) return pill('no login', 'bad') + '<span class="block text-xs text-gray-400 mt-0.5">nothing to sign in with</span>';
+    if (!r.login_active) return pill('deactivated', 'bad') + '<span class="block text-xs text-gray-400 mt-0.5">the right password still fails</span>';
+    if (!r.has_password) return pill('no password', 'bad') + '<span class="block text-xs text-gray-400 mt-0.5">reset it →</span>';
+    return pill('yes', 'good');
+  }
+  function pipelineHalf(r) {
+    if (!r.pipeline_user) return pill('no record', 'bad') + '<span class="block text-xs text-gray-400 mt-0.5">Access Denied on every page</span>';
+    /* Clickable, because turning access off and on again IS the membership
+     * action — the column reported it and offered no way to change it, which
+     * left deactivating somebody on the command line. */
+    return `<button class="toggle" data-target="${r.id}" data-field="is_active"
+            data-value="${r.is_active ? '' : 'yes'}" aria-pressed="${r.is_active ? 'true' : 'false'}"
+            aria-label="Pipeline access for ${esc(r.username)}: ${r.is_active ? 'active' : 'deactivated'}. Click to ${r.is_active ? 'take it away' : 'give it back'}."
+            title="Pipeline access — currently ${r.is_active ? 'active' : 'deactivated'}. Click to change.">
+            ${r.is_active ? pill('yes', 'good') : pill('deactivated', 'bad')}</button>`;
+  }
+
+  function rowHtml(r) {
+    const isMe = r.username === ME;
+    return `<tr data-row="${r.id}" class="hover:bg-gray-50 align-top">
+      <td class="px-3 py-2 sticky left-0 bg-white">
+        <span class="font-semibold text-gray-900">${esc(r.name) || OGABoard.DASH}</span>
+        ${isMe ? pill('you', 'cool') : ''}
+        ${r.is_superuser ? pill('superuser', 'warn') : ''}
+        <span class="block text-xs text-gray-400 font-mono">${esc(r.username)}</span>
+      </td>
+      <td class="px-3 py-2">${cell(r, 'site', r.site, {label: 'site', empty: 'set site'})}</td>
+      <td class="px-3 py-2">${cell(r, 'role', r.role, {label: 'role', empty: 'set role'})}</td>
+      <td class="px-3 py-2">${signIn(r)}</td>
+      <td class="px-3 py-2">${pipelineHalf(r)}</td>
+      <td class="px-3 py-2 text-gray-600">${cell(r, 'email', r.email, {label: 'email', empty: 'add an email'})}</td>
+      <td class="px-3 py-2 text-gray-500 text-xs">${esc(r.last_login) || OGABoard.DASH}</td>
+      <td class="px-3 py-2">
+        <button type="button" class="pw text-xs font-semibold text-ycharos-700 hover:underline"
+                data-member="${r.id}" data-username="${esc(r.username)}"
+                ${r.login_exists ? '' : 'disabled title="No login account to reset"'}>
+          Reset…</button>
+      </td>
+    </tr>`;
+  }
+
+  const errors = banner('board-error', 'board-error-text', 'board-error-close');
+  const board = OGABoard.create({
+    grid, filtersForm, errors, csrf,
+    countEl: document.getElementById('row-count'),
+    pagerEl: document.getElementById('row-pager'),
+    urls: {rows: rowsUrl, patch: patchUrl},
+    colspan: 8,
+    emptyMessage: 'Nobody matches these filters.',
+    countLabel: n => OGABoard.plural(n, 'person', 'people') + hiddenNote,
+    rowHtml,
+    afterLoad: d => {
+      hiddenNote = d.hidden_imported
+        ? ` · ${d.hidden_imported} imported ${d.hidden_imported === 1 ? 'record' : 'records'} hidden`
+        : '';
+    },
+  });
+  const load = board.load;
+
+  /* The password, shown once.
+   *
+   * It is handed back by the endpoint and never stored, never logged and never
+   * put in the row payload — so this box is the only place it will ever appear.
+   * Say that, or somebody closes it expecting to look it up later. */
+  const pwBox = document.getElementById('pw-box');
+  grid.addEventListener('click', async ev => {
+    const btn = ev.target.closest('button.pw');
+    if (!btn || btn.disabled) return;
+    const who = btn.dataset.username;
+    const typed = window.prompt(
+      `Set a password for ${who}.\n\n` +
+      `Leave it blank and one will be generated. It is shown once and cannot be ` +
+      `looked up afterwards — copy it before you close the message.`, '');
+    if (typed === null) return;
+    const fd = new FormData();
+    fd.append('member_id', btn.dataset.member);
+    fd.append('password', typed);
+    const d = await OGABoard.requestJson(pwUrl,
+      {method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd}, errors.show);
+    if (!d) return;
+    pwBox.classList.remove('hidden');
+    pwBox.innerHTML = `<b>Password set for ${esc(who)}.</b>
+      <span class="block mt-1">Give them this, and ask them to change it after they
+      sign in. It is <b>not stored anywhere</b> — once this message is gone it
+      cannot be looked up.</span>
+      <code class="block mt-2 px-3 py-2 bg-white border border-emerald-300 rounded font-mono text-base select-all">${esc(d.password)}</code>`;
+    pwBox.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    load();
+  });
+
+  /* Add people — the same pop-out, the same preview, the same commit. */
+  const newEntry = OGABoard.newEntry({
+    mount: document.getElementById('new-panel'),
+    csrf,
+    columns: JSON.parse(document.getElementById('new-columns').textContent),
+    example: JSON.parse(document.getElementById('new-example').textContent),
+    rows: 5,
+    urls: {preview: checkUrl, commit: commitUrl},
+    commitLabel: d => {
+      const n = ((d && d.summary) || {}).create || 0;
+      return n ? `Give ${OGABoard.plural(n, 'person', 'people')} access` : '';
+    },
+    intro: `<b class="text-gray-900">Add people to the pipeline.</b>
+            One row each. This creates all three records together — the login, the
+            pipeline record and the access — so nobody ends up half-made.
+            <span class="block mt-2 text-gray-500">If a login already exists for
+            that username it is <b>kept and linked</b>, never overwritten, and its
+            password is left alone. For a new login, type a <b>password</b> or
+            leave the column blank and one is generated — either way it is shown
+            once when you save, and can be read out straight away.</span>
+            <span class="block mt-1 text-gray-500">Roles: ${ROLES.map(r => r.value).join(', ')}.
+            Site is a short code or a name.</span>`,
+    buildBody: (text) => ({text}),
+    renderPreview: d => {
+      const s = d.summary || {};
+      return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <p class="font-semibold text-gray-900">${OGABoard.plural(s.rows || 0, 'row')} read.</p>
+        <ul class="mt-1 text-gray-700 list-disc list-inside">
+          <li>${s.create || 0} to add, ${s.update || 0} already here (site and role updated)</li>
+          ${(s.sites || []).length ? `<li>Sites: ${s.sites.map(esc).join(', ')}</li>` : ''}
+          ${s.blocked ? `<li class="text-amber-800">${s.blocked} cannot be added — see the rows below</li>` : ''}
+        </ul></div>
+        ${OGABoard.previewRows(d.items, i =>
+            [i.username, i.name, i.site, i.role].filter(Boolean).join(' · '))}`;
+    },
+    renderResult: d => {
+      const r = d.result || {};
+      const pw = (r.passwords || []).map(p =>
+        `<li><b>${esc(p.username)}</b> — <code class="font-mono select-all">${esc(p.password)}</code></li>`).join('');
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} added, ${(r.updated || []).length} updated.
+        ${(r.skipped || []).length ? `<br>${r.skipped.length} skipped: ${
+          r.skipped.map(s => esc(s.username || '(row)')).join(', ')}.` : ''}
+        ${pw ? `<div class="mt-2"><b>New passwords — shown once, not stored anywhere:</b>
+          <ul class="mt-1 list-disc list-inside">${pw}</ul>
+          <span class="block text-xs mt-1">Copy them now and share them securely.</span></div>` : ''}
+      </div>`;
+    },
+    afterResult: () => load(),
+  });
+  document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  load();
+})();
+</script>
+{% endblock %}

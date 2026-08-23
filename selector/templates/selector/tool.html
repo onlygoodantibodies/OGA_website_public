@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+{% load static %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Antibody &amp; Controls Selection Support — Only Good Antibodies</title>
+<meta name="description" content="A free step-by-step tool from Only Good Antibodies that helps you choose an antibody and the knockout-controlled validation that proves it for your target and application. An early prototype.">
+<link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+<link rel="stylesheet" href="{% static 'core/styles.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#10428a; --brand-d:#0d2b5e; --brand-l:#e8f1fa;
+    --ink:#333; --muted:#555; --line:#e2e8f0; --bg:#f4f4f4;
+    --amber:#b45309; --amber-bg:#fef3c7; --red:#b91c1c; --card:#ffffff;
+    --radius:12px; --shadow:0 4px 15px rgba(0,0,0,.08),0 8px 24px rgba(16,66,138,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:'Open Sans',sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand-d)}
+  .wrap{max-width:780px;margin:0 auto;padding:20px 18px 80px}
+  header.top{display:flex;align-items:center;gap:12px;padding:6px 2px 14px}
+  header.top img{width:38px;height:38px;border-radius:8px}
+  header.top .t{font-weight:700;font-size:15px}
+  header.top .s{color:var(--muted);font-size:12.5px}
+  .badge{margin-left:auto;font-size:11px;font-weight:600;color:var(--brand-d);
+    background:var(--brand-l);padding:4px 9px;border-radius:999px;white-space:nowrap}
+
+  .progress{display:flex;gap:6px;margin:2px 2px 6px}
+  .progress .seg{flex:1;height:6px;border-radius:4px;background:var(--line)}
+  .progress .seg.done{background:var(--brand)}
+  .progress .seg.cur{background:var(--brand);opacity:.55}
+  .plabels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:0 2px 16px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:26px 24px}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);margin:0 0 8px}
+  h1.q{font-size:23px;line-height:1.28;margin:0 0 10px;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14.5px;margin:0 0 20px}
+  .body{font-size:14.5px}
+  .body p{margin:0 0 12px}
+  .body ul{margin:0 0 12px;padding-left:20px}
+  .body li{margin:0 0 7px}
+
+  .opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;
+    background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:14px 15px;
+    margin:0 0 10px;cursor:pointer;font:inherit;color:inherit;transition:.12s}
+  .opt:hover{border-color:var(--brand);background:#fbfdfc}
+  .opt.sel{border-color:var(--brand);background:var(--brand-l);box-shadow:0 0 0 2px rgba(16,66,138,.15)}
+  .opt .dot{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--line);margin-top:1px}
+  .opt.sel .dot{border-color:var(--brand);background:var(--brand);box-shadow:inset 0 0 0 3px #fff}
+  .opt.multi .dot{border-radius:6px}
+  .opt .ol{display:block;font-weight:600;font-size:15px}
+  .opt .od{display:block;color:var(--muted);font-size:13px;margin-top:3px}
+
+  input[type=text],input[type=email],select,textarea{width:100%;font:inherit;color:inherit;
+    padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(16,66,138,.13)}
+  label.fl{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+
+  .info{border-left:4px solid var(--brand);background:var(--brand-l);border-radius:0 10px 10px 0;padding:13px 15px;margin:0 0 14px;font-size:14px}
+  .info.amber{border-color:var(--amber);background:var(--amber-bg);color:#5c3d00}
+  .info .h{font-weight:700;margin-bottom:4px}
+  .callout{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:0 0 12px;background:#fbfdfc;font-size:13.5px}
+  .callout .ic{flex:none;font-size:18px;line-height:1.2}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px}
+  .tag.ok{background:#e4f3ec;color:var(--brand-d)} .tag.warn{background:var(--amber-bg);color:var(--amber)}
+
+  /* toggle rows (species etc.) */
+  .seg-toggle{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg-toggle button{font:inherit;background:#fff;border:none;padding:9px 15px;cursor:pointer;color:var(--muted)}
+  .seg-toggle button.on{background:var(--brand);color:#fff;font-weight:600}
+
+  /* pillar cards */
+  .pcard{border:1.5px solid var(--line);border-radius:12px;padding:14px 15px;margin:0 0 11px;background:#fff;cursor:pointer;transition:.12s}
+  .pcard:hover{border-color:var(--brand);background:#fbfdfc}
+  .pcard.sel{border-color:var(--brand);background:var(--brand-l);box-shadow:0 0 0 2px rgba(16,66,138,.13)}
+  .pcard .ph{display:flex;align-items:center;gap:10px}
+  .pcard .chk{flex:none;width:20px;height:20px;border-radius:6px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
+  .pcard.sel .chk{border-color:var(--brand);background:var(--brand)}
+  .pcard .pn{font-weight:700;font-size:15px}
+  .pcard .pill{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);background:#eef2f0;border-radius:999px;padding:2px 8px}
+  .pcard .sug{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#fff;background:var(--brand);border-radius:999px;padding:2px 7px}
+  .pcard .cost{margin-left:auto;font-size:12px;font-weight:700;color:var(--brand-d);white-space:nowrap}
+  .pcard .prow{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.45}
+  .pcard .prow b{color:var(--ink)}
+  .stagelabel{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);margin:16px 0 8px}
+
+  /* recommended protocol */
+  .proto{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 0 14px}
+  .proto .ph{background:var(--brand);color:#fff;padding:11px 15px;font-weight:700;font-size:14px}
+  .proto .pb{padding:14px 15px}
+  .proto .step{display:flex;gap:11px;margin:0 0 12px}
+  .proto .step:last-child{margin-bottom:0}
+  .proto .num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--brand-l);color:var(--brand-d);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .proto .sc b{font-size:14px} .proto .sc .d{font-size:13px;color:var(--muted);margin-top:2px}
+  .proto .sc .res{font-size:12.5px;margin-top:4px;color:var(--brand-d)}
+  .gapline{font-size:13px;color:var(--amber);background:var(--amber-bg);border-radius:8px;padding:8px 11px;margin-top:8px}
+
+  .nav{display:flex;align-items:center;gap:14px;margin-top:22px}
+  .btn{background:var(--brand);color:#fff;border:none;border-radius:11px;padding:12px 22px;font:inherit;font-weight:600;font-size:15px;cursor:pointer;transition:.12s}
+  .btn:hover{background:var(--brand-d)} .btn[disabled]{opacity:.4;cursor:not-allowed}
+  .back{color:var(--muted);cursor:pointer;font-size:14px;background:none;border:none;font:inherit}
+  .back:hover{color:var(--ink)} .spacer{flex:1}
+
+  .lookup{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
+  .sumsec{border-top:1px solid var(--line);padding:13px 0}
+  .sumsec h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--brand)}
+  .kv{display:flex;gap:10px;font-size:14px;margin:3px 0}
+  .kv .k{color:var(--muted);min-width:150px;flex:none}
+  .muted{color:var(--muted)} .small{font-size:12.5px}
+  .disc{font-size:12px;color:var(--muted);margin-top:18px;text-align:center;line-height:1.5}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* site-consistent hero band above the wizard */
+  .sel-hero{background:linear-gradient(160deg,#0d2b5e 0%,#10428a 45%,#4a8ec9 100%);
+    color:#fff;text-align:center;padding:44px 20px 40px}
+  .sel-hero h1{color:#fff;text-align:center;font-size:clamp(1.6rem,4vw,2.2rem);
+    font-weight:800;letter-spacing:-.3px;margin:12px auto 8px;max-width:640px}
+  .sel-hero p{color:#eaf1fb;max-width:600px;margin:0 auto;font-size:1rem;line-height:1.55}
+  .sel-pill{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+    color:#fff;border-radius:100px;padding:5px 14px;font-size:.72rem;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase}
+
+  /* styles.css (loaded for the shared header/footer) centres & recolours every
+     h1–h6 and sets p,li to 1.1rem — keep those globals out of the wizard's own
+     type scale (its component classes stay untouched) */
+  .wrap h1,.wrap h2,.wrap h3,.wrap h4,.wrap h5{text-align:left}
+  h1.q{color:var(--ink)}
+  .wrap p,.wrap li{font-size:14.5px;line-height:1.5}
+  .wrap p.disc{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+{% include 'core/header.html' %}
+
+<section class="sel-hero">
+  <span class="sel-pill">Prototype</span>
+  <h1>Antibody &amp; Controls Selection Support</h1>
+  <p>Answer a few questions and get a target-specific plan: which antibody to choose, the
+     knockout-controlled validation that proves it, and the controls to run — grounded in
+     independent YCharOS characterisation data.</p>
+</section>
+
+<div class="wrap">
+  <div class="progress" id="progress"></div>
+  <div class="plabels" id="plabels"></div>
+
+  <div id="stage"></div>
+
+  {% comment %}
+  The tool surfaces OGA recommendations ("3 WB recommended", and a link to the
+  gene page), so it owes the reader the same sentence the gene page does. This
+  paragraph had its own half of it — "antibody performance is protocol- and
+  sample-specific" — which is a fourth hand-typed copy of a caveat with one
+  writer, and it stopped short of the half that matters to somebody planning a
+  different assay. The steer and the contact line are this page's own and stay.
+  {% endcomment %}
+  <p class="disc">
+    Decision support only — always confirm with your own controls.
+    {% include 'core/_recommendation_caveat.html' %}
+    For a hard target or
+    access to wild-type/knockout material, <a href="https://onlygoodantibodies.co.uk/contact/" target="_blank" rel="noopener">contact the OGA team</a>.
+  </p>
+</div>
+
+<script>
+  window.SEL = {
+    lookupUrl: "{% url 'selector:gene_lookup' %}",
+    recordUrl: "{% url 'selector:record_plan' %}",
+    privacyUrl: "{% url 'privacy_policy' %}",
+    csrf: "{{ csrf_token }}",
+    pack: "{{ pack_version|escapejs }}"
+  };
+</script>
+{{ gene_suggestions|json_script:"gene-suggestions" }}
+
+<script>{% verbatim %}
+(function(){
+"use strict";
+
+var GENES = [];
+try { GENES = JSON.parse(document.getElementById("gene-suggestions").textContent) || []; } catch(e){}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
+function el(html){ var d=document.createElement("div"); d.innerHTML=html.trim(); return d.firstChild; }
+function link(url,txt){ return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(txt||url)+'</a>'; }
+
+// ---------- state ----------
+var A = {
+  target_gene:"", protein_name:"", uniprot_id:"", mass_kda:null,
+  oga:null, depmap:null, horizon_ko:null, proteomics:null,
+  species:"human",
+  application:"", sample_types:[], location:"",
+  cell_line:"", cell_line_note:"",
+  feasible_pillars:[], essential:false, _presuggested:false,
+  ptm:false, ptm_control:"", budget:"",
+  record_mode:"compliance", who_name:"", who_email:"", who_inst:"",
+  antibody:{vendor:"",catalogue:"",clone:"",rrid:"",clonality:"",host:""}
+};
+
+// Consumer mailbox providers — a compliance record needs institutional
+// affiliation, so these are rejected client-side (the server re-checks).
+var FREE_EMAIL_DOMAINS = {"gmail.com":1,"googlemail.com":1,"yahoo.com":1,"yahoo.co.uk":1,
+  "ymail.com":1,"hotmail.com":1,"hotmail.co.uk":1,"hotmail.fr":1,"outlook.com":1,"live.com":1,
+  "live.co.uk":1,"msn.com":1,"icloud.com":1,"me.com":1,"mac.com":1,"aol.com":1,"protonmail.com":1,
+  "proton.me":1,"pm.me":1,"gmx.com":1,"mail.com":1,"yandex.com":1,"zoho.com":1,"qq.com":1,
+  "163.com":1,"hey.com":1,"fastmail.com":1};
+function isInstitutionalEmail(email){
+  email=(email||"").trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return false;
+  return !FREE_EMAIL_DOMAINS[email.split("@").pop()];
+}
+function complianceReady(){
+  return !!(A.who_name.trim() && A.who_inst.trim() && isInstitutionalEmail(A.who_email));
+}
+var GUIDANCE=[];
+function guide(t){ if(GUIDANCE.indexOf(t)<0) GUIDANCE.push(t); }
+
+var L = {
+  ycharos:"https://ycharos.com/data/", benchsci:"https://app.benchsci.com/",
+  citeab:"https://www.citeab.com/", hcdm:"https://www.hcdm.org/",
+  depmap:"https://depmap.org/portal/", passports:"https://cellmodelpassports.sanger.ac.uk/",
+  hpa:"https://www.proteinatlas.org/", addgene:"https://www.addgene.org/",
+  origene:"https://www.origene.com/", horizon:"https://horizondiscovery.com/",
+  elife:"https://doi.org/10.7554/eLife.91645",
+  flowguide:"https://blog.addgene.org/antibody-validation-for-flow-cytometry"
+};
+
+function appName(a){ return ({WB:"western blot",IP:"immunoprecipitation",IF:"immunofluorescence / ICC",
+  FC:"flow cytometry",IHC:"IHC",ELISA:"ELISA",other:"your application"})[a]||a||"your application"; }
+function isImaging(a){ return a==="FC"||a==="IF"||a==="IHC"; }
+
+// ---------- sample options are application-specific ----------
+// Meeting 24 Jul 2026: "after the application there should be fewer options" —
+// each technique shows only the sample types that make sense for it. The value
+// keys stay in the shared vocabulary (cell_line/primary_cells/tissue/blood/
+// fluid/other) so the downstream funnel + protocol logic keeps working.
+var SAMPLE_OPTS = {
+  cell_line:     {v:"cell_line",     ol:"Cell line",               od:"immortalised / cancer lines"},
+  primary_cells: {v:"primary_cells", ol:"Primary cells",           od:"freshly isolated cells"},
+  tissue:        {v:"tissue",        ol:"Tissue (FFPE or frozen)", od:"patient or animal tissue"},
+  blood:         {v:"blood",         ol:"Blood / mixed leukocytes",od:"PBMC, whole blood"},
+  fluid:         {v:"fluid",         ol:"Body fluid / secreted",   od:"serum, plasma, media"},
+  other:         {v:"other",         ol:"Other",                   od:""}
+};
+var SAMPLE_BY_APP = {
+  WB:   ["cell_line","primary_cells","tissue","fluid","other"],
+  IP:   ["cell_line","primary_cells","tissue","fluid","other"],
+  FC:   ["cell_line","primary_cells","blood","tissue","other"],
+  IF:   ["cell_line","primary_cells","tissue","other"],
+  IHC:  ["tissue","cell_line","other"],
+  ELISA:["fluid","cell_line","other"],
+  other:["cell_line","primary_cells","tissue","blood","fluid","other"]
+};
+// per-technique relabels where the generic wording doesn't fit
+var SAMPLE_RELABEL = {
+  FC:    { tissue:{ol:"Dissociated tissue",od:"single-cell suspension"} },
+  IHC:   { cell_line:{ol:"Cell pellet / microarray",od:"fixed & embedded like tissue"} },
+  ELISA: { fluid:{ol:"Blood / plasma / serum",od:"circulating or secreted"},
+           cell_line:{ol:"Cell or tissue lysate",od:"tissue / cell ELISA"} }
+};
+function sampleKeys(app){ return SAMPLE_BY_APP[app] || SAMPLE_BY_APP.other; }
+function sampleOptions(app){
+  var rel = SAMPLE_RELABEL[app] || {};
+  return sampleKeys(app).map(function(k){
+    var o = SAMPLE_OPTS[k], r = rel[k];
+    return r ? {v:o.v, ol:(r.ol||o.ol), od:(r.od!=null?r.od:o.od)} : o;
+  });
+}
+
+// ---------- pillars (the validation approaches, grounded in the OGA flow-cytometry guide) ----------
+// stage 1 = confirm the antibody detects the target (screen in a tractable system)
+// stage 2 = confirm the signal is your target in YOUR sample of interest
+var PILLARS = [
+ { key:"knockout", name:"Knockout (KO)", pillar:"Genetic", stage:1, cost:"££–£££",
+   control:"Negative control — the KO has no protein, so a genuine signal must disappear there; wild-type is the paired positive. The definitive selectivity control.",
+   strength:"The gold standard — signal present in wild-type, gone in the KO, proves detection at endogenous levels.",
+   weakness:"Needs a cell line that expresses the target; not possible for essential genes; ~30% of commercial KOs retain a truncated / splice-variant protein — know your control.",
+   costnote:"A ready-made KO line (Horizon / Abcam) if one exists, otherwise CRISPR effort in-house." },
+ { key:"knockdown", name:"Knockdown (siRNA / shRNA)", pillar:"Genetic", stage:1, cost:"££",
+   control:"Negative control (partial) — the signal should drop when the target is knocked down versus a scrambled / untreated positive. Confirm the knockdown by RT-qPCR: without it, a signal that stays put could be a non-specific antibody or just a failed knockdown, and you cannot tell which.",
+   strength:"Works when a KO isn't feasible (e.g. essential genes). siRNA is transient and quick; shRNA gives a stable line.",
+   weakness:"Often incomplete — confirm the RNA knockdown by RT-qPCR; RNAi has its own off-target problems.",
+   costnote:"siRNA is affordable and realistic for most PhD projects." },
+ { key:"tagged", name:"Tagged / over-expression", pillar:"Tagged expression", stage:1, cost:"£–££",
+   control:"Positive control — over-expressing cells prove the antibody can detect the protein (present vs the parental line as the negative). Shows detection, not selectivity at endogenous levels.",
+   strength:"Definitely expresses the target — a strong screen that also tells you the expected signal/size. Good for hard or low-expression targets.",
+   weakness:"Supraphysiological levels can flatter a mediocre antibody; best in a line that doesn't already express the target; doesn't prove endogenous detection.",
+   costnote:"An Addgene plasmid is ~£90–100 (clone once, unlimited lysate); an OriGene lysate ~£200." },
+ { key:"orthogonal", name:"Orthogonal (omics correlation)", pillar:"Orthogonal", stage:2, cost:"£",
+   control:"A graded positive/negative comparison — signal should be high where omics say expression is high and low where it's low. No genetic control needed.",
+   strength:"Antibody-independent. Correlate staining with RNA-seq / proteomics across samples of differing expression.",
+   weakness:"Needs samples with variable expression; correlation is supportive, not proof; doesn't exclude non-specific binding.",
+   costnote:"Uses public data (DepMap / Cell Model Passports) — we surface expressing lines for you." },
+ { key:"independent", name:"Independent antibody", pillar:"Independent antibody", stage:2, cost:"££",
+   control:"Corroboration, not a control: a second antibody to a different epitope should give the same pattern (beware two antibodies sharing an off-target).",
+   strength:"Two antibodies to different epitopes showing the same pattern is supportive. No genetic work.",
+   weakness:"Epitope sequences are often undisclosed; two antibodies sharing an off-target can mislead.",
+   costnote:"Cost of a second antibody — free samples can help you screen." },
+ { key:"cell_treatment", name:"Cell treatment", pillar:"Functional", stage:2, cost:"£",
+   control:"A matched positive/negative pair in the same cells — inducing the target should raise the signal, suppressing it should lower it.",
+   strength:"Induce or suppress the target (e.g. PMA, a cytokine) and expect the staining to shift in the same cells.",
+   weakness:"Treatments change many proteins, not only yours.",
+   costnote:"Cheap if a known modulator exists for your target." }
+];
+function pillar(k){ for(var i=0;i<PILLARS.length;i++) if(PILLARS[i].key===k) return PILLARS[i]; return null; }
+function pname(k){ var p=pillar(k); return p?p.name:k; }
+
+// ---------- step graph ----------
+var SECTIONS=[["target","Target"],["experiment","Experiment"],["pillars","Pillars"],["plan","Plan"]];
+
+var STEPS = {
+
+intro:{ sect:"target", render:function(){ return {
+  eyebrow:"Antibody &amp; controls selection",
+  q:"Choose an antibody and the controls that prove it works.",
+  body:
+   "<p>Tell us your target, your technique, and what you can do in the lab. "+
+   "The tool suggests an antibody and produces a "+
+   "<b>recommended validation protocol</b> you can download as a PDF.</p>"+
+   "<div class='callout'><span class='ic'>🎯</span><div>Validation compares <b>protein present vs "+
+   "protein absent</b>, as close to your real sample as possible. The plan is built around "+
+   "the controls that are feasible in your lab.</div></div>"+
+   "<div class='callout'><span class='ic'>🔒</span><div>Using this tool creates a <b>record of your plan</b> "+
+   "(downloadable as a PDF) that OGA keeps and may share with your funder as evidence of good practice — "+
+   "you'll see exactly what's recorded before you save.</div></div>",
+  cta:"Start"
+}; }, next:function(){ return "gene"; } },
+
+// ===== TARGET =====
+gene:{ sect:"target", render:function(){
+  guide("Antibody class: prefer recombinant, then monoclonal — the top performers in the eLife testing data were recombinant, with the best batch-to-batch reproducibility. Polyclonal last.");
+  return {
+  eyebrow:"Your target",
+  q:"Which protein are you validating an antibody for?",
+  sub:"Enter the gene symbol — we'll map it (UniProt), check the OGA database, and surface our recommended antibodies for you.",
+  body:
+   "<div class='info'><div class='h'>Choosing the antibody — prefer recombinant</div>"+
+   "Where you have a choice, prefer <b>recombinant → monoclonal → polyclonal</b>. Recombinants gave the best "+
+   "batch-to-batch reproducibility in the "+link(L.elife,"eLife testing data")+". Enter your target and we'll "+
+   "show what OGA already recommends.</div>",
+  custom:function(root){
+    var opts = GENES.slice(0,600).map(function(g){return '<option value="'+esc(g)+'">';}).join("");
+    root.appendChild(el(
+      '<div><input id="gene" type="text" list="genelist" autocomplete="off" placeholder="e.g. SNCA, TERT, MMP7" value="'+esc(A.target_gene)+'">'+
+      '<datalist id="genelist">'+opts+'</datalist>'+
+      '<label class="fl" style="margin-top:16px">Species</label>'+
+      '<div class="seg-toggle" id="sp">'+
+        '<button data-v="human" class="'+(A.species==="human"?"on":"")+'">Human</button>'+
+        '<button data-v="other" class="'+(A.species==="other"?"on":"")+'">Other / non-human</button>'+
+      '</div>'+
+      '<label class="fl" style="margin-top:16px">Can the target be knocked out?</label>'+
+      '<div class="seg-toggle" id="es">'+
+        '<button data-v="ok" class="'+(!A.essential?"on":"")+'">Yes / not sure</button>'+
+        '<button data-v="essential" class="'+(A.essential?"on":"")+'">No — it’s essential</button>'+
+      '</div>'+
+      '<label class="fl" style="margin-top:16px">Is it modification-specific?</label>'+
+      '<div class="seg-toggle" id="pt">'+
+        '<button data-v="no" class="'+(!A.ptm?"on":"")+'">No — total protein</button>'+
+        '<button data-v="yes" class="'+(A.ptm?"on":"")+'">Yes — a PTM (e.g. phospho-)</button>'+
+      '</div>'+
+      '<div class="lookup" id="lk"></div></div>'));
+    var inp=root.querySelector("#gene"); inp.focus();
+    var t; inp.addEventListener("input", function(){ clearTimeout(t); t=setTimeout(doLookup,450); });
+    inp.addEventListener("change", doLookup);
+    root.querySelectorAll("#sp button").forEach(function(b){
+      b.onclick=function(){ A.species=b.getAttribute("data-v");
+        root.querySelectorAll("#sp button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on");
+        A._presuggested=false; renderLk(); };
+    });
+    root.querySelectorAll("#es button").forEach(function(b){
+      b.onclick=function(){ A.essential=(b.getAttribute("data-v")==="essential");
+        root.querySelectorAll("#es button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on");
+        if(A.essential){ var i=A.feasible_pillars.indexOf("knockout"); if(i>=0) A.feasible_pillars.splice(i,1); }
+        renderLk(); };
+    });
+    root.querySelectorAll("#pt button").forEach(function(b){
+      b.onclick=function(){ A.ptm=(b.getAttribute("data-v")==="yes");
+        root.querySelectorAll("#pt button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on");
+        renderLk(); };
+    });
+    function doLookup(){
+      var g=inp.value.trim(); if(!g){ set(""); return; }
+      if(g.toUpperCase()===(A.target_gene||"").toUpperCase() && A.oga){ renderLk(); return; }
+      A.target_gene=g; set('<span class="spin"></span> mapping gene &amp; checking OGA data…');
+      fetch(SEL.lookupUrl+"?gene="+encodeURIComponent(g)).then(function(r){return r.json();}).then(function(d){
+        A.oga=d.oga; A.protein_name=(d.uniprot&&d.uniprot.protein_name)||""; A.uniprot_id=(d.uniprot&&d.uniprot.uniprot_id)||"";
+        A.mass_kda=(d.uniprot&&d.uniprot.mass_kda)||null; A.depmap=d.depmap; A.horizon_ko=d.horizon_ko; A.proteomics=d.proteomics;
+        renderLk(); refreshCTA();
+      }).catch(function(){ set('<span class="muted">Couldn’t reach the database — you can still continue.</span>'); refreshCTA(); });
+    }
+    function set(h){ var e=root.querySelector("#lk"); if(e) e.innerHTML=h; }
+    function renderLk(){
+      var h="";
+      if(A.protein_name){ var m=A.mass_kda?" · ~"+A.mass_kda+" kDa":"";
+        h+='<div style="margin-bottom:8px"><span class="tag ok">UniProt</span> '+esc(A.protein_name)+esc(m)+'</div>'; }
+      if(A.oga && A.oga.in_dataset){
+        var rec=A.oga.recommended||{}, parts=[];
+        ["WB","IP","IF","FC"].forEach(function(k){ if(rec[k]) parts.push(rec[k]+" "+k); });
+        var recTxt = parts.length ? (' — <b>'+parts.join(", ")+'</b> recommended') : '';
+        h+='<div class="info"><div class="h">✓ In the OGA database'+recTxt+'</div>'+
+           'Knockout-controlled characterisation for '+esc(A.oga.canonical)+'. Start from our tested, '+
+           'recommended antibodies rather than screening from scratch — '+
+           link(A.oga.gene_page_url,"open the data & recommended antibodies")+'.</div>';
+      } else if(A.oga){
+        h+='<div class="info amber"><div class="h">Not yet in OGA — start from a recombinant</div>'+
+           'Not a verdict on the gene. Our steer: prefer a <b>recombinant</b> antibody (best batch-to-batch '+
+           'reproducibility in the '+link(L.elife,"eLife testing")+'), then look for genetic (KO/KD) validation on '+
+           link(L.ycharos,"YCharOS")+' or '+link(L.benchsci,"BenchSci")+' / '+link(L.citeab,"CiteAb")+
+           ' (filter verification to <b>genetic</b>). You can also '+
+           link("https://onlygoodantibodies.co.uk/contact/","nominate it")+' for characterisation.</div>';
+      }
+      var notes=[];
+      if(A.species==="other") notes.push('Non-human: fewer ready-made reagents, but you can genetically modify the cells — good for making your own KO/KD controls.');
+      if(A.ptm) notes.push('Modification-specific: on top of the usual controls you’ll need one showing the signal depends on the modification — we’ve added it to your plan.');
+      if(notes.length) h+='<div class="small muted" style="margin-top:4px">'+notes.join("<br>")+'</div>';
+      set(h);
+    }
+    if(A.oga) renderLk();
+  },
+  canProceed:function(){ var v=document.querySelector("#gene"); return v?v.value.trim().length>0:A.target_gene.length>0; },
+  commit:function(root){ var v=root.querySelector("#gene"); if(v) A.target_gene=v.value.trim(); }
+}; }, next:function(){ return "technique"; } },
+
+// ===== EXPERIMENT =====
+technique:{ sect:"experiment", render:function(){ return {
+  eyebrow:"Your experiment",
+  q:"Which technique will you use the antibody in?",
+  sub:"Performance is technique-specific — the antigen is presented differently in each.",
+  choose:"one", field:"application",
+  options:[
+    {v:"WB",ol:"Western blot",od:"denatured protein"},
+    {v:"FC",ol:"Flow cytometry",od:"cell-by-cell, surface or intracellular"},
+    {v:"IF",ol:"Immunofluorescence / ICC",od:"fixed cells"},
+    {v:"IHC",ol:"IHC",od:"tissue sections"},
+    {v:"IP",ol:"Immunoprecipitation",od:"native / folded protein"},
+    {v:"ELISA",ol:"ELISA",od:"plate-based"},
+    {v:"other",ol:"Other",od:""}
+  ]
+}; }, next:function(){ return "sample"; } },
+
+sample:{ sect:"experiment", render:function(){
+  var loc = isImaging(A.application);
+  // Drop any previously-picked samples that don't apply to the current technique
+  // (e.g. the user went back and switched WB → flow).
+  var allowed = sampleKeys(A.application);
+  A.sample_types = (A.sample_types||[]).filter(function(v){ return allowed.indexOf(v)>=0; });
+  return {
+  eyebrow:"Your experiment",
+  q:"What sample will you run it on?",
+  sub:"The choices below are the ones that fit "+esc(appName(A.application))+
+      ". Your controls need to match this — same cell type, same fixation, same protocol.",
+  choose:"many", field:"sample_types",
+  options:sampleOptions(A.application),
+  extra: loc ? {
+    field:"location", label:"Where is the epitope?",
+    options:[["surface","Cell surface"],["intracellular","Intracellular"],["","Not sure / both"]]
+  } : null
+}; }, next:function(){ return "cellline"; } },
+
+// ===== CELL MODEL =====
+cellline:{ sect:"experiment", render:function(){
+  guide("Cell-model step: choose a line that expresses the target so KO/KD/over-expression controls are meaningful. HAP1 is the go-to knockout background; DepMap RNA-seq shows which commonly used lines express the target, and we check for a ready-made Horizon HAP1 knockout.");
+  return {
+  eyebrow:"Your cell model",
+  q:"Which cell line will you build your controls in?",
+  sub:"Your positive and negative controls need a line that expresses "+esc(A.target_gene||"the target")+
+      ". We've pulled expression (DepMap RNA-seq) and ready-made knockout availability to help you choose — pick one, or decide later.",
+  custom:function(root){
+    var dm=A.depmap, hz=A.horizon_ko, thr=(dm&&dm.threshold)||0;
+    var wrap=el('<div></div>');
+
+    // candidate lines: HAP1 first (the KO background), then other expressing lines
+    var lines=[], seen={};
+    if(dm && dm.found && dm.hap1_tpm!=null){ lines.push({name:"HAP1", tpm:dm.hap1_tpm, hap1:true}); seen["HAP1"]=1; }
+    if(dm && dm.found && dm.expressing) dm.expressing.forEach(function(x){
+      if(!seen[x.name]){ lines.push({name:x.name, tpm:x.tpm}); seen[x.name]=1; } });
+
+    if(lines.length){
+      var koNote = (hz && hz.found && hz.count)
+        ? (hz.count+" ready-made Horizon HAP1 KO clone"+(hz.count==1?"":"s")+" available")
+        : "no ready-made Horizon HAP1 KO listed — you'd make one, or use a knockdown";
+      wrap.appendChild(el('<div class="small muted" style="margin-bottom:8px">Commonly used lines expressing '+
+        esc(A.target_gene||"the target")+' (DepMap RNA-seq, TPM). HAP1 is the usual knockout background — for '+
+        esc(A.target_gene||"this target")+', '+esc(koNote)+'.</div>'));
+      lines.forEach(function(o){
+        var sel=A.cell_line===o.name;
+        var badge = o.hap1 ? '<span class="tag ok">KO background</span> ' : '';
+        var low = (o.hap1 && o.tpm!=null && thr && o.tpm<thr) ? ' · ⚠ low in HAP1' : '';
+        var koav = o.hap1 ? ((hz&&hz.found&&hz.count)?' · ✓ ready-made KO':' · make KO or knockdown') : '';
+        var btn=el('<button class="opt'+(sel?" sel":"")+'"><span class="dot"></span><span>'+
+          '<span class="ol">'+esc(o.name)+'</span>'+
+          '<span class="od">'+badge+'TPM '+esc(o.tpm)+koav+low+'</span></span></button>');
+        btn.onclick=function(){ A.cell_line=(A.cell_line===o.name?"":o.name);
+          wrap.querySelectorAll(".opt").forEach(function(x){x.classList.remove("sel");});
+          if(A.cell_line) btn.classList.add("sel"); };
+        wrap.appendChild(btn);
+      });
+    } else {
+      wrap.appendChild(el('<div class="callout"><span class="ic">🔎</span><div>No expression data to hand'+
+        (A.target_gene?(" for "+esc(A.target_gene)):"")+'. Pick a line that expresses your target — check '+
+        link(L.depmap,"DepMap")+' or '+link(L.passports,"Cell Model Passports")+' — and note it below.</div></div>'));
+    }
+
+    if((A.sample_types||[]).indexOf("tissue")>=0)
+      wrap.appendChild(el('<div class="info amber"><div class="h">Working with tissue?</div>You can’t knock out '+
+        'human tissue — pellet KO/KD cells and process them exactly like your tissue as the control.</div>'));
+
+    wrap.appendChild(el('<div style="margin-top:12px"><label class="fl">Or name your own model / add a note '+
+      '<span class="muted" style="font-weight:400">(optional)</span></label>'+
+      '<input id="cl_note" type="text" placeholder="e.g. patient fibroblasts; my lab’s U2OS line" value="'+esc(A.cell_line_note)+'"></div>'));
+    var ni=wrap.querySelector("#cl_note");
+    if(ni) ni.addEventListener("input", function(){ A.cell_line_note=ni.value; });
+
+    root.appendChild(wrap);
+  },
+  cta:"Continue" };
+}, next:function(){ return "pillars"; } },
+
+// ===== PILLARS =====
+pillars:{ sect:"pillars", terminal:false, render:function(){ return {
+  eyebrow:"What you can actually do",
+  q:"Which validation approaches — your controls — are realistic for you?",
+  sub:"These are the pillars of antibody validation. Each one is a control. Tick everything "+
+      "that's feasible in your hands — we'll build the plan around it. It's fine to leave gaps; nobody has every option.",
+  body:"<div class='callout'><span class='ic'>🎛️</span><div><b>Pillars are controls.</b> A "+
+       "<b>positive control</b> shows the antibody can detect the protein when it's present; a "+
+       "<b>negative control</b> shows the signal disappears when the protein is absent or reduced. "+
+       "Strong validation pairs at least one of each — every card below says which control it gives you.</div></div>",
+  pillars:true
+}; }, next:function(){ return "plan"; } },
+
+plan:{ sect:"plan", terminal:true }
+};
+
+// ---------- engine ----------
+var current="intro", history=[];
+function sectIndex(k){ for(var i=0;i<SECTIONS.length;i++) if(SECTIONS[i][0]===k) return i; return 0; }
+
+function renderProgress(){
+  var idx=sectIndex((STEPS[current]||{}).sect||"target");
+  var p=document.getElementById("progress"); p.innerHTML="";
+  SECTIONS.forEach(function(s,i){ var seg=document.createElement("div");
+    seg.className="seg"+(i<idx?" done":(i===idx?" cur":"")); p.appendChild(seg); });
+  var pl=document.getElementById("plabels"); pl.innerHTML="";
+  SECTIONS.forEach(function(s,i){ var sp=document.createElement("span"); sp.textContent=s[1];
+    if(i===idx){ sp.style.color="var(--brand)"; sp.style.fontWeight="700"; } pl.appendChild(sp); });
+}
+
+function render(){
+  renderProgress();
+  var step=STEPS[current];
+  if(step.terminal){ renderPlan(); return; }
+  var cfg=step.render();
+  var card=el('<div class="card"></div>');
+  if(cfg.eyebrow) card.appendChild(el('<div class="eyebrow">'+cfg.eyebrow+'</div>'));
+  card.appendChild(el('<h1 class="q">'+cfg.q+'</h1>'));
+  if(cfg.sub) card.appendChild(el('<p class="sub">'+cfg.sub+'</p>'));
+  if(cfg.body) card.appendChild(el('<div class="body">'+cfg.body+'</div>'));
+  if(cfg.options) buildOptions(card,cfg);
+  if(cfg.extra) buildExtra(card,cfg.extra);
+  if(cfg.pillars) buildPillars(card);
+  if(cfg.custom) cfg.custom(card);
+
+  var nav=el('<div class="nav"></div>');
+  if(history.length){ var back=el('<button class="back">← Back</button>');
+    back.onclick=function(){ current=history.pop(); paint(); }; nav.appendChild(back); }
+  nav.appendChild(el('<div class="spacer"></div>'));
+  var cta=el('<button class="btn" id="cta">'+(cfg.cta||"Continue")+'</button>');
+  nav.appendChild(cta);
+  cta.onclick=function(){ if(cfg.commit) cfg.commit(card); if(!ok(cfg)) return;
+    history.push(current); current=step.next(); paint(); };
+  card.appendChild(nav);
+  var stage=document.getElementById("stage"); stage.innerHTML=""; stage.appendChild(card);
+  refreshCTA();
+}
+function ok(cfg){
+  if(cfg.canProceed && !cfg.canProceed()) return false;
+  if(cfg.choose==="one" && cfg.field){ var v=A[cfg.field]; if(v===""||v==null) return false; }
+  return true;
+}
+function refreshCTA(){
+  var step=STEPS[current]; if(!step||step.terminal) return;
+  var cfg=step.render(); var cta=document.getElementById("cta"); if(!cta) return;
+  var good=true;
+  if(cfg.canProceed) good=cfg.canProceed();
+  if(cfg.choose==="one" && cfg.field){ var v=A[cfg.field]; if(v===""||v==null) good=false; }
+  cta.disabled=!good;
+}
+
+function buildOptions(card,cfg){
+  var wrap=el('<div></div>'); var many=cfg.choose==="many";
+  cfg.options.forEach(function(o){
+    var sel = many ? (A[cfg.field]||[]).indexOf(o.v)>=0 : A[cfg.field]===o.v;
+    var btn=el('<button class="opt'+(many?" multi":"")+(sel?" sel":"")+'"><span class="dot"></span>'+
+      '<span><span class="ol">'+o.ol+'</span>'+(o.od?'<span class="od">'+o.od+'</span>':'')+'</span></button>');
+    btn._v=o.v;
+    btn.onclick=function(){
+      if(many){ var arr=A[cfg.field]||(A[cfg.field]=[]); var i=arr.indexOf(o.v); if(i>=0) arr.splice(i,1); else arr.push(o.v);
+        wrap.querySelectorAll(".opt").forEach(function(x){ x.classList.toggle("sel",(A[cfg.field]||[]).indexOf(x._v)>=0); });
+      } else { A[cfg.field]=o.v; wrap.querySelectorAll(".opt").forEach(function(x){x.classList.remove("sel");}); btn.classList.add("sel"); }
+      refreshCTA();
+    };
+    wrap.appendChild(btn);
+  });
+  card.appendChild(wrap);
+}
+function buildExtra(card,ex){
+  var wrap=el('<div style="margin-top:8px"><label class="fl">'+ex.label+'</label></div>');
+  var tog=el('<div class="seg-toggle"></div>');
+  ex.options.forEach(function(o){
+    var b=el('<button data-v="'+o[0]+'" class="'+(A[ex.field]===o[0]?"on":"")+'">'+o[1]+'</button>');
+    b.onclick=function(){ A[ex.field]=o[0]; tog.querySelectorAll("button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on"); };
+    tog.appendChild(b);
+  });
+  wrap.appendChild(tog); card.appendChild(wrap);
+}
+
+// Funnel: which approaches to spotlight for this target/technique/sample, + a note.
+function spotlight(){
+  var s=A.sample_types||[], set={}, msg="";
+  function add(){ for(var i=0;i<arguments.length;i++) set[arguments[i]]=1; }
+  var isCD=/^cd\d/i.test(A.target_gene||"");
+  if(s.indexOf("blood")>=0 || (A.location==="surface" && isCD)){
+    add("orthogonal","independent","tagged");
+    msg="For surface / CD markers on mixed leukocytes: correlate staining with omics across cell subsets, use an independent clone, and check "+link(L.hcdm,"HCDM")+" for community-tested clones.";
+  } else if(s.indexOf("fluid")>=0 && A.application==="WB"){
+    add("tagged","orthogonal");
+    msg="For a secreted / fluid target on a western blot: an over-expression lysate confirms the expected band — and run the matched material (e.g. conditioned media), not a random lysate.";
+  } else if(s.indexOf("tissue")>=0 || A.application==="IHC"){
+    add("knockdown","orthogonal","independent");
+    msg="You can't knock out human tissue — pellet KO/KD cells and process them like tissue as your control, backed by an orthogonal (omics) or independent-antibody check.";
+  } else {
+    if(A.essential) add("knockdown","tagged"); else add("knockout","knockdown");
+  }
+  return { set:set, msg:msg };
+}
+
+function buildPillars(card){
+  var sp=spotlight();
+
+  // Funnel: non-human → you can genetically modify, so pre-suggest KO/KD (once, editable).
+  if(!A._presuggested && A.species==="other" && A.feasible_pillars.length===0){
+    A.feasible_pillars.push("knockdown"); if(!A.essential) A.feasible_pillars.push("knockout");
+    A._presuggested=true;
+    card.appendChild(el('<div class="info"><div class="h">Non-human target</div>You can genetically '+
+      'modify these cells, so we’ve pre-suggested KO/KD below — adjust to what’s realistic for you.</div>'));
+  }
+  if(A.essential)
+    card.appendChild(el('<div class="info amber"><div class="h">Essential gene</div>Knockout isn’t an '+
+      'option (it kills the cell), so we’ve left it out — a knockdown is your genetic route.</div>'));
+  if(sp.msg) card.appendChild(el('<div class="info"><div class="h">Suggested for your setup</div>'+sp.msg+'</div>'));
+
+  card.appendChild(el('<div class="stagelabel">Stage 1 — can the antibody detect the target? '+
+    '(your positive control: protein present → signal)</div>'));
+  stageCards(card, 1, sp);
+  card.appendChild(el('<div class="stagelabel">Stage 2 — is the signal really your target? '+
+    '(your negative / selectivity control: protein absent or reduced → signal gone)</div>'));
+  stageCards(card, 2, sp);
+
+  card.appendChild(el('<p class="small muted" style="margin-top:12px">Tip: KO or knockdown in your '+
+    '<b>actual sample cells</b> counts for both stages — it’s the strongest confirmation of all.</p>'));
+}
+function stageCards(card, stageNum, sp){
+  var list=PILLARS.filter(function(p){ return p.stage===stageNum && !(p.key==="knockout" && A.essential); });
+  list.sort(function(a,b){ return (sp.set[b.key]?1:0)-(sp.set[a.key]?1:0); });
+  list.forEach(function(p){ card.appendChild(pillarCard(p, !!sp.set[p.key])); });
+}
+function pillarCard(p, spotlighted){
+  var sel=A.feasible_pillars.indexOf(p.key)>=0;
+  var c=el('<div class="pcard'+(sel?" sel":"")+'">'+
+    '<div class="ph"><span class="chk">'+(sel?"✓":"")+'</span>'+
+      '<span class="pn">'+esc(p.name)+'</span>'+
+      (spotlighted?'<span class="sug">Suggested</span>':'<span class="pill">'+esc(p.pillar)+'</span>')+
+      '<span class="cost">'+esc(p.cost)+'</span></div>'+
+    '<div class="prow"><b>As a control:</b> '+esc(p.control)+'</div>'+
+    '<div class="prow"><b>Strength:</b> '+esc(p.strength)+'</div>'+
+    '<div class="prow"><b>Watch out:</b> '+esc(p.weakness)+'</div>'+
+    '<div class="prow"><b>Cost:</b> '+esc(p.costnote)+'</div></div>');
+  c.onclick=function(){ var i=A.feasible_pillars.indexOf(p.key);
+    if(i>=0) A.feasible_pillars.splice(i,1); else A.feasible_pillars.push(p.key);
+    var now=A.feasible_pillars.indexOf(p.key)>=0; c.classList.toggle("sel",now);
+    c.querySelector(".chk").textContent=now?"✓":""; };
+  return c;
+}
+
+function paint(){ window.scrollTo(0,0); render(); }
+
+// ---------- recommended protocol (deterministic) ----------
+function buildProtocol(){
+  var feas=A.feasible_pillars.slice();
+  function has(k){ return feas.indexOf(k)>=0; }
+  var stage1=[], stage2=[], gaps=[];
+
+  // resources we can name from the live lookup
+  var hz=A.horizon_ko, dm=A.depmap;
+  var koRes="";
+  if(hz && hz.found) koRes="✓ "+hz.count+" ready-made Horizon HAP1 KO clone"+(hz.count==1?"":"s")+" — "+link(L.horizon,"browse");
+  else koRes="No ready-made Horizon KO listed — you'd make one, or use a knockdown. Abcam also lists some KO lines.";
+  var expr = (dm&&dm.found&&dm.expressing&&dm.expressing.length) ? dm.expressing.slice(0,4).map(function(x){return x.name+" ("+x.tpm+")";}).join(", ") : "";
+  var exprRes = expr ? ("Expressing lines (DepMap RNA-seq): "+esc(expr)) : ("Check "+link(L.depmap,"DepMap")+" / "+link(L.passports,"Cell Model Passports")+" for a line that expresses the target.");
+  var chosenLine = A.cell_line || A.cell_line_note || "";
+  if(chosenLine){
+    var inLine = " Build this in your chosen model: <b>"+esc(chosenLine)+"</b>.";
+    koRes += inLine; exprRes += inLine;
+    guide("Cell model chosen: "+chosenLine+" — build KO/KD/over-expression controls in this line where feasible.");
+  }
+
+  // ---- Stage 1: confirm detection (the positive control) ----
+  if(has("knockout")){
+    stage1.push({t:"Screen against a knockout", d:"Signal in wild-type, gone in the KO. The cleanest result to interpret — watch for truncated/splice-variant bands.", res:koRes});
+  } else if(has("knockdown")){
+    stage1.push({t:"Screen against a knockdown", d:"siRNA (transient) or shRNA (stable) to reduce the target. Confirm the knockdown by RT-qPCR: without it, a signal that stays put could be a non-specific antibody or just a failed knockdown.", res:(A.essential?"This is your genetic route for an essential gene. ":"")+exprRes});
+  } else if(has("tagged")){
+    stage1.push({t:"Screen against tagged / over-expression", d:"Express the tagged target in a non-expressing line — confirms the antibody can detect it and shows the expected signal/size. Remember it's supraphysiological, so it's a screen, not proof of endogenous detection.", res:link(L.addgene,"Addgene")+" plasmid (~£90–100) or "+link(L.origene,"OriGene")+" lysate (~£200)."});
+  } else {
+    gaps.push("No Stage-1 (detection) approach is ticked. The most accessible is usually tagged/over-expression (a plasmid is cheap and reusable) or an siRNA knockdown — worth adding one so you can confirm the antibody detects the target.");
+    stage1.push({t:"Suggested: tagged / over-expression or knockdown", d:"You didn't mark a detection approach as feasible. The cheapest entry points are an over-expression plasmid or an siRNA knockdown.", res:link(L.addgene,"Addgene")+" / "+link(L.origene,"OriGene")+", or an siRNA pool."});
+  }
+
+  // ---- Stage 2: confirm in the sample of interest ----
+  var sampleIsCells = (A.sample_types||[]).indexOf("cell_line")>=0 || (A.sample_types||[]).indexOf("primary_cells")>=0;
+  if((has("knockout")||has("knockdown")) && sampleIsCells){
+    stage2.push({t:"Genetic manipulation of your actual sample cells", d:"If you can KO/KD the target in the very cells you'll study, that's the strongest confirmation — it covers both stages at once.", res:""});
+  }
+  if(has("orthogonal")) stage2.push({t:"Orthogonal — correlate with omics", d:"Compare staining across samples of differing expression against RNA-seq/proteomics. Needs variable expression; supportive, not absolute.", res:exprRes});
+  if(has("independent")) stage2.push({t:"Independent antibody", d:"A second antibody to a different epitope showing the same pattern is supportive (beware shared off-targets).", res:""});
+  if(has("cell_treatment")) stage2.push({t:"Cell treatment", d:"Induce/suppress the target (e.g. PMA, a cytokine) and expect the staining to shift in the same cells.", res:""});
+  // Funnel: modification-specific antibody needs a control that the signal depends on the modification.
+  if(A.ptm){
+    stage2.push({t:"Modification-specificity control (essential for a PTM antibody)", d:"The controls above show the antibody detects the protein — for a modification-specific claim you also need to show the signal depends on the modification: de-modifying enzyme treatment (e.g. phosphatase) abolishes it, a non-modifiable point-mutant is negative, and/or a stimulus that adds/removes the modification shifts it as expected. A total-protein (pan) antibody to the same target is a useful independent readout.", res:A.ptm_control?("Your note: "+esc(A.ptm_control)):""});
+  }
+  if(!stage2.length){
+    gaps.push("No Stage-2 (confirm-in-your-sample) approach is ticked. Detection in a model system isn't enough on its own — add at least an orthogonal (omics) or independent-antibody check in your real sample.");
+  }
+
+  // ---- technique-specific note ----
+  var tnote="";
+  if(A.application==="FC" && A.location==="intracellular")
+    tnote="Intracellular flow: fixation/permeabilisation matters a lot — test 3 fix/perms (methanol, PFA-saponin, PFA-Triton); the best one is antibody-specific. "+link(L.flowguide,"OGA flow guide")+".";
+  else if(A.application==="FC" && A.location==="surface")
+    tnote="Surface flow: a surface-selective antibody can lose selectivity intracellularly and vice-versa — validate for the exact protocol you'll run.";
+  else if(A.application==="FC") tnote="Flow: cell-surface vs intracellular changes everything — validate for the exact protocol. "+link(L.flowguide,"OGA flow guide")+".";
+  else if(A.application==="WB" && (A.sample_types||[]).indexOf("fluid")>=0)
+    tnote="Secreted/fluid target on a western blot: run the matched material (e.g. conditioned media), not a random lysate — the off-target background differs.";
+  else if(A.application==="IHC" || (A.sample_types||[]).indexOf("tissue")>=0)
+    tnote="Tissue/IHC: you can't knock out human tissue — pellet KO/KD cells and process them exactly like tissue as your control (imperfect, but a validated start point).";
+
+  // ---- find-a-validated-antibody-first resources ----
+  var find=[];
+  if(A.oga && A.oga.in_dataset) find.push("OGA — "+link(A.oga.gene_page_url,"knockout-controlled data for "+esc(A.oga.canonical)));
+  find.push(link(L.ycharos,"YCharOS")+" open characterisation data");
+  find.push(link(L.benchsci,"BenchSci")+" / "+link(L.citeab,"CiteAb")+" — filter verification to <b>genetic</b>, read the images");
+  var isCD=/^cd\d/i.test(A.target_gene||"");
+  if(isCD || A.location==="surface" || (A.sample_types||[]).indexOf("blood")>=0)
+    find.push(link(L.hcdm,"HCDM")+" — community-standardised clones for CD / surface markers (a resource for finding tested clones)");
+
+  // ---- Funnel: OGA-in-dataset lead — start from the recommended antibody ----
+  var recKey={WB:"WB",IP:"IP",IF:"IF",FC:"FC"}[A.application];
+  var recN=(A.oga && A.oga.recommended && recKey) ? (A.oga.recommended[recKey]||0) : 0;
+  var ogaLead="";
+  if(A.oga && A.oga.in_dataset){
+    if(recN) ogaLead="OGA already has <b>"+recN+" recommended antibod"+(recN==1?"y":"ies")+"</b> for "+esc(A.oga.canonical)+" in "+esc(appName(A.application))+" — start there; you may not need to screen from scratch. "+link(A.oga.gene_page_url,"See the data")+".";
+    else ogaLead=esc(A.oga.canonical)+" is in the OGA knockout-controlled dataset — start from "+link(A.oga.gene_page_url,"the characterisation data")+" before making your own controls.";
+    guide("Gene is in the OGA dataset — start from the OGA-tested/recommended antibody for this technique rather than screening from scratch.");
+  }
+
+  guide("Approach follows the OGA two-stage model: a positive control (can the antibody detect the target when it's present?), then a negative / selectivity control (does the signal disappear when the target is absent or reduced, in your actual sample?). Match the approach to the target, the available cells, and your resources.");
+  guide("Screen multiple antibodies (or free samples) against a positive control before committing budget, and generate the validation with the approaches you can do.");
+  if(A.ptm)
+    guide("Modification-specific antibody: the plan adds a modification-specificity control (de-modifying enzyme / non-modifiable mutant / inducing stimulus) — needed on top of the usual selectivity controls.");
+
+  return { stage1:stage1, stage2:stage2, technique_note:tnote, find_first:find, gaps:gaps, oga_lead:ogaLead };
+}
+
+// ---------- plan/summary screen ----------
+var savedPdf=null;
+function assemblePlan(proto){
+  return {
+    target_gene:A.target_gene, species:A.species, protein_name:A.protein_name,
+    uniprot_id:A.uniprot_id, mass_kda:A.mass_kda,
+    oga: A.oga?{in_dataset:!!A.oga.in_dataset, gene_page_url:A.oga.gene_page_url||"", recommended:A.oga.recommended||{}}:null,
+    application:A.application, sample_types:A.sample_types, location:A.location,
+    cell_line:A.cell_line||A.cell_line_note||"",
+    feasible_pillars:A.feasible_pillars,
+    ptm:A.ptm, ptm_control:A.ptm_control, budget:A.budget,
+    antibody_identity:A.antibody,
+    recommended_protocol:{
+      stage1:proto.stage1.map(function(s){return {title:s.t, detail:s.d};}),
+      stage2:proto.stage2.map(function(s){return {title:s.t, detail:s.d};}),
+      technique_note:stripTags(proto.technique_note),
+      find_first:proto.find_first.map(stripTags),
+      oga_lead:stripTags(proto.oga_lead),
+      essential:A.essential,
+      gaps:proto.gaps
+    }
+  };
+}
+function stripTags(h){ var d=document.createElement("div"); d.innerHTML=h||""; return d.textContent||""; }
+
+function renderPlan(){
+  var proto=buildProtocol();
+  var stage=document.getElementById("stage");
+  var card=el('<div class="card"></div>');
+  card.appendChild(el('<div class="eyebrow">Your recommended validation protocol</div>'));
+  card.appendChild(el('<h1 class="q">Plan for '+esc(A.target_gene||"your target")+' — '+esc(appName(A.application))+'</h1>'));
+  card.appendChild(el('<p class="sub">Built from the answers you gave. Download it as a PDF to keep; it’s also recorded with OGA.</p>'));
+
+  // context line
+  var ctx=[]; if(A.protein_name) ctx.push(esc(A.protein_name)); ctx.push(esc(A.species));
+  ctx.push(esc((A.sample_types||[]).join(", ")||"—")); if(A.location) ctx.push(esc(A.location));
+  if(A.cell_line||A.cell_line_note) ctx.push(esc("model: "+(A.cell_line||A.cell_line_note)));
+  card.appendChild(el('<div class="callout"><span class="ic">🧬</span><div>'+ctx.join(" · ")+
+    (A.oga&&A.oga.in_dataset?' · '+link(A.oga.gene_page_url,"in OGA dataset"):'')+'</div></div>'));
+
+  // OGA lead (funnel #5)
+  if(proto.oga_lead) card.appendChild(el('<div class="info"><div class="h">Start here</div>'+proto.oga_lead+'</div>'));
+
+  // protocol
+  var pr=el('<div class="proto"></div>');
+  pr.appendChild(el('<div class="ph">Stage 1 — confirm the antibody detects the target</div>'));
+  var b1=el('<div class="pb"></div>'); protoSteps(b1,proto.stage1); pr.appendChild(b1);
+  card.appendChild(pr);
+  var pr2=el('<div class="proto"></div>');
+  pr2.appendChild(el('<div class="ph">Stage 2 — confirm the signal is your target in your sample</div>'));
+  var b2=el('<div class="pb"></div>'); protoSteps(b2,proto.stage2); pr2.appendChild(b2);
+  card.appendChild(pr2);
+
+  if(proto.technique_note) card.appendChild(el('<div class="info"><div class="h">For your technique</div>'+proto.technique_note+'</div>'));
+  proto.gaps.forEach(function(g){ card.appendChild(el('<div class="gapline">⚠ '+esc(g)+'</div>')); });
+
+  if(proto.find_first.length){
+    var ff=el('<div class="info"><div class="h">First, look for an antibody already validated this way</div><div class="small"></div></div>');
+    ff.querySelector(".small").innerHTML=proto.find_first.map(function(x){return "• "+x;}).join("<br>");
+    card.appendChild(ff);
+  }
+  card.appendChild(el('<div class="callout"><span class="ic">📌</span><div>Show these controls <b>in your figures</b>, '+
+    'and identify every reagent with an <b>RRID</b> (antibody, cell line, plasmid) so the work is reproducible.</div></div>'));
+
+  // PTM-specificity capture (only for modification-specific antibodies)
+  if(A.ptm){
+    card.appendChild(el('<div style="margin-top:6px"><label class="fl">Modification-specificity control — how will you show the signal depends on the modification?</label>'+
+      '<textarea id="ptmc" rows="2" placeholder="e.g. Lambda phosphatase abolishes the band; a phospho-dead (S→A) mutant is negative; stimulus X induces it.">'+esc(A.ptm_control)+'</textarea></div>'));
+  }
+
+  // optional antibody capture
+  var abbox=el('<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">Optional — if you have a candidate antibody, note it for your record:</div>'+
+    '<div class="grid2"><input id="ab_v" type="text" placeholder="Vendor" value="'+esc(A.antibody.vendor)+'">'+
+    '<input id="ab_c" type="text" placeholder="Catalogue #" value="'+esc(A.antibody.catalogue)+'">'+
+    '<input id="ab_r" type="text" placeholder="RRID" value="'+esc(A.antibody.rrid)+'">'+
+    '<input id="ab_cl" type="text" placeholder="Clone" value="'+esc(A.antibody.clone)+'"></div></div>');
+  card.appendChild(abbox);
+
+  // validation budget (grant costing)
+  card.appendChild(el('<div style="margin-top:12px"><label class="fl">Validation budget <span class="muted" style="font-weight:400">(optional — handy for grant costings)</span></label>'+
+    '<textarea id="budget" rows="2" placeholder="e.g. HAP1 KO line ~£2,000; siRNA ~£1,000; OriGene overexpression lysate ~£200.">'+esc(A.budget)+'</textarea></div>'));
+
+  // What happens to your data — transparency for the record
+  card.appendChild(el('<div class="info"><div class="h">What happens to your data</div>'+
+    'Your plan — your target, technique, cell model, the controls you ticked, and any antibody or budget notes — '+
+    'is stored as a record by Only Good Antibodies and rendered as a PDF with a unique reference code. Below you '+
+    'choose what the record is for: a <b>compliance record</b> is attributable to you at your institution and may '+
+    'be shared with the funder or organisation that asked you to use the tool (e.g. Cancer Research UK / Cancer '+
+    'Research Horizons, or NC3Rs) as evidence that you chose your antibody and controls responsibly; '+
+    '<b>“just for me”</b> keeps it as a personal plan with no affiliation, not offered to any funder. Gene '+
+    'lookups also query external reference databases (UniProt, DepMap). Full details are in our '+
+    link(SEL.privacyUrl,"privacy policy")+'.</div>'));
+
+  // ----- record type: compliance vs personal -----
+  var idbox=el('<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px"></div>');
+  idbox.appendChild(el('<label class="fl" style="font-size:14px">What is this for?</label>'));
+  var modeTog=el('<div class="seg-toggle" id="mode" style="flex-wrap:wrap"></div>');
+  modeTog.appendChild(el('<button data-v="compliance">A compliance record for my funder</button>'));
+  modeTog.appendChild(el('<button data-v="personal">Just for me</button>'));
+  idbox.appendChild(modeTog);
+  var idfields=el('<div id="idfields" style="margin-top:12px"></div>');
+  idbox.appendChild(idfields);
+  card.appendChild(idbox);
+
+  // actions
+  var actions=el('<div class="nav"></div>');
+  var back=el('<button class="back">← Back</button>');
+  back.onclick=function(){ current=history.pop(); paint(); };
+  actions.appendChild(back); actions.appendChild(el('<div class="spacer"></div>'));
+  var dl=el('<button class="btn" id="finish">Save &amp; download PDF</button>'); actions.appendChild(dl);
+  card.appendChild(actions);
+  var msg=el('<div class="lookup" id="finmsg" style="text-align:right"></div>'); card.appendChild(msg);
+
+  function refreshFinish(){
+    if(A.record_mode!=="personal"){ dl.textContent="Save compliance record & download PDF"; dl.disabled=!complianceReady(); }
+    else { dl.textContent="Download my plan (PDF)"; dl.disabled=false; }
+  }
+  function renderIdFields(){
+    if(A.record_mode!=="personal"){
+      idfields.innerHTML=
+        '<div class="small muted" style="margin-bottom:8px">A compliance record is attributable to you at your institution so it can be reported to your funder — all three are required, and the email must be institutional (not gmail/outlook).</div>'+
+        '<div class="grid2"><input id="who" type="text" placeholder="Your name *" value="'+esc(A.who_name)+'">'+
+        '<input id="whoemail" type="email" placeholder="Institutional email *" value="'+esc(A.who_email)+'"></div>'+
+        '<input id="whoinst" type="text" placeholder="Institution *" value="'+esc(A.who_inst)+'" style="margin-top:12px">';
+    } else {
+      idfields.innerHTML=
+        '<div class="small muted" style="margin-bottom:8px">A personal plan is just for you — no affiliation needed, and it won’t be offered to a funder as evidence. You can still add your name for your own records.</div>'+
+        '<input id="who" type="text" placeholder="Your name (optional)" value="'+esc(A.who_name)+'">';
+    }
+    var n=idfields.querySelector("#who"); if(n) n.addEventListener("input",function(){ A.who_name=n.value; refreshFinish(); });
+    var e=idfields.querySelector("#whoemail"); if(e) e.addEventListener("input",function(){ A.who_email=e.value; refreshFinish(); });
+    var i=idfields.querySelector("#whoinst"); if(i) i.addEventListener("input",function(){ A.who_inst=i.value; refreshFinish(); });
+    refreshFinish();
+  }
+  modeTog.querySelectorAll("button").forEach(function(b){
+    if(b.getAttribute("data-v")===A.record_mode) b.classList.add("on");
+    b.onclick=function(){ A.record_mode=b.getAttribute("data-v");
+      modeTog.querySelectorAll("button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on");
+      renderIdFields(); };
+  });
+  renderIdFields();
+
+  dl.onclick=function(){
+    A.antibody.vendor=(card.querySelector("#ab_v")||{}).value||"";
+    A.antibody.catalogue=(card.querySelector("#ab_c")||{}).value||"";
+    A.antibody.rrid=(card.querySelector("#ab_r")||{}).value||"";
+    A.antibody.clone=(card.querySelector("#ab_cl")||{}).value||"";
+    A.ptm_control=(card.querySelector("#ptmc")||{}).value||"";
+    A.budget=(card.querySelector("#budget")||{}).value||"";
+    var compliance=A.record_mode!=="personal";
+    if(compliance && !complianceReady()){
+      msg.innerHTML='<span style="color:var(--red)">A compliance record needs your name, institution and institutional email — or choose “Just for me”.</span>';
+      return;
+    }
+    dl.disabled=true; msg.innerHTML='<span class="spin"></span> saving…';
+    var finalProto=buildProtocol();  // re-run so the PTM note/budget are captured
+    var payload={ plan:assemblePlan(finalProto), guidance:GUIDANCE, is_compliance:compliance,
+      name:A.who_name||"", email:compliance?(A.who_email||""):"", institution:compliance?(A.who_inst||""):"" };
+    fetch(SEL.recordUrl,{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":SEL.csrf},
+      body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
+        if(d.error) throw new Error(d.error);
+        savedPdf=d.pdf_url; msg.innerHTML='✓ Saved. Opening your PDF…';
+        window.open(d.pdf_url,"_blank"); dl.textContent="Download PDF again"; dl.disabled=false;
+        dl.onclick=function(){ window.open(savedPdf,"_blank"); };
+      }).catch(function(e){ refreshFinish(); msg.innerHTML='<span style="color:var(--red)">Couldn’t save ('+esc(e.message||"error")+'). Try again.</span>'; });
+  };
+
+  stage.innerHTML=""; stage.appendChild(card); renderProgress();
+}
+function protoSteps(box,steps){
+  if(!steps.length){ box.appendChild(el('<div class="small muted">Nothing selected for this stage yet — see the note above.</div>')); return; }
+  steps.forEach(function(s,i){
+    var st=el('<div class="step"><div class="num">'+(i+1)+'</div><div class="sc"><b>'+esc(s.t)+'</b>'+
+      '<div class="d">'+esc(s.d)+'</div>'+(s.res?'<div class="res">'+s.res+'</div>':'')+'</div></div>');
+    box.appendChild(st);
+  });
+}
+
+render();
+})();
+{% endverbatim %}</script>
+
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a>
+      <a href="{% url 'about' %}">About Us</a>
+      <a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'publications' %}">Publications</a>
+      <a href="{% url 'news' %}">News</a>
+      <a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+</body>
+</html>

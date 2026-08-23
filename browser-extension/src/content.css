@@ -1,0 +1,77 @@
+/*
+ * Highlight styles. These land on someone else's page, so they are written to
+ * be recognisable without reflowing anything: no padding, no font changes, no
+ * border that would alter line height.
+ */
+
+mark.oga-hl {
+  all: unset;
+  cursor: help;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  /* Underline rather than a block of colour, so dense methods sections stay
+     readable and we never obscure the publisher's own emphasis. */
+  box-shadow: inset 0 -2px 0 0 currentColor;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 1px;
+}
+
+mark.oga-hl:focus-visible {
+  outline: 2px solid #12639e;
+  outline-offset: 1px;
+}
+
+mark.oga-green { color: #1c8f4b; background: rgba(28, 143, 75, 0.10); }
+mark.oga-red   { color: #c62f2f; background: rgba(198, 47, 47, 0.10); }
+mark.oga-amber { color: #d98217; background: rgba(217, 130, 23, 0.12); }
+mark.oga-grey  { color: #8b98a5; background: transparent; box-shadow: inset 0 -1px 0 0 currentColor; }
+
+/* Passed one application, failed another: split underline rather than a
+   colour that would imply a single overall verdict. */
+mark.oga-mixed {
+  color: inherit;
+  background: rgba(217, 130, 23, 0.10);
+  box-shadow: none;
+  background-image: linear-gradient(90deg, #1c8f4b 0 50%, #c62f2f 50% 100%);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 2px;
+}
+
+/* Colour is never the only signal when this is on (options -> patterns). */
+mark.oga-patterned.oga-green { text-decoration: underline 2px solid #1c8f4b; }
+mark.oga-patterned.oga-red   { text-decoration: underline wavy 1.5px #c62f2f; }
+mark.oga-patterned.oga-amber { text-decoration: underline double 1px #d98217; }
+mark.oga-patterned.oga-grey  { text-decoration: underline dotted 1px #8b98a5; }
+mark.oga-patterned.oga-mixed { text-decoration: underline dashed 1.5px #6a7480; }
+
+@media (prefers-color-scheme: dark) {
+  mark.oga-green { color: #63c98d; background: rgba(99, 201, 141, 0.14); }
+  mark.oga-red   { color: #ef8888; background: rgba(239, 136, 136, 0.14); }
+  mark.oga-amber { color: #e8a552; background: rgba(232, 165, 82, 0.16); }
+  mark.oga-grey  { color: #8b98a5; }
+}
+
+/* Pulse when the popup jumps you to a mark. Outline only, so it cannot
+   reflow the publisher's text while it animates. */
+@keyframes oga-pulse {
+  0%   { outline-color: currentColor; outline-offset: 3px; }
+  60%  { outline-color: currentColor; outline-offset: 1px; }
+  100% { outline-color: transparent;  outline-offset: 1px; }
+}
+mark.oga-hl.oga-focus {
+  outline: 2px solid currentColor;
+  border-radius: 2px;
+  animation: oga-pulse 1.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  mark.oga-hl.oga-focus { animation: none; outline-color: currentColor; }
+}
+
+@media print {
+  /* Don't carry our colours into a printed or PDF-exported copy. */
+  mark.oga-hl { box-shadow: none; background: none; text-decoration: none; color: inherit; }
+}

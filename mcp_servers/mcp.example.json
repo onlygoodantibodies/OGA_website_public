@@ -1,0 +1,22 @@
+{
+  "//": "Template for connecting the OGA read-only MCP server to a Claude client",
+  "//1": "Copy to .mcp.json (Claude Code, repo root) or into claude_desktop_config.json.",
+  "//2": "Replace ABSOLUTE_REPO_PATH with the checkout path, e.g. /home/user/OGA_website.",
+  "//3": "With NO MCP_READONLY_DATABASE_URL set, the server uses the local SQLite",
+  "//4": "db_pipeline.sqlite3 (safe testing). For production, set the read-only role",
+  "//5": "DSN from roles.sql. The write servers (B/C) were retired.",
+  "//6": "oga-readonly serves BOTH the antibody data tools AND the interactive",
+  "//7": "education tools (modules, quizzes, planner + plan grading, claim link) —",
+  "//8": "one connection, both jobs. It issues no certificate (that's claimed on",
+  "//9": "the website). server_a2_academy can still be run standalone if wanted.",
+  "mcpServers": {
+    "oga-readonly": {
+      "command": "ABSOLUTE_REPO_PATH/.venv-mcp/bin/python",
+      "args": ["-m", "mcp_servers.server_a_readonly"],
+      "cwd": "ABSOLUTE_REPO_PATH",
+      "env": {
+        "DEBUG": "True"
+      }
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OGA Academy – Privacy Policy</title>
+  <link rel="icon" href="{% static 'core/up-logo.ico' %}">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+
+  <style>
+    .module-header {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #10428a;
+      margin-bottom: 0.3rem;
+      text-align: left;
+    }
+    main.container {
+      max-width: 800px;
+      margin: 2rem auto;
+      line-height: 1.6;
+    }
+    main.container h1 {
+      margin-bottom: 1.5rem;
+    }
+    main.container section + section {
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body class="no-wobble">
+
+  {% include 'core/cookie_banner.html' %}
+  <script src="{% static 'core/script.js' %}"></script>
+
+  <!-- Header / Nav -->
+  {% include 'academy/header.html' %}
+
+  <!-- Privacy Policy Content -->
+  <main class="container">
+    <h1>Privacy Policy</h1>
+
+    <section>
+      <h2 class="module-header">OGA eLearning Module for Antibody Use and Reproducibility</h2>
+      <p>The OGA eLearning Module is operated by the Department of Respiratory Sciences, which is part of the <a href="https://le.ac.uk" target="_blank" rel="noopener">University of Leicester</a>. The University of Leicester is the Data Controller for your information.</p>
+      <p>This notice is provided by Dr Harvinder Virk, Clinical Lecturer and principal developer of the OGA eLearning resource. It is supplementary to the University’s main Privacy Notices, available <a href="https://le.ac.uk/legal/privacy" target="_blank" rel="noopener">here</a>.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Data Protection Officer</h2>
+      <p><strong>Parmjit Singh Gill</strong><br>
+      Data Protection Officer, University Of Leicester<br>
+      University Road, Leicester, LE1 7RH<br>
+      Email: <a href="mailto:dpo@leicester.ac.uk">dpo@leicester.ac.uk</a></p>
+    </section>
+
+    <section>
+      <h2 class="module-header">What information are we collecting?</h2>
+      <p>We will collect:</p>
+      <ul>
+        <li>Your full name</li>
+        <li>Your email address</li>
+        <li>A password (which will be securely hashed)</li>
+      </ul>
+      <p>This information is provided directly by you at the point of registration. We do not collect information from any third-party sources.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Why are we collecting your data?</h2>
+      <p>We collect your data in order to:</p>
+      <ul>
+        <li>Enable secure login to the platform</li>
+        <li>Track your progress through the module</li>
+        <li>Generate and issue a certificate of completion for your own records or institutional use</li>
+      </ul>
+      <p>This is necessary to ensure the platform delivers its core educational functionality and to verify your engagement with the resource.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">How we will use this data</h2>
+      <p>Your name and email will be used to:</p>
+      <ul>
+        <li>Create your account</li>
+        <li>Display your progress and completion status</li>
+        <li>Issue certificates linked to your identity</li>
+      </ul>
+      <p>Passwords are stored in hashed form and never accessible in plain text. We do not use your data for marketing or share it with external parties.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Legal basis for processing</h2>
+      <p>Our legal basis under Article 6 of the UK GDPR is:</p>
+      <ul>
+        <li><strong>Article 6(1)(e)</strong> – Processing is necessary for the performance of a task carried out in the public interest (educational activity within a university).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="module-header">Data sharing</h2>
+      <p>We do not share your personal data with any external third parties. Access to data is limited to authorised project team members and IT services within the University of Leicester. Data may be stored on secure servers operated by institutional providers (e.g. JISC) with appropriate access controls.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Data retention</h2>
+      <p>We will retain your personal data for up to 3 years following your last login, or until you request its deletion. After this period, account details and progress logs will be anonymised or securely erased.</p>
+      <p>Our retention period is based on the educational lifecycle of the module and typical research training intervals. Retention schedules can be found <a href="https://le.ac.uk/library/about/policies/retention-schedules" target="_blank" rel="noopener">here</a>.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Your rights</h2>
+      <p>Under the lawful basis described above, you have the following rights:</p>
+      <ul>
+        <li>The right to be informed</li>
+        <li>The right of access</li>
+        <li>The right of rectification</li>
+        <li>The right to object</li>
+        <li>The right to restrict processing</li>
+      </ul>
+      <p>To exercise these rights, contact the University’s Information Assurance Services at <a href="mailto:ias@leicester.ac.uk">ias@leicester.ac.uk</a>.</p>
+    </section>
+
+    <section>
+      <h2 class="module-header">Complaints</h2>
+      <p>If you wish to complain to the Information Commissioner’s Office, you can contact:</p>
+      <p>
+        <strong>Post:</strong> Information Commissioner’s Office, Wycliffe House, Water Lane, Wilmslow, Cheshire, SK9 5AF.<br>
+        <strong>Tel:</strong> 0303 123 1113.<br>
+        <strong>Web:</strong> via <a href="https://www.ico.org.uk" target="_blank" rel="noopener">www.ico.org.uk</a>
+      </p>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-column">
+        <h4>Quick Links</h4>
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'about' %}">About Us</a>
+        <a href="{% url 'publications' %}">Publications</a>
+        
+        <a href="{% url 'news' %}">News</a>
+        <a href="{% url 'contact' %}">Contact</a>
+      </div>
+      <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+        <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+      </div>
+      <div class="footer-column">
+        <h4>Follow Us</h4>
+        <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+          <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+        </a>
+        <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+          <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+      <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

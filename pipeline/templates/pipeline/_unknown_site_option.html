@@ -1,0 +1,22 @@
+{% comment %}
+A `?site=` that names no site on file, rendered as the selected option.
+
+`services/sites.py::form_value` turns a name or a short code into the pk the
+filter form carries, so `?site=Leicester` now selects Leicester. A name that
+resolves to nothing is handed back unchanged, and this is where it goes: the box
+says what was asked for, the form submits it, and `sites.filter_by` matches
+nothing — which is the honest answer. Without it the select fell back to *All
+sites* and the board returned the whole consortium, so a mistyped filter in a
+URL somebody pasted into a message read as data rather than as a typo.
+{% endcomment %}
+{% comment %}
+`none` is not an unknown site — it is `services/sites.py::NONE`, the option
+every one of these selects offers above this include, so it is already drawn and
+already selected. Without this it was rendered a second time as
+*"none — not a site on file"*, which is both wrong and the more confusing kind
+of wrong: the reader picked an option the app offers and was told it does not
+exist.
+{% endcomment %}
+{% if filters.site and filters.site != 'none' and filters.site not in site_pks %}
+  <option value="{{ filters.site }}" selected>{{ filters.site }} — not a site on file</option>
+{% endif %}

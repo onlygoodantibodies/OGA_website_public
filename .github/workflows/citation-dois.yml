@@ -1,0 +1,176 @@
+# Fill the citation snapshot's `by_doi` index from Europe PMC.
+#
+# Run it from the Actions tab -> "citation DOIs" -> Run workflow. Nothing here is
+# scheduled and nothing runs on a push: this is a manual job you press after
+# rebuilding the snapshot, and pressing it is the whole trigger.
+#
+# WHY IT IS A WORKFLOW AT ALL. `core/citations_doi.py` runs with a bare python3
+# on any checkout, so this buys no capability. What it buys is not having to have
+# a checkout, a terminal and twenty minutes: the runner already has the repo, the
+# network and Python, and it opens a pull request at the end so the change to a
+# published artefact is still something a person looks at.
+#
+# NOTE: opening the PR needs "Allow GitHub Actions to create and approve pull
+# requests" (Settings -> Actions -> General -> Workflow permissions), which is off
+# by default. Without it the branch is still pushed and the step prints a link --
+# the run does not fail over it.
+#
+# IT DOES NOT PUSH TO `beta`. The artefact is served to every extension install,
+# so a change to it is a change to what readers see, and `beta` is live. The job
+# opens a PR; merging is yours.
+name: citation DOIs
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: >-
+          Contact address, sent to Europe PMC in the User-Agent. They ask for one
+          so they can reach whoever is making the requests.
+        required: true
+        type: string
+      apply:
+        description: >-
+          Write the result and open a PR. Leave OFF for a dry run that reports
+          what it found and changes nothing.
+        required: false
+        default: false
+        type: boolean
+      limit:
+        description: "Only resolve this many ids (0 = all ~29,000). For a trial."
+        required: false
+        default: "0"
+        type: string
+
+# One at a time, and a second press WAITS rather than killing the first. Unlike
+# the CI workflows this is not answering a question about a commit -- it is
+# part-way through ~586 requests to somebody else's API, and cancelling it
+# wastes them. It is also the wrong thing to run twice at once.
+concurrency:
+  group: citation-dois
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  resolve:
+    name: resolve DOIs via Europe PMC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # No `pip install`. core/citations_doi.py is standard library only, and
+      # keeping it that way is deliberate -- see the module docstring.
+
+      # Answers survive between runs, so a job that timed out or hit a bad patch
+      # does not re-ask Europe PMC for what it already has. Keyed on the run so
+      # every run writes a fresh entry, restored from the newest prefix match.
+      - name: Restore resolved-DOI cache
+        uses: actions/cache@v4
+        with:
+          path: core/data/*.doi-cache.json
+          key: citation-dois-${{ github.run_id }}
+          restore-keys: citation-dois-
+
+      # FIRST, and it fails the job. This parses Europe PMC's response shape, and
+      # that shape is theirs to change -- a run that quietly resolved nothing
+      # because a field moved would look identical to a run that found nothing.
+      - name: Check the API shape before spending ~600 requests
+        run: python3 core/citations_doi.py --check --email "${{ inputs.email }}"
+
+      - name: Resolve
+        run: |
+          python3 core/citations_doi.py \
+            --email "${{ inputs.email }}" \
+            --limit "${{ inputs.limit }}" \
+            ${{ inputs.apply && '--apply' || '' }}
+
+      - name: Open a pull request
+        if: ${{ inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+          BASE_REF: ${{ github.ref_name }}
+          GH_SERVER: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- core/data/; then
+            echo "The artefact did not change - nothing to open a PR for."
+            exit 0
+          fi
+          branch="citation-dois/run-${RUN_NUMBER}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add core/data/
+
+          # Heredocs, not inline strings: a quoted message written across
+          # indented YAML lines carries that indentation into the commit body and
+          # the PR description, and the result reads like it was pasted wrong.
+          cat > /tmp/commit-msg.txt <<'MSG'
+          Fill by_doi in the citation snapshot from Europe PMC
+
+          CiteAb stores a PubMed or preprint id and no DOI, while a publisher's
+          article page declares a DOI and often nothing else machine readable.
+          This fills the index that joins them, so the extension can identify a
+          paper by the identifier its page actually carries.
+
+          Papers stay reachable by PubMed id and by title either way -- this
+          widens coverage rather than enabling it.
+          MSG
+          sed -i 's/^          //' /tmp/commit-msg.txt
+          git commit -F /tmp/commit-msg.txt
+
+          git push origin "$branch"
+
+          cat > /tmp/pr-body.md <<'BODY'
+          Generated by the `citation DOIs` workflow.
+
+          The diff is one file -- `core/data/citeab_papers_*.json`, with `by_doi`
+          filled in. Every other key is untouched.
+
+          **What to check before merging.** The run log prints how many ids
+          resolved, how many produced a usable key, and how many were dropped as
+          clashes (two of our papers claiming one DOI -- those keys are removed
+          rather than pointed at one of them). A large *unresolved* count is worth
+          a look; a large *clash* count means something is wrong with the join,
+          not with the data.
+
+          Unresolved papers stay reachable by PubMed id and by title, so this
+          widens coverage and cannot narrow it.
+          BODY
+          sed -i 's/^          //' /tmp/pr-body.md
+
+          # The branch is already pushed, so by this point the work is SAFE
+          # whatever happens next. Opening the PR is a convenience on top, and a
+          # job that reports failure after writing and pushing the artefact reads
+          # as "the whole run failed" -- which sent somebody looking for a problem
+          # that did not exist.
+          #
+          # The usual reason it fails is a repository setting, not a bug:
+          # Settings -> Actions -> General -> Workflow permissions ->
+          # "Allow GitHub Actions to create and approve pull requests", which is
+          # OFF by default. Enable it and this step works unattended; leave it off
+          # and you get a link to click. Either is fine.
+          if gh pr create \
+               --base "$BASE_REF" \
+               --head "$branch" \
+               --title "Citation snapshot: fill by_doi from Europe PMC (run ${RUN_NUMBER})" \
+               --body-file /tmp/pr-body.md
+          then
+            echo "Pull request opened."
+          else
+            echo "::warning::Could not open the pull request automatically. The"\
+                 "branch '$branch' IS pushed and carries the finished artefact --"\
+                 "nothing was lost. Open it here:"
+            echo "  ${GH_SERVER}/${GITHUB_REPOSITORY}/compare/${BASE_REF}...${branch}?expand=1"
+            echo "To have this step do it unattended, enable Settings -> Actions ->"
+            echo "General -> Workflow permissions -> 'Allow GitHub Actions to create"
+            echo "and approve pull requests'."
+          fi

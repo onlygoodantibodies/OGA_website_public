@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Institutions — Only Good Antibodies Community</title>
+    <meta name="description" content="For universities and research institutions: three practical actions to support good antibody practice — Academy e-learning, workshop access for researchers, and ready-to-adopt policy text.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet for the institutions map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+.ins-hero{background:linear-gradient(160deg,#0d2b5e 0%,#10428a 40%,#4a8ec9 100%);color:#fff;padding:72px 24px 56px;text-align:center;position:relative;overflow:hidden}
+.ins-hero::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,.15) 0%,transparent 70%);border-radius:50%}
+.ins-hero-inner{max-width:820px;margin:0 auto;position:relative;z-index:1}
+.ins-hero-label{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 18px;border-radius:100px;font-size:.85rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px;color:rgba(255,255,255,.9)}
+.ins-hero h1{font-family:'Open Sans',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
+.ins-hero p{font-size:1.1rem;line-height:1.7;color:rgba(255,255,255,.85);max-width:720px;margin:0 auto}
+.ins-hero h1,.ins-hero p,.ins-hero span{color:#fff!important}
+
+.ins-contents{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px}
+.ins-contents-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ins-contents-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;padding-right:12px;border-right:1px solid #e2e8f0;margin-right:6px}
+.ins-contents-link{padding:5px 14px;font-size:.86rem;font-weight:600;color:#10428a;text-decoration:none;border-radius:6px;transition:background .2s}
+.ins-contents-link:hover{background:#f5f8ff}
+html{scroll-behavior:smooth}
+
+.ins-section{padding:64px 24px;scroll-margin-top:24px}
+.ins-section-inner{max-width:1000px;margin:0 auto}
+.ins-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:8px}
+.ins-title{font-family:'Open Sans',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
+.ins-desc{color:#444;font-size:1rem;line-height:1.7;margin-bottom:28px;max-width:780px}
+.ins-bg-light{background:#f5f8ff}
+.ins-bg-white{background:#fff}
+.ins-section h3{color:#10428a!important}
+
+/* Map */
+.ins-map-wrap{position:relative;width:100%;height:440px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:14px;background:#eaf0f8}
+#ins-map{width:100%;height:100%}
+.ins-map-note{font-size:.86rem;color:#555;line-height:1.6;margin-bottom:28px;padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px}
+.ins-map-note strong{color:#10428a}
+.leaflet-popup-content{font-family:'Open Sans',sans-serif;font-size:.88rem;line-height:1.5;margin:10px 12px}
+.leaflet-popup-content b{color:#10428a;font-size:.95rem}
+.leaflet-popup-content .ins-pop-champs{color:#555;margin-top:4px}
+.leaflet-popup-content .ins-pop-badge{display:inline-block;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
+
+/* Institution tiles */
+.ins-tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.ins-tile{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:22px 20px;transition:box-shadow .3s,transform .2s;display:flex;flex-direction:column}
+.ins-tile:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
+.ins-tile-name{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#10428a;margin-bottom:4px;line-height:1.3}
+.ins-tile-city{font-size:.78rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+.ins-tile-champs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.ins-champ-chip{display:inline-flex;align-items:center;gap:6px;background:#f0f4f9;padding:4px 10px 4px 4px;border-radius:100px;font-size:.8rem;color:#333}
+.ins-champ-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#e8f1fa;flex-shrink:0}
+.ins-tile-badge{display:inline-block;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:4px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:auto;align-self:flex-start}
+.ins-tile-badge-l3{background:#dcfce7;color:#166534}
+
+/* Commitments ladder */
+.ins-ladder{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px}
+.ins-ladder-step{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #4a8ec9;border-radius:10px;padding:22px 20px;position:relative}
+.ins-ladder-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#10428a;color:#fff;border-radius:50%;font-weight:800;font-size:.88rem;margin-bottom:12px}
+.ins-ladder-step h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ins-ladder-step p{font-size:.88rem;color:#555;line-height:1.6;margin:0}
+
+/* Toolkit */
+.ins-toolkit-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ins-toolkit-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:28px 24px;transition:box-shadow .3s,transform .2s;display:flex;flex-direction:column}
+.ins-toolkit-card:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
+.ins-toolkit-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:16px;flex-shrink:0}
+.ins-icon-learn{background:#e8f1fa}
+.ins-icon-workshop{background:#dcfce7}
+.ins-icon-policy{background:#fef3c7}
+.ins-icon-pack{background:#ede9fe}
+.ins-toolkit-card h3{font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ins-toolkit-card>p{font-size:.9rem;color:#555;line-height:1.6;margin-bottom:16px}
+.ins-toolkit-card .ins-meta{font-size:.82rem;color:#6b7280;margin-bottom:16px;line-height:1.5}
+.ins-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:#10428a;color:#fff;text-decoration:none;border-radius:8px;font-size:.88rem;font-weight:600;transition:background .2s;border:none;cursor:pointer}
+.ins-btn:hover{background:#4a8ec9}
+.ins-btn-outline{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:1px solid #e2e8f0;color:#10428a;text-decoration:none;border-radius:8px;font-size:.84rem;font-weight:600;transition:background .2s;background:transparent}
+.ins-btn-outline:hover{background:#f5f8ff}
+.ins-btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto}
+
+/* Pathways block (inside workshop card) */
+.ins-pathways{border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px}
+.ins-pathway{padding:10px 0;border-bottom:1px dashed #e2e8f0;font-size:.86rem;color:#444;line-height:1.55}
+.ins-pathway:last-child{border-bottom:none}
+.ins-pathway strong{color:#10428a;display:block;font-size:.88rem;margin-bottom:2px}
+.ins-pathway a{color:#10428a;font-weight:600;text-decoration:none}
+.ins-pathway a:hover{text-decoration:underline}
+
+/* Accordions (shared for outreach + policy text) */
+.ins-accordion{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff}
+.ins-bg-light .ins-accordion{background:#fff}
+.ins-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Open Sans',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
+.ins-accordion-trigger:hover{background:#f5f8ff}
+.ins-accordion-arrow{font-size:.75rem;color:#86bef0;transition:transform .3s;flex-shrink:0;margin-left:12px}
+.ins-accordion.open .ins-accordion-arrow{transform:rotate(180deg)}
+.ins-accordion-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.ins-accordion-body-inner{padding:0 20px 20px;font-size:.9rem;color:#444;line-height:1.7}
+.ins-accordion-body-inner p{margin-bottom:12px}
+.ins-accordion-body-inner p:last-child{margin-bottom:0}
+
+/* Policy text blocks */
+.ins-placement{font-size:.82rem;color:#555;margin-bottom:14px;padding:10px 14px;background:#f0f4f9;border-radius:6px;line-height:1.55}
+.ins-placement strong{color:#10428a}
+.ins-policy-text{font-size:.9rem;color:#1e293b;line-height:1.7;padding:16px 18px;background:#fafbfd;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;font-family:Georgia,'Times New Roman',serif}
+.ins-copy-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#fff;color:#10428a;border:1px solid #10428a;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.ins-copy-btn:hover{background:#10428a;color:#fff}
+.ins-copy-btn.copied{background:#dcfce7;color:#166534;border-color:#86efac}
+
+/* Outreach email templates */
+.ins-email-subject{font-weight:700;color:#10428a;font-size:.9rem;margin-bottom:12px;padding:8px 12px;background:#f0f4f9;border-radius:6px;font-family:'Open Sans',sans-serif}
+.ins-email-body{font-size:.88rem;color:#333;line-height:1.7;white-space:pre-wrap}
+.ins-placeholder{color:#b91c1c;font-weight:600}
+
+/* Contacts */
+.ins-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ins-contact-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
+.ins-contact-card h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
+.ins-contact-card p{font-size:.88rem;color:#555;line-height:1.55;margin-bottom:4px}
+.ins-contact-card a{color:#10428a;text-decoration:none;font-weight:600}
+.ins-contact-card a:hover{text-decoration:underline}
+
+.ins-funder-footer{background:#f0f4f9;padding:20px 24px;text-align:center;font-size:.82rem;color:#6b7280;max-width:1000px;margin:0 auto}
+
+@media(max-width:768px){
+  .ins-toolkit-grid{grid-template-columns:1fr}
+  .ins-contact-grid{grid-template-columns:1fr}
+  .ins-ladder{grid-template-columns:1fr}
+  .ins-contents-label{display:none}
+  .ins-contents-inner{gap:4px}
+  .ins-contents-link{padding:5px 10px;font-size:.82rem}
+  .ins-tiles-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+  .ins-map-wrap{height:380px}
+}
+@media(max-width:480px){
+  .ins-hero{padding:48px 20px 40px}
+  .ins-section{padding:40px 20px}
+  .ins-tiles-grid{grid-template-columns:1fr}
+  .ins-map-wrap{height:320px}
+}
+</style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+{% include 'core/header.html' %}
+
+<section class="ins-hero">
+  <div class="ins-hero-inner">
+    <span class="ins-hero-label">Roadmap — For Institutions</span>
+    <h1>Supporting Good Antibody Practice at Your Institution</h1>
+    <p>Three practical actions — grounded in an international expert consensus — that universities and research institutes can take to improve antibody validation, reduce waste, and prepare researchers for emerging funder and publisher expectations.</p>
+  </div>
+</section>
+
+<div class="ins-contents">
+  <div class="ins-contents-inner">
+    <span class="ins-contents-label">On this page</span>
+    <a href="#network" class="ins-contents-link">The Network</a>
+    <a href="#commitments" class="ins-contents-link">Commitments</a>
+    <a href="#toolkit" class="ins-contents-link">Toolkit</a>
+    <a href="#outreach-templates" class="ins-contents-link">Outreach Templates</a>
+    <a href="#support" class="ins-contents-link">Support</a>
+  </div>
+</div>
+
+<!-- WHY THIS MATTERS -->
+<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:36px 24px;">
+  <div style="max-width:860px;margin:0 auto;">
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:6px;">Why this matters for institutions</div>
+    <p style="font-size:.95rem;color:#333;line-height:1.7;margin:0 0 14px;">Over half of commercial antibodies fail independent testing, yet 84% of papers using them present no validation evidence. The downstream costs — retracted findings, failed replications, wasted biological samples, and damaged institutional reputation — fall disproportionately on the institutions where the work was done. Embedding good antibody practice protects your researchers, strengthens your research integrity record, and positions your institution ahead of emerging funder and publisher requirements. The three actions on this page align with the Concordat to Support Research Integrity and cost nothing to adopt.</p>
+    <details style="margin-top:8px;">
+      <summary style="font-size:.86rem;font-weight:600;color:#10428a;cursor:pointer;padding:6px 0;">Watch: Why antibody choice matters (5 min) ▸</summary>
+      <div style="position:relative;width:100%;padding-bottom:56.25%;border-radius:10px;overflow:hidden;margin-top:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);">
+        <iframe src="https://www.youtube.com/embed/LDjt1fEdmuI" allowfullscreen title="Why antibody choice matters" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;"></iframe>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- NETWORK (map + tiles) -->
+<section class="ins-section ins-bg-white" id="network">
+  <div class="ins-section-inner">
+    <div class="ins-label">The Network</div>
+    <div class="ins-title">Institutions Hosting an Antibody Champion</div>
+    <div class="ins-desc">These UK institutions are hosting a 2026 NC3Rs &amp; OGA Antibody Champion — an early-career researcher trained to help colleagues make better antibody choices. Click a pin for details. Institutions making further commitments (workshop access, policy text adoption) will be highlighted as they join.</div>
+
+    <div class="ins-map-wrap"><div id="ins-map"></div></div>
+    <div class="ins-map-note"><strong>Most workshops run online</strong>, so geography doesn't limit access. If your institution is not on the map, you can <a href="mailto:keb29@leicester.ac.uk">request a visiting Champion</a> — Katherine Blades will connect you to one of the network.</div>
+
+    <div class="ins-tiles-grid" id="ins-tiles"></div>
+  </div>
+</section>
+
+<!-- COMMITMENTS -->
+<section class="ins-section ins-bg-light" id="commitments">
+  <div class="ins-section-inner">
+    <div class="ins-label">What Institutions Can Do</div>
+    <div class="ins-title">Three Commitments</div>
+    <div class="ins-desc">A Delphi consensus study with 32 international experts identified three institutional actions as both effective and feasible — the only stakeholder group where all recommendations achieved full consensus without feasibility concerns. These three commitments build on each other and map directly onto those recommendations.</div>
+
+    <div class="ins-ladder">
+      <div class="ins-ladder-step">
+        <div class="ins-ladder-num">1</div>
+        <h3>Require Academy e-learning</h3>
+        <p>Any researcher using antibody-based methods should complete the free OGA Academy modules before starting experimental work. Zero cost, zero effort — just added to induction or handbook requirements.</p>
+      </div>
+      <div class="ins-ladder-step">
+        <div class="ins-ladder-num">2</div>
+        <h3>Workshop access for every antibody user</h3>
+        <p>Every antibody-using researcher should have access to a live workshop before choosing antibodies. Host a Champion, give a local staff member time to run workshops, or request a visiting Champion from the network.</p>
+      </div>
+      <div class="ins-ladder-step">
+        <div class="ins-ladder-num">3</div>
+        <h3>Adopt recommended policy text</h3>
+        <p>Embed expectations into research integrity policies, training frameworks, and doctoral handbooks using ready-to-adopt text. Makes good practice persist beyond any one person.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLKIT -->
+<section class="ins-section ins-bg-white" id="toolkit">
+  <div class="ins-section-inner">
+    <div class="ins-label">Your Toolkit</div>
+    <div class="ins-title">Resources to Adopt or Share</div>
+    <div class="ins-desc">Everything you need to act on the three commitments. All resources are free, open, and designed to slot into existing institutional structures without new review processes.</div>
+    <div class="ins-toolkit-grid">
+
+      <!-- 1. Academy requirement -->
+      <div class="ins-toolkit-card">
+        <div class="ins-toolkit-icon ins-icon-learn">📚</div>
+        <h3>Academy E-Learning Requirement</h3>
+        <p>Free, self-paced modules covering antibody selection, the five pillars of validation, navigating the OGA database, and interpreting real validation data. Each module is 10–15 minutes with a quiz and a completion certificate that now carries a <strong>QR code and verification link</strong>, so a certificate can be independently confirmed as genuine.</p>
+        <div class="ins-meta">Ready-to-paste handbook wording: <em>"Students and researchers whose work uses antibody-based methods must complete OGA Academy Modules 1–4 before commencing experimental work. Certificates of completion should be retained for training records."</em> Every certificate can be verified at its printed link — useful evidence of engagement for training records.</div>
+        <div class="ins-btn-row"><a href="{% url 'academy:academy_home' %}" class="ins-btn">Go to the Academy ↗</a></div>
+      </div>
+
+      <!-- 2. Workshop access -->
+      <div class="ins-toolkit-card">
+        <div class="ins-toolkit-icon ins-icon-workshop">🔬</div>
+        <h3>Workshop Access</h3>
+        <p>A ~90-minute online workshop where participants bring their own targets and work through real antibody selection decisions live. This is where practice actually shifts. Three pathways to offer it at your institution:</p>
+        <div class="ins-pathways">
+          <div class="ins-pathway">
+            <strong>Host a Champion</strong>
+            Nominate an early-career researcher to join the next cohort of the NC3Rs–OGA Antibody Champions scheme. They receive training, mentoring, and resourcing to run workshops locally. <a href="{% url 'champions' %}">Meet the Champions →</a>
+          </div>
+          <div class="ins-pathway">
+            <strong>Resource a local staff member</strong>
+            Give existing staff time to run workshops using the Champions Workshop Framework. The guide provides full format, talking points, and FAQ. <a href="{% static 'core/champions/Champions_Workshop_Framework.pdf' %}" download>Workshop Framework (PDF) ↓</a>
+          </div>
+          <div class="ins-pathway">
+            <strong>Request a visiting Champion</strong>
+            Most workshops run online, so Champions can deliver to any UK institution. <a href="mailto:keb29@leicester.ac.uk?subject=Requesting%20a%20visiting%20Champion">Email Katherine Blades</a> to arrange.
+          </div>
+        </div>
+        <div class="ins-meta" style="margin-top:14px;">If none of the above is feasible yet, a complementary <a href="{% static 'core/institutions/Antibody_Validation_Teaching_Pack.docx' %}" download>Teaching Pack (Word)</a> provides talking points, discussion activities, and integration scenarios for self-led curriculum integration.</div>
+      </div>
+
+      <!-- 3. Policy text -->
+      <div class="ins-toolkit-card">
+        <div class="ins-toolkit-icon ins-icon-policy">📋</div>
+        <h3>Recommended Policy Text</h3>
+        <p>Three blocks of ready-to-adopt text for institutions updating their research integrity policies, training frameworks, or doctoral programme handbooks. Designed to fit existing policy structures aligned with the Concordat to Support Research Integrity and the UKRIO Code of Practice.</p>
+        <div class="ins-meta">Does not propose new review processes. Sets expectations that can be met through existing training infrastructure and freely available tools. <a href="{% static 'core/docs/S4_Institutional_Recommendations.pdf' %}" target="_blank">View full consultation document (PDF)</a>.</div>
+        <div class="ins-btn-row"><a href="#policy-text" class="ins-btn-outline">View policy blocks ↓</a></div>
+      </div>
+
+      <!-- 4. Resource pack -->
+      <div class="ins-toolkit-card">
+        <div class="ins-toolkit-icon ins-icon-pack">🔗</div>
+        <h3>Resource Pack</h3>
+        <p>Curated links to validation databases, recommended literature, accessible guides, and web resources. Useful handout for any training session or as a reference appendix in handbooks.</p>
+        <div class="ins-btn-row"><a href="{% static 'core/champions/Resource_Pack.pdf' %}" class="ins-btn-outline" download>Download (PDF)</a></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- POLICY TEXT BLOCKS -->
+<section class="ins-section ins-bg-light" id="policy-text">
+  <div class="ins-section-inner">
+    <div class="ins-label">Ready-to-Adopt</div>
+    <div class="ins-title">Policy Text Blocks</div>
+    <div class="ins-desc">Expand the block relevant to the policy you are updating. Each block includes a placement note, the recommended text, and a copy-to-clipboard button. Adapt freely to your house style.</div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">Block 1: Research integrity policies and codes of practice<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-placement"><strong>Placement:</strong> Sections covering research design, methodology, or responsible conduct of research. In UKRIO-aligned policies: Section 3.3 (Research Design) or Section 3.11 (Data, Information, or Material).</div>
+        <div class="ins-policy-text" id="policy-block-1">Researchers in fields that routinely use antibodies should ensure that their approach to antibody selection and validation is proportionate to the demands of their scientific question. Where antibody specificity is critical to the interpretation of results, researchers should consult available independent characterisation data, plan appropriate controls matched to their experimental context, and document their reasoning. Institutions should ensure that researchers have access to training in antibody validation principles and to structured planning tools that support this process. This expectation is consistent with the institution's commitment to research quality, the responsible use of animal and human biological samples, and the principles of the Concordat to Support Research Integrity. Freely available resources to support researchers include the OGA Antibody Database (onlygoodantibodies.co.uk), the OGA Validation Planner, and the OGA Academy e-learning modules. Researchers are also encouraged to prioritise recombinant antibodies where available, consistent with the transition from animal-derived polyclonal reagents supported by NC3Rs and EURL ECVAM.</div>
+        <button class="ins-copy-btn" data-copy-target="policy-block-1">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">Block 2: Research training frameworks<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-placement"><strong>Placement:</strong> Research training requirements, researcher development programmes, or mandatory integrity training. In UKRIO-aligned policies: Section 3.2 (Leadership, Supervision, Training and Development).</div>
+        <div class="ins-policy-text" id="policy-block-2">Researchers and research students in bioscience fields that use antibodies should complete training in antibody selection and validation as part of their research skills development. Training should cover the principles of application-specific validation, the interpretation of independent characterisation data, and the documentation of validation decisions. Free e-learning and workshop materials are available through the Only Good Antibodies platform (onlygoodantibodies.co.uk/academy). Institutions participating in the OGA–NC3Rs Antibody Champions scheme can access locally delivered training and peer support.</div>
+        <button class="ins-copy-btn" data-copy-target="policy-block-2">📋 Copy text</button>
+      </div></div>
+    </div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">Block 3: Doctoral training programme handbooks<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-placement"><strong>Placement:</strong> Research methods guidance, milestone requirements, or supervisory expectations for programmes where antibody-based techniques are routinely used.</div>
+        <div class="ins-policy-text" id="policy-block-3">PhD students whose research involves antibody-based experiments should produce a documented validation plan for any antibody critical to the interpretation of their results. The plan should record what the scientific question requires from the antibody, what existing characterisation data is available, what controls will be used, and the full identity of the antibody (vendor, catalogue number, lot number, clone, RRID, host species). Structured tools to support this are available at onlygoodantibodies.co.uk/tools/validation-planner. The structured format guides researchers through the reasoning needed for proportionate validation planning, and the documented output creates a transparent record that supports both good practice and emerging funder and publisher requirements around antibody validation reporting.</div>
+        <button class="ins-copy-btn" data-copy-target="policy-block-3">📋 Copy text</button>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- OUTREACH TEMPLATES -->
+<section class="ins-section ins-bg-white" id="outreach-templates">
+  <div class="ins-section-inner">
+    <div class="ins-label">Advocating Internally</div>
+    <div class="ins-title">Outreach Email Templates</div>
+    <div class="ins-desc">If you'd like to see your institution adopt any of these commitments, these templates make it easier to approach the people who can make it happen. Expand the one you need, personalise the <span class="ins-placeholder">[red text]</span>, and send.</div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">To the DTP Lead / PGR Director<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-email-subject">Subject: A low-cost addition to our DTP — antibody validation training</div>
+        <div class="ins-email-body"><span class="ins-placeholder">[Dear NAME,]</span>
+
+I'm writing to suggest a small addition to our doctoral training programme that would have an outsized impact on research quality: a requirement that any student using antibody-based methods completes a short piece of e-learning, and — ideally — has access to a practical workshop before choosing their antibodies.
+
+The context: over 50% of commercial antibodies fail independent testing, and the resulting waste is substantial. Closer to home, a recent systematic analysis of 785 publications using poorly performing antibodies found that only 15.8% presented any validation evidence. Those studies consumed more than 8,000 animal samples and 4,400 human tissue samples — most without evidence the antibodies were fit for purpose.
+
+The Only Good Antibodies community has developed free resources aligned to this problem:
+
+• <strong>OGA Academy</strong> — four free self-paced e-learning modules (~45 minutes total, with quizzes and completion certificates). This could become a required element of our DTP induction or handbook.
+
+• <strong>Antibody Champions workshops</strong> — a 90-minute online session where researchers bring their own targets and work through antibody selection decisions live. Three ways we could offer this: nominate one of our PhD students to become an Antibody Champion (they get training and resourcing); resource an existing staff member to run sessions; or request a visiting Champion from the national network.
+
+An international Delphi consensus study with 32 experts rated institutional training in antibody validation as the highest-priority intervention for improving reproducibility — and the only stakeholder group where all recommendations achieved full consensus without feasibility concerns.
+
+Would it be worth a short conversation about how this could slot into our existing training? Happy to share the materials and discuss.
+
+More information: onlygoodantibodies.co.uk/roadmap/institutions
+
+Best wishes,
+
+<span class="ins-placeholder">[YOUR NAME]
+[YOUR ROLE / DEPARTMENT / INSTITUTION]</span></div>
+      </div></div>
+    </div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">To the Research Integrity Lead / Head of Research Governance<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-email-subject">Subject: Strengthening our research integrity framework — antibody validation policy text</div>
+        <div class="ins-email-body"><span class="ins-placeholder">[Dear TITLE NAME,]</span>
+
+I'm writing to flag a piece of freely available policy text that would strengthen <span class="ins-placeholder">[INSTITUTION]</span>'s research integrity framework in an area where there is increasing external scrutiny: antibody validation.
+
+The underpinning evidence is stark. A systematic analysis of 785 publications using antibodies with demonstrated poor performance found that only 15.8% presented any validation evidence. The studies consumed more than 8,000 animal samples and 4,400 human tissue samples without evidence the antibodies were fit for purpose. A Delphi consensus study with 32 international experts subsequently identified institutional action as foundational to addressing this — all three institutional recommendations achieved full consensus as both effective and feasible, the only stakeholder group where this was the case.
+
+The Only Good Antibodies community has produced recommended policy text designed to fit within existing frameworks aligned with the Concordat to Support Research Integrity and the UKRIO Code of Practice. It does not propose new review processes. It sets expectations that can be met through existing training and freely available tools — in the same way that institutions already set expectations around statistical rigour, data management, and the responsible use of AI.
+
+There are three blocks of text, each mapped to a specific policy context:
+
+• A clause for research integrity policies (UKRIO Section 3.3 or 3.11)
+• A clause for research training frameworks (UKRIO Section 3.2)
+• A clause for doctoral programme handbooks
+
+All three are short, adaptable, and available as ready-to-adopt text at onlygoodantibodies.co.uk/roadmap/institutions. There is also a significant 3Rs dimension — the policy encourages recombinant antibodies over animal-derived polyclonals, aligned with the EURL ECVAM recommendation, the NC3Rs strategy, and the UK government's Replacing Animals in Science strategy.
+
+Would it be worth a short meeting to discuss whether this might be incorporated at the next review point?
+
+Best wishes,
+
+<span class="ins-placeholder">[YOUR NAME]
+[YOUR ROLE / DEPARTMENT / INSTITUTION]</span></div>
+      </div></div>
+    </div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">To the Head of School or Department<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-email-subject">Subject: Free, evidence-based reproducibility training for our researchers</div>
+        <div class="ins-email-body"><span class="ins-placeholder">[Dear TITLE NAME,]</span>
+
+I'm writing to raise an opportunity to strengthen research quality across the School with negligible effort or cost: free antibody validation training, developed from an MRC-funded Delphi consensus study and aligned with emerging funder and publisher requirements.
+
+The problem is significant. Over half of commercial antibodies fail independent testing. Researchers select antibodies largely on lab tradition and supplier reputation rather than evidence, and the published literature shows that validation evidence is presented in only 15.8% of studies using poorly performing antibodies. The cost is financial, ethical (in wasted animal and human samples), and reputational.
+
+Three complementary resources are freely available from the Only Good Antibodies community:
+
+1. <strong>OGA Academy</strong> — four free self-paced e-learning modules covering antibody selection and validation. Could be added to our induction or PGR training requirements at zero cost.
+
+2. <strong>Antibody Champions workshops</strong> — a 90-minute hands-on session where researchers bring their own antibody selection problems. We could nominate a local Champion, resource existing staff to deliver, or request a visiting Champion from the UK network.
+
+3. <strong>Recommended policy text</strong> — ready-to-adopt wording for research integrity policies, training frameworks, and doctoral handbooks. Designed to fit within existing structures without new review processes.
+
+All three are aligned with the Concordat to Support Research Integrity, the UKRIO Code of Practice, and the UK government's Replacing Animals in Science strategy. The workshop and policy elements have a direct 3Rs benefit through reduced sample waste.
+
+Would you be open to a short meeting to discuss how any of this might be adopted locally?
+
+More information: onlygoodantibodies.co.uk/roadmap/institutions
+
+Best wishes,
+
+<span class="ins-placeholder">[YOUR NAME]
+[YOUR ROLE / DEPARTMENT / INSTITUTION]</span></div>
+      </div></div>
+    </div>
+
+    <div class="ins-accordion">
+      <button class="ins-accordion-trigger" aria-expanded="false">Follow-up (after no response)<span class="ins-accordion-arrow">▼</span></button>
+      <div class="ins-accordion-body"><div class="ins-accordion-body-inner">
+        <div class="ins-email-subject">Subject: Re: <span class="ins-placeholder">[ORIGINAL SUBJECT LINE]</span></div>
+        <div class="ins-email-body"><span class="ins-placeholder">[Dear NAME,]</span>
+
+Just a brief follow-up on my earlier email — I appreciate how busy things are and wanted to make sure it hadn't been buried.
+
+The lowest-effort version of what I suggested would be to add a requirement that any researcher using antibody-based methods completes the free OGA Academy e-learning (onlygoodantibodies.co.uk/academy). That alone would be a meaningful step and requires no local resource.
+
+Happy to arrange a brief conversation whenever it suits, or to send more detail in writing if that's easier.
+
+Best wishes,
+
+<span class="ins-placeholder">[YOUR NAME]</span></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- SUPPORT & CONTACTS -->
+<section class="ins-section ins-bg-light" id="support">
+  <div class="ins-section-inner">
+    <div class="ins-label">Getting Help</div>
+    <div class="ins-title">Support &amp; Contacts</div>
+    <div class="ins-contact-grid">
+      <div class="ins-contact-card">
+        <h3>Champions &amp; Workshop Requests</h3>
+        <p>Katherine Blades</p>
+        <p><a href="mailto:keb29@leicester.ac.uk">keb29@leicester.ac.uk</a></p>
+        <p style="margin-top:8px;font-size:.84rem;color:#6b7280;">Hosting a Champion, requesting a visiting Champion, workshop scheduling.</p>
+      </div>
+      <div class="ins-contact-card">
+        <h3>Policy Text &amp; Adoption Enquiries</h3>
+        <p>Dr Harvinder Virk, University of Leicester</p>
+        <p><a href="mailto:hsv6@leicester.ac.uk">hsv6@leicester.ac.uk</a></p>
+        <p style="margin-top:8px;font-size:.84rem;color:#6b7280;">Policy text adoption, institutional pilots, and feedback on the recommended text.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="ins-funder-footer">
+  <p>The Antibody Champions programme is funded by the NIHR–MRC Better Methods, Better Research programme and the NC3Rs, with support from the Leicester Institute for Precision Health and the NIHR Leicester Biomedical Research Centre.</p>
+</div>
+
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a>
+      <a href="{% url 'about' %}">About Us</a>
+      <a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'news_publications' %}">Publications</a>
+      <a href="{% url 'news_publications' %}">News</a>
+      <a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// Institutional data — 14 unique institutions (deduped from 16 Champions)
+// Edit `level` values (1/2/3) as institutions progress up the commitments ladder.
+// Level 1 = Hosts a Champion (default at launch).
+// Level 2 = Workshop access for all antibody users.
+// Level 3 = Adopted recommended policy text.
+// ─────────────────────────────────────────────────────────
+var INSTITUTIONS = [
+  { name: "University of Plymouth", city: "Plymouth", region: "South West", lat: 50.3754, lng: -4.1427, level: 1,
+    champions: [{name:"Abigail Parsons", photo:"core/champions/abigail parsons photo.jpg"}] },
+  { name: "University of Nottingham", city: "Nottingham", region: "East Midlands", lat: 52.9382, lng: -1.1965, level: 1,
+    champions: [
+      {name:"Avika Srivastava", photo:"core/champions/Avika Srivastava.jpeg"},
+      {name:"Lorna Milne", photo:"core/champions/Lorna Milne.jpg"}
+    ] },
+  { name: "Imperial College London", city: "London", region: "London", lat: 51.4988, lng: -0.1749, level: 1,
+    champions: [{name:"Ben Moss", photo:"core/champions/Ben_Moss.jpg"}] },
+  { name: "University College London", city: "London", region: "London", lat: 51.5246, lng: -0.1340, level: 1,
+    champions: [{name:"Charlie Arber", photo:"core/champions/Charlie Arber.jpg"}] },
+  { name: "Queen Mary University of London", city: "London", region: "London", lat: 51.5246, lng: -0.0406, level: 1,
+    champions: [
+      {name:"Christina Gkantsinikoudi", photo:"core/champions/Christina Gkantsinikoudi_Headshot.JPG"},
+      {name:"Lovely Monney", photo:"core/champions/Lovely Monney.jpeg"}
+    ] },
+  { name: "Manchester Metropolitan University", city: "Manchester", region: "North West", lat: 53.4708, lng: -2.2399, level: 1,
+    champions: [{name:"Ella Turner", photo:"core/champions/ella turner.jpeg"}] },
+  { name: "University of Manchester", city: "Manchester", region: "North West", lat: 53.4668, lng: -2.2339, level: 1,
+    champions: [{name:"Jeyapriya Thimukonda Jegadeesan", photo:"core/champions/Jeyapriya Thimukonda Jegadeesan.jpg"}] },
+  { name: "Royal Veterinary College", city: "London", region: "London", lat: 51.5260, lng: -0.1404, level: 1,
+    champions: [{name:"Neil Marr", photo:"core/champions/NeilMarr.png"}] },
+  { name: "University of Strathclyde", city: "Glasgow", region: "Scotland", lat: 55.8617, lng: -4.2422, level: 1,
+    champions: [{name:"Ridvan Kucuk", photo:"core/champions/Ridvan photo.jpg"}] },
+  { name: "University of Glasgow", city: "Glasgow", region: "Scotland", lat: 55.8720, lng: -4.2880, level: 1,
+    champions: [{name:"Rosie Fellows", photo:"core/champions/Rosie_Headshot.jpg"}] },
+  { name: "University of Leicester", city: "Leicester", region: "East Midlands", lat: 52.6219, lng: -1.1248, level: 1,
+    champions: [{name:"Siâny Vincent-Simpson", photo:"core/champions/Siany Vincent-Simpson.jpg"}] },
+  { name: "Lancaster University", city: "Lancaster", region: "North West", lat: 54.0100, lng: -2.7857, level: 1,
+    champions: [{name:"Stefanie Menzies", photo:"core/champions/Stefanie Menzies.jpg"}] },
+  { name: "University of Dundee", city: "Dundee", region: "Scotland", lat: 56.4586, lng: -2.9844, level: 1,
+    champions: [{name:"Sukriti Maity", photo:"core/champions/Sukriti Maity.jpeg"}] },
+  { name: "Waltham Petcare Science Institute", city: "Melton Mowbray", region: "East Midlands", lat: 52.7644, lng: -0.8856, level: 1,
+    champions: [{name:"Wiktoria Tomalik", photo:"core/champions/Wiktoria Tomalik.jpeg"}] }
+];
+
+var STATIC_ROOT = "{% static '' %}";
+
+function levelBadge(level){
+  if(level >= 3) return '<span class="ins-tile-badge ins-tile-badge-l3">All three commitments</span>';
+  if(level >= 2) return '<span class="ins-tile-badge ins-tile-badge-l3">Workshop access</span>';
+  return '<span class="ins-tile-badge">Hosts a Champion</span>';
+}
+
+// ── Build tile grid ──
+(function(){
+  var grid = document.getElementById('ins-tiles');
+  var html = '';
+  INSTITUTIONS.forEach(function(inst, idx){
+    var champsHtml = inst.champions.map(function(c){
+      return '<span class="ins-champ-chip">' +
+               '<img class="ins-champ-avatar" src="' + STATIC_ROOT + encodeURI(c.photo) + '" alt="' + c.name + '">' +
+               c.name +
+             '</span>';
+    }).join('');
+    html += '<div class="ins-tile" id="tile-' + idx + '">' +
+              '<div class="ins-tile-name">' + inst.name + '</div>' +
+              '<div class="ins-tile-city">' + inst.city + ' · ' + inst.region + '</div>' +
+              '<div class="ins-tile-champs">' + champsHtml + '</div>' +
+              levelBadge(inst.level) +
+            '</div>';
+  });
+  grid.innerHTML = html;
+})();
+
+// ── Build Leaflet map ──
+(function(){
+  var map = L.map('ins-map', {
+    scrollWheelZoom: false,
+    attributionControl: true
+  }).setView([54.5, -3.2], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  var bounds = [];
+  INSTITUTIONS.forEach(function(inst, idx){
+    bounds.push([inst.lat, inst.lng]);
+    var champNames = inst.champions.map(function(c){ return c.name; }).join(', ');
+    var badgeText = inst.level >= 3 ? 'All three commitments' : (inst.level >= 2 ? 'Workshop access' : 'Hosts a Champion');
+    var popup = '<b>' + inst.name + '</b><br>' +
+                '<span class="ins-pop-champs">Champion' + (inst.champions.length > 1 ? 's' : '') + ': ' + champNames + '</span><br>' +
+                '<span class="ins-pop-badge">' + badgeText + '</span><br>' +
+                '<a href="#tile-' + idx + '" style="color:#10428a;font-weight:600;text-decoration:none;margin-top:6px;display:inline-block;">View details ↓</a>';
+    L.marker([inst.lat, inst.lng])
+      .addTo(map)
+      .bindPopup(popup)
+      .bindTooltip(inst.name, { direction: 'top', offset: [-14, -8] });
+  });
+
+  if(bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+})();
+
+// ── Accordion toggle (shared for outreach + policy text) ──
+document.querySelectorAll('.ins-accordion-trigger').forEach(function(trigger){
+  trigger.addEventListener('click', function(){
+    var accordion = this.closest('.ins-accordion');
+    var body = accordion.querySelector('.ins-accordion-body');
+    var isOpen = accordion.classList.contains('open');
+    if(isOpen){
+      body.style.maxHeight = null;
+      accordion.classList.remove('open');
+      this.setAttribute('aria-expanded', 'false');
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      accordion.classList.add('open');
+      this.setAttribute('aria-expanded', 'true');
+    }
+  });
+});
+
+// ── Copy-to-clipboard for policy text blocks ──
+document.querySelectorAll('.ins-copy-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var targetId = this.getAttribute('data-copy-target');
+    var el = document.getElementById(targetId);
+    if(!el) return;
+    var text = el.innerText || el.textContent;
+    var self = this;
+    navigator.clipboard.writeText(text).then(function(){
+      self.classList.add('copied');
+      self.innerHTML = '✓ Copied';
+      setTimeout(function(){
+        self.classList.remove('copied');
+        self.innerHTML = '📋 Copy text';
+      }, 2000);
+    }).catch(function(){
+      // Fallback for older browsers
+      var range = document.createRange();
+      range.selectNode(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      try { document.execCommand('copy'); } catch(e){}
+      window.getSelection().removeAllRanges();
+      self.classList.add('copied');
+      self.innerHTML = '✓ Copied';
+      setTimeout(function(){
+        self.classList.remove('copied');
+        self.innerHTML = '📋 Copy text';
+      }, 2000);
+    });
+  });
+});
+
+// ── Recalculate open-accordion heights on window resize ──
+window.addEventListener('resize', function(){
+  document.querySelectorAll('.ins-accordion.open .ins-accordion-body').forEach(function(body){
+    body.style.maxHeight = body.scrollHeight + 'px';
+  });
+});
+</script>
+</body>
+</html>

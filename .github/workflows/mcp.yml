@@ -1,0 +1,62 @@
+# The MCP servers — one of the two reader-facing tools, not part of the three
+# Django apps, and carrying its own requirements.txt.
+#
+# Path-scoped so it does not run on every push. It was a quarter of the jobs on
+# a board-template change, proving something that change could not affect. It
+# still runs on `core/` and `pipeline/models.py`, which it genuinely reads.
+name: mcp servers
+
+on:
+  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
+  # The month's GitHub Actions minutes are spent, so every automatic run was
+  # failing before a single test executed -- a red tick on `beta` that says
+  # nothing about the code and trains everyone to ignore red ticks.
+  #
+  # The automatic triggers below are commented out, NOT deleted, so restoring
+  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
+  # left on, so the Actions tab can still run this by hand.
+  #
+  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
+  # is off is a suite nobody runs, and it looks exactly like a suite that
+  # passes.
+  # ───────────────────────────────────────────────────────────────────────
+#   push:
+#     paths:
+#       - 'mcp_servers/**'
+#       - 'core/**'
+#       - 'pipeline/models.py'
+#       - '.github/workflows/mcp.yml'
+#   pull_request:
+#     paths:
+#       - 'mcp_servers/**'
+#       - 'core/**'
+#       - 'pipeline/models.py'
+#       - '.github/workflows/mcp.yml'
+  workflow_dispatch:
+
+# One run per branch. Pushing a series of commits used to leave every superseded
+# run going to completion -- eight commits in one session meant eight full
+# rounds, seven of them answering a question about code that had already moved.
+# The only run whose answer anybody acts on is the one on the tip commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mcp:
+    name: MCP servers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      # mcp_servers is not part of the Django deploy and carries its own
+      # requirements.txt; Server B boots Django, so it needs both.
+      - name: Install dependencies
+        run: |
+          grep -v '^mysqlclient' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt -r mcp_servers/requirements.txt
+      - name: MCP tests
+        run: python -m pytest mcp_servers/tests -q

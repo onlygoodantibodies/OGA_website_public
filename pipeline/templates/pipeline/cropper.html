@@ -1,0 +1,1334 @@
+{% load static %}<!doctype html>
+<!--
+  OGA figure grid-cropper — interactive prototype (spec §5-§9).
+  Self-contained, no server, no build, no AI. Open in any browser and load a
+  composite figure PNG. Client-side cropping mirrors pipeline/services/cropper/
+  engine.py; the production tool crops server-side in Python for reproducibility.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OGA Grid Cropper (prototype)</title>
+<style>
+  :root { --blue:#123a7a; --line:#2d6cdf; --bg:#f4f6fb; --ink:#1a2233; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--blue); color:#fff; padding:10px 16px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:700; letter-spacing:.3px; }
+  header .hint { font-size:12px; opacity:.85; }
+  /* The controls column was a fixed 300px, and everything in it — three
+     numeric inputs, the antibody list, the grid legend — was wrapping inside
+     that width while a 3300px figure sat beside it. It is wider now and the
+     reader can drag it: `resize` on the panel with the grid track following it,
+     so a long antibody list and a wide figure are not competing for one
+     hard-coded number. */
+  main { display:grid; grid-template-columns:auto 1fr; gap:0; height:calc(100vh - 44px); }
+  .panel { background:#fff; border-right:1px solid #dde3ee; padding:14px; overflow:auto;
+           width:360px; resize:horizontal; min-width:280px; max-width:640px; }
+  .stage { position:relative; overflow:auto; padding:16px; }
+  .zoom { display:flex; align-items:center; gap:4px; }
+  .zoom button { padding:3px 8px; font-weight:700; line-height:1.1; }
+  #zoomlevel { font:12px system-ui; opacity:.9; min-width:64px; text-align:center; }
+  fieldset { border:1px solid #dde3ee; border-radius:8px; margin:0 0 14px; padding:10px 12px; }
+  legend { font-weight:700; color:var(--blue); padding:0 6px; font-size:13px; }
+  label { display:block; font-size:12px; font-weight:600; margin:8px 0 3px; }
+  input,select,textarea,button { font:inherit; }
+  input[type=text],input[type=number],select,textarea {
+    width:100%; padding:6px 8px; border:1px solid #c6cfdd; border-radius:6px; background:#fff; }
+  textarea { resize:vertical; min-height:70px; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  button { cursor:pointer; border:1px solid var(--line); background:var(--line); color:#fff;
+    padding:7px 12px; border-radius:6px; font-weight:600; }
+  button.sec { background:#fff; color:var(--line); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .svgwrap { position:relative; display:inline-block; }
+  svg { display:block; touch-action:none; }
+  .bound { stroke:#e8622c; stroke-width:2; cursor:grab; }
+  .hline { stroke:var(--line); stroke-width:2; cursor:row-resize; }
+  .vline { stroke:#12a150; stroke-width:2; cursor:col-resize; }
+  .hit { stroke:transparent; stroke-width:12; }
+  .cell { fill:transparent; cursor:pointer; }
+  .cell.assigned { fill:rgba(45,108,223,.16); }
+  .cellnum { font:800 26px system-ui; fill:#ffcc00; stroke:#000; stroke-width:5px; paint-order:stroke fill; pointer-events:none; }
+  .maptable { width:100%; border-collapse:collapse; font-size:12px; }
+  .maptable th,.maptable td { border:1px solid #dde3ee; padding:3px 5px; text-align:left; }
+  .maptable select { padding:3px; }
+  .crops { display:flex; flex-wrap:wrap; gap:10px; padding:10px 16px; }
+  .crop { border:1px solid #dde3ee; border-radius:6px; background:#fff; padding:6px; text-align:center; }
+  .crop canvas { width:180px; height:180px; border:1px solid #eee; }
+  .crop .fn { font:600 11px monospace; margin-top:4px; word-break:break-all; max-width:180px; }
+  .crop.recon { border-color:#12a150; box-shadow:0 0 0 2px #12a15044; }
+  .crop .recbadge { font-size:11px; font-weight:700; color:#12a150; margin-top:3px; min-height:14px; }
+  .crop:not(.recon) .recbadge { color:#9aa4b2; font-weight:400; }
+  .note { font-size:12px; color:#5b6577; }
+  .pill { display:inline-block; background:#e7eefc; color:var(--blue); border-radius:20px; padding:2px 9px; font-size:11px; font-weight:700; }
+  .banner { margin-top:10px; padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.4; border:1px solid transparent; }
+  .banner.new            { background:#eaf5ec; border-color:#bfe3c8; color:#1c6b34; }
+  .banner.exists_no_images { background:#eef3fc; border-color:#c3d6f5; color:#1c437e; }
+  .banner.exists_with_images { background:#fdecea; border-color:#f3c0b8; color:#9a2a1a; }
+  .banner.loading        { background:#f2f4f8; border-color:#dde3ee; color:#5b6577; }
+  .ocrbadge { font-size:11px; font-weight:700; padding:1px 5px; border-radius:10px; white-space:nowrap; cursor:help; }
+  .ocrbadge.ok  { background:#e6f4ea; color:#1c6b34; }
+  .ocrbadge.amb { background:#fcefda; color:#8a5a00; }
+  .ocrbadge.no  { background:#eef1f6; color:#5b6577; }
+  .imagelist { display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+  .imgrow { display:flex; align-items:center; gap:7px; padding:5px 7px; border:1px solid #dde3ee; border-radius:6px; cursor:pointer; background:#fff; }
+  .imgrow.active { border-color:var(--line); background:#eef3fc; }
+  .imgrow .appsel { font-size:11px; font-weight:700; padding:1px 3px; border:1px solid #c6cfdd; border-radius:4px; width:auto; }
+  .imgrow .nm { flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .imgrow .done { font-size:11px; color:#1c6b34; font-weight:700; }
+  .imgrow .rm { border:none; background:none; color:#b23; font-weight:700; cursor:pointer; padding:0 4px; }
+  .crops h4 { width:100%; margin:6px 0 0; font-size:13px; color:var(--blue); }
+  .metagrid { padding:6px 16px 20px; overflow-x:auto; }
+  .metatable { border-collapse:collapse; font-size:12px; }
+  .metatable th { background:#eef3fc; color:var(--blue); font-size:11px; text-align:left; padding:4px 6px; position:sticky; top:0; }
+  .metatable td { border:1px solid #e3e8f0; padding:2px; }
+  .metatable input[type=text], .metatable select { border:1px solid #d5dce8; border-radius:4px; padding:3px 4px; font-size:12px; min-width:70px; }
+  .metatable input.cat { font-weight:700; background:#fffdf3; border:1px solid #d5dce8; border-radius:4px; padding:3px 4px; font-size:12px; min-width:110px; }
+  .metatable .co-existing { color:#1c6b34; font-weight:700; }
+  .metatable .co-new { color:#9a6b00; font-weight:700; }
+  .metatable button.delab { border:none; background:none; color:#c0392b; cursor:pointer; font-size:14px; line-height:1; padding:2px 5px; border-radius:4px; }
+  .metatable button.delab:hover { color:#fff; background:#c0392b; }
+  #addab { background:#eef7ef; border:1px solid #bcdcc3; color:#1c6b34; border-radius:6px; cursor:pointer; font-weight:600; }
+  #addab:hover { background:#1c6b34; color:#fff; }
+</style>
+</head>
+<body>
+{% comment %}This page does not extend base.html — it is a self-contained tool
+with its own head and its own stylesheet, and the cropper spec keeps it that way
+deliberately. The cost was that it had no chrome at all: no way back, no Browse,
+no search, so "Publish figures" was a dead end you could only leave with the
+browser's Back button. The third field test found it by testing every page for
+the search box.
+
+So it gets a slim bar of its own rather than the full nav — enough to leave, and
+enough to look something up, without pulling the rest of base.html in behind
+it.{% endcomment %}
+<nav style="background:#064c83;color:#fff;display:flex;align-items:center;gap:16px;
+            padding:8px 16px;font:14px system-ui,sans-serif;flex-wrap:wrap">
+  <a href="{% url 'pipeline:hub' %}" style="color:#fff;font-weight:700;text-decoration:none">YCharOS Pipeline</a>
+  <a href="{% url 'pipeline:hub' %}" style="color:#dbeafe;text-decoration:none">Task hub</a>
+  <a href="{% url 'pipeline:target_board' %}" style="color:#dbeafe;text-decoration:none">Targets</a>
+  <a href="{% url 'pipeline:antibody_board' %}" style="color:#dbeafe;text-decoration:none">Antibodies</a>
+  {% comment %}"Set recommendations" is what the page calls itself, what the hub
+  calls it and what Browse calls it. This bar said "Recommendations", which is a
+  second name for one page — the thing the task hub's own renaming fixed.{% endcomment %}
+  <a href="{% url 'pipeline:recommendations' %}" style="color:#dbeafe;text-decoration:none">Set recommendations</a>
+  <form action="{% url 'pipeline:find' %}" method="get" role="search"
+        style="margin-left:auto;display:flex;gap:6px">
+    <label for="nav-find" style="position:absolute;left:-9999px">Search genes, antibodies, cell lines and sessions</label>
+    <input id="nav-find" type="search" name="q"
+           placeholder="Search a gene, catalogue number, cell line…"
+           style="background:#0b406d;color:#fff;border:1px solid #01599f;border-radius:6px;
+                  padding:5px 10px;min-width:15rem;font:14px system-ui,sans-serif">
+  </form>
+</nav>
+<header>
+  <h1>OGA Grid Cropper</h1>
+  <span class="pill" id="status">no image</span>
+  <span class="hint">Load figures → grid → assign → OCR → generate. Deterministic, no AI.</span>
+  <span class="zoom">
+    <button class="sec" id="zoomout" title="Zoom out">−</button>
+    <span id="zoomlevel" title="Figures open fitted to the window">—</span>
+    <button class="sec" id="zoomin" title="Zoom in">+</button>
+    <button class="sec" id="zoomfit" title="Fit the whole figure in the window">Fit</button>
+  </span>
+  <span style="flex:1"></span>
+  <select id="sessionpick" title="Resume a saved session" style="width:auto;max-width:220px"><option value="">— resume session —</option></select>
+  <button id="delsession" class="sec" style="padding:5px 10px" title="Delete the selected saved session" disabled>🗑 Delete</button>
+  <button id="save" class="sec" style="padding:5px 12px">Save session</button>
+  <span id="savestatus" class="hint"></span>
+</header>
+<main>
+  <section class="panel">
+    <fieldset>
+      <legend>1 · Images (one gene, up to 4 applications)</legend>
+      <label>Application for image(s) you add</label>
+      <select id="app">
+        <option>WB</option><option>IP</option><option>ICC-IF</option><option>FC</option>
+      </select>
+      <label>Add composite figure(s) — PNG/JPG</label>
+      <input type="file" id="file" accept="image/*" multiple>
+      <div id="imagelist" class="imagelist"></div>
+      <div class="note">Add every figure for this gene (e.g. a WB, an IP, an IF). Each keeps its own grid &amp; mapping; the antibody list and gene settings below are shared.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>2 · Gene / legend inputs</legend>
+      <div class="row">
+        {% comment %}Empty with an example in the placeholder, not pre-filled with
+        one. These carried a hardcoded TREM2 / THP-1, so anybody arriving from
+        another gene's page started with somebody else's gene already typed in the
+        box that decides which gene's public figures get replaced.{% endcomment %}
+        <div><label>Gene</label><input type="text" id="gene" value="{{ initial_gene }}" placeholder="e.g. TREM2"></div>
+        <div><label>Cell line</label><input type="text" id="cellline" value="" placeholder="e.g. THP-1"></div>
+      </div>
+      <label>Genotype</label>
+      <select id="genotype"><option>KO</option><option>KD</option></select>
+      <label><input type="checkbox" id="fcsec" style="width:auto"> FC: add "secondary only control" line</label>
+      <div id="genestatus" class="banner" style="display:none"></div>
+      {% comment %}Retargeted rather than removed. This press no longer replaces
+      anything on the public site — the crops wait in the review queue — so the
+      acknowledgement is now about what *release* will do: a crop for an
+      antibody+application that already has a published figure is queued as a
+      replacement for it. The person who made the crop is the one who knows
+      whether that is intended, and they are standing here rather than at the
+      review meeting.{% endcomment %}
+      <label id="overwritewrap" style="display:none"><input type="checkbox" id="overwriteack" style="width:auto"> I understand these will replace published figures when released</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>3 · Antibodies</legend>
+      <label>Paste the antibody table (F1000 / Zenodo)</label>
+      <textarea id="metapaste" placeholder="Paste the whole table — catalogue, company, RRID, clonality, host…"></textarea>
+      <button id="parsemeta" class="sec" style="width:100%;margin-top:6px">Parse table →</button>
+      <label style="margin-top:8px">Catalogues (reading order — drives mapping)</label>
+      <textarea id="abs" placeholder="One per line — or Parse a table above" style="min-height:46px"></textarea>
+      <div class="note">Parse fills the catalogue list + the editable metadata grid (right, under the crops). Blanks are fine; catalogues drive OCR mapping and filenames.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4 · Seed grid</legend>
+      <label>How many rows (bands) of panels?</label>
+      <input type="number" id="nrows" value="2" min="1">
+      <div id="rowcounts"></div>
+      <div id="panelcheck" class="note" style="margin-top:6px"></div>
+      <button id="seed" class="sec" style="margin-top:8px;width:100%">Seed / reset grid</button>
+      <div class="note" style="margin-top:6px">Then drag to fit. <b>Orange</b> = edges (top/bottom span the figure; each row's <b>left &amp; right are independent</b>, so an inset/centred row brackets just its panels). <b>Blue</b> = row dividers. <b>Green</b> = column splits (double-click a row to add one, Alt-click any green/blue line to delete). A row of N panels needs N−1 green lines between its two orange edges.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>5 · Assign</legend>
+      <div class="note">Click a cell to assign/discard. Assigned cells are numbered in reading order. Then run OCR to read the printed titles and pre-fill the mapping (falls back to reading order for unclear reads).<br><b>Multi-row tip:</b> put each row's blue divider <i>above</i> that row's titles, so every panel's title sits inside its own cell — that's what OCR reads (and what the crop keeps).</div>
+      <button id="ocr" class="sec" style="width:100%;margin:8px 0">OCR pre-fill from titles</button>
+      <div id="mapwrap"></div>
+    </fieldset>
+
+    <button id="gen" style="width:100%" disabled>Generate crops (preview)</button>
+    {% comment %}Commit was soft green — the colour every other page here uses for
+    "go ahead" — sitting next to a soft blue preview button of the same size, with
+    no warning text. The only red control on the page deleted a cropper session,
+    which is far less consequential than replacing the images on the public site.
+    The colour said the opposite of the risk, so a scientist could not tell from
+    the page which button was safe.
+
+    It is not red any more, and that is the point of this change rather than a
+    softening of it: this press no longer reaches the public website at all. The
+    crops go to the review queue, and the red button now lives there, on the one
+    screen in the app that publishes.{% endcomment %}
+    <p class="note" style="margin-top:10px">
+      <b>Preview first.</b> Generate crops is safe and changes nothing — it shows
+      what the crops will look like. The button below saves them to the
+      <b>review queue</b>: nothing goes on the public website until somebody
+      releases it there, after the review meeting.
+    </p>
+    <button id="commit" style="width:100%;margin-top:6px" disabled>Save to review queue →</button>
+    <div id="commitstatus" class="note" style="margin-top:6px"></div>
+  </section>
+
+  <section class="stage">
+    <div class="svgwrap" id="svgwrap"><div class="note" style="padding:40px">Add a composite figure to begin.</div></div>
+    <div class="crops" id="crops"></div>
+    <div id="metagrid" class="metagrid"></div>
+  </section>
+</main>
+
+<canvas id="work" style="display:none"></canvas>
+<script>
+const GENE_STATUS_URL = "{% url 'pipeline:cropper_gene_status' %}";
+const OCR_URL = "{% url 'pipeline:cropper_ocr' %}";
+const STAGE_URL = "{% url 'pipeline:cropper_stage_image' %}";
+const SAVE_URL = "{% url 'pipeline:cropper_session_save' %}";
+const LOAD_URL = "{% url 'pipeline:cropper_session_load' %}";
+const LIST_URL = "{% url 'pipeline:cropper_session_list' %}";
+const DELETE_URL = "{% url 'pipeline:cropper_session_delete' %}";
+const COMMIT_URL = "{% url 'pipeline:cropper_commit' %}";
+const PARSE_URL = "{% url 'pipeline:cropper_parse_metadata' %}";
+const CSRF = "{{ csrf_token }}";
+const OCR_STATIC = "{% static 'pipeline/ocr/' %}";   // vendored Tesseract WASM assets
+
+/* A reply that is not JSON is a server error, and it must not be reported as a
+   syntax error.
+
+   Every fetch on this page used to do a bare `await r.json()`. When the server
+   answers with an HTML page instead — it restarted, it timed out, the session
+   expired and Django served the login page — the browser's parser is the first
+   thing to notice, so what reached the scientist was:
+
+     Commit error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+
+   That happened live on 14 Aug 2026, on both Save session and Commit at once,
+   while the container was restarting mid-commit (see
+   `services/cropper/commit.py::_by_figure` for why it restarted). It names the
+   wrong culprit — the page, not the server — gives nothing to act on, and, on a
+   commit, leaves the one question that actually matters unanswered: did the
+   crops save or not?
+
+   So the failure is read here, where the status code is still in hand, and every
+   caller says what it means for *their* press. `mode` is "read" or "write", the
+   same distinction `board.js::requestJson` draws and for the same reason: a
+   failed read has changed nothing and can simply be retried, while a failed
+   write is a question about what landed.
+
+   Written as a JS comment, not a `{% templatetag openblock %}` comment: the
+   sweep in tests_board_fieldtest.py strips Django tags and leaves the prose
+   between them, so a template comment inside a <script> stops the block
+   parsing. */
+class ServerTrouble extends Error {
+  constructor(message, status){ super(message); this.name="ServerTrouble"; this.status=status; }
+}
+async function askServer(url, opts, mode){
+  let r;
+  try{ r = await fetch(url, opts||{}); }
+  catch(e){ throw new ServerTrouble("The server could not be reached — check your connection and try again.", 0); }
+  const body = await r.text();
+  let d = null;
+  try{ d = JSON.parse(body); }catch(e){ d = null; }
+  if(d !== null && typeof d === "object"){
+    // A refusal is JSON too and carries its meaning in the status code — the
+    // commit's 409 is "you have not acknowledged the replacement", not a
+    // failure. Callers that care read `http_status`; no endpoint here sends a
+    // field by that name.
+    try{ d.http_status = r.status; }catch(e){}
+    return d;
+  }
+  // Not JSON. Say which of the two things went wrong, in words, and never print
+  // the HTML back at the reader.
+  const restarting = (r.status===502 || r.status===503 || r.status===504 || r.status===0);
+  const loggedOut  = (r.status===403 || /name="?login"?|id="?id_password/i.test(body));
+  let msg;
+  if(loggedOut && r.status!==500){
+    msg = "You have been signed out, so the server sent the sign-in page instead of an answer. "
+        + "Open the pipeline in another tab, sign in, then come back and try again — this page keeps your work.";
+  }else if(restarting){
+    msg = `The server restarted while it was answering (HTTP ${r.status}). `
+        + (mode==="write" ? "It may or may not have finished. " : "Nothing was changed. ");
+  }else{
+    msg = `The server returned an error page instead of an answer (HTTP ${r.status}). `
+        + (mode==="write" ? "It may or may not have finished. " : "Nothing was changed. ");
+  }
+  throw new ServerTrouble(msg, r.status);
+}
+let META = {};   // catalogue -> {company, rrid, clonality, is_recombinant, clone_id, host, supplier_url, discontinued, company_status}
+let REC = {};    // catalogue -> {app: true}  (human-set "recommended" flags, spec §10)
+function isRec(cat,app){ return !!(REC[cat] && REC[cat][app]); }
+function toggleRec(cat,app){ if(!REC[cat]) REC[cat]={}; REC[cat][app]=!REC[cat][app]; }
+// what the DB knows about the current gene (feeds the overwrite gate, and later
+// the OCR candidate union + commit reconciliation)
+// `resolvedGene` is the gene these crops will be FILED under, which is not
+// always the one in the box: an older symbol resolves to the target already in
+// the pipeline. It is what the drawn legend and the filenames must use, or the
+// preview you download disagrees with the record that gets written. `blocked`
+// is set when the typed name is an old name for more than one gene on file —
+// there is no answer to pick, so the save is refused rather than guessed.
+let GENE_INFO = { exists:false, existing_catalogues:[], requires_overwrite_ack:false,
+                  resolvedGene:"", blocked:"" };
+// The gene to write on the crops. Falls back to the box while the check is in
+// flight or unreachable, which is the old behaviour and the honest one.
+function filedGene(){ return GENE_INFO.resolvedGene || $("#gene").value.trim(); }
+
+// One SESSION = one gene with many images (up to ~4 applications). Each image
+// carries its own grid + mapping; the gene/legend inputs and antibody list are
+// shared. S always points at the CURRENT image, so the grid/crop functions below
+// work on it unchanged.
+const SESS = { id:null, images:[], current:-1 };
+let S = null;
+function newImageState(name, app){
+  return { name, app, id:null, url:null, img:null, file:null, natW:0, natH:0, scale:1,
+           // 0 = fit to the stage. Non-zero only once somebody has zoomed this
+           // image by hand, so switching between figures and reopening a session
+           // both give the same readable size rather than 1:1 pixels.
+           userScale:0,
+           bounds:null, hLines:[], vLines:[], bandLeft:[], bandRight:[], cellState:{},
+           abOffset:0 };   // reading-order start (for an app split over >1 figure)
+}
+const $ = s => document.querySelector(s);
+const CANVAS = 490;
+const FILL = {WB:.90, IP:.95, "ICC-IF":1.0, FC:.90};
+const LEG  = {WB:0, IP:60, "ICC-IF":84, FC:84};
+const GUT  = {WB:0, IP:0, "ICC-IF":46, FC:0};   // left gutter for antibody/DAPI labels
+const GREEN="rgb(0,158,76)", MAGENTA="rgb(200,30,140)", GREY="rgb(130,130,130)";
+
+function abList(){ return $("#abs").value.split(/\n/).map(s=>s.trim()).filter(Boolean); }
+function setStatus(t){ $("#status").textContent=t; }
+
+// Add one or more figures, each as its own image under the current application.
+$("#file").addEventListener("change", e=>{
+  const files=[...e.target.files]; if(!files.length) return;
+  const app=$("#app").value;
+  let firstNew=-1;
+  files.forEach(f=>{
+    const st=newImageState(f.name, app); st.file=f;
+    const im=new Image();
+    im.onload=()=>{ st.img=im; st.natW=im.naturalWidth; st.natH=im.naturalHeight;
+      if(S===st){ renderRowCounts(); seedGrid();
+        setStatus(`image ${SESS.current+1}/${SESS.images.length} · ${st.app} · ${st.natW}×${st.natH}px`); }
+      renderImageList(); };
+    im.src=URL.createObjectURL(f);
+    SESS.images.push(st);
+    stageImage(st);               // upload so it survives a reload
+    if(firstNew<0) firstNew=SESS.images.length-1;
+  });
+  e.target.value="";              // allow re-adding the same file later
+  switchImage(firstNew);
+});
+
+// ── session persistence ──────────────────────────────────────────────────────
+async function stageImage(st){
+  const fd=new FormData(); fd.append("image",st.file); fd.append("app",st.app); fd.append("name",st.name);
+  try{
+    const d=await askServer(STAGE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF},body:fd},"write");
+    if(d.id){ st.id=d.id; st.url=d.url; renderImageList(); return; }
+    // Refused — a figure too big to crop, most often. It must LEAVE the tool:
+    // `saveSession` only sends images that staged, so one left sitting here can
+    // be gridded and mapped and then is silently absent from the save. Alerted
+    // as well as noted, because a figure vanishing from the list with only a
+    // small grey line to explain it is worse than the refusal itself.
+    dropUnstaged(st, d.error || "The server would not store that figure.");
+  }catch(e){
+    // A figure that never reached the server cannot be committed, and the only
+    // sign used to be a line in a console nobody has open.
+    dropUnstaged(st, e.message);
+  }
+}
+function dropUnstaged(st, why){
+  const i = SESS.images.indexOf(st);
+  if(i >= 0) removeImage(i);
+  setSaveStatus("“" + st.name + "” was not added — " + why);
+  alert("“" + st.name + "” has not been added.\n\n" + why);
+}
+function setSaveStatus(t){ $("#savestatus").textContent=t; }
+async function saveSession(){
+  setSaveStatus("saving…");
+  const payload={ session_id:SESS.id||null,
+    gene:$("#gene").value.trim(), cell_line:$("#cellline").value.trim(),
+    genotype:$("#genotype").value, fc_secondary:$("#fcsec").checked,
+    antibody_list:$("#abs").value, overwrite_ack:$("#overwriteack").checked, metadata:META, recommended:REC,
+    images:SESS.images.filter(im=>im.id).map(im=>({ id:im.id, app:im.app, name:im.name,
+      grid:{bounds:im.bounds,hLines:im.hLines,vLines:im.vLines,bandLeft:im.bandLeft,bandRight:im.bandRight,abOffset:im.abOffset||0},
+      mapping:im.cellState })) };
+  try{
+    const d=await askServer(SAVE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify(payload)},"write");
+    if(d.session_id){ SESS.id=d.session_id; setSaveStatus(`saved ✓ (${d.saved} image${d.saved===1?"":"s"})`); loadSessionList(); }
+    else { setSaveStatus("save failed — "+(d.error||"the server did not say why")); throw new Error(d.error||"save failed"); }
+  }catch(e){ setSaveStatus("save failed: "+e.message); throw e; }
+}
+async function loadSessionList(){
+  try{
+    const d=await askServer(LIST_URL,{},"read");
+    const sel=$("#sessionpick"); const cur=sel.value;
+    sel.innerHTML='<option value="">— resume session —</option>'+
+      d.sessions.map(s=>`<option value="${s.id}">${s.gene||"(no gene)"} · ${s.images} img · ${s.updated_at.slice(0,16).replace("T"," ")}</option>`).join("");
+    sel.value=cur;
+  }catch(e){
+    // A failed read is not an empty result. An untouched picker reading
+    // "— resume session —" with nothing under it says your saved work is gone,
+    // which is the one thing it must not say when all that happened is that a
+    // request failed.
+    const sel=$("#sessionpick");
+    sel.innerHTML='<option value="">— could not load your sessions —</option>';
+    setSaveStatus("your saved sessions could not be listed: "+e.message+" They are not lost — try again.");
+  }
+}
+async function loadSession(id){
+  let d;
+  try{ d=await askServer(LOAD_URL+"?id="+id,{},"read"); }
+  catch(e){ alert("That session could not be opened.\n\n"+e.message+"\nNothing has been changed — try again."); return; }
+  if(d.error){ alert(d.error); return; }
+  SESS.id=d.session_id; SESS.images=[]; SESS.current=-1; S=null;
+  $("#gene").value=d.gene; $("#cellline").value=d.cell_line; $("#genotype").value=d.genotype;
+  $("#fcsec").checked=d.fc_secondary; $("#abs").value=d.antibody_list;
+  META=d.metadata||{}; REC=d.recommended||{}; renderMetaGrid();
+  d.images.forEach(img=>{
+    const st=newImageState(img.name,img.app); st.id=img.id; st.url=img.url;
+    st.natW=img.nat_w; st.natH=img.nat_h;
+    const g=img.grid||{};
+    st.bounds=g.bounds||null; st.hLines=g.hLines||[]; st.vLines=g.vLines||[];
+    st.bandLeft=g.bandLeft||[]; st.bandRight=g.bandRight||[]; st.cellState=img.mapping||{};
+    st.abOffset=g.abOffset||0;
+    const im=new Image(); im.crossOrigin="anonymous";   // allow canvas use of R2-served images
+    // natW/natH come from the saved record, but the *scale* was never set here:
+    // this is where a resumed session drew at 1:1. Fit it as soon as the bitmap
+    // is in, whether or not it is the image on screen.
+    im.onload=()=>{ st.img=im; applyFit(st); renderImageList();
+                    if(S===st){ render(); showZoom(); } };
+    im.src=img.url; SESS.images.push(st);
+  });
+  checkGene(); updatePanelCheck(); renderImageList();
+  if(SESS.images.length) switchImage(0);
+  setSaveStatus("loaded");
+}
+// saveSession rethrows so commitFlow can stop before committing an unsaved
+// session; pressed on its own the status line has already said what happened.
+$("#save").addEventListener("click", ()=>{ saveSession().catch(()=>{}); });
+$("#sessionpick").addEventListener("change", e=>{
+  $("#delsession").disabled = !e.target.value;
+  if(e.target.value) loadSession(+e.target.value);
+});
+async function deleteSession(){
+  const sel=$("#sessionpick"); const id=+sel.value;
+  if(!id) return;
+  const name=sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : "this session";
+  if(!confirm(`Delete this saved session?\n\n${name}\n\nRemoves the saved grid/mapping and its staged figures. `+
+              `Crops you have already saved to the review queue are NOT affected.`)) return;
+  const btn=$("#delsession"); btn.disabled=true;
+  try{
+    const d=await askServer(DELETE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify({session_id:id})},"write");
+    if(d.error){ alert("Delete failed: "+d.error); return; }
+    if(SESS.id===id) SESS.id=null;   // the loaded workspace stays; it's just no longer a saved session
+    sel.value=""; setSaveStatus("session deleted");
+    loadSessionList();
+  }catch(e){ alert("Delete failed.\n\n"+e.message+"\nCheck the list before trying again."); loadSessionList(); }
+  finally{ btn.disabled = !sel.value; }
+}
+$("#delsession").addEventListener("click", deleteSession);
+$("#commit").addEventListener("click", commitFlow);
+
+// Save → dry-run (show what will change) → confirm → write to the review
+// queue. Nothing on this path reaches the public website; releasing does.
+async function commitFlow(){
+  const gene=$("#gene").value.trim();
+  if(!gene){ alert("Enter a gene before committing."); return; }
+  const btn=$("#commit"); btn.disabled=true; const label=btn.textContent; btn.textContent="Saving…";
+  const hdr={"X-CSRFToken":CSRF,"Content-Type":"application/json"};
+  try{
+    await saveSession();
+    if(!SESS.id){ alert("Save failed — cannot commit."); return; }
+    btn.textContent="Checking…";
+    const dry=await askServer(COMMIT_URL,{method:"POST",headers:hdr,body:JSON.stringify({session_id:SESS.id,dry_run:true})},"read");
+    if(dry.error){ alert("Cannot commit: "+dry.error); return; }
+    const s=dry.summary;
+    if(s.refusal){ alert("Cannot save these crops.\n\n"+s.refusal); setCommitStatus("blocked — the gene is ambiguous"); return; }
+    if(!s.crops){ alert("Nothing to commit — assign and map some cells first."); return; }
+    // Say it again at the press, not only in the banner. The banner is set when
+    // the gene field is left, which may have been an hour and several figures
+    // ago, and this is the moment the filing actually happens.
+    const alias = s.gene_matched_via==="alias"
+      ? `\n"${s.typed_gene}" is an older name for ${s.gene} — these will be filed under ${s.gene}, `+
+        `and that is the gene printed on the crops.\n` : "";
+    let msg=`Save these crops to the review queue?\n${alias}\nGene ${s.gene} — will ${s.target} the target.\n`+
+      `Antibodies: ${s.antibodies_create} new, ${s.antibodies_update} existing.\n`+
+      `${s.crops} crops, ${s.recommended} marked recommended.\n`+
+      (s.images_restage?`${s.images_restage} replace a crop already waiting for review.\n`:"")+
+      `\nNothing goes on the public website now`+
+      (s.images_overwrite?`, but ${s.images_overwrite} of these would REPLACE a published figure when released.`:`.`);
+    if(s.warnings.length) msg+=`\n\n⚠ ${s.warnings.join("\n⚠ ")}`;
+    if(s.images_overwrite && !$("#overwriteack").checked){
+      alert(msg+`\n\nTick the box under the gene to say you mean to replace those, then save again.`); return;
+    }
+    if(!confirm(msg)) return;
+    btn.textContent="Saving…"; setCommitStatus("saving…");
+    const d=await askServer(COMMIT_URL,{method:"POST",headers:hdr,body:JSON.stringify({session_id:SESS.id,dry_run:false})},"write");
+    if(d.http_status===409){ alert("Blocked: some of these would replace a published figure when released. Tick the box under the gene, then save again."); setCommitStatus("blocked — replacement not acknowledged"); return; }
+    if(d.error){ alert("Commit failed: "+d.error); setCommitStatus("failed: "+d.error); return; }
+    showCommitSuccess(d);
+  }catch(e){
+    // The one press where "did it work?" cannot be left hanging. The write is
+    // one transaction, so a request that died part way wrote nothing — but a
+    // reply lost on the way *back* means it landed. Say which is possible, say
+    // where to look, and say that pressing again is safe: staging upserts on
+    // (antibody, application), so a second press revises the queued crop rather
+    // than queueing a duplicate.
+    alert("Commit did not complete.\n\n"+e.message+
+          "\nNothing has gone on the public website either way — crops only ever wait in the review queue.\n\n"+
+          "Check /pipeline/review/ to see whether they arrived. If they did not, press Save to review queue again — "+
+          "it is safe to repeat, because a second save replaces the queued crop rather than adding another copy.");
+    setCommitStatus("did not complete — check the review queue");
+  }
+  finally{ btn.disabled=false; btn.textContent=label; render(); }
+}
+function setCommitStatus(t){ $("#commitstatus").textContent=t; }
+// Success panel: confirm where the crops went + a link to each committed
+// antibody's edit page so the lab-internal fields (lot, concentration,
+// isotype…) can be completed straight after import.
+//
+// It points at the **review queue**, not at the public gene page. Nothing this
+// press did is on the public page, and linking there would be the app claiming
+// a publication it has deliberately withheld — the reader would follow it, see
+// the old figures or a 404, and conclude the save had failed.
+function showCommitSuccess(d){
+  const s=d.summary||{}, committed=s.committed||[];
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let h=`<div style="border:1px solid #bcdcc3;background:#eef7ef;border-radius:8px;padding:8px 10px">`+
+        `<b style="color:#12a150">Saved ✓</b> — ${s.crops||0} crops are waiting for review`+
+        (d.review_url?` · <a href="${esc(d.review_url)}">review &amp; release →</a>`:"")+
+        (d.gene_page_url?` · <a href="${esc(d.gene_page_url)}">gene page ↗</a>`:"");
+  if(committed.length){
+    h+=`<div style="margin-top:6px">Complete the lab fields (lot, concentration, isotype…):</div>`+
+       `<div style="max-height:150px;overflow:auto;margin-top:3px">`+
+       committed.map(c=>`<a href="${esc(c.edit_url)}" target="_blank" style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:#fff;border:1px solid #cdd8ea;border-radius:5px;text-decoration:none">${esc(c.catalogue)} ✎</a>`).join("")+
+       `</div>`;
+  }
+  h+=`</div>`;
+  $("#commitstatus").innerHTML=h;
+}
+
+// #app sets the application for images you ADD; it does NOT change existing
+// images (each image's app is editable in its own list row).
+function switchImage(i){
+  if(i<0||i>=SESS.images.length){ return; }
+  SESS.current=i; S=SESS.images[i];
+  setStatus(`image ${i+1}/${SESS.images.length} · ${S.app} · ${S.natW}×${S.natH}px`);
+  renderImageList();
+  if(S.img && !S.bounds){ renderRowCounts(); seedGrid(); }
+  // An image that already has a grid — the resumed-session case — was drawn
+  // without ever computing a scale for it.
+  else if(S.img){ applyFit(S); render(); }
+  showZoom();
+}
+function removeImage(i){
+  SESS.images.splice(i,1);
+  if(!SESS.images.length){ SESS.current=-1; S=null;
+    $("#svgwrap").innerHTML='<div class="note" style="padding:40px">Add a composite figure to begin.</div>';
+    $("#mapwrap").innerHTML=''; $("#gen").disabled=true; renderImageList(); setStatus("no image"); return; }
+  switchImage(Math.min(i, SESS.images.length-1));
+}
+function renderImageList(){
+  const el=$("#imagelist");
+  const apps=["WB","IP","ICC-IF","FC"];
+  el.innerHTML=SESS.images.map((im,i)=>{
+    const assigned=Object.values(im.cellState).filter(c=>c.assigned).length;
+    const done=assigned?`<span class="done">${assigned}✓</span>`:'';
+    const sel=`<select class="appsel" data-i="${i}">`+
+      apps.map(a=>`<option ${a===im.app?"selected":""}>${a}</option>`).join("")+`</select>`;
+    return `<div class="imgrow ${i===SESS.current?'active':''}" data-i="${i}">
+      ${sel}<span class="nm" title="${im.name}">${im.name}</span>
+      ${done}<button class="rm" data-rm="${i}" title="remove">✕</button></div>`;
+  }).join("");
+  el.querySelectorAll(".imgrow").forEach(r=>r.addEventListener("click",e=>{
+    if(e.target.classList.contains("appsel")) return;      // let the select handle itself
+    if(e.target.dataset.rm!==undefined){ removeImage(+e.target.dataset.rm); }
+    else switchImage(+r.dataset.i);
+  }));
+  el.querySelectorAll(".appsel").forEach(s=>s.addEventListener("change",e=>{
+    e.stopPropagation();
+    const i=+e.target.dataset.i; SESS.images[i].app=e.target.value;
+    if(i===SESS.current) setStatus(`image ${i+1}/${SESS.images.length} · ${e.target.value} · ${S.natW}×${S.natH}px`);
+  }));
+}
+
+$("#seed").addEventListener("click", seedGrid);
+$("#gen").addEventListener("click", generate);
+$("#nrows").addEventListener("input", renderRowCounts);
+$("#abs").addEventListener("input", updatePanelCheck);
+$("#gene").addEventListener("change", checkGene);
+$("#gene").addEventListener("blur", checkGene);
+$("#ocr").addEventListener("click", ocrPrefill);
+$("#parsemeta").addEventListener("click", parseMetadata);
+$("#abs").addEventListener("input", renderMetaGrid);
+
+// Parse a pasted antibody table → metadata grid + catalogue list (spec §4).
+async function parseMetadata(){
+  const text=$("#metapaste").value.trim();
+  if(!text){ alert("Paste the antibody table first."); return; }
+  const btn=$("#parsemeta"); btn.disabled=true; const label=btn.textContent; btn.textContent="Parsing…";
+  try{
+    const d=await askServer(PARSE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify({text})},"read");
+    if(d.error){ alert(d.error); return; }
+    META={}; d.rows.forEach(r=>{ META[r.catalogue]=r; });
+    $("#abs").value=d.rows.map(r=>r.catalogue).join("\n");   // catalogues in order
+    updatePanelCheck(); renderMetaGrid();
+  }catch(e){ alert("The antibody table could not be parsed.\n\n"+e.message+"\nYour paste is still in the box — try again."); }
+  finally{ btn.disabled=false; btn.textContent=label; }
+}
+
+const CLON_OPTS=["unknown","monoclonal","polyclonal","recombinant"];
+const ADD_AB_BTN='<button id="addab" style="margin-top:8px;padding:5px 10px">+ Add antibody</button>';
+
+// Append a blank antibody row (placeholder catalogue the user then edits).
+function addAntibody(){
+  const list=abList();
+  let name="new-catalogue", n=1;
+  while(list.includes(name)) name="new-catalogue-"+(++n);
+  list.push(name);
+  $("#abs").value=list.join("\n");
+  META[name]={catalogue:name, company:"", clonality:"unknown", is_recombinant:false,
+              rrid:"", host:"", clone_id:"", supplier_url:"", discontinued:false};
+  updatePanelCheck(); renderMetaGrid();
+  const inp=document.querySelector(`#metagrid input.cat[data-idx="${list.length-1}"]`);
+  if(inp){ inp.focus(); inp.select(); }
+}
+// Remove an antibody row and keep every image's cell→antibody mapping consistent
+// (drop cells that pointed at it; shift the higher indices down by one).
+function deleteAntibody(idx){
+  const list=abList();
+  if(idx<0 || idx>=list.length) return;
+  const removed=list[idx];
+  if(!confirm(`Remove antibody "${removed}" from this list?`)) return;
+  list.splice(idx,1);
+  $("#abs").value=list.join("\n");
+  if(removed){ delete META[removed]; if(typeof REC!=="undefined" && REC) delete REC[removed]; }
+  (SESS.images||[]).forEach(im=>Object.values(im.cellState||{}).forEach(st=>{
+    if(st.ab==null) return;
+    if(st.ab===idx){ st.ab=null; st.manual=false; }
+    else if(st.ab>idx){ st.ab-=1; }
+  }));
+  updatePanelCheck(); renderMetaGrid(); if(typeof S!=="undefined" && S && S.img) render();
+}
+function _wireAddBtn(){ const b=$("#addab"); if(b) b.addEventListener("click", addAntibody); }
+
+function renderMetaGrid(){
+  const cats=abList(); const el=$("#metagrid");
+  if(!cats.length){ el.innerHTML='<div class="note">No antibodies yet — parse a table above, or add one.</div>'+ADD_AB_BTN; _wireAddBtn(); return; }
+  const cols=[["company","Company"],["rrid","RRID"],["host","Host"],["clone_id","Clone"],["supplier_url","Product link"]];
+  let h='<table class="metatable"><tr><th>Catalogue</th><th>Lot</th><th>Conc</th><th>Company</th><th>Clonality</th><th>Recomb</th>'+
+        cols.slice(1).map(c=>`<th>${c[1]}</th>`).join("")+'<th>Disc.</th><th></th></tr>';
+  cats.forEach((cat,idx)=>{
+    const m=META[cat]||{};
+    const co=m.company_status==="existing"?`<span class="co-existing" title="matches ${m.company_resolved||""}">✓</span>`
+            :(m.company_status==="new"?'<span class="co-new" title="will create supplier">＋</span>':"");
+    const clon=`<select data-cat="${cat}" data-f="clonality">`+CLON_OPTS.map(o=>`<option ${o===(m.clonality||"unknown")?"selected":""}>${o}</option>`).join("")+`</select>`;
+    h+=`<tr><td><input class="cat" data-idx="${idx}" value="${cat}" title="edit to match the catalogue as printed in the image"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="lot" value="${m.lot||""}" style="min-width:70px"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="concentration" value="${m.concentration||""}" style="min-width:56px" title="as pasted (no unit conversion)"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="company" value="${m.company||""}"> ${co}</td>`+
+       `<td>${clon}</td>`+
+       `<td style="text-align:center"><input type="checkbox" data-cat="${cat}" data-f="is_recombinant" ${m.is_recombinant?"checked":""}></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="rrid" value="${m.rrid||""}"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="host" value="${m.host||""}"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="clone_id" value="${m.clone_id||""}"></td>`+
+       `<td><input type="text" data-cat="${cat}" data-f="supplier_url" value="${m.supplier_url||""}"></td>`+
+       `<td style="text-align:center"><input type="checkbox" data-cat="${cat}" data-f="discontinued" ${m.discontinued?"checked":""}></td>`+
+       `<td style="text-align:center"><button class="delab" data-idx="${idx}" title="remove this antibody">✕</button></td></tr>`;
+  });
+  h+="</table>"+ADD_AB_BTN;
+  el.innerHTML=h;
+  el.querySelectorAll("[data-cat]").forEach(inp=>inp.addEventListener("change",e=>{
+    const t=e.target, cat=t.dataset.cat, f=t.dataset.f;
+    if(!META[cat]) META[cat]={};
+    META[cat][f] = t.type==="checkbox" ? t.checked : t.value;
+  }));
+  // editable catalogue: rewrite the matching line in the antibody list and re-key META
+  el.querySelectorAll("input.cat").forEach(inp=>inp.addEventListener("change",e=>{
+    const idx=+e.target.dataset.idx, next=e.target.value.trim();
+    const lines=abList();
+    if(!next || idx<0 || idx>=lines.length){ renderMetaGrid(); return; }
+    const prev=lines[idx];
+    if(next===prev) return;
+    if(META[prev] && !META[next]){ META[next]=META[prev]; delete META[prev]; }
+    lines[idx]=next;
+    $("#abs").value=lines.join("\n");
+    renderMetaGrid();
+  }));
+  el.querySelectorAll("button.delab").forEach(b=>b.addEventListener("click",e=>deleteAntibody(+e.currentTarget.dataset.idx)));
+  _wireAddBtn();
+}
+
+// ── Client-side OCR (Tesseract compiled to WebAssembly). Runs entirely in the
+// browser on the crop cells — NO server call, NO AI. Mirrors the (now optional)
+// server module pipeline/services/cropper/ocr.py: reads each panel's printed
+// title, fuzzy-matches it to the antibody list, locks in confident reads and
+// flags ambiguous ones for a human check. Assets are served from our own static
+// files (OCR_STATIC), so nothing loads from a CDN. ──────────────────────────
+
+// OCR-confusion collapse + normalise, identical to ocr.py.normalize().
+const _OCR_CONFUSE = {O:"0", I:"1", L:"1", S:"5", B:"8"};
+function ocrNorm(s){
+  s=(s||"").toUpperCase().replace(/[*\s]+/g,"");
+  return Array.from(s).map(c=>_OCR_CONFUSE[c]||c).join("");
+}
+// Levenshtein + a WRatio-like score (plain ratio ∪ best-window partial ratio),
+// enough to resolve a partial print to its full catalogue and to tie near-
+// identical catalogues so they get flagged ambiguous.
+function _lev(a,b){
+  const m=a.length, n=b.length;
+  if(!m) return n; if(!n) return m;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){
+    let cur=[i];
+    for(let j=1;j<=n;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost);
+    }
+    prev=cur;
+  }
+  return prev[n];
+}
+function _ratio(a,b){ const m=Math.max(a.length,b.length); return m? (1-_lev(a,b)/m)*100 : 100; }
+function _partial(a,b){
+  if(a.length>b.length){ const t=a; a=b; b=t; }
+  if(!a.length) return 0;
+  let best=0;
+  for(let i=0;i+a.length<=b.length;i++){ best=Math.max(best,_ratio(a,b.substr(i,a.length))); if(best===100)break; }
+  return best;
+}
+function ocrWRatio(a,b){ return Math.max(_ratio(a,b), _partial(a,b)); }
+function ocrMatch(raw, cands, threshold=72, margin=6){
+  const nr=ocrNorm(raw);
+  if(!nr) return {raw, match:null, score:0, ambiguous:false, confident:false};
+  const scored=cands.map(c=>[ocrWRatio(nr,ocrNorm(c)), c]).filter(x=>ocrNorm(x[1])).sort((x,y)=>y[0]-x[0]);
+  if(!scored.length) return {raw, match:null, score:0, ambiguous:false, confident:false};
+  const [bs,best]=scored[0], second=scored[1];
+  if(bs<threshold) return {raw, match:null, score:Math.round(bs), ambiguous:false, confident:false};
+  const ambiguous = !!(second && (bs-second[0])<margin);
+  return {raw, match:best, score:Math.round(bs), ambiguous, confident:!ambiguous};
+}
+
+// Fast SIMD feature-probe: pick the smaller/faster core when the browser supports
+// WASM SIMD (every modern browser does), else the plain-lstm fallback.
+function _wasmSimd(){
+  try{ return WebAssembly.validate(new Uint8Array(
+    [0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); }
+  catch(e){ return false; }
+}
+function _loadScript(src){
+  return new Promise((res,rej)=>{ const s=document.createElement("script");
+    s.src=src; s.onload=res; s.onerror=()=>rej(new Error("failed to load "+src)); document.head.appendChild(s); });
+}
+let _tessWorker=null, _tessLoading=null;
+async function getTessWorker(){
+  if(_tessWorker) return _tessWorker;
+  if(_tessLoading) return _tessLoading;
+  _tessLoading=(async()=>{
+    if(!window.Tesseract) await _loadScript(OCR_STATIC+"tesseract.min.js");
+    const core=OCR_STATIC+(_wasmSimd()?"tesseract-core-simd-lstm.wasm.js":"tesseract-core-lstm.wasm.js");
+    const w=await Tesseract.createWorker("eng", 1, {   // OEM 1 = LSTM only
+      workerPath: OCR_STATIC+"worker.min.js",
+      corePath: core,
+      langPath: OCR_STATIC,           // serves eng.traineddata (uncompressed)
+      gzip: false,                    // WhiteNoise handles .gz oddly; use plain data
+    });
+    await w.setParameters({
+      tessedit_pageseg_mode: "7",     // single text line (matches ocr.py --psm 7)
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_ ",
+    });
+    _tessWorker=w; return w;
+  })();
+  return _tessLoading;
+}
+
+// Title strip for OCR, upscaled — mirrors ocr.py._title_band + _prep.
+// above=false → the strip at the TOP of the cell (the normal case: title kept in
+// the crop). above=true → the strip JUST ABOVE the cell top, used as a fallback
+// to catch a row title that landed above the divider (divider drawn a little
+// low), which otherwise reads blank.
+function _titleBandCanvas(src, im, cl, above){
+  const l=Math.round(cl.rect.l), t=Math.round(cl.rect.t), r=Math.round(cl.rect.r), b=Math.round(cl.rect.bot);
+  const w=r-l, h=b-t;
+  const bandH=Math.min(Math.round(h*0.4), Math.max(24, Math.round(w*0.16)));
+  let sy, sh;
+  if(above){
+    sy=Math.max(0, t-bandH); sh=t-sy;     // the strip immediately above the cell top
+    if(sh<8) return null;                 // no room above (e.g. the very top row)
+  } else {
+    sy=Math.max(0,t); sh=Math.min(im.natH-sy, bandH);
+  }
+  const sx=Math.max(0,l), sw=Math.min(im.natW-sx, w);
+  if(sw<=0||sh<=0) return null;
+  const factor=Math.max(1, Math.min(6, Math.round(90/sh)));   // upscale small text
+  const out=document.createElement("canvas"); out.width=sw*factor; out.height=sh*factor;
+  const o=out.getContext("2d"); o.imageSmoothingEnabled=true; o.imageSmoothingQuality="high";
+  o.drawImage(src, sx,sy,sw,sh, 0,0,out.width,out.height);
+  return out;
+}
+async function _readBand(worker, src, im, cl, above){
+  const band=_titleBandCanvas(src, im, cl, above);
+  if(!band) return null;
+  let raw=""; try{ raw=((await worker.recognize(band)).data.text||"").trim(); }catch(e){ raw=""; }
+  return ocrMatch(raw, abList());
+}
+
+async function ocrPrefill(){
+  if(!S || !S.img){ alert("Add a figure first."); return; }
+  const ordered=assignedCellsInOrder();
+  if(!ordered.length){ alert("Assign the panels you want (click cells) before running OCR."); return; }
+  const btn=$("#ocr"); btn.disabled=true; const label=btn.textContent;
+  btn.textContent="Loading OCR…";
+  let src;
+  try{ src=sourceCanvas(S); }                       // full-res canvas of this figure
+  catch(e){ alert("Can't read this image for OCR (a reloaded figure needs R2 CORS enabled). "+e); btn.disabled=false; btn.textContent=label; return; }
+  try{
+    const worker=await getTessWorker();
+    const results=[];
+    for(let i=0;i<ordered.length;i++){
+      btn.textContent=`Reading titles… ${i+1}/${ordered.length}`;
+      // primary read: the title strip inside the cell
+      let res = await _readBand(worker, src, S, ordered[i], false)
+                || {raw:"", match:null, score:0, ambiguous:false, confident:false};
+      // fallback: if that's not a confident read, try the strip just above the
+      // cell top (title that ended up above the divider). Keep it only if better.
+      if(!res.confident){
+        const above = await _readBand(worker, src, S, ordered[i], true);
+        if(above && above.score > res.score) res = above;
+      }
+      results.push(res);
+    }
+    // A confident match may be an existing DB antibody not in the paste list —
+    // add it so it's selectable, exactly like the old server path did.
+    let list=abList();
+    results.forEach(c=>{ if(c.match && !list.includes(c.match)) list.push(c.match); });
+    if(list.length!==abList().length){ $("#abs").value=list.join("\n"); }
+    list=abList();
+    ordered.forEach((cl,i)=>{
+      const c=results[i], st=S.cellState[cl.key];
+      st.ocr={raw:c.raw, score:c.score, ambiguous:c.ambiguous, confident:c.confident};
+      if(c.confident){ const idx=list.indexOf(c.match); if(idx>=0){ st.ab=idx; st.manual=true; } }
+      // ambiguous / no-match: keep the reading-order guess, flagged via st.ocr
+    });
+    updatePanelCheck(); render();
+  }catch(e){ alert("OCR failed: "+e+"\n(The tool still works with reading-order mapping.)"); }
+  finally{ btn.disabled=false; btn.textContent=label; }
+}
+
+// Query the pipeline DB for this gene: show the status banner and, if the gene
+// already has published images, require an explicit overwrite acknowledgement.
+async function checkGene(){
+  const gene=$("#gene").value.trim();
+  const el=$("#genestatus"), ow=$("#overwritewrap");
+  if(!gene){ el.style.display="none"; ow.style.display="none"; return; }
+  el.style.display="block"; el.className="banner loading"; el.textContent="Checking database…";
+  try{
+    const d=await askServer(GENE_STATUS_URL+"?gene="+encodeURIComponent(gene),{},"read");
+    if(d.error){ el.className="banner loading"; el.textContent=d.error; return; }
+    GENE_INFO={ exists:d.exists, existing_catalogues:d.existing_catalogues||[],
+                requires_overwrite_ack:d.banner.requires_overwrite_ack,
+                resolvedGene:d.resolved_gene||"", blocked:d.blocked||"" };
+    el.className="banner "+d.banner.level;
+    el.textContent=d.banner.text;
+    if(d.banner.requires_overwrite_ack){ ow.style.display="block"; $("#overwriteack").checked=false; }
+    else { ow.style.display="none"; }
+  }catch(e){
+    // A failed check is not "this gene is new". The banner drives the overwrite
+    // gate, so saying nothing is on file for a gene the check never reached
+    // would be the app inventing the safest-sounding answer.
+    el.className="banner loading";
+    el.textContent="Could not check this gene against the database. "+e.message+
+                   " Until it answers, what is already on file for this gene is unknown.";
+  }
+}
+
+// One "panels in this row" input per row. Lets the last row have fewer panels
+// (e.g. WB 8+6, IP/IF 5+5+4) without deleting lines by hand.
+function renderRowCounts(){
+  const nr = Math.max(1, +$("#nrows").value|0);
+  const total = abList().length || 8;
+  const prev = readRowCounts();
+  const wrap = $("#rowcounts");
+  let h = "";
+  for(let r=0;r<nr;r++){
+    // default: reuse previous value if present, else spread antibodies evenly across rows
+    const def = prev[r] != null ? prev[r] : Math.max(1, Math.round(total/nr));
+    h += `<label>Panels in row ${r+1}</label><input type="number" class="rowcount" data-r="${r}" value="${def}" min="1">`;
+  }
+  wrap.innerHTML = h;
+  wrap.querySelectorAll(".rowcount").forEach(inp=>inp.addEventListener("input", updatePanelCheck));
+  updatePanelCheck();
+}
+function readRowCounts(){
+  return [...document.querySelectorAll(".rowcount")].map(i=>Math.max(1,+i.value|0));
+}
+function updatePanelCheck(){
+  const panels = readRowCounts().reduce((a,b)=>a+b,0);
+  const abs = abList().length;
+  const el = $("#panelcheck");
+  if(!abs){ el.textContent = `${panels} panels · paste this figure's antibodies in box 3`; el.style.color="#c0392b"; return; }
+  const ok = panels===abs;
+  el.textContent = ok ? `${panels} panels · ${abs} antibodies ✓ match`
+                      : `${panels} panels vs ${abs} in box 3 ✗ — edit box 3 to match`;
+  el.style.color = ok ? "#12a150" : "#c0392b";
+}
+
+// How big to draw a figure so the whole thing fits the stage.
+//
+// This lived inside seedGrid(), which is the only place that set S.scale — and
+// loadSession() never calls seedGrid(), because a resumed session already has
+// its bounds and lines. So every restored image drew at the `scale:1` that
+// newImageState() gives it: a 3300x2550 scan at 1:1, filling the window, with
+// the grid controls off the side. Nothing was wrong with the saved session; the
+// fit was simply never computed for it.
+//
+// Height is in it as well as width. Fitting on width alone still hands you a
+// tall gel you have to scroll to see the bottom of, and the whole job here is
+// dragging dividers against the whole figure at once.
+const ZOOM_STEPS = [0.25,0.33,0.5,0.67,0.75,1,1.25,1.5,2];
+const PANEL_W = 360;   // the CSS default; only used if the stage has no width yet
+function fitScale(st){
+  if(!st || !st.natW || !st.natH) return 1;
+  const stage = $(".stage");
+  const availW = (stage ? stage.clientWidth : window.innerWidth-PANEL_W) - 40;
+  const availH = (stage ? stage.clientHeight : window.innerHeight-90) - 40;
+  return Math.max(0.05, Math.min(1, availW/st.natW, availH/st.natH));
+}
+// Fit, unless the person has chosen a zoom for this image themselves.
+function applyFit(st){
+  if(!st) return;
+  if(st.userScale) { st.scale = st.userScale; return; }
+  st.scale = fitScale(st);
+}
+// dir: +1 in, -1 out, null back to fit.
+//
+// The next step past where we are, in the direction asked for — not the step
+// nearest to cur*1.25, which gets stuck: from 0.33 that lands on 0.41, whose
+// nearest step is 0.33 again, and the button stops responding. A fitted scan
+// can start below the smallest step (3300px in a 900px stage is 0.27), so
+// zooming out past the bottom keeps dividing rather than jumping *up* to 0.25.
+function setZoom(dir){
+  if(!S||!S.img) return;
+  if(dir===null){ S.userScale=0; applyFit(S); showZoom(); render(); return; }
+  const cur = S.scale || fitScale(S);
+  const EPS = 1e-6;
+  let next;
+  if(dir > 0){
+    next = ZOOM_STEPS.find(z => z > cur + EPS);
+    if(next===undefined) next = Math.min(4, cur*1.25);
+  } else {
+    next = [...ZOOM_STEPS].reverse().find(z => z < cur - EPS);
+    if(next===undefined) next = Math.max(0.05, cur/1.25);
+  }
+  S.userScale = S.scale = next;
+  showZoom(); render();
+}
+function showZoom(){
+  const el=$("#zoomlevel"); if(!el||!S) return;
+  el.textContent = `${Math.round((S.scale||1)*100)}%` + (S.userScale?"":" · fit");
+}
+
+function seedGrid(){
+  if(!S||!S.img) return;
+  applyFit(S);
+  const m = 0;   // default bounds = the outer edges of the image
+  const L = S.natW*m, R = S.natW*(1-m);
+  S.bounds = { top:S.natH*m, bottom:S.natH*(1-m) };
+  const nr = Math.max(1, +$("#nrows").value|0);
+  const counts = readRowCounts();
+  while(counts.length < nr) counts.push(counts[counts.length-1] || 8);  // safety
+  S.hLines = [];
+  for(let i=1;i<nr;i++) S.hLines.push(S.bounds.top + (S.bounds.bottom-S.bounds.top)*i/nr);
+  S.vLines = []; S.bandLeft = []; S.bandRight = [];
+  for(let b=0;b<nr;b++){
+    const nc = Math.max(1, counts[b]);
+    S.bandLeft[b] = L; S.bandRight[b] = R;
+    const arr=[];
+    for(let j=1;j<nc;j++) arr.push(j/nc);   // stored as fraction of band width
+    S.vLines.push(arr);
+  }
+  S.cellState = {};
+  render();
+}
+
+function nbands(im){ return (im||S).hLines.length + 1; }
+// Keep the per-band arrays sized to the current band count (e.g. after a
+// divider is deleted), filling any gaps with sensible defaults.
+function normalizeBands(){
+  const n = nbands(), L = S.natW*0.03, R = S.natW*0.97;
+  for(let b=0;b<n;b++){
+    if(S.bandLeft[b]==null)  S.bandLeft[b]  = L;
+    if(S.bandRight[b]==null) S.bandRight[b] = R;
+    if(!S.vLines[b])         S.vLines[b]    = [];
+  }
+  S.bandLeft.length = n; S.bandRight.length = n; S.vLines.length = n;
+}
+// band/cell geometry for ANY image state (defaults to the current one).
+function bandsYof(im){ return [im.bounds.top, ...[...im.hLines].sort((a,b)=>a-b), im.bounds.bottom]; }
+// interior verticals are fractions [0..1] of the band's own width, so they
+// rescale automatically when the band's left/right edges move.
+function bandColsOf(im,b){
+  const L=im.bandLeft[b], R=im.bandRight[b];
+  const xs=[...im.vLines[b]].sort((a,b)=>a-b).map(f=>L+f*(R-L));
+  return [L, ...xs, R];
+}
+function cellsFor(im){
+  const ys=bandsYof(im), out=[];
+  for(let b=0;b<ys.length-1;b++){
+    const xs=bandColsOf(im,b);
+    for(let c=0;c<xs.length-1;c++)
+      out.push({b,c,key:`${b}_${c}`, rect:{l:xs[c],t:ys[b],r:xs[c+1],bot:ys[b+1]}});
+  }
+  return out;
+}
+// current-image convenience wrappers (used by the render/drag path)
+function bandsY(){ return bandsYof(S); }
+function bandCols(b){ return bandColsOf(S,b); }
+function cells(){ return cellsFor(S); }
+function assignedCellsInOrder(){ return cells().filter(cl=>S.cellState[cl.key]?.assigned); }
+
+function render(){
+  if(!S||!S.img){ return; }
+  normalizeBands();
+  const sc=S.scale, W=S.natW*sc, H=S.natH*sc;
+  const NS="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("width",W); svg.setAttribute("height",H);
+  const img=document.createElementNS(NS,"image");
+  img.setAttribute("href",S.img.src); img.setAttribute("width",W); img.setAttribute("height",H);
+  svg.appendChild(img);
+  const X=v=>v*sc, Y=v=>v*sc;
+
+  // cells (rects + click + number)
+  const ordered=assignedCellsInOrder();
+  cells().forEach(cl=>{
+    const r=document.createElementNS(NS,"rect");
+    r.setAttribute("x",X(cl.rect.l)); r.setAttribute("y",Y(cl.rect.t));
+    r.setAttribute("width",X(cl.rect.r-cl.rect.l)); r.setAttribute("height",Y(cl.rect.bot-cl.rect.t));
+    r.setAttribute("class","cell"+(S.cellState[cl.key]?.assigned?" assigned":""));
+    r.addEventListener("click",ev=>{ if(ev.altKey)return; toggleCell(cl.key); });
+    // double-click a band adds a vertical line at click x
+    r.addEventListener("dblclick",ev=>{
+      const rc=ev.currentTarget.ownerSVGElement.getBoundingClientRect();
+      addVertical(cl.b, (ev.clientX-rc.left)/S.scale);
+    });
+    svg.appendChild(r);
+    if(S.cellState[cl.key]?.assigned){
+      const n=ordered.findIndex(o=>o.key===cl.key)+1;
+      const t=document.createElementNS(NS,"text");
+      t.setAttribute("x",X((cl.rect.l+cl.rect.r)/2)); t.setAttribute("y",Y((cl.rect.t+cl.rect.bot)/2));
+      t.setAttribute("text-anchor","middle"); t.setAttribute("class","cellnum"); t.textContent=n;
+      svg.appendChild(t);
+    }
+  });
+
+  const ys=bandsY();
+  // global top/bottom (draggable orange horizontals, full width)
+  addLine(svg,0,Y(S.bounds.top),W,Y(S.bounds.top),"bound","h","top");
+  addLine(svg,0,Y(S.bounds.bottom),W,Y(S.bounds.bottom),"bound","h","bottom");
+  // per-band LEFT/RIGHT edges (draggable orange verticals, independent per row)
+  for(let b=0;b<nbands();b++){
+    addLine(svg,X(S.bandLeft[b]), Y(ys[b]),X(S.bandLeft[b]), Y(ys[b+1]),"bound","v",{type:"bl",b});
+    addLine(svg,X(S.bandRight[b]),Y(ys[b]),X(S.bandRight[b]),Y(ys[b+1]),"bound","v",{type:"br",b});
+  }
+  // interior horizontal dividers (blue, full width)
+  S.hLines.forEach((y,i)=> addLine(svg,0,Y(y),W,Y(y),"hline","h",{type:"h",i}));
+  // per-band interior verticals (green) — fractions mapped to the band's width
+  S.vLines.forEach((arr,b)=>{ const L=S.bandLeft[b], R=S.bandRight[b];
+    arr.forEach((f,i)=>{ const x=L+f*(R-L);
+      addLine(svg,X(x),Y(ys[b]),X(x),Y(ys[b+1]),"vline","v",{type:"v",b,i}); }); });
+
+  const wrap=$("#svgwrap"); wrap.innerHTML=""; wrap.appendChild(svg);
+  renderMap();
+  // enable Generate/Commit if ANY image in the session has an assigned cell
+  const hasWork = SESS.images.some(im=>Object.values(im.cellState).some(c=>c.assigned));
+  $("#gen").disabled = !hasWork; $("#commit").disabled = !hasWork;
+}
+
+function addLine(svg,x1,y1,x2,y2,cls,axis,ref){
+  const NS="http://www.w3.org/2000/svg";
+  const hit=document.createElementNS(NS,"line");
+  [["x1",x1],["y1",y1],["x2",x2],["y2",y2]].forEach(([k,v])=>hit.setAttribute(k,v));
+  hit.setAttribute("class","hit "+cls);
+  const vis=document.createElementNS(NS,"line");
+  [["x1",x1],["y1",y1],["x2",x2],["y2",y2]].forEach(([k,v])=>vis.setAttribute(k,v));
+  vis.setAttribute("class",cls);
+  startDrag(hit,axis,ref); svg.appendChild(hit); svg.appendChild(vis);
+}
+
+// Reading-order pre-fill, recomputed across ALL assigned cells every time the
+// assignment changes — so it never depends on the order you clicked, and it
+// self-corrects when you add/remove a cell. Cells you set by hand (manual) are
+// left untouched.
+function reprefill(){
+  const list=abList(), off=(S&&S.abOffset)||0;
+  assignedCellsInOrder().forEach((cl,i)=>{
+    const st=S.cellState[cl.key];
+    if(!st.manual) st.ab = list[off+i]!==undefined ? off+i : null;
+  });
+}
+function toggleCell(key){
+  const st=S.cellState[key]||{assigned:false,ab:null,manual:false};
+  st.assigned=!st.assigned;
+  if(!st.assigned){ st.manual=false; st.ab=null; }  // discarding clears any override
+  S.cellState[key]=st;
+  reprefill();
+  render();
+}
+function addVertical(b,x){
+  const L=S.bandLeft[b], R=S.bandRight[b];
+  const f=Math.max(0,Math.min(1,(x-L)/(R-L)));
+  if(!S.vLines[b])S.vLines[b]=[]; S.vLines[b].push(f); S.cellState={}; render();
+}
+
+// Drag tracks the pointer on the whole document while active, so a line is
+// never "lost" if the cursor moves off the thin hit-target between frames.
+let drag=null;
+function startDrag(el,axis,ref){
+  el.addEventListener("pointerdown",ev=>{
+    if(ev.altKey){ deleteLine(ref); return; }
+    ev.preventDefault();
+    // cache the svg screen rect: it's stable during a drag and survives re-renders
+    drag={axis,ref,rect:el.ownerSVGElement.getBoundingClientRect()};
+  });
+}
+window.addEventListener("pointermove",ev=>{
+  if(!drag) return;
+  const rect=drag.rect;
+  const px=(ev.clientX-rect.left)/S.scale, py=(ev.clientY-rect.top)/S.scale;
+  applyDrag(drag.ref, drag.axis, px, py);
+});
+window.addEventListener("pointerup",()=>{ drag=null; });
+function applyDrag(ref,axis,px,py){
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  if(ref==="top")         S.bounds.top    = clamp(py,0,S.bounds.bottom-10);
+  else if(ref==="bottom") S.bounds.bottom = clamp(py,S.bounds.top+10,S.natH);
+  else if(ref.type==="bl") S.bandLeft[ref.b]  = clamp(px,0,S.bandRight[ref.b]-10);
+  else if(ref.type==="br") S.bandRight[ref.b] = clamp(px,S.bandLeft[ref.b]+10,S.natW);
+  else if(ref.type==="h")  S.hLines[ref.i]     = clamp(py,S.bounds.top,S.bounds.bottom);
+  else if(ref.type==="v"){ const L=S.bandLeft[ref.b], R=S.bandRight[ref.b];
+    S.vLines[ref.b][ref.i] = clamp((px-L)/(R-L), 0, 1); }   // store as fraction
+  render();
+}
+function deleteLine(ref){
+  if(ref==="top"||ref==="bottom"||ref.type==="bl"||ref.type==="br") return; // edges not deletable
+  if(ref.type==="h") S.hLines.splice(ref.i,1);
+  else if(ref.type==="v") S.vLines[ref.b].splice(ref.i,1);
+  S.cellState={}; render();
+}
+
+function wireOffset(){
+  const inp=$("#aboff"); if(!inp) return;
+  inp.addEventListener("change",e=>{
+    S.abOffset=Math.max(0,(parseInt(e.target.value,10)||1)-1);
+    reprefill(); render();
+  });
+}
+function renderMap(){
+  const ordered=assignedCellsInOrder(), list=abList();
+  const off=(S&&S.abOffset)||0;
+  const ctrl=`<div class="note" style="margin-bottom:6px">This figure's reading order starts at antibody #`+
+    `<input id="aboff" type="number" min="1" value="${off+1}" style="width:56px;margin:0 4px">`+
+    `<span class="note">— set &gt;1 when an application spans more than one figure</span></div>`;
+  if(!ordered.length){ $("#mapwrap").innerHTML=ctrl+'<div class="note">No cells assigned yet.</div>'; wireOffset(); return; }
+  let h='<table class="maptable"><tr><th>#</th><th>Antibody (catalogue)</th><th title="OCR">OCR</th></tr>';
+  ordered.forEach((cl,i)=>{
+    const st=S.cellState[cl.key], cur=st.ab;
+    let badge='<span class="note">·</span>', title='';
+    if(st.ocr){
+      title=`OCR read: “${st.ocr.raw||"(nothing)"}” · score ${st.ocr.score}`;
+      if(st.ocr.ambiguous)      badge='<span class="ocrbadge amb" title="'+title+'">⚠ check</span>';
+      else if(st.ocr.confident) badge='<span class="ocrbadge ok"  title="'+title+'">✓ '+st.ocr.score+'</span>';
+      else                      badge='<span class="ocrbadge no"  title="'+title+'">? order</span>';
+    }
+    h+=`<tr><td>${i+1}</td><td><select data-key="${cl.key}"><option value="">— discard —</option>`+
+       list.map((a,ai)=>`<option value="${ai}" ${cur===ai?"selected":""}>${a}</option>`).join("")+
+       `</select></td><td>${badge}</td></tr>`;
+  });
+  h+='</table>';
+  $("#mapwrap").innerHTML=ctrl+h;
+  wireOffset();
+  $("#mapwrap").querySelectorAll("select").forEach(sel=>sel.addEventListener("change",e=>{
+    const v=e.target.value, st=S.cellState[e.target.dataset.key];
+    st.ab = v===""? null : +v; st.manual = true;   // your choice wins over pre-fill
+    render();
+  }));
+}
+
+// ---- cropping (mirrors engine.py) ----
+function sourceCanvas(imgState){
+  const c=$("#work"); c.width=imgState.natW; c.height=imgState.natH;
+  c.getContext("2d").drawImage(imgState.img,0,0); return c;
+}
+function trimWhite(cx, x,y,w,h, keep=3, thresh=245){
+  const d=cx.getImageData(x,y,w,h).data;
+  let minX=w,minY=h,maxX=0,maxY=0,found=false;
+  for(let j=0;j<h;j++) for(let i=0;i<w;i++){
+    const p=(j*w+i)*4;
+    if(d[p]<thresh||d[p+1]<thresh||d[p+2]<thresh){ found=true;
+      if(i<minX)minX=i; if(i>maxX)maxX=i; if(j<minY)minY=j; if(j>maxY)maxY=j; }
+  }
+  if(!found) return {x,y,w,h};
+  minX=Math.max(0,minX-keep); minY=Math.max(0,minY-keep);
+  maxX=Math.min(w-1,maxX+keep); maxY=Math.min(h-1,maxY+keep);
+  return {x:x+minX, y:y+minY, w:maxX-minX+1, h:maxY-minY+1};
+}
+// Generate crops for EVERY image in the session (the whole gene), grouped by
+// image/application. One PublicationImage per antibody per application on commit.
+function generate(){
+  // The gene the crops will be FILED under — see `filedGene`. Drawing the typed
+  // name here while the commit files under the resolved one would put a legend
+  // on the preview that the saved figure does not carry, and the legend is
+  // burned into the pixels.
+  const gene=filedGene(), cellLine=$("#cellline").value.trim();
+  const geno=$("#genotype").value, fcsec=$("#fcsec").checked, list=abList();
+  const crops=$("#crops"); crops.innerHTML=""; let total=0;
+  SESS.images.forEach((im,idx)=>{
+    if(!im.img||!im.bounds) return;
+    const assigned=cellsFor(im).filter(cl=>im.cellState[cl.key]?.assigned && im.cellState[cl.key].ab!=null);
+    if(!assigned.length) return;
+    const h=document.createElement("h4"); h.textContent=`${im.app} · ${im.name} (${assigned.length})`;
+    crops.appendChild(h);
+    const src=sourceCanvas(im), scx=src.getContext("2d"), app=im.app;
+    assigned.forEach(cl=>{
+      const cat=list[im.cellState[cl.key].ab];
+      let x=Math.round(cl.rect.l), y=Math.round(cl.rect.t),
+          w=Math.round(cl.rect.r-cl.rect.l), hgt=Math.round(cl.rect.bot-cl.rect.t);
+      x=Math.max(0,x); y=Math.max(0,y); w=Math.min(im.natW-x,w); hgt=Math.min(im.natH-y,hgt);
+      const t=trimWhite(scx,x,y,w,hgt);
+      const out=document.createElement("canvas"); out.width=CANVAS; out.height=CANVAS;
+      const o=out.getContext("2d"); o.imageSmoothingEnabled=true; o.imageSmoothingQuality="high";
+      o.fillStyle="#fff"; o.fillRect(0,0,CANVAS,CANVAS);
+      const reserve=LEG[app], fill=FILL[app], gutter=GUT[app];
+      const availW=(CANVAS-gutter)*fill, availH=(CANVAS-reserve)*fill;
+      const s=Math.min(availW/t.w, availH/t.h);
+      const dw=Math.round(t.w*s), dh=Math.round(t.h*s);
+      const dx=Math.round(gutter+(CANVAS-gutter-dw)/2), dy=Math.round((CANVAS-reserve-dh)/2);
+      o.drawImage(src, t.x,t.y,t.w,t.h, dx,dy,dw,dh);   // crop + scale + paste
+      if(app==="ICC-IF"){ drawVText(o,"antibody",gutter/2,dy+dh*0.25); drawVText(o,"DAPI",gutter/2,dy+dh*0.75); }
+      drawLegend(o,app,cat,{gene,cellLine,geno,fcsec});
+      const tag=app==="ICC-IF"?"IF":app;
+      const fn=`${gene}_${cat.replace(/\*/g,"").trim()}_${tag}.png`;
+      const div=document.createElement("div"); div.className="crop"; div.appendChild(out);
+      const badge=document.createElement("div"); badge.className="recbadge";
+      out.style.cursor="pointer"; out.title="Click to mark this antibody 'recommended' for "+app;
+      const paint=()=>{ const on=isRec(cat,app); div.classList.toggle("recon",on); badge.textContent=on?"★ Recommended":"☆ click to recommend"; };
+      out.onclick=()=>{ toggleRec(cat,app); paint(); };
+      div.appendChild(badge); paint();
+      const a=document.createElement("a"); a.className="fn"; a.textContent=fn;
+      a.href=out.toDataURL("image/png"); a.download=fn; a.style.display="block";
+      div.appendChild(a); crops.appendChild(div); total++;
+    });
+  });
+  if(!total){ crops.innerHTML='<div class="note" style="padding:10px">No assigned+mapped cells to crop yet.</div>'; return; }
+  // preview warnings: assigned-but-unmapped cells, and catalogues with no crop
+  let unmapped=0; const cropped=new Set();
+  SESS.images.forEach(im=>{ if(!im.img||!im.bounds) return;
+    cellsFor(im).forEach(cl=>{ const st=im.cellState[cl.key]; if(st&&st.assigned){ if(st.ab==null) unmapped++; else cropped.add(abList()[st.ab]); } }); });
+  const noCrop=abList().filter(c=>!cropped.has(c));
+  const warns=[]; if(unmapped) warns.push(`${unmapped} assigned cell(s) not mapped to an antibody`);
+  if(noCrop.length) warns.push(`${noCrop.length} antibody(ies) with no crop: ${noCrop.slice(0,6).join(", ")}${noCrop.length>6?"…":""}`);
+  if(warns.length){ const w=document.createElement("div"); w.className="note"; w.style.cssText="width:100%;color:#9a6b00;padding:2px 0";
+    w.textContent="⚠ "+warns.join(" · "); crops.insertBefore(w, crops.firstChild); }
+}
+function drawVText(o,text,cx,cy){   // text rotated 90° (reads bottom-to-top)
+  o.save(); o.translate(cx,cy); o.rotate(-Math.PI/2);
+  o.fillStyle="#000"; o.font="15px DejaVu Sans, sans-serif";
+  o.textAlign="center"; o.textBaseline="middle"; o.fillText(text,0,0); o.restore();
+}
+function drawLegend(o,app,cat,ctx){
+  const reserve=LEG[app]; if(!reserve) return;
+  const top=CANVAS-reserve; o.fillStyle="#000"; o.textBaseline="top";
+  if(app==="IP"){
+    o.font="14px DejaVu Sans, sans-serif";
+    ["SM: Starting material","UB: Unbound fraction",`IP: ${cat} immunoprecipitate`]
+      .forEach((ln,i)=>o.fillText(ln,14,top+6+i*17));
+  } else {
+    const word = ctx.geno==="KD"?"knockdown":"knockout";
+    const rows=[[GREEN,`${ctx.cellLine} wild-type cell line`],
+                [MAGENTA,`${ctx.cellLine} ${ctx.gene} ${word} cell line`]];
+    if(app==="FC"&&ctx.fcsec) rows.push([GREY,"Secondary only control"]);
+    const sq=18; let y=top+8; o.font="19px DejaVu Sans, sans-serif"; o.textBaseline="middle";
+    rows.forEach(([col,txt])=>{ o.fillStyle=col; o.fillRect(14,y,sq,sq);
+      o.fillStyle="#000"; o.fillText(txt,14+sq+10,y+sq/2); y+=sq+8; });
+  }
+}
+window.addEventListener("resize",()=>{ if(S&&S.img) render(); });
+renderRowCounts();   // populate per-row inputs on first load
+renderImageList();
+$("#zoomin").addEventListener("click", ()=>setZoom(+1));
+$("#zoomout").addEventListener("click", ()=>setZoom(-1));
+$("#zoomfit").addEventListener("click", ()=>setZoom(null));
+// The stage changes size when the window does and when the controls column is
+// dragged, and a fitted figure that stops fitting is the bug this whole block
+// is about. An image somebody has zoomed by hand keeps its zoom.
+let _refit;
+const refit = ()=>{ clearTimeout(_refit); _refit=setTimeout(()=>{
+  if(S && S.img && !S.userScale){ applyFit(S); showZoom(); render(); }
+}, 120); };
+window.addEventListener("resize", refit);
+if(window.ResizeObserver) new ResizeObserver(refit).observe($(".panel"));
+
+loadSessionList();   // populate the "resume session" picker
+// Deep-linked with ?gene= → auto-load that gene's DB status + overwrite gate.
+{% if initial_gene %}checkGene();{% endif %}
+</script>
+</body>
+</html>

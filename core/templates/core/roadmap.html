@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    {% load humanize %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadmap - Only Good Antibodies Community</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   ROADMAP PAGE STYLES
+   ══════════════════════════════════════ */
+
+/* ── JUMP BAR ── */
+.jump-bar {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0; /* let it stick to top when header scrolls away */
+  z-index: 50; /* below cookie banner and header */
+  transition: box-shadow 0.3s;
+}
+.jump-bar.has-shadow {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.jump-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.jump-bar-inner::-webkit-scrollbar { display: none; }
+.jump-bar-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6b7280;
+  white-space: nowrap;
+  padding: 14px 12px 14px 0;
+  border-right: 1px solid #e2e8f0;
+  margin-right: 4px;
+}
+.jump-link {
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.jump-link:hover { color: #10428a; }
+.jump-link.active {
+  color: #10428a;
+  font-weight: 600;
+  border-bottom-color: #86bef0;
+}
+
+
+/* ── HERO ── */
+.roadmap-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff;
+  padding: 72px 24px 56px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.roadmap-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -15%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.roadmap-hero-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.roadmap-hero-label {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  color: rgba(255,255,255,0.9);
+}
+.roadmap-hero h1 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+  color: #fff !important;
+}
+.roadmap-hero p {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  max-width: 750px;
+  margin: 0 auto;
+}
+.hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+.hero-stat {
+  text-align: center;
+  flex: 0 0 180px;
+  width: 180px;
+}
+.hero-stat-number {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff !important;
+  line-height: 1.1;
+}
+.hero-stat-label {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 6px;
+  max-width: 180px;
+}
+
+/* ── ROADMAP SECTIONS ── */
+.rm-section {
+  padding: 64px 24px;
+  text-align: center;
+}
+.rm-section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.rm-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #4a8ec9;
+  margin-bottom: 8px;
+}
+.rm-title {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #10428a;
+  margin-bottom: 14px;
+  letter-spacing: -0.3px;
+}
+.rm-desc {
+  color: #444;
+  font-size: 1rem;
+  line-height: 1.7;
+  margin-bottom: 36px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.rm-bg-light { background: #f5f8ff; }
+.rm-bg-white { background: #fff; }
+.rm-bg-dark {
+  background: #0d2b5e;
+  color: #fff;
+}
+.rm-bg-dark .rm-label { color: rgba(255,255,255,0.45) !important; }
+.rm-bg-dark .rm-title { color: #fff !important; }
+.rm-bg-dark .rm-desc { color: rgba(255,255,255,0.7); }
+
+/* Override site global heading colours for roadmap sections */
+.roadmap-hero h1,
+.roadmap-hero p,
+.roadmap-hero span { color: #fff !important; }
+.rm-bg-dark h3 { color: #fff !important; }
+.narrative-step h3 { color: #10428a !important; }
+.paper-card h3 { color: #10428a !important; }
+.stakeholder-card h3 { color: #10428a !important; }
+.cta-card h3 { color: #10428a !important; }
+.panel-strip h3 { color: #10428a !important; }
+.tool-card h3 { color: #fff !important; }
+
+/* ── PROBLEM STATS GRID ── */
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+.problem-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+}
+.problem-card-number {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #b91c1c;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.problem-card-text {
+  font-size: 0.92rem;
+  color: #444;
+  line-height: 1.5;
+}
+.problem-card-source {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-top: 6px;
+  font-style: italic;
+}
+.problem-card.wide {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.problem-card.wide .problem-card-number {
+  font-size: 2.2rem;
+  white-space: nowrap;
+}
+
+/* ── FIGURE ── */
+.rm-figure {
+  margin: 32px 0;
+  text-align: center;
+}
+.rm-figure img {
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.rm-figure-caption {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 10px;
+  font-style: italic;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+/* ── NARRATIVE TIMELINE ── */
+.narrative-timeline {
+  position: relative;
+  padding-left: 48px;
+  text-align: left;
+}
+.narrative-timeline::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, #86bef0, #15803d);
+}
+.narrative-step {
+  position: relative;
+  margin-bottom: 44px;
+}
+.narrative-step:last-child { margin-bottom: 0; }
+.narrative-dot {
+  position: absolute;
+  left: -40px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #86bef0;
+}
+.narrative-step:last-child .narrative-dot {
+  border-color: #15803d;
+  background: #dcfce7;
+}
+.narrative-step-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #4a8ec9;
+  margin-bottom: 3px;
+}
+.narrative-step h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 6px;
+}
+.narrative-step p {
+  color: #444;
+  font-size: 0.93rem;
+  line-height: 1.6;
+}
+.narrative-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #86bef0;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  margin-top: 8px;
+  transition: gap 0.2s;
+}
+.narrative-link:hover { gap: 8px; }
+
+/* ── PAPER CARDS ── */
+.paper-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  text-align: left;
+}
+.paper-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  transition: box-shadow 0.3s, transform 0.2s;
+}
+.paper-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+.paper-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+.badge-problem { background: #fee2e2; color: #b91c1c; }
+.badge-strategy { background: #dcfce7; color: #15803d; }
+.paper-card h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+.paper-card > p {
+  font-size: 0.88rem;
+  color: #444;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.paper-highlights {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+.paper-highlights li {
+  font-size: 0.86rem;
+  color: #444;
+  padding: 5px 0 5px 18px;
+  position: relative;
+  line-height: 1.45;
+}
+.paper-highlights li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: #86bef0;
+  font-weight: 700;
+}
+.paper-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 18px;
+  background: #10428a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.paper-link:hover { background: #4a8ec9; }
+
+/* ── STAKEHOLDER GRID ── */
+.stakeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.stakeholder-card {
+  border-radius: 12px;
+  padding: 24px 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-align: center;
+  transition: box-shadow 0.3s, transform 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.stakeholder-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+.stakeholder-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+.sh-inst::before { background: #86bef0; }
+.sh-fund::before { background: #15803d; }
+.sh-pub::before { background: #6d28d9; }
+.sh-mfg::before { background: #d97706; }
+.stakeholder-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  font-size: 1.4rem;
+}
+.sh-inst .stakeholder-icon { background: #e8f1fa; }
+.sh-fund .stakeholder-icon { background: #dcfce7; }
+.sh-pub .stakeholder-icon { background: #ede9fe; }
+.sh-mfg .stakeholder-icon { background: #fef3c7; }
+.stakeholder-card h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 6px;
+}
+.stakeholder-card > p {
+  font-size: 0.82rem;
+  color: #444;
+  line-height: 1.45;
+  margin-bottom: 3px;
+}
+.consensus-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4a8ec9;
+  margin-top: 10px;
+}
+.stakeholder-dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 5px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #10428a;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.stakeholder-dl:hover { background: #f5f8ff; }
+
+/* ── TOOLS GRID (dark bg) ── */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  text-align: left;
+}
+.tool-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 28px 20px;
+  transition: background 0.3s;
+}
+.tool-card:hover { background: rgba(255,255,255,0.1); }
+.tool-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.tool-card p {
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.tool-stat {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 14px;
+}
+.tool-stat strong { color: rgba(255,255,255,0.8); }
+.tool-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #86bef0;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: gap 0.2s;
+}
+.tool-link:hover { gap: 8px; }
+
+/* ── CTA CARDS ── */
+.cta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+.cta-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+}
+.cta-card h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 6px;
+}
+.cta-card p {
+  font-size: 0.86rem;
+  color: #444;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.cta-card a {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #86bef0;
+  text-decoration: none;
+}
+.cta-card a:hover { text-decoration: underline; }
+
+/* ── PANEL ACKNOWLEDGEMENT ── */
+.panel-strip {
+  background: #f9fafb;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 32px 24px;
+  text-align: center;
+}
+.panel-strip-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.panel-strip h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 8px;
+}
+.panel-strip p {
+  font-size: 0.88rem;
+  color: #444;
+  line-height: 1.6;
+}
+.panel-strip .partner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  color: #86bef0;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+.panel-strip .partner-link:hover { text-decoration: underline; }
+
+/* ── FUNDER FOOTER ── */
+.funder-footer {
+  text-align: center;
+  padding: 28px 24px;
+  background: #f9fafb;
+}
+.funder-footer p {
+  font-size: 0.82rem;
+  color: #6b7280;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .problem-grid { grid-template-columns: 1fr; }
+  .problem-card.wide { flex-direction: column; text-align: center; }
+  .paper-cards { grid-template-columns: 1fr; }
+  .stakeholder-grid { grid-template-columns: 1fr 1fr; }
+  .tools-grid { grid-template-columns: 1fr; }
+  .cta-grid { grid-template-columns: 1fr; }
+  .hero-stats { gap: 20px; }
+  .jump-bar-label { display: none; }
+  .jump-link { padding: 12px 10px; font-size: 0.8rem; }
+}
+@media (max-width: 480px) {
+  .stakeholder-grid { grid-template-columns: 1fr; }
+  .roadmap-hero { padding: 48px 20px 40px; }
+  .rm-section { padding: 40px 20px; }
+}
+</style>
+</head>
+
+<body class="no-wobble">
+
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+
+<!-- ═══════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════ -->
+<section class="roadmap-hero">
+  <div class="roadmap-hero-inner">
+    <span class="roadmap-hero-label">New Research &amp; Action Plan — March 2026</span>
+    <h1>A Roadmap for Better Antibodies in Research</h1>
+    <p>We've quantified the ethical and scientific costs of inadequate antibody validation — and developed an evidence-based, consensus-driven strategy to fix it. Here's what we found, what needs to happen, and the tools to make it easier.</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-number">At least 4M</div>
+        <div class="hero-stat-label">animal samples consumed globally in experiments using antibodies that would fail independent testing</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">At least 6M</div>
+        <div class="hero-stat-label">human tissue samples used without context-specific validation</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">15</div>
+        <div class="hero-stat-label">consensus recommendations agreed by expert panel</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">32</div>
+        <div class="hero-stat-label">international experts across 5 stakeholder groups</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STAKEHOLDER QUICK LINKS -->
+<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px;">
+  <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;padding-right:12px;border-right:1px solid #e2e8f0;margin-right:4px;">For stakeholders</span>
+    <a href="{% url 'roadmap_institutions' %}" style="padding:6px 16px;font-size:.86rem;font-weight:600;color:#fff;background:#10428a;text-decoration:none;border-radius:6px;">🏛 Institutions</a>
+    <a href="{% url 'roadmap_funders' %}" style="padding:6px 16px;font-size:.86rem;font-weight:600;color:#fff;background:#10428a;text-decoration:none;border-radius:6px;">💰 Funders</a>
+    <a href="{% url 'roadmap_publishers' %}" style="padding:6px 16px;font-size:.86rem;font-weight:600;color:#fff;background:#10428a;text-decoration:none;border-radius:6px;">📄 Publishers</a>
+    <a href="{% url 'roadmap_manufacturers' %}" style="padding:6px 16px;font-size:.86rem;font-weight:600;color:#fff;background:#10428a;text-decoration:none;border-radius:6px;">🧪 Manufacturers</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     JUMP BAR
+     ═══════════════════════════════════════ -->
+<div class="jump-bar" id="jumpBar">
+  <div class="jump-bar-inner">
+    <span class="jump-bar-label">Jump to</span>
+    <a href="#the-problem" class="jump-link active">The Problem</a>
+    <a href="#the-evidence" class="jump-link">Our Approach</a>
+    <a href="#the-papers" class="jump-link">The Papers</a>
+    <a href="#action-plans" class="jump-link">Action Plans</a>
+    <a href="#the-tools" class="jump-link">Tools</a>
+    <a href="#get-involved" class="jump-link">Get Involved</a>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     THE PROBLEM
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-light" id="the-problem">
+  <div class="rm-section-inner">
+    <div class="rm-label">The Problem</div>
+    <div class="rm-title">The ethical costs of poor antibody validation — quantified for the first time</div>
+    <div class="rm-desc">
+      We systematically examined how researchers choose and validate antibodies, and traced the downstream consequences when they don't. Using rigorous knockout-validated characterisation data from YCharOS, focus groups, a national survey, and systematic analysis of 785 publications, we found a pattern of substantial, avoidable waste.
+    </div>
+
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="problem-card-number">15.8%</div>
+        <div class="problem-card-text">of antibodies failed across all tested applications when subjected to rigorous knockout-control characterisation</div>
+        <div class="problem-card-source">97 of 614 antibodies characterised by YCharOS</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-number">84.2%</div>
+        <div class="problem-card-text">of papers using those failed antibodies presented no validation evidence whatsoever</div>
+        <div class="problem-card-source">640 of 760 publications where validation status could be determined</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-number">72%</div>
+        <div class="problem-card-text">of surveyed researchers report using at least one recommended validation method — yet validation evidence rarely appears in their published work</div>
+        <div class="problem-card-source">Survey of 107 researchers — IWGAV pillar analysis</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-number">28%</div>
+        <div class="problem-card-text">of researchers used no recommended validation strategy at all, relying on technical controls only or performing no validation</div>
+        <div class="problem-card-source">30 of 107 survey respondents</div>
+      </div>
+      <div class="problem-card wide">
+        <div class="problem-card-number">8,064</div>
+        <div>
+          <div class="problem-card-text">animal samples and <strong>4,424</strong> human tissue samples consumed <em>just in the 640 papers without validation data</em> — using antibodies with demonstrated poor performance. Conservative global extrapolation suggests <strong>millions</strong> more.</div>
+          <div class="problem-card-source">Minimum counts from explicitly reported sample numbers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Figure 3 from Paper 1 -->
+    <div class="rm-figure">
+      <img src="{% static 'core/roadmap_fig_flowchart.png' %}" alt="Flowchart showing downstream impact of failed antibodies on biological sample waste">
+      <div class="rm-figure-caption">Literature analysis workflow and biological sample waste. From 97 antibodies failing YCharOS validation, 35 had associated publications. Across 766 papers, the overwhelming majority of biological samples were consumed without context-specific validation data. Adapted from Biddle, Cooper, Blades et al. (2026), CC-BY 4.0.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     THE NARRATIVE ARC
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-white" id="the-evidence">
+  <div class="rm-section-inner">
+    <div class="rm-label">Our Approach</div>
+    <div class="rm-title">From problem to evidence to action</div>
+    <div class="rm-desc">
+      This work builds on a decade of community efforts in antibody validation. Here's how we moved from identifying the problem to developing a structured, consensus-driven plan for fixing it.
+    </div>
+
+    <div class="narrative-timeline">
+      <div class="narrative-step">
+        <div class="narrative-dot"></div>
+        <div class="narrative-step-label">Foundation</div>
+        <h3>The frequency problem was already established</h3>
+        <p>Independent characterisation by <strong>YCharOS</strong> using standardised knockout-control protocols demonstrated that over 50% of 614 commercial antibodies failed in at least one application. The <strong>eLife</strong> paper by Kahn, Virk, Laflamme et al. (2024) proposed sector-specific actions. An <strong>NC3Rs stakeholder meeting</strong> (February 2024, 56 participants) brought together manufacturers, publishers, funders, and researchers to identify priority interventions. But the downstream ethical consequences had never been quantified.</p>
+      </div>
+
+      <div class="narrative-step">
+        <div class="narrative-dot"></div>
+        <div class="narrative-step-label">Paper 1 — Biddle, Cooper, Blades et al.</div>
+        <h3>We defined the ethical impacts and the behavioural drivers</h3>
+        <p>Using focus groups (n=12), a national survey (n=107), and systematic analysis of 785 publications, we quantified for the first time how many animal and human tissue samples are consumed in experiments using antibodies with demonstrated poor performance. We also mapped the behavioural drivers using the COM-B framework — revealing that antibody selection is dominated by social proof and habit rather than systematic evaluation of performance data.</p>
+        <a href="https://doi.org/10.64898/2026.02.19.706766" class="narrative-link" target="_blank">Read the preprint →</a>
+      </div>
+
+      <div class="narrative-step">
+        <div class="narrative-dot"></div>
+        <div class="narrative-step-label">Paper 2 — Blades, Biddle, Froud et al.</div>
+        <h3>We developed a consensus-based strategy for fixing it</h3>
+        <p>A modified Delphi study with 32 international experts — representing researchers, publishers, funders, manufacturers, and institutional leaders — produced 15 consensus recommendations rated as both effective and feasible for implementation by 2030. The panel endorsed a staged approach: enablement first (training, resources, infrastructure), then expectation (requirements, standards), then mandate (enforcement). Each stakeholder group has a defined role.</p>
+        <a href="https://doi.org/10.64898/2026.03.04.709541" class="narrative-link" target="_blank">Read the preprint →</a>
+      </div>
+
+      <div class="narrative-step">
+        <div class="narrative-dot"></div>
+        <div class="narrative-step-label">Now</div>
+        <h3>We're building the tools and convening the stakeholders</h3>
+        <p>The OGA database, Academy, and Antibody Champions programme provide practical infrastructure to support implementation. We're bringing stakeholders together — including at the <strong>UKRN Annual Conference in July 2026</strong> — to turn recommendations into coordinated action.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     THE PAPERS
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-light" id="the-papers">
+  <div class="rm-section-inner">
+    <div class="rm-label">The Evidence</div>
+    <div class="rm-title">Two linked studies — now available as preprints</div>
+    <div class="rm-desc">
+      Both papers are currently under peer review and available as preprints. We welcome feedback from the community — <a href="{% url 'contact' %}" style="color: #10428a;">get in touch</a> if you have thoughts.
+    </div>
+
+    <div class="paper-cards">
+      <div class="paper-card">
+        <span class="paper-badge badge-problem">The Problem</span>
+        <h3>Drivers and ethical impacts of insufficient validation of antibodies in research</h3>
+        <p>Mixed-methods study quantifying the ethical costs of poor antibody validation for the first time — including avoidable use of animal and human biological materials.</p>
+        <ul class="paper-highlights">
+          <li>Focus groups (n=12), survey (n=107), systematic analysis of 785 publications</li>
+          <li>COM-B behavioural analysis — selection driven by social proof, not performance data</li>
+          <li>8,064 animal samples and 4,424 human tissue samples consumed using failed antibodies without validation</li>
+          <li>Global extrapolation: 4–7 million animal, 6–11 million human tissue samples</li>
+        </ul>
+        <a href="https://doi.org/10.64898/2026.02.19.706766" class="paper-link" target="_blank">Read on bioRxiv ↗</a>
+      </div>
+
+      <div class="paper-card">
+        <span class="paper-badge badge-strategy">The Strategy</span>
+        <h3>Addressing antibody validation failures: a multi-stakeholder Delphi consensus study</h3>
+        <p>Modified Delphi study producing actionable, stakeholder-specific recommendations for improving antibody validation, selection, and reporting practices.</p>
+        <ul class="paper-highlights">
+          <li>32 international experts across 5 stakeholder groups — 2 rounds, 84% initial response rate</li>
+          <li>15 consensus items — both effective and feasible by 2030</li>
+          <li>15 further items rated effective but with uncertain feasibility — a roadmap for the next wave</li>
+          <li>4 stakeholder consultation documents with implementation options</li>
+        </ul>
+        <a href="https://doi.org/10.64898/2026.03.04.709541" class="paper-link" target="_blank">Read on bioRxiv ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     STAKEHOLDER ACTIONS
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-white" id="action-plans">
+  <div class="rm-section-inner">
+    <div class="rm-label">What Needs to Happen</div>
+    <div class="rm-title">Consensus recommendations for every stakeholder group</div>
+    <div class="rm-desc">
+      The Delphi panel identified four interconnected barriers: diffuse ownership of the problem, market dynamics that don't reward quality, difficulty justifying investment when returns are distributed, and coordination challenges across actors with different incentives. These are addressable through coordinated action. We've prepared consultation documents for each stakeholder group, outlining the consensus recommendations and practical implementation options.
+    </div>
+
+    <div class="stakeholder-grid">
+      <div class="stakeholder-card sh-inst">
+        <div class="stakeholder-icon">🏛</div>
+        <h3>Institutions</h3>
+        <p>Training, research integrity frameworks, and local champions</p>
+        <div class="consensus-count">3 consensus — all fully agreed, no feasibility concerns</div>
+        <a href="{% static 'core/docs/S4_Institutional_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
+        <a href="{% url 'roadmap_institutions' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
+      </div>
+
+      <div class="stakeholder-card sh-fund">
+        <div class="stakeholder-icon">💰</div>
+        <h3>Funders</h3>
+        <p>Validation budgets, grant requirements, reporting standards, benchmarking</p>
+        <div class="consensus-count">6 consensus + 4 effective but uncertain feasibility</div>
+        <a href="{% static 'core/docs/S3_Funder_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
+        <a href="{% url 'roadmap_funders' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
+      </div>
+
+      <div class="stakeholder-card sh-pub">
+        <div class="stakeholder-icon">📄</div>
+        <h3>Publishers &amp; Journals</h3>
+        <p>Antibody reporting packages, validation standards, editorial capacity</p>
+        <div class="consensus-count">4 consensus + 6 effective but uncertain feasibility</div>
+        <a href="{% static 'core/docs/S2_Publisher_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
+        <a href="{% url 'roadmap_publishers' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
+      </div>
+
+      <div class="stakeholder-card sh-mfg">
+        <div class="stakeholder-icon">🧪</div>
+        <h3>Manufacturers</h3>
+        <p>Product identification (RRIDs at source), validation data, recombinant transition</p>
+        <div class="consensus-count">1 consensus + 2 effective but uncertain feasibility</div>
+        <a href="{% static 'core/docs/S5_Manufacturer_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
+        <a href="{% url 'roadmap_manufacturers' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Working with us →</a>
+      </div>
+    </div>
+
+    <!-- Figures: Delphi process + outcomes -->
+    <div style="display: flex; gap: 32px; margin-top: 40px; align-items: flex-start; flex-wrap: wrap;">
+      <div class="rm-figure" style="flex: 1; min-width: 280px;">
+        <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 10px;">How the recommendations were developed</div>
+        <img src="{% static 'core/roadmap_fig_delphi_process.png' %}" alt="Flowchart showing the Delphi consensus process" style="height: 480px; width: 100%; object-fit: contain;">
+        <div class="rm-figure-caption">Delphi consensus process: two rounds of voting by 32 panellists across 5 stakeholder groups, resulting in 15 consensus recommendations. From Blades, Biddle, Froud et al. (2026), CC-BY 4.0.</div>
+      </div>
+      <div class="rm-figure" style="flex: 1; min-width: 280px;">
+        <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 10px;">How panellists rated each action</div>
+        <img src="{% static 'core/roadmap_fig_scatter.png' %}" alt="Effectiveness vs feasibility ratings for all 33 proposed actions" style="height: 480px; width: 100%; object-fit: contain;">
+        <div class="rm-figure-caption">Effectiveness and feasibility ratings for all 33 proposed actions, colour-coded by stakeholder group. The upper-right quadrant contains 15 items rated as both effective and feasible (consensus). From Blades, Biddle, Froud et al. (2026), CC-BY 4.0.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     DELPHI PANEL ACKNOWLEDGEMENT
+     ═══════════════════════════════════════ -->
+<div class="panel-strip">
+  <div class="panel-strip-inner">
+    <h3>Built on multi-stakeholder expertise</h3>
+    <p>The Delphi panel included senior representatives from organisations including Abcam, Cell Signaling Technology, Proteintech, GeneTex, AstraZeneca, the Institute for Protein Innovation, Addgene, YCharOS/SGC, eLife, Nature Protocols, F1000, Wiley, The Company of Biologists, NC3Rs, the Michael J. Fox Foundation, the MND Association, CHDI Foundation, CiteAb, SciCrunch, and leading research institutions. This work also builds on the independent characterisation data generated by the YCharOS consortium.</p>
+    <a href="{% url 'partners' %}" class="partner-link">View all OGA partners →</a>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     TOOLS
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-dark" id="the-tools">
+  <div class="rm-section-inner">
+    <div class="rm-label">The Tools</div>
+    <div class="rm-title">Making better practice easier</div>
+    <div class="rm-desc">
+      Identifying what needs to change is only half the picture. We've built practical tools and programmes to help researchers, institutions, and the wider community implement these recommendations.
+    </div>
+
+    <div class="tools-grid">
+      <div class="tool-card">
+        <h3>🔍 OGA Antibody Database</h3>
+        <p>Searchable characterisation data with knockout controls across Western Blot, IP, ICC/IF, and flow cytometry. Find out which antibodies actually work for your target — and which don't.</p>
+        <div class="tool-stat"><strong>{{ gene_count|intcomma }} genes</strong> · <strong>{{ antibody_count|intcomma }} antibodies</strong> · <strong>{{ experiment_count|intcomma }} experiments</strong></div>
+        <a href="{% url 'home' %}" class="tool-link">Search the database →</a>
+      </div>
+
+      <div class="tool-card">
+        <h3>🎓 OGA Academy</h3>
+        <p>Structured e-learning covering antibody selection, validation strategies, database use, and data interpretation. Free and self-paced, with assessment and QR-verifiable certification, all behind one login.</p>
+        <div class="tool-stat"><strong>5 modules</strong> · quizzes &amp; verifiable certificates</div>
+        {% if user.is_authenticated %}
+          <a href="{% url 'academy:academy_home' %}" class="tool-link">Continue learning →</a>
+        {% else %}
+          <a href="{% url 'academy:login' %}" class="tool-link">Start learning →</a>
+        {% endif %}
+      </div>
+
+      <div class="tool-card">
+        <h3>🏅 Antibody Champions</h3>
+        <p>A joint OGA/NC3Rs programme recruiting early career researchers to drive culture change in antibody validation at their own institutions. 12-month programme with professional training and expert mentorship.</p>
+        <div class="tool-stat">Launching <strong>April 2026</strong> with NC3Rs</div>
+        <a href="https://nc3rs.org.uk/news/antibody-champions-deliver-widespread-3rs-impact" class="tool-link" target="_blank">Learn more at NC3Rs →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     GET INVOLVED
+     ═══════════════════════════════════════ -->
+<section class="rm-section rm-bg-light" id="get-involved">
+  <div class="rm-section-inner">
+    <div class="rm-label">Get Involved</div>
+    <div class="rm-title">Join us in building a better system</div>
+    <div class="rm-desc">
+      We're convening stakeholders to develop practical implementation guidance. Whether you're an institution piloting these recommendations, a funder considering policy changes, or a researcher interested in contributing — we want to hear from you.
+    </div>
+
+    <div class="cta-grid">
+      <div class="cta-card">
+        <h3>UKRN Conference 2026</h3>
+        <p>We have a 90-minute panel session — <em>"Working together to improve biomedical research: the OnlyGoodAntibodies experience"</em> — at the UK Reproducibility Network Annual Conference, 8–9 July 2026.</p>
+        <a href="https://www.ukrn.org/conference/" target="_blank">Conference details →</a>
+      </div>
+      <div class="cta-card">
+        <h3>Consultation &amp; Working Groups</h3>
+        <p>We're forming working groups to develop practical implementation guidance — including model curricula, institutional policy templates, and coordination mechanisms. Share your feedback or express interest in joining.</p>
+        <a href="{% url 'contact' %}">Get in touch →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     FUNDER ACKNOWLEDGEMENT
+     ═══════════════════════════════════════ -->
+<div class="funder-footer">
+  <p>This work is supported by the MRC-NIHR Better Methods Better Research programme, the NC3Rs, the BBSRC, the Leicester Institute for Precision Health, and the NIHR Leicester Biomedical Research Centre. Both preprints are available under CC-BY 4.0 International licence.</p>
+</div>
+
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a>
+      <a href="{% url 'about' %}">About Us</a>
+      <a href="{% url 'roadmap' %}">Roadmap</a>
+      <a href="{% url 'publications' %}">Publications</a>
+      
+      <a href="{% url 'news' %}">News</a>
+      <a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+  </div>
+</footer>
+
+
+<!-- ═══════════════════════════════════════
+     JUMP BAR SCROLL TRACKING
+     ═══════════════════════════════════════ -->
+<script>
+// Smooth scroll for jump links
+document.querySelectorAll('.jump-link').forEach(function(link) {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    var target = document.querySelector(link.getAttribute('href'));
+    if (target) {
+      var offset = 120;
+      var top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  });
+});
+
+// Active state tracking
+var sections = ['the-problem', 'the-evidence', 'the-papers', 'action-plans', 'the-tools', 'get-involved'];
+var jumpLinks = document.querySelectorAll('.jump-link');
+var jumpBar = document.getElementById('jumpBar');
+
+function updateActiveLink() {
+  var threshold = 150;
+  var activeIndex = 0;
+  sections.forEach(function(id, i) {
+    var section = document.getElementById(id);
+    if (section) {
+      var top = section.getBoundingClientRect().top;
+      if (top <= threshold) {
+        activeIndex = i;
+      }
+    }
+  });
+  jumpLinks.forEach(function(link, i) {
+    if (i === activeIndex) {
+      link.classList.add('active');
+    } else {
+      link.classList.remove('active');
+    }
+  });
+  if (jumpBar) {
+    jumpBar.classList.toggle('has-shadow', jumpBar.getBoundingClientRect().top <= 0);
+  }
+}
+
+updateActiveLink();
+window.addEventListener('scroll', updateActiveLink, { passive: true });
+window.addEventListener('resize', updateActiveLink);
+</script>
+
+</body>
+</html>

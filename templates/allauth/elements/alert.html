@@ -1,0 +1,5 @@
+{% comment %} An allauth alert is always a warning in the pages this project serves. {% endcomment %}
+{% load allauth %}
+<div class="alert alert-warning" role="alert">
+  {% slot message %}{% endslot %}
+</div>

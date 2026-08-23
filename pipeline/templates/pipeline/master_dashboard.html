@@ -1,0 +1,375 @@
+{% extends "pipeline/base.html" %}
+{% load pipeline_tags %}
+
+{% block title %}Pipeline Overview — YCharOS Pipeline{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+  {# ================================================================ #}
+  {# Header with overall stats                                        #}
+  {# ================================================================ #}
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Pipeline Overview</h1>
+    <p class="mt-1 text-sm text-gray-500">Coordination dashboard — all sites, all phases</p>
+  </div>
+
+  {# Overall stats row #}
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+    <div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ overall_stats.total_targets }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Total Targets</div>
+    </div>
+    <div class="bg-white rounded-lg border border-yellow-200 p-4 text-center">
+      <div class="text-2xl font-bold text-yellow-600">{{ overall_stats.active }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Active</div>
+    </div>
+    {% comment %}"Reported", and derived — a Zenodo DOI or a published F1000 date,
+    which is the definition the target board filters on and the Portfolio totals.
+    This tile counted `Target.status == 'published'` instead, so it read 134 where
+    both of those read 164, and the stage chart below added a third answer. Three
+    screens, one question. See views/dashboard.py::_stage_counts.{% endcomment %}
+    <div class="bg-white rounded-lg border border-green-200 p-4 text-center">
+      <div class="text-2xl font-bold text-green-600">{{ overall_stats.completed }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Reported</div>
+      <div class="text-[11px] text-gray-400 mt-0.5 normal-case">Zenodo DOI or F1000</div>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ overall_stats.total_antibodies }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Antibodies</div>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ overall_stats.total_sessions }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Sessions</div>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ overall_stats.total_reports }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">Reports</div>
+    </div>
+  </div>
+
+  {# ================================================================ #}
+  {# Pipeline funnel — targets by stage                                #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+    <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Pipeline Stages</h2>
+    {% comment %}
+    Bar heights are a proportion of the tallest bar, inside a fixed 200px track.
+
+    They used to be the raw count in pixels under `max-height: 200px`, so every
+    stage over 200 drew at exactly the same height: Feasibility at 262 rendered
+    barely taller than Published at 134 when it should have been nearly double,
+    and any two stages above the cap were indistinguishable from each other. A
+    chart whose bars are not in proportion is worse than the four numbers on
+    their own, because it is read at a glance and the numbers are not.
+
+    `stage_max` is computed in the view — `widthratio` is the only arithmetic a
+    template has, and it cannot find a maximum.
+    {% endcomment %}
+    <div class="flex flex-wrap items-end gap-2">
+      {% for stage in stages %}
+      <div class="flex-1 min-w-[80px] text-center">
+        {# Bar — a 200px track, filled bottom-up in proportion to the tallest. #}
+        <div class="mx-auto w-full max-w-[60px] flex items-end" style="height: 200px;">
+          <div class="w-full bg-{% if stage.colour == 'gray' %}gray{% elif stage.colour == 'yellow' %}yellow{% elif stage.colour == 'blue' %}blue{% elif stage.colour == 'purple' %}purple{% elif stage.colour == 'green' %}green{% else %}gray{% endif %}-100 rounded-t-md relative"
+               style="height: {% widthratio stage.count stage_max 100 %}%; min-height: 4px;">
+            <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-sm font-bold
+                         text-{% if stage.colour == 'gray' %}gray-600{% elif stage.colour == 'yellow' %}yellow-600{% elif stage.colour == 'blue' %}blue-600{% elif stage.colour == 'purple' %}purple-600{% elif stage.colour == 'green' %}green-600{% else %}gray-600{% endif %}">
+              {{ stage.count }}
+            </span>
+          </div>
+        </div>
+        {# Label #}
+        <div class="mt-2 text-xs text-gray-600 leading-tight">{{ stage.label }}</div>
+      </div>
+      {% if not forloop.last %}
+      <div class="hidden md:flex items-center text-gray-300 pb-6">→</div>
+      {% endif %}
+      {% endfor %}
+      {# On hold / cancelled #}
+      {% if on_hold_count or cancelled_count %}
+      <div class="border-l border-gray-200 pl-4 ml-2">
+        {% if on_hold_count %}
+        <div class="text-xs text-gray-500"><span class="font-semibold text-gray-700">{{ on_hold_count }}</span> on hold</div>
+        {% endif %}
+        {% if cancelled_count %}
+        <div class="text-xs text-gray-500"><span class="font-semibold text-red-600">{{ cancelled_count }}</span> cancelled</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ================================================================ #}
+  {# Two-column layout: Active targets + sidebar                      #}
+  {# ================================================================ #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+
+    {# --- Active targets (2/3 width) --- #}
+    <div class="lg:col-span-2">
+      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Targets</h2>
+            {% comment %}The whole set, never the page. `active_targets|length`
+            counted the drawn rows, so paginating would have turned 358 into 25
+            and read as work having disappeared.{% endcomment %}
+            <p class="text-xs text-gray-500 mt-0.5">Started and not yet reported —
+               {{ active_total }} target{{ active_total|pluralize }}: a reagent or a session
+               on file and no report, plus the ones the original import already marked
+               in progress.</p>
+          </div>
+          <a href="{% url 'pipeline:dashboard' %}?status=in_progress"
+             class="text-xs text-ycharos-600 hover:text-ycharos-800 font-medium">View all →</a>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Gene</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Abs</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">WB</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">IP</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">IF</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">FC</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {% for target in active_targets %}
+              <tr class="hover:bg-gray-50 cursor-pointer"
+                  onclick="window.location='{% url 'pipeline:target_detail' target.pk %}'">
+                {% comment %}A gene's name is the way to that gene's page wherever
+                it is printed. This column was styled link-blue and was not a link
+                — the row's onclick navigated, so it worked for a plain left-click
+                and for nothing else: no middle-click, no open-in-new-tab, no
+                keyboard, no destination in the status bar. A word that looks like
+                a link and cannot be opened in a tab is the one that gets reported
+                as broken.{% endcomment %}
+                <td class="px-4 py-2 text-sm font-medium">
+                  {% if target.gene_name %}
+                    <a href="{% url 'pipeline:target_detail' target.pk %}"
+                       class="text-ycharos-600 hover:text-ycharos-800 hover:underline">{{ target.gene_name }}</a>
+                  {% else %}
+                    <span class="text-gray-300">—</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2">{% status_badge target.status %}</td>
+                <td class="px-4 py-2 text-sm text-center text-gray-600">{{ target.antibody_count }}</td>
+                <td class="px-4 py-2 text-center">{% procedure_indicator target.wb_sessions %}</td>
+                <td class="px-4 py-2 text-center">{% procedure_indicator target.ip_sessions %}</td>
+                <td class="px-4 py-2 text-center">{% procedure_indicator target.if_sessions %}</td>
+                <td class="px-4 py-2 text-center">{% procedure_indicator target.fc_sessions %}</td>
+                <td class="px-4 py-2 text-center">
+                  {% if target.report_count %}
+                    <span class="inline-flex px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{{ target.report_count }}</span>
+                  {% else %}
+                    <span class="text-gray-400">—</span>
+                  {% endif %}
+                </td>
+                {% comment %}The sites that nominated this target — or, when none
+                did, the one the Access import stamped on it, marked as such.
+                Both are shown because the second is the only record of whose
+                those 508 targets are; they are marked apart because the import
+                wrote the *same* site on every one of them, so it says where a
+                gene came from rather than that somebody chose it. The target
+                board reads the same function now: this column said MCG for 192
+                genes whose Sites cell there was blank.{% endcomment %}
+                <td class="px-4 py-2 text-xs text-gray-500">
+                  {{ target.site_codes|default:"—" }}
+                  {% if target.site_from_import %}
+                    <span class="block text-[11px] text-gray-400"
+                          title="From the original Access import — no nomination on file">from import</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                  No active targets. Use <a href="{% url 'pipeline:feasibility' %}" class="text-ycharos-600 underline">Feasibility</a> to assess new targets.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% comment %}
+        Drawn only when there is more than one page. A pager under a complete list
+        invents pagination — the rule `board_page.py` records, where a board that
+        drew every row still printed "1–50 of 74" and a Next that did nothing.
+        {% endcomment %}
+        {% if active_targets.has_other_pages %}
+        <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+          <span>
+            {{ active_targets.start_index }}–{{ active_targets.end_index }} of {{ active_total }}
+          </span>
+          <span class="flex items-center gap-3">
+            {% if active_targets.has_previous %}
+              <a href="?page={{ active_targets.previous_page_number }}"
+                 class="text-ycharos-600 hover:text-ycharos-800 font-medium">← Previous</a>
+            {% endif %}
+            <span>Page {{ active_targets.number }} of {{ active_targets.paginator.num_pages }}</span>
+            {% if active_targets.has_next %}
+              <a href="?page={{ active_targets.next_page_number }}"
+                 class="text-ycharos-600 hover:text-ycharos-800 font-medium">Next →</a>
+            {% endif %}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# --- Sidebar (1/3 width) --- #}
+    <div class="space-y-6">
+
+      {# Cross-site summary #}
+      <div class="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Sites</h2>
+        {% for sd in site_summaries %}
+        <div class="{% if not forloop.first %}mt-4 pt-4 border-t border-gray-100{% endif %}">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-900">{{ sd.site.name }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ sd.site.short_code }}</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div class="text-lg font-semibold text-gray-900">{{ sd.active_targets }}</div>
+              <div class="text-xs text-gray-500">Active</div>
+            </div>
+            <div>
+              <div class="text-lg font-semibold text-green-600">{{ sd.completed }}</div>
+              <div class="text-xs text-gray-500">Reported</div>
+            </div>
+            <div>
+              <div class="text-lg font-semibold text-gray-900">{{ sd.antibodies }}</div>
+              <div class="text-xs text-gray-500">Antibodies</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Attention needed #}
+      <div class="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">
+          ⚠ Attention Needed
+        </h2>
+
+        {% if needs_reagents %}
+        <div class="mb-4">
+          <h3 class="text-xs font-medium text-red-700 uppercase mb-1">No antibodies yet</h3>
+          <div class="flex flex-wrap gap-1">
+            {% for gene in needs_reagents %}
+            <a href="{% url 'pipeline:dashboard' %}?q={{ gene }}"
+               class="inline-flex px-2 py-0.5 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100">
+              {{ gene }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if has_antibodies_no_sessions %}
+        <div class="mb-4">
+          <h3 class="text-xs font-medium text-yellow-700 uppercase mb-1">Antibodies received, no experiments</h3>
+          <div class="flex flex-wrap gap-1">
+            {% for gene in has_antibodies_no_sessions %}
+            <a href="{% url 'pipeline:dashboard' %}?q={{ gene }}"
+               class="inline-flex px-2 py-0.5 text-xs rounded bg-yellow-50 text-yellow-700 hover:bg-yellow-100">
+              {{ gene }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if report_ready_no_report %}
+        <div class="mb-4">
+          <h3 class="text-xs font-medium text-purple-700 uppercase mb-1">Report ready, not generated</h3>
+          <div class="flex flex-wrap gap-1">
+            {% for gene in report_ready_no_report %}
+            <a href="{% url 'pipeline:dashboard' %}?q={{ gene }}"
+               class="inline-flex px-2 py-0.5 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100">
+              {{ gene }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if not needs_reagents and not has_antibodies_no_sessions and not report_ready_no_report %}
+        <p class="text-sm text-gray-500">Nothing flagged right now.</p>
+        {% endif %}
+      </div>
+
+      {# Recent activity #}
+      <div class="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Recent Activity</h2>
+        {% if recent_sessions %}
+        <div class="space-y-3">
+          {% for session in recent_sessions %}
+          <div class="flex items-start gap-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
+                         {% if session.procedure_type == 'WB' %}bg-blue-100 text-blue-700
+                         {% elif session.procedure_type == 'IP' %}bg-green-100 text-green-700
+                         {% elif session.procedure_type == 'IF' %}bg-purple-100 text-purple-700
+                         {% elif session.procedure_type == 'FC' %}bg-orange-100 text-orange-700
+                         {% else %}bg-gray-100 text-gray-700{% endif %}">
+              {{ session.procedure_type }}
+            </span>
+            <div class="flex-1 min-w-0">
+              <a href="{% url 'pipeline:target_detail' session.target.pk %}"
+                 class="text-sm font-medium text-gray-900 hover:text-ycharos-600">
+                {{ session.target.gene_name }}
+              </a>
+              <div class="text-xs text-gray-500">
+                {{ session.site.short_code|default:"" }}
+                {% if session.session_date %}· {{ session.session_date|date:"d M" }}{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500">No sessions in the last 14 days.</p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  {# ================================================================ #}
+  {# Quick links                                                       #}
+  {# ================================================================ #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <a href="{% url 'pipeline:feasibility' %}"
+       class="bg-white rounded-lg border border-gray-200 p-4 hover:border-ycharos-300 hover:shadow-sm transition-all">
+      <div class="text-lg mb-1">🔍</div>
+      <div class="text-sm font-medium text-gray-900">Feasibility</div>
+      <div class="text-xs text-gray-500">Assess new targets</div>
+    </a>
+    <a href="{% url 'pipeline:dashboard' %}"
+       class="bg-white rounded-lg border border-gray-200 p-4 hover:border-ycharos-300 hover:shadow-sm transition-all">
+      <div class="text-lg mb-1">📋</div>
+      <div class="text-sm font-medium text-gray-900">All Targets</div>
+      <div class="text-xs text-gray-500">Browse and filter all {{ overall_stats.total_targets }}</div>
+    </a>
+    <a href="{% url 'pipeline:antibody_board' %}"
+       class="bg-white rounded-lg border border-gray-200 p-4 hover:border-ycharos-300 hover:shadow-sm transition-all">
+      <div class="text-lg mb-1">🧪</div>
+      <div class="text-sm font-medium text-gray-900">Antibodies</div>
+      <div class="text-xs text-gray-500">Search {{ overall_stats.total_antibodies }} antibodies</div>
+    </a>
+    <a href="{% url 'pipeline:session_board' %}"
+       class="bg-white rounded-lg border border-gray-200 p-4 hover:border-ycharos-300 hover:shadow-sm transition-all">
+      <div class="text-lg mb-1">🔬</div>
+      <div class="text-sm font-medium text-gray-900">Sessions</div>
+      <div class="text-xs text-gray-500">{{ overall_stats.total_sessions }} experiment sessions</div>
+    </a>
+  </div>
+
+</div>
+{% endblock %}

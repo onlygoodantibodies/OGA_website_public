@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <title>Only Good Antibodies — Free Antibody Characterisation Database</title>
+    <meta name="description" content="A free, searchable database of knockout-validated antibody characterisation data covering {{ gene_count }} genes and {{ antibody_count }} antibodies. Includes a free e-learning Academy.">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Lora:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+
+    <style>
+    /* ── Mission intro ── */
+    .oga-intro {
+        background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+        color: #fff;
+        text-align: center;
+        padding: 72px 24px 56px;
+        position: relative;
+        overflow: hidden;
+    }
+    .oga-intro::before {
+        content: '';
+        position: absolute;
+        top: -40%;
+        right: -15%;
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    .oga-intro-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+    .oga-intro h1 {
+        font-family: 'Open Sans', sans-serif;
+        font-size: clamp(2rem, 5vw, 2.8rem);
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 20px;
+        letter-spacing: -0.5px;
+        color: #fff !important;
+    }
+    .oga-intro .tagline {
+        font-size: 1.1rem;
+        line-height: 1.7;
+        color: rgba(255,255,255,0.85) !important;
+        max-width: 680px;
+        margin: 0 auto 0.8rem;
+    }
+    .oga-intro .sub-tagline {
+        font-size: 0.95rem;
+        color: rgba(255,255,255,0.7) !important;
+        max-width: 560px;
+        margin: 0 auto 1rem;
+        line-height: 1.6;
+    }
+    .oga-intro .stats-bar {
+        display: inline-flex;
+        gap: 2rem;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 50px;
+        padding: 0.5rem 1.8rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #fff !important;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    /* ── Search ── */
+    .search-bar-wrapper {
+        max-width: 540px;
+        margin: 1.8rem auto 0.5rem;
+        padding: 0 1rem;
+        position: relative;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .search-container {
+        display: block;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
+    .search-bar {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.7rem 1.1rem;
+        border: 2px solid #d6e1f2;
+        border-radius: 50px;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 0.95rem;
+        color: #10428a;
+        background: #fff;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .search-bar:focus {
+        border-color: #10428a;
+        box-shadow: 0 0 0 3px rgba(16,66,138,0.12);
+    }
+    /* Use unique ID so styles.css .suggestion-box rules can't interfere */
+    #oga-dropdown {
+        display: none;
+        position: fixed;
+        background: #fff;
+        border: 1px solid #d6e1f2;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+        z-index: 9999;
+        max-height: 280px;
+        overflow-y: auto;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        transform: none;
+    }
+    #oga-dropdown .suggestion {
+        padding: 0.6rem 1.1rem;
+        font-size: 0.92rem;
+        color: #10428a;
+        cursor: pointer;
+        border-radius: 8px;
+        margin: 2px 4px;
+    }
+    #oga-dropdown .suggestion:hover,
+    #oga-dropdown .suggestion.active {
+        background-color: #e8f0fb;
+        font-weight: 600;
+    }
+    #oga-dropdown .suggestion .alias-hint {
+        font-size: 0.8rem;
+        color: #7a96bc;
+        font-weight: 400;
+        margin-left: 0.4rem;
+    }
+    #oga-dropdown .no-match {
+        padding: 0.6rem 1.1rem;
+        font-size: 0.88rem;
+        color: #7a96bc;
+        cursor: default;
+    }
+
+    /* ── Aliases in gene boxes ── */
+    .gene-box .gene-aliases {
+        font-size: 0.75rem;
+        color: #7a96bc;
+        margin: 0.1rem 0 0.3rem;
+        font-style: italic;
+    }
+
+    /* ── Dual-button row in edu cards ── */
+    .edu-btn-row {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .edu-btn-row .learn-more-button {
+        font-size: 0.8rem;
+        padding: 0.45rem 0.9rem;
+    }
+
+    /* ── Mobile fixes ── */
+    @media (max-width: 600px) {
+        .oga-intro .stats-bar {
+            gap: 1rem;
+            font-size: 0.82rem;
+            padding: 0.5rem 1.2rem;
+        }
+        .search-bar-wrapper {
+            background: none !important;
+            margin-top: 1.2rem;
+        }
+    }
+
+    /* ── Supporters strip ── */
+    /* White, not the page's #f4f4f4 and not a tint: five of these nine logo
+       files carry their own opaque white background (NC3Rs, MJFF, MND-A,
+       YCharOS, CiteAb) while the other four are transparent. On any tinted
+       ground the first five draw as mismatched white cards and the rest do
+       not. White makes both kinds sit on the same surface; the rules above and
+       below are what separate the strip from the page. */
+    .oga-supporters {
+        background-color: #ffffff;
+        border-top: 1px solid #e3eaf5;
+        border-bottom: 1px solid #e3eaf5;
+        padding: 2rem 1.5rem 1.6rem;
+        text-align: center;
+    }
+    .oga-supporters h2 {
+        color: #10428a;
+        font-size: 1.3rem;
+        margin: 0 0 1.2rem;
+        letter-spacing: 0.3px;
+    }
+    .sup-group { margin-bottom: 1.1rem; }
+    .sup-group:last-of-type { margin-bottom: 0.4rem; }
+    .sup-label {
+        color: #5b6b85;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        margin: 0 0 0.5rem;
+    }
+    .sup-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.9rem 1.8rem;
+    }
+    /* One box for every mark, whatever its shape — see the note in the markup. */
+    .sup-logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 82px;
+    }
+    /* Scoped with `.oga-supporters` deliberately. Inside the mobile media
+       query, styles.css carries `body.home-page img { max-width: 100%; }`,
+       which outranks a bare `.sup-logo img` on class count — so the caps below
+       were ignored under 768px and CiteAb drew at 260px on a 390px screen. */
+    .oga-supporters .sup-logo img {
+        max-height: 100%;
+        max-width: 178px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        opacity: 0.92;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .oga-supporters .sup-logo:hover img,
+    .oga-supporters .sup-logo:focus-visible img { transform: scale(1.05); opacity: 1; }
+    .sup-more { margin: 0.9rem 0 0; font-size: 0.9rem; }
+    .sup-more a { color: #10428a; font-weight: 600; text-decoration: none; }
+    .sup-more a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+        .oga-supporters { padding: 1.6rem 1rem 1.3rem; }
+        .sup-row { gap: 0.7rem 1.1rem; }
+        .sup-logo { height: 60px; }
+        .oga-supporters .sup-logo img { max-width: 132px; }
+    }
+
+    </style>
+
+    <script src="{% static 'core/oga_search.js' %}"></script>
+    <script>
+    /* The dropdown's behaviour is shared with the header bar's box
+       (core/static/core/oga_search.js). What stays here is the one thing only
+       this page can do: Enter with nothing selected filters the gene grid that
+       is already in the DOM, rather than sending anybody anywhere. */
+    document.addEventListener('DOMContentLoaded', function () {
+        var wrapper = document.querySelector('.search-bar-wrapper');
+        var input = document.querySelector('.search-bar');
+        if (!wrapper || !input) { return; }
+
+        var geneBoxes = [];
+        document.querySelectorAll('.gene-box').forEach(function (box) {
+            geneBoxes.push({
+                name: (box.getAttribute('data-name') || '').toLowerCase(),
+                aliases: (box.getAttribute('data-aliases') || '').toLowerCase(),
+                element: box
+            });
+        });
+
+        function filterGrid(query) {
+            var lowered = query.toLowerCase();
+            var hasResults = false;
+            geneBoxes.forEach(function (box) {
+                var match = box.name.indexOf(lowered) > -1
+                    || (box.aliases && box.aliases.indexOf(lowered) > -1);
+                box.element.style.display = match ? '' : 'none';
+                if (match) { hasResults = true; }
+            });
+            var message = document.getElementById('no-results-message');
+            if (message) {
+                message.style.display = (query && !hasResults) ? 'block' : 'none';
+            }
+        }
+
+        OGASearch.create({
+            input: input,
+            list: document.getElementById('oga-dropdown'),
+            genesUrl: wrapper.dataset.genesUrl,
+            antibodiesUrl: wrapper.dataset.antibodiesUrl,
+            geneUrlTemplate: wrapper.dataset.geneUrlTemplate,
+            itemClass: 'suggestion',
+            hintClass: 'alias-hint',
+            emptyClass: 'no-match',
+            onEnter: filterGrid
+        });
+    });
+    </script>
+</head>
+
+<body class="home-page">
+    {% include 'core/cookie_banner.html' %}
+    <script src="{% static 'core/script.js' %}"></script>
+
+    {% include 'core/header.html' %}
+
+    <!-- Mission Intro -->
+    <section class="oga-intro">
+        <div class="oga-intro-inner">
+        <h1>Only Good Antibodies</h1>
+        <p class="tagline">Making best practice in antibody choice and use feasible, easy and rewarding.</p>
+        <p class="sub-tagline">A free, searchable database of knockout-validated antibody characterisation data — helping researchers choose antibodies that work.</p>
+        <div class="stats-bar">
+            <span>{{ gene_count }} genes</span>
+            <span>{{ antibody_count }} antibodies</span>
+            <span>{{ experiment_count }} tests</span>
+        </div>
+        </div>
+    </section>
+
+    <!-- Search Bar -->
+    <div class="search-bar-wrapper"
+         data-genes-url="{% url 'gene_search_index' %}"
+         data-antibodies-url="{% url 'antibody_search' %}"
+         data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}">
+        <form method="get" class="search-container" onsubmit="return false;">
+            <input
+                class="search-bar"
+                type="text"
+                placeholder="Search by gene, catalogue no. or RRID…"
+                name="search"
+                value="{{ search_query|default:'' }}"
+                autocomplete="off"
+                aria-label="Search genes"
+            >
+        </form>
+        <div id="oga-dropdown"></div>
+    </div>
+
+    <!-- Educational Cards -->
+    <section class="educational-section">
+        <div class="edu-box">
+            <h3>Consensus Protocols</h3>
+            <p>Community-agreed protocols for antibody validation using knockout controls, written with YCharOS — the industry–academic consortium — and published in <em>Nature Protocols</em>.</p>
+            <a href="{{ consensus_protocol_url }}" class="learn-more-button" target="_blank" rel="noopener noreferrer">View Protocols</a>
+        </div>
+        <div class="edu-box">
+            <h3>The Science Behind the Data</h3>
+            <p>OGA is powered by YCharOS — a collaborative academic-industry platform systematically characterising antibodies across the human proteome.</p>
+            <div class="edu-btn-row">
+                <a href="https://doi.org/10.12688/f1000research.141719.1" class="learn-more-button" target="_blank" rel="noopener noreferrer">About the Data</a>
+                <a href="https://ycharos.com/about/" class="learn-more-button" target="_blank" rel="noopener noreferrer">About YCharOS</a>
+            </div>
+        </div>
+        <div class="edu-box">
+            <h3>Free Academy &amp; Certification</h3>
+            <p>Sign in once for certificated, self-paced modules that teach antibody
+               validation best practice at your own pace — certificates require an
+               institutional email to claim. To apply it, use the
+               <a href="{% url 'selector:tool' %}">Selection Tool</a> to choose an antibody, or
+               <a href="{% url 'connect_your_ai' %}">connect your own AI</a> to check a paper's antibodies.</p>
+            {% if user.is_authenticated %}
+                <a href="{% url 'academy:academy_home' %}" class="learn-more-button">Go to Academy</a>
+            {% else %}
+                <a href="{% url 'academy:login' %}" class="learn-more-button">Go to Academy</a>
+            {% endif %}
+        </div>
+        <div class="edu-box">
+            <h3>How to Use the Data</h3>
+            <p>Learn how to read knockout-validated characterisation data and make evidence-based purchasing decisions for western blot, IF, IP, and flow cytometry.</p>
+            <a href="{% url 'using_the_data' %}" class="learn-more-button">Learn More</a>
+        </div>
+        <div class="edu-box">
+            <h3>Data Portal &amp; API</h3>
+            <p>For antibody manufacturers, registries and data partners: browse and
+               bulk-download the characterisation figures, or pull them
+               programmatically to keep your own catalogue in step with ours.</p>
+            <a href="{% url 'data_access' %}" class="learn-more-button">Portal &amp; API</a>
+        </div>
+        <div class="edu-box">
+            <h3>Resources for Stakeholders</h3>
+            <p>Consensus recommendations and implementation guides for funders, publishers, and institutions shaping antibody validation policy.</p>
+            <a href="https://onlygoodantibodies.co.uk/roadmap/#action-plans" class="learn-more-button">View Resources</a>
+        </div>
+    </section>
+
+    <!-- Gene List -->
+    {% comment %}
+    Supporters sit ABOVE the gene list, not below it. Below it they were behind
+    a grid of every published gene — several thousand pixels on live — which for
+    acknowledgement a funder asks to be visible is the wrong side of the page.
+    Above it, after the six task cards, it also reads as the break between what
+    the site offers and the data itself, without pushing the search box or the
+    task cards down.
+
+    The three labels are the Partners page's own taxonomy (`partners.html`:
+    YCharOS, Research Funding Agencies, Research Institutions and End Users,
+    Reagents Database Providers). One "Supported by" heading over all nine would
+    say CiteAb and the SGC fund OGA. Add a logo to the group that matches how
+    partners.html files it, or the two pages start disagreeing about who is who.
+
+    Every logo is bounded by one fixed box with object-fit: contain, because the
+    marks are not one shape: seven are landscape, BBSRC is square-ish and MRC is
+    portrait (241x377). Sizing on height alone would draw MRC at a third of the
+    width of the logos beside it.
+
+    The files are `core/supporters/*.png`, trimmed copies of the Partners page's
+    logos rather than the same files. The originals carry wildly different dead
+    canvas — CiteAb's mark fills 21% of its PNG, the SGC's fills 100% — so in one
+    fixed box CiteAb drew a third the size of its neighbour. Trimming Partners'
+    own copies in place would have silently redrawn that page too, so the strip
+    has its own. Replace a logo here and on the Partners page, or the two
+    disagree; trim the new one to its content first.
+    {% endcomment %}
+    <section class="oga-supporters" aria-labelledby="supporters-heading">
+        <h2 id="supporters-heading">Supported by</h2>
+
+        <div class="sup-group">
+            <p class="sup-label">Led from</p>
+            <div class="sup-row">
+                <a class="sup-logo" href="https://le.ac.uk" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/leicester.png' %}" alt="University of Leicester">
+                </a>
+            </div>
+        </div>
+
+        <div class="sup-group">
+            <p class="sup-label">Funded by</p>
+            <div class="sup-row">
+                <a class="sup-logo" href="https://www.ukri.org/councils/mrc/" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/mrc.png' %}" alt="Medical Research Council">
+                </a>
+                <a class="sup-logo" href="https://www.ukri.org/councils/bbsrc/" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/bbsrc.png' %}" alt="Biotechnology and Biological Sciences Research Council">
+                </a>
+                <a class="sup-logo" href="https://nc3rs.org.uk" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/nc3rs.png' %}" alt="NC3Rs">
+                </a>
+                <a class="sup-logo" href="https://www.michaeljfox.org" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/mjff.png' %}" alt="Michael J. Fox Foundation">
+                </a>
+            </div>
+        </div>
+
+        <div class="sup-group">
+            <p class="sup-label">In partnership with</p>
+            <div class="sup-row">
+                <a class="sup-logo" href="https://ycharos.com" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/ycharos.png' %}" alt="YCharOS">
+                </a>
+                <a class="sup-logo" href="https://www.thesgc.org" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/sgc.png' %}" alt="Structural Genomics Consortium">
+                </a>
+                <a class="sup-logo" href="https://www.citeab.com" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/citeab.png' %}" alt="CiteAb">
+                </a>
+            </div>
+        </div>
+
+        <p class="sup-more"><a href="{% url 'partners' %}">All partners and funders &rarr;</a></p>
+    </section>
+
+    <section class="gene-list">
+        <h2>Genes Available</h2>
+        <div class="gene-list-container">
+            {% for gene in genes %}
+            <div class="gene-box" data-name="{{ gene.name }}" data-aliases="{{ gene.aliases|default:'' }}">
+                <h3>{{ gene.name }}</h3>
+                {% if gene.aliases %}
+                    <p class="gene-aliases">{{ gene.aliases }}</p>
+                {% endif %}
+                {% comment %}
+                The published antibodies on this gene — annotated by the view.
+                It used to be `gene.antibodies.count`, which counts the ones
+                with no published figure too, so the cards summed to more than
+                the headline three lines above them.
+                {% endcomment %}
+                <p>Related Antibodies: {{ gene.published_antibody_count }}</p>
+                <a href="{% url 'antibody_table' gene.name %}" class="details-button">View Details</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- No Results Message -->
+    <div id="no-results-message" class="no-results" style="display: none;">
+        <p><strong>Not Available Yet</strong></p>
+        <p>Didn't find what you're looking for?</p>
+        <a href="{% url 'contact' %}" class="nominate-target-button">Nominate a Target</a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-column">
+                <h4>Quick Links</h4>
+                <a href="{% url 'home' %}" class="active">Home</a>
+                <a href="{% url 'about' %}">About Us</a>
+                <a href="{% url 'publications' %}">Publications</a>
+                <a href="{% url 'news' %}">News</a>
+                <a href="{% url 'contact' %}">Contact</a>
+            </div>
+            <div class="footer-column">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+            </div>
+            <div class="footer-column">
+                <h4>Follow Us</h4>
+                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+                </a>
+                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+                </a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+            <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">↑ Back to Top</button>
+        </div>
+    </footer>
+</body>
+</html>

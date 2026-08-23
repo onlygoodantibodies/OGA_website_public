@@ -1,0 +1,56 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Guide — {{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* The guide is rendered from Markdown, so style by element rather than class. */
+  .guide h1 { font-size: 1.75rem; font-weight: 700; color: #111827; margin-bottom: .5rem; }
+  .guide h2 { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 2rem 0 .5rem; padding-top: 1.25rem; border-top: 1px solid #e5e7eb; }
+  .guide h3 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 1.5rem 0 .35rem; }
+  .guide p  { color: #374151; margin: .6rem 0; line-height: 1.65; }
+  .guide ul, .guide ol { margin: .6rem 0 .6rem 1.35rem; color: #374151; line-height: 1.65; }
+  .guide li { margin: .3rem 0; }
+  .guide ul { list-style: disc; }
+  .guide ol { list-style: decimal; }
+  .guide strong { color: #111827; font-weight: 650; }
+  .guide a { color: #01599f; text-decoration: underline; }
+  .guide code { background: #f3f4f6; border-radius: .25rem; padding: .1rem .35rem; font-size: .9em; }
+  .guide hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
+  .guide table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .925rem; }
+  .guide th { text-align: left; background: #f9fafb; font-weight: 700; color: #374151;
+              padding: .55rem .75rem; border-bottom: 2px solid #e5e7eb; }
+  .guide td { padding: .55rem .75rem; border-bottom: 1px solid #f3f4f6; color: #374151; vertical-align: top; }
+  .guide blockquote { border-left: 3px solid #b9dffc; padding-left: 1rem; color: #4b5563; margin: 1rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <a href="{% url back_url %}"
+       class="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-ycharos-700">
+      ← Back to the board
+    </a>
+    <a href="{% url guide_url %}?download=1"
+       class="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:border-ycharos-500">
+      Download this guide
+    </a>
+  </div>
+
+  <article class="guide bg-white border border-gray-200 rounded-xl p-6 sm:p-8">
+    {% if rendered %}
+      {{ body|safe }}
+    {% else %}
+      <pre class="whitespace-pre-wrap text-sm text-gray-700 font-mono">{{ body }}</pre>
+    {% endif %}
+  </article>
+
+  <p class="text-xs text-gray-400 mt-4">
+    Anything unclear, or something here that no longer matches what the app does?
+    Tell Harvinder — this page and the emailed guide are the same file, so a fix
+    lands in both.
+  </p>
+
+</div>
+{% endblock %}

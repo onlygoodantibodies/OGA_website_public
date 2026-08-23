@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>modal</title>
+<style>#m[aria-hidden=true]{display:none}</style></head><body>
+<h1>Antibody screening by western blot</h1>
+<p id="p-open">See Table 2 for the antibodies tested.</p>
+<div id="m" aria-hidden="true">
+  <h2>Table 2. Summary of the antibodies tested</h2>
+  <p id="p-modal">Western blot used ab109535 (Abcam) and GTX630196 (GeneTex).</p>
+</div>
+<script>
+  // Reveal exactly the way publishers do: flip the attribute, add no nodes.
+  setTimeout(() => document.getElementById('m').setAttribute('aria-hidden','false'), 2500);
+</script>
+</body></html>

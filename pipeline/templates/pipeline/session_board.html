@@ -1,0 +1,1265 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Sessions board — find and edit any session{% endblock %}
+
+{% block extra_head %}
+<style>
+  .help { border-bottom: 1px dotted #9ca3af; cursor: help; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto">
+
+  <p class="text-xs font-bold uppercase tracking-widest text-ycharos-700">Sessions board</p>
+  <h1 class="text-3xl font-bold text-gray-900 mt-1">Every experiment session</h1>
+  <p class="text-gray-600 mt-1 max-w-3xl">
+    Click a cell to edit it — changes save straight away. Open a row to see and
+    edit that session's per-antibody results.
+  </p>
+
+  {# ── Actions ── #}
+  <div class="flex flex-wrap gap-2 mt-4">
+    <a href="{% url 'pipeline:session_board_guide' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Guide</a>
+    <button type="button" id="new-btn"
+            class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold hover:bg-ycharos-700">New session</button>
+    <button type="button" id="dl-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Download</button>
+    <button type="button" id="upload-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Upload a sheet</button>
+    {% comment %}The step-by-step form was only ever reachable from the session
+    list, which is now retired, so it moves here rather than becoming a page
+    nothing links to. "New session" above is the fast path — a grid or a paste;
+    this is the one that walks you through it.{% endcomment %}
+    <a href="{% url 'pipeline:session_create' %}"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Step-by-step form</a>
+    {% if filters.gene %}
+      {% comment %}The per-gene, tab-per-application pre-filled workbook. Its only
+      entry point was the retired session list, so it appears here once you have
+      picked a gene — which is the only state in which it means anything, since
+      the endpoint refuses without one.{% endcomment %}
+      <a href="{% url 'pipeline:session_template_export' %}?gene={{ filters.gene|urlencode }}"
+         data-receipt="board-download-receipt"
+         class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+        {{ filters.gene }} bench workbook (new sessions)</a>
+      {% comment %}The way back in. The workbook was download-only for five field
+      tests while its importer sat routed and tested with nothing posting to it,
+      and the sheet's own instructions promised an upload.{% endcomment %}
+      <button type="button" id="bench-upload-btn" data-csrf="{{ csrf_token }}"
+              class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+        Upload filled workbook</button>
+    {% endif %}
+  </div>
+  {% comment %}Every download on this page writes here. A plain <a href> is
+  invisible — the browser saves the file and the page does not move, flash or
+  speak — and a field test filed the app's best output as broken with the
+  directory listing open beside it.{% endcomment %}
+  <p id="board-download-receipt" class="text-sm mt-2" role="status" aria-live="polite"></p>
+  {% comment %}Which of the two workbooks does what, said once, next to both of
+  them, rather than left for a person to work out from a file they have already
+  filled in. The per-gene one above CREATES; a session's own — on its row, when
+  you open it — FILLS THAT SESSION IN.{% endcomment %}
+  <p class="text-sm text-gray-600 mt-1">
+    The <span class="font-semibold">bench workbook</span> above is for work you
+    have not recorded yet — every tab you fill in becomes a <em>new</em> session.
+    To write results into a session already in the list, open its row: it has its
+    own printable bench sheet and its own workbook, both stamped with its number.
+  </p>
+
+  {# New sessions, on the board rather than a page of their own #}
+  {{ new_columns|json_script:"new-columns" }}
+  {{ new_example|json_script:"new-example" }}
+  {{ statuses|json_script:"status-choices" }}
+  <div id="new-panel"></div>
+
+  {% comment %}The cell lines the Plan a session panel's WT and KO boxes offer.
+
+  They live out here, in the page's own HTML, rather than inside the panel's
+  `extraHtml` — that string is interpolated into a JS template literal, where a
+  backtick or a `${` in a cell-line name would end the literal early. A <datalist>
+  is referenced by id from anywhere in the document, so there is nothing to gain
+  by putting it next to its input and a whole class of breakage to avoid.
+
+  `value` is what `services/cell_lines.py::resolve` reads back — the app's own
+  `HAP1 — Leicester` label — because the offered value has to be one the parser
+  accepts, never one the app merely displays.{% endcomment %}
+  <datalist id="wt-line-options">
+    {% for o in wt_options %}<option value="{{ o.value }}"{% if o.hint %} label="{{ o.hint }}"{% endif %}></option>{% endfor %}
+  </datalist>
+  <datalist id="ko-line-options">
+    {% for o in ko_options %}<option value="{{ o.value }}"{% if o.hint %} label="{{ o.hint }}"{% endif %}></option>{% endfor %}
+  </datalist>
+
+  {# ── Upload panel ── #}
+  <div id="upload-panel" class="hidden mt-4 border border-gray-200 rounded-xl p-4 bg-white">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="font-bold text-gray-900">Upload an edited sessions sheet</h2>
+        <p class="text-sm text-gray-600 mt-1 max-w-2xl">
+          Download the sheet, edit it, upload it back. Rows are matched on
+          <b>session_id</b> and <b>result_id</b> — leave those two columns alone.
+          This <b>only edits</b>: nothing is created and nothing is deleted.
+          Blank cells are ignored, and a value that would overwrite something
+          already filled is listed below and left alone unless you tick the box.
+        </p>
+        {% comment %}The sheet this panel is about, inside the panel that asks
+        for it. Every other upload surface in the app offers its own artefact —
+        the three boards' pop-outs hand you the blank template — and this one
+        said "download the sheet" with nothing to click, its Download button
+        sitting outside and above the panel it had just been told to open.
+
+        Deliberately **not** the blank `sessions` template that the Add panel on
+        this same board carries: that one is for `bulk_sessions`, which
+        *creates*. This endpoint matches on `session_id` + `result_id` and only
+        ever edits, so the only file it can act on is one the app stamped with
+        those ids — the board's own export. A blank template posted here reads
+        as "0 rows", with no error, because its sheet is not one of the four
+        procedure tabs `session_io.parse_upload` looks in. Two surfaces on one
+        board, two artefacts.
+
+        And it carries the grid's filters, because it is the same function the
+        Download button runs — a second implementation is the bug that once
+        handed a filtered board the whole dataset.{% endcomment %}
+        <p class="text-sm mt-2">
+          <button type="button" id="upload-dl-btn"
+                  class="font-semibold text-ycharos-700 hover:underline">⬇ Download
+            these sessions as a sheet</button>
+          <span class="text-gray-500">— the rows this board is filtered to, with
+          their ids already filled in.</span>
+        </p>
+      </div>
+      <button type="button" class="close-upload text-gray-400 hover:text-gray-700 font-bold">&times;</button>
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <input type="file" id="upload-file" accept=".xlsx"
+             class="text-sm border border-gray-300 rounded-lg px-3 py-2">
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="apply-overwrites" class="rounded border-gray-300">
+        Update existing values
+      </label>
+      <button type="button" id="preview-btn"
+              class="px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-sm">Preview</button>
+      <button type="button" id="commit-btn"
+              class="hidden px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold text-sm">Save these changes</button>
+    </div>
+    <div id="upload-result" class="mt-3 text-sm"></div>
+  </div>
+
+  {# ── Filters ── #}
+  <form id="filters" method="get" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Search</span>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Gene, protein, comment…"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    {% comment %}An exact gene, the same field name as the other three boards, so
+    a gene carries from one board to the next. This board had only the fuzzy
+    Search box, which made "STMN2's sessions" the one question of its kind that
+    could not be asked precisely. It must be a field in this form, not only a URL
+    parameter: the grid builds its query from the form.{% endcomment %}
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Gene</span>
+      <input type="text" name="gene" value="{{ filters.gene }}" placeholder="Exact — STMN2, or STMN2, ELP3"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Application</span>
+      <select name="procedure" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All applications</option>
+        {% for p in procedures %}
+          <option value="{{ p.value }}" {% if filters.procedure == p.value %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+      <select name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All sites</option>
+        {% for s in sites %}
+          <option value="{{ s.pk }}" {% if filters.site == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+        {% comment %}"No site recorded" is a real answer, not the absence of a
+        filter — see services/sites.py::NONE. It is what the Portfolio's
+        "210 have no nomination naming a site" links to, and it has to be an
+        option on the form rather than only a URL value: board.js rebuilds
+        its query from the form, so a filter the select cannot carry is
+        dropped by the first rows fetch and the page looks filtered while the
+        data is not.{% endcomment %}
+        <option value="none" {% if filters.site == 'none' %}selected{% endif %}>No site recorded</option>
+        {% include "pipeline/_unknown_site_option.html" %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Experimenter</span>
+      <select name="experimenter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Anyone</option>
+        {% for m in experimenters %}
+          <option value="{{ m.pk }}" {% if filters.experimenter == m.pk|stringformat:"s" %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Status</span>
+      <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any status</option>
+        {% for s in statuses %}
+          <option value="{{ s.value }}" {% if filters.status == s.value %}selected{% endif %}>{{ s.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">From</span>
+      <input type="date" name="date_from" value="{{ filters.date_from }}"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">To</span>
+      <input type="date" name="date_to" value="{{ filters.date_to }}"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    </label>
+    <div class="flex items-end gap-3">
+      <button type="submit" class="px-5 py-2 rounded-lg bg-gray-900 text-white font-semibold">Apply</button>
+      <a href="{% url 'pipeline:session_board' %}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+      <span id="row-count" class="ml-auto text-sm text-gray-500"></span>
+    </div>
+    <label class="flex items-center gap-2 text-sm text-gray-600">
+      <input type="checkbox" name="show_cancelled" value="1"
+             {% if filters.show_cancelled %}checked{% endif %}
+             class="rounded border-gray-300">
+      Include cancelled
+    </label>
+  </form>
+
+  {# ── Save errors ── #}
+  <div id="board-error"
+       class="hidden mt-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div id="delete-panel"></div>
+  {% comment %}Why there is no Delete on these rows until a gene is picked. A
+  control that is simply absent is a feature a reader concludes does not exist,
+  so the gate names itself — same rule as a save button disabled with a reason
+  rather than hidden. Written by OGABoard.geneGate on every draw, because the
+  Gene box can be cleared without pressing Apply.{% endcomment %}
+  <p id="delete-gate" class="hidden mt-3 text-sm text-gray-500"></p>
+
+  {% include "pipeline/_gene_next_step.html" %}
+
+  {# ── Grid ── #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mt-3">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0 z-10">
+          {% comment %}Hover text comes from the same registry as the notes in the
+          downloaded workbook (services/session_io.py::COLUMN_TIPS), so page and
+          spreadsheet always agree.{% endcomment %}
+          <tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+            <th class="px-3 py-2 sticky left-0 bg-gray-50 z-20"><span class="help" title="{{ tips.gene }}">Gene</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.application }}">Application</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.date }}">Date</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.experimenter }}">Experimenter</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.site }}">Site</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.status }}">Status</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.cell_lines }}">WT / KO</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.results }}">Results</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.comments }}">Comments</span></th>
+          </tr>
+        </thead>
+        <tbody id="grid" class="divide-y divide-gray-100">
+          <tr><td colspan="9" class="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% comment %}The pager sits inside the card, under the grid, and is hidden
+    entirely when everything fits — so the small boards look exactly as they
+    did. `board.js` fills it; the page number is board state and never a filter
+    field, or it would ride along into every download href.{% endcomment %}
+    <div id="row-pager"
+         class="hidden flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-gray-200 bg-gray-50"></div>
+  </div>
+  <p class="text-xs text-gray-400 mt-2">
+    Gene and application aren't editable here — they are what the session is. If
+    either is wrong, the session was created against the wrong target.
+  </p>
+</div>
+
+{% comment %}A session's results, out of the grid.
+
+They used to expand as a `<tr>` under the row, which the owner's review found
+unusable: "The individual sessions appearing inside the sessions board when you
+click on a gene is not manageable. It would be very unwieldy for genes with many
+antibodies. That will have to be a pop out or a different page." A gene with a
+dozen antibodies pushed every other session off the screen, and the result cards
+inherited the width of a table wide enough to scroll sideways.
+
+A drawer rather than a centred modal because the content is tall and narrow —
+result cards, conditions, the protocol and the bench-sheet round trip — and
+because the grid stays readable behind it, which is what tells you the board did
+not go anywhere.
+
+**One at a time, deliberately.** The inline panels could all be open at once,
+and two sessions' readings down one screen was a real thing you could do. It is
+also exactly what made the board unusable, so the trade is the point of the
+change rather than an oversight.{% endcomment %}
+<div id="results-drawer" class="hidden fixed inset-0 z-40" role="dialog"
+     aria-modal="true" aria-labelledby="results-drawer-title">
+  <div id="results-drawer-scrim" class="absolute inset-0 bg-gray-900/40"></div>
+  <div class="absolute inset-y-0 right-0 w-full sm:max-w-3xl bg-white shadow-2xl
+              flex flex-col">
+    <div class="flex items-start gap-3 border-b border-gray-200 px-5 py-3">
+      <div class="min-w-0">
+        <h2 id="results-drawer-title" class="text-base font-bold text-gray-900 truncate">Results</h2>
+        <p id="results-drawer-sub" class="text-xs text-gray-500"></p>
+      </div>
+      <button type="button" id="results-drawer-close"
+              class="ml-auto text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none"
+              aria-label="Close">&times;</button>
+    </div>
+    <div id="results-drawer-body" class="flex-1 overflow-y-auto px-5 py-4 space-y-3"></div>
+  </div>
+</div>
+
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  // Rendered server-side. CSRF_COOKIE_HTTPONLY is on, so document.cookie never
+  // shows the token and every POST would come back 403.
+  const csrf = "{{ csrf_token }}";
+  const grid = document.getElementById('grid');
+  const drawer = document.getElementById('results-drawer');
+  const drawerBody = document.getElementById('results-drawer-body');
+  const drawerTitle = document.getElementById('results-drawer-title');
+  const drawerSub = document.getElementById('results-drawer-sub');
+
+  /* Raw data — the gel scan, the Ponceau, the .fcs the readings were taken off.
+   *
+   * `OGABoard.filesPanel` rather than a copy here, because the gene's own page
+   * mounts the same panel: the deposit button lives there and this is what
+   * decides what the deposit contains. Two copies would drift on which
+   * categories they offer and on whether a failed read draws "no files yet",
+   * and from outside there is no way to tell which of the two is wrong.
+   *
+   * Delegated from the drawer, which is redrawn on every session opened. */
+  const files = OGABoard.filesPanel({
+    root: drawerBody, csrf,
+    urls: {list: "{% url 'pipeline:attachment_list' %}",
+           upload: "{% url 'pipeline:attachment_upload' %}",
+           remove: "{% url 'pipeline:attachment_delete' %}"},
+  });
+
+  function openDrawer(id) {
+    drawer.dataset.session = String(id);
+    drawer.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    document.getElementById('results-drawer-close').focus();
+  }
+
+  function closeDrawer() {
+    drawer.classList.add('hidden');
+    delete drawer.dataset.session;
+    drawerBody.innerHTML = '';
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  document.getElementById('results-drawer-close').addEventListener('click', closeDrawer);
+  document.getElementById('results-drawer-scrim').addEventListener('click', closeDrawer);
+  /* Escape closes whatever is open — the habit the inline cell editor teaches,
+   * and the one the identity dialog had to learn after a field test pressed it
+   * twice and had to go looking for Cancel. Guarded on visibility so it does not
+   * swallow the key from a cell edit inside the drawer, which handles its own. */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || drawer.classList.contains('hidden')) return;
+    if (e.target.closest && e.target.closest('.edit[data-editing]')) return;
+    e.preventDefault();
+    closeDrawer();
+  });
+  const filtersForm = document.getElementById('filters');
+  const rowsUrl = "{% url 'pipeline:session_board_rows' %}";
+  const patchUrl = "{% url 'pipeline:session_board_patch' %}";
+  const resultsUrl = "{% url 'pipeline:session_board_results' %}";
+
+  const {esc, pill, banner} = OGABoard;
+  /* `opts` was dropped on the floor here, which is why the status cell showed
+   * the stored `planned` rather than the label the row already carried — the
+   * grid was the one surface in the app spelling a status in snake_case, and
+   * the reason was three characters of missing signature. */
+  const cell = (r, field, value, opts) => OGABoard.cell(r.id, field, value, null, opts);
+
+  const STATUS_TONE = {
+    complete: 'good', planned: 'flat', in_progress: 'cool',
+    failed: 'bad', repeat_needed: 'warn', cancelled: 'flat',
+  };
+  /* The shape half of OGABoard.pill, without its text — the status cell is an
+   * editable cell wearing a pill rather than a pill beside an editable cell. */
+  const PILL_SHAPE = 'rounded-full px-2 py-0.5 text-xs font-semibold';
+
+  /* What the RESULTS column counts, and what it must not claim.
+   *
+   * Planning a session writes one blank result row per antibody it will test,
+   * so this column — counting rows — read "22 results" over two sessions
+   * nobody had run, and the twelfth field test reasonably concluded that
+   * finished work was sitting in the list marked Planned. The rows were real
+   * and the readings were not.
+   *
+   * It says both numbers and stops there. A blank row is **not** evidence that
+   * the work was not done: gaps in a results section are normal and accepted,
+   * and what settles whether a target is finished is a published report's DOI
+   * (owner, 5 Aug). So this counts what is written down and draws no conclusion
+   * from the difference — "no readings recorded" is a fact about the record,
+   * where "not done yet" would be a claim about the bench. */
+  function resultsButton(r) {
+    const n = r.result_count, read = r.reading_count;
+    const abs = `${n} ${n === 1 ? 'antibody' : 'antibodies'}`;
+    let text, why;
+    if (!n) {
+      text = 'no results';
+      why = 'No result rows in this session yet. Click to add them.';
+    } else if (!read) {
+      text = `${abs} · no readings recorded`;
+      why = `${abs} in this session, none of the rows filled in. Click to open them.`;
+    } else if (read < n) {
+      text = `${abs} · ${read} with readings`;
+      why = `${abs} in this session, ${read} with something written on the row. `
+          + 'A blank row is not a verdict — click to open them.';
+    } else {
+      text = `${n} ${n === 1 ? 'result' : 'results'}`;
+      why = 'Every row in this session has something recorded. Click to open them.';
+    }
+    return `<button class="results-btn text-ycharos-700 hover:underline font-semibold text-left"
+              data-session="${r.id}" title="${esc(why)}">${esc(text)}</button>`;
+  }
+
+  function rowHtml(r) {
+    return `<tr data-row="${r.id}" class="hover:bg-gray-50 align-top">
+      <td class="px-3 py-2 sticky left-0 bg-white font-semibold text-gray-900">
+        <a href="/pipeline/session/${r.id}/" class="hover:text-ycharos-700">${esc(r.gene) || '—'}</a>
+        ${r.protein ? `<span class="block text-xs text-gray-400 mt-0.5">${esc(r.protein)}</span>` : ''}
+        ${/* Quiet by design: a control that catches the eye is one
+              somebody presses to find out what it does — and it is only
+              here at all once the board is narrowed to a single gene
+              (OGABoard.oneGene), so it never sits beside a record you
+              were not thinking about. */''}
+        ${OGABoard.oneGene(filtersForm) ? `
+        <button type="button" class="delete-row block mt-1 text-xs text-gray-300 hover:text-red-700"
+                data-id="${r.id}" title="Delete this session">Delete</button>` : ''}
+      </td>
+      <td class="px-3 py-2">${pill(r.procedure, 'cool')}</td>
+      <td class="px-3 py-2 text-gray-700">${cell(r, 'date', r.date)}</td>
+      <td class="px-3 py-2 text-gray-700">${cell(r, 'experimenter', r.experimenter)}</td>
+      <td class="px-3 py-2 text-gray-700">${cell(r, 'site', r.site)}</td>
+      ${/* One control, not two. This drew the status twice — a read-only pill
+            with the raw code repeated underneath as the editable copy — which
+            reads as a stutter and is the only column on the board that does it.
+            The pill *is* the editable cell now: it carries the code in
+            data-value and prints the label, so clicking it opens the same
+            six-option dropdown the old second copy did. */''}
+      <td class="px-3 py-2">${cell(r, 'status', r.status, {
+          label: 'status', display: r.status_label,
+          classes: `${PILL_SHAPE} ${OGABoard.TONES[STATUS_TONE[r.status]] || OGABoard.TONES.flat}`})}</td>
+      <td class="px-3 py-2 text-gray-600 text-xs">
+        <div>${cell(r, 'cell_line_wt', r.cell_line_wt)}</div>
+        <div>${cell(r, 'cell_line_ko', r.cell_line_ko)}</div>
+      </td>
+      <td class="px-3 py-2">${resultsButton(r)}</td>
+      <td class="px-3 py-2 text-gray-500 max-w-xs">${cell(r, 'comments', r.comments)}</td>
+    </tr>`;
+  }
+
+  const errors = banner('board-error', 'board-error-text', 'board-error-close');
+
+  /* What the grid's editors offer.
+   *
+   * `status` is strict — six codes, and the Plan a session header and this
+   * board's own filter have both drawn it as a dropdown since they were written.
+   * The grid was the one surface that handed you a text box, so `done` could be
+   * typed and refused only after the save went out.
+   *
+   * Result fields are added to this same object when a row is opened, because
+   * which ones exist and what they have been set to depends on the procedure.
+   * `board.js` reads it at edit time, not at creation. */
+  const cellChoices = {
+    status: {strict: true,
+             values: JSON.parse(document.getElementById('status-choices').textContent)},
+  };
+
+  const board = OGABoard.create({
+    // Cell editing is delegated, so the drawer has to be named or every cell in
+    // it is dead — silently, because the markup is identical.
+    extraRoots: [drawerBody],
+    grid, filtersForm, errors, csrf, cellChoices,
+    countEl: document.getElementById('row-count'),
+    pagerEl: document.getElementById('row-pager'),
+    urls: {rows: rowsUrl, patch: patchUrl},
+    rowParam: 'session_id',
+    colspan: 9,
+    emptyMessage: 'No sessions match these filters.',
+    countLabel: n => `${n} session${n === 1 ? '' : 's'}`,
+    rowHtml,
+    // The Delete on each row only exists while the board is one gene's worth of
+    // records, so the line explaining its absence is rewritten on every draw —
+    // the Gene box can be cleared without pressing Apply, and the grid redraws
+    // from the form after an add or a delete.
+    afterLoad: () => OGABoard.geneGate(
+      filtersForm, document.getElementById('delete-gate')),
+  });
+
+  // ── Results, opened per row ──────────────────────────────────────────
+  // The four applications have genuinely different result columns (16 for WB,
+  // 24 for IP and IF, 8 for FC), so the grid for a session is built from the
+  // column list the server sends rather than from a fixed template.
+  /* A result is a form, not a table row.
+   *
+   * Drawn as one wide row per antibody, an IF result is 21 columns and needs a
+   * horizontal scrollbar, which then pushes the session table's own last columns
+   * off a laptop screen. So each result is a card of label-above-value pairs
+   * instead: it wraps, and nothing scrolls sideways however many fields a
+   * procedure has.
+   *
+   * Within a card, the fields that carry the answer come first and the method —
+   * fixative, microscope, buffers — is folded away, because it is near-constant
+   * for a lab and is most of the width. Which is which comes from the server
+   * (session_board.result_column_group), not a list kept here. */
+  function fieldHtml(sessionId, r, c) {
+    return `<div>
+      <span class="block text-[11px] uppercase tracking-wide text-gray-400">${esc(c.label)}</span>
+      <span class="block text-sm text-gray-800">${
+        OGABoard.cell(sessionId, c.key, r.values[c.key], {'result-id': r.id},
+                      {label: c.label})}</span>
+      ${/* Why a column is here at all, on the page rather than on a title.
+            The only one that carries a note today is a duplicate field kept
+            visible because its two copies disagree — the case where saying
+            nothing would leave two numbers for one measurement, again. */''}
+      ${c.note ? `<span class="block text-[10px] text-amber-700">${esc(c.note)}</span>` : ''}
+    </div>`;
+  }
+
+  function resultCard(sessionId, r, columns) {
+    const reading = columns.filter(c => c.group !== 'method');
+    const method = columns.filter(c => c.group === 'method');
+    /* The row's id and the antibody it is for, on the card. The files panel
+     * builds its "what it shows" picker from these rather than from a variable,
+     * so a redraw of the files alone still knows the session's rows. */
+    return `<div class="bg-white border border-gray-200 rounded-lg p-3"
+                 data-result-row="${r.id}" data-result-antibody="${esc(r.antibody)}">
+      <p class="font-semibold text-gray-900 text-sm mb-2">${esc(r.antibody)}</p>
+      <div class="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        ${reading.map(c => fieldHtml(sessionId, r, c)).join('')}
+      </div>
+      ${method.length ? `<details class="mt-3 border-t border-gray-100 pt-2">
+        <summary class="cursor-pointer text-xs font-semibold text-ycharos-700">
+          Method — ${method.length} more field${method.length === 1 ? '' : 's'}
+        </summary>
+        <div class="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+          ${method.map(c => fieldHtml(sessionId, r, c)).join('')}
+        </div></details>` : ''}
+    </div>`;
+  }
+
+  /* Session conditions — the protocol settings this session ran at.
+   *
+   * Which ones exist depends on the procedure, so they are not columns: they
+   * live in a JSON dict and the server sends the registry alongside the values.
+   * Anything the registry does not know about came in on a per-gene Excel
+   * template and is shown read-only rather than hidden, because a value you
+   * cannot see is a value somebody will overwrite. */
+  /* What an empty condition says.
+   *
+   * It used to say the form field's own example, so NUMBER OF GELS with nothing
+   * recorded read "e.g. 3" in the value position — and a reader cannot tell
+   * three gels from nobody having said. The cell knows it is empty (board.js
+   * keeps `data-empty` precisely so a prompt is never mistaken for a value);
+   * this makes it read like one. */
+  function emptyPrompt(c) {
+    return c.placeholder ? `add — ${c.placeholder}` : 'add';
+  }
+
+  function conditionsHtml(sessionId, data) {
+    const known = data.conditions || [], extra = data.extra_conditions || [];
+    if (!known.length && !extra.length) return '';
+    return `<details class="bg-white border border-gray-200 rounded-lg p-3">
+      <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-gray-600">
+        Session conditions</summary>
+      <div class="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        ${known.map(c => `<div>
+          <span class="block text-[11px] uppercase tracking-wide text-gray-400">${esc(c.label)}</span>
+          <span class="block text-sm text-gray-800">${
+            OGABoard.cell(sessionId, 'cond:' + c.key, c.value,
+                          null, {label: c.label, empty: emptyPrompt(c)})}</span>
+        </div>`).join('')}
+        ${extra.map(c => `<div>
+          <span class="block text-[11px] uppercase tracking-wide text-gray-400">${esc(c.key)}</span>
+          <span class="block text-sm text-gray-500" title="Came in on a spreadsheet — not part of this procedure's protocol, so it is shown but not editable here.">${esc(c.value)}</span>
+        </div>`).join('')}
+      </div></details>`;
+  }
+
+  /* The protocol this session followed, for reference at the bench. */
+  function protocolHtml(data) {
+    const phases = data.protocol || [];
+    if (!phases.length) return '';
+    return `<details class="bg-white border border-gray-200 rounded-lg p-3">
+      <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-gray-600">
+        Protocol — ${phases.length} phase${phases.length === 1 ? '' : 's'}</summary>
+      <div class="mt-3 space-y-3">
+        ${phases.map(p => `<div>
+          <p class="text-sm font-semibold text-gray-800">${esc(p.title || '')}</p>
+          ${p.summary ? `<p class="text-xs text-gray-400">${esc(p.summary)}</p>` : ''}
+          ${p.detail ? `<p class="text-sm text-gray-600 whitespace-pre-line break-words mt-1">${esc(p.detail)}</p>` : ''}
+        </div>`).join('')}
+      </div></details>`;
+  }
+
+  /* Take the sheet to the bench, fill it in, bring it back.
+   *
+   * The field test called this the best idea in the product and could not test
+   * it, because it lived only on the session page. Both halves are here now,
+   * which is the last thing that page could do that nothing else could. */
+  /* Two files, one session, and the difference stated rather than implied.
+   *
+   * The bench sheet is the printable one — a few columns, landscape, the thing
+   * you carry and write on. The workbook is the full one — every result field
+   * this procedure has, plus the session's conditions. Both now belong to THIS
+   * session and both put results back into it: the workbook used to be able only
+   * to create a session and the bench sheet only to update one, so a session
+   * planned through the step-by-step form could not be filled from a spreadsheet
+   * at all, and the gene page needed a paragraph explaining which door you were
+   * standing in. Neither download is silent — `data-receipt` names the file and
+   * its size once the bytes have actually arrived. */
+  function benchSheetHtml(sessionId, data) {
+    return `<div class="bg-white border border-gray-200 rounded-lg p-3">
+      <p class="text-xs font-bold uppercase tracking-wide text-gray-600">At the bench</p>
+      <p class="text-sm text-gray-600 mt-1">
+        Take a sheet with you, write on it, and record from it. Both files carry
+        this session's number, so what you fill in comes back <em>here</em> — rows
+        are matched to antibodies by their <span class="font-mono">Ab#</span> or
+        catalogue number, and you see what would be written before anything is saved.</p>
+      <div class="mt-2 flex flex-wrap items-center gap-3">
+        <a href="${data.bench_sheet_url}" data-receipt="bench-receipt-${sessionId}"
+           class="text-sm font-semibold text-ycharos-700 hover:underline"
+           title="Few columns, landscape, made to be printed">⬇ Bench sheet (to print)</a>
+        <a href="${data.workbook_url}" data-receipt="bench-receipt-${sessionId}"
+           class="text-sm font-semibold text-ycharos-700 hover:underline"
+           title="Every result field for this procedure, plus the session's conditions">⬇ Full workbook</a>
+      </div>
+      <p id="bench-receipt-${sessionId}" class="text-sm mt-1" role="status" aria-live="polite"></p>
+      <div class="mt-2 flex flex-wrap items-center gap-3">
+        <input type="file" accept=".xlsx" class="bench-file text-sm"
+               data-session="${sessionId}">
+        <button type="button" class="bench-preview px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-semibold"
+                data-session="${sessionId}" data-url="${data.results_upload_url}"
+                data-workbook-url="${data.workbook_upload_url}">Check the sheet</button>
+        <button type="button" class="bench-commit hidden px-3 py-1.5 rounded-lg bg-ycharos-600 text-white text-sm font-semibold"
+                data-session="${sessionId}" data-url="${data.results_commit_url}"
+                data-workbook-url="${data.workbook_commit_url}">Record these</button>
+      </div>
+      <div class="bench-out mt-2 text-sm" data-session="${sessionId}"></div>
+    </div>`;
+  }
+
+  function resultsHtml(sessionId, data) {
+    const extras = `${conditionsHtml(sessionId, data)}
+                    ${protocolHtml(data)}
+                    ${files.shell(sessionId)}
+                    ${benchSheetHtml(sessionId, data)}`;
+    const cards = data.rows.length
+      ? data.rows.map(r => resultCard(sessionId, r, data.columns)).join('')
+      : `<p class="text-gray-500">No results recorded for this session yet — fill
+         in the bench sheet below, or add the antibodies to the session first.</p>`;
+    /* The drawer bounds the width now. This used to live in a
+     * `td colspan="9"` inside a grid wide enough to scroll sideways, so it
+     * inherited that width and the protocol's method paragraphs — the longest
+     * prose on any board — ran off the right-hand edge. */
+    return `<div class="results-panel space-y-3" data-for="${sessionId}">${cards}${extras}</div>`;
+  }
+
+  /* The bench-sheet round trip: preview, then record. Kept next to the panel
+   * that draws it, and delegated from the grid so a redrawn panel keeps working. */
+  const benchRows = new Map();
+  /* Delegated from the drawer, not the grid: that is where the bench-sheet
+   * controls are drawn now. A listener left on `grid` would simply never fire —
+   * the markup is identical and the click reaches nothing. */
+  drawerBody.addEventListener('click', async e => {
+    const btn = e.target.closest('.bench-preview, .bench-commit');
+    if (!btn) return;
+    const id = btn.dataset.session;
+    const out = drawerBody.querySelector(`.bench-out[data-session="${id}"]`);
+    const commit = drawerBody.querySelector(`.bench-commit[data-session="${id}"]`);
+    const fail = msg => { out.innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; };
+
+    /* A column the sheet did not ship is kept as a session condition. Saying so
+     * is the difference between a rule and a silent loss: the seventh field test
+     * put three different notes in an invented column, got three identical
+     * "3 fields filled in" lines, and none of the three values was stored.
+     *
+     * It then kept the *first* row's value and named the count it was dropping,
+     * which is better and still wrong — on a plate map the first row is not a
+     * summary of the plate, it is the first well. Every distinct value is kept
+     * and joined now, so this says what the condition will hold rather than what
+     * it will lose. */
+    const unknownHtml = list => (list && list.length) ? `
+      <div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
+        <b>${list.length} column${list.length === 1 ? '' : 's'} not recognised.</b>
+        A column this sheet did not ship is stored as one protocol condition for the
+        session, not as a reading against each row. A reading belongs in a result
+        column — check you are on the right sheet for this session.
+        <ul class="mt-1 list-disc pl-4">${list.map(u => `<li><span class="font-mono">${esc(u.header)}</span>
+          — kept as <span class="font-mono">${esc(u.key)}</span> =
+          <span class="font-mono">${esc(u.value)}</span>${
+            u.values > 1 ? ` — all ${u.values} different values from ${u.rows}
+            row${u.rows === 1 ? '' : 's'}, joined into the one condition` : ''}</li>`).join('')}</ul>
+      </div>` : '';
+
+    /* A sheet with no session number on it. Not a refusal — a sheet typed from
+     * scratch is legitimate — but the panel promises "both files carry this
+     * session's number", and the one case where that cannot be checked has to
+     * say so rather than let the promise read as a check that passed. */
+    const unstampedHtml = msg => msg ? `
+      <div class="mb-2 border border-amber-300 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
+        <b>This sheet was not checked against this session.</b> ${esc(msg)}
+      </div>` : '';
+
+    if (btn.classList.contains('bench-preview')) {
+      const file = drawerBody.querySelector(`.bench-file[data-session="${id}"]`).files[0];
+      if (!file) { out.textContent = 'Choose the filled-in sheet first.'; return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      out.innerHTML = '<span class="text-gray-500">Reading the sheet…</span>';
+      const d = await OGABoard.requestJson(
+        btn.dataset.url, {method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd},
+        fail, 'read');
+      if (!d) return;
+      /* A refusal is rendered and the save stays hidden. The two are separate
+       * questions: the reason has to be on screen *and* nothing may be
+       * committable. */
+      if (d.ok === false) { fail(d.error || 'That file could not be read.'); return; }
+
+      if (d.kind === 'workbook') {
+        /* The full workbook for this session. Its commit re-posts the file,
+         * because that endpoint reads the sheet rather than a parsed row list. */
+        benchRows.set(id, {kind: 'workbook'});
+        const s = (d.sessions || [])[0] || {};
+        const c = d.counts || {};
+        out.innerHTML = `
+          <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <p class="font-semibold text-gray-900">Workbook for this session —
+              ${s.results || 0} result row(s): ${s.results_new || 0} new,
+              ${s.results_updated || 0} updated.</p>
+            <p class="text-gray-700">WT: ${esc(s.cell_line_wt || '—')} ·
+              KO: ${esc(s.cell_line_ko || '—')} · ${s.conditions || 0} condition(s).</p>
+            ${s.status_change ? `<p class="text-gray-700">Status: ${esc(s.status_change)}.</p>` : ''}
+            ${s.cell_line_wt_error ? `<p class="text-amber-800">${esc(s.cell_line_wt_error)}</p>` : ''}
+            ${s.cell_line_ko_error ? `<p class="text-amber-800">${esc(s.cell_line_ko_error)}</p>` : ''}
+          </div>
+          ${unknownHtml(s.unknown_columns)}
+          ${(d.blocked || []).length ? `<div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
+            ${d.blocked.map(b => `<div><b>${esc(b.label)}</b> — ${esc(b.reason)}</div>`).join('')}</div>` : ''}`;
+        if ((c.results || 0) > 0) commit.classList.remove('hidden');
+        return;
+      }
+
+      benchRows.set(id, {kind: 'bench', rows: d.rows || [],
+                         sheet_session_id: d.sheet_session_id || null,
+                         sheet_procedure: d.sheet_procedure || null});
+      // bench_results.plan speaks `action`; previewRows draws `status`.
+      const items = (d.items || []).map(i => ({
+        status: i.action === 'create' ? 'create' : 'update',
+        antibody: i.antibody || '',
+        note: Object.keys(i.fields || {}).length
+          ? `${Object.keys(i.fields).length} field(s) filled in` : 'nothing filled in',
+      }));
+      const unmatched = d.unmatched || [];
+      out.innerHTML = `${unstampedHtml(d.unstamped)}
+        <p class="font-semibold text-gray-900">${
+        items.length} antibod${items.length === 1 ? 'y' : 'ies'} read from the sheet.</p>
+        ${OGABoard.previewRows(items, i => i.antibody)}
+        ${unknownHtml(d.unknown_columns)}
+        ${unmatched.length ? `<div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
+          <b>Not matched to an antibody on this session:</b>
+          ${unmatched.map(esc).join(', ')}. Those rows are ignored.</div>` : ''}`;
+      if (items.length) commit.classList.remove('hidden');
+      return;
+    }
+
+    const staged = benchRows.get(id);
+    if (!staged) { out.textContent = 'Check the sheet first.'; return; }
+    out.innerHTML = '<span class="text-gray-500">Recording…</span>';
+
+    let d;
+    if (staged.kind === 'workbook') {
+      const file = drawerBody.querySelector(`.bench-file[data-session="${id}"]`).files[0];
+      if (!file) { fail('Choose the filled-in workbook first.'); return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      /* Which session this panel belongs to, so the commit re-checks the file
+       * against it rather than trusting the preview that ran minutes ago with a
+       * file input still sitting open beside it. */
+      fd.append('session_id', id);
+      d = await OGABoard.requestJson(btn.dataset.workbookUrl,
+        {method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd}, fail);
+      if (!d) return;
+      if (d.ok === false) { fail(d.error || 'Nothing was recorded.'); return; }
+      out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
+        Recorded. ${d.results_created || 0} new result row(s), ${d.results_updated || 0} updated.
+        ${(d.skipped || []).length ? `<div class="mt-1 text-amber-900">${
+          d.skipped.map(esc).join('<br>')}</div>` : ''}</div>`;
+    } else {
+      if (!(staged.rows || []).length) { out.textContent = 'Check the sheet first.'; return; }
+      d = await OGABoard.requestJson(btn.dataset.url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+        body: JSON.stringify({rows: staged.rows,
+                              sheet_session_id: staged.sheet_session_id,
+                              sheet_procedure: staged.sheet_procedure}),
+      }, fail);
+      if (!d) return;
+      if (d.ok === false) { fail(d.error || 'Nothing was recorded.'); return; }
+      const made = (d.created || []).length, changed = (d.updated || []).length;
+      const conds = (d.conditions_stored || []).length;
+      out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
+        Recorded. ${made} new result row(s), ${changed} updated.${
+          conds ? ` ${conds} session condition(s) stored.` : ''}
+        ${(d.unmatched || []).length ? `${d.unmatched.length} row(s) matched no antibody and were ignored.` : ''}</div>`;
+    }
+    commit.classList.add('hidden');
+    benchRows.delete(id);
+    await openResults(id);
+  });
+
+  /* Expand one session's results under its row. Separate from the click
+   * handler so a freshly created session can be opened straight onto the
+   * board — recording results is not a reason to leave it. */
+  async function openResults(id) {
+    const row = grid.querySelector(`tr[data-row="${id}"]`);
+    // The drawer names the session it is showing. Taken off the row rather than
+    // waiting for the fetch, so the heading is right while it loads.
+    const gene = row ? (row.querySelector('[data-gene]')?.dataset.gene || '') : '';
+    const when = row ? (row.querySelector('[data-when]')?.dataset.when || '') : '';
+    drawerTitle.textContent = gene ? `${gene} — session ${id}` : `Session ${id}`;
+    drawerSub.textContent = when;
+    drawerBody.innerHTML = '<p class="text-gray-400">Loading results…</p>';
+    openDrawer(id);
+    const data = await OGABoard.requestJson(
+      `${resultsUrl}?session_id=${encodeURIComponent(id)}`,
+      {headers: {'X-Requested-With': 'fetch'}}, errors.show);
+    // Another session may have been opened while this was in flight.
+    if (drawer.dataset.session !== String(id)) return;
+    if (!data) { closeDrawer(); return; }
+    /* This procedure's result vocabulary — what `rating` has actually been set
+     * to across the database, offered rather than left to be invented. Merged
+     * into the same object `create()` was given, because `board.js` reads it on
+     * every edit; the four procedures have different result fields, so it can
+     * only be known once a row names one. */
+    Object.assign(cellChoices, data.field_choices || {});
+    drawerBody.innerHTML = resultsHtml(id, data);
+    /* The panel's download links are built here, after `downloadReceipts()` ran
+     * at page load, so they have to be wired now or they are plain <a href> —
+     * which is exactly the silent download the gene page fixed and this surface
+     * did not. `downloadReceipts` is idempotent per anchor. */
+    OGABoard.downloadReceipts(drawerBody);
+    // Its own fetch, so it cannot delay the results the panel is opened for.
+    files.load(id);
+  }
+
+  grid.addEventListener('click', async e => {
+    const btn = e.target.closest('.results-btn');
+    if (!btn) return;
+    const id = btn.dataset.session;
+    // Opens, rather than toggling: the drawer has its own close, and a button
+    // that sometimes closes something on the other side of the screen is a
+    // worse control than one that always opens it.
+    if (drawer.dataset.session === String(id) && !drawer.classList.contains('hidden')) {
+      closeDrawer();
+      return;
+    }
+    await openResults(id);
+  });
+
+  /* "Record its results" on the create confirmation. The grid is reloading as
+   * the panel renders, so wait for the row before reaching for it. */
+  document.addEventListener('click', async e => {
+    const link = e.target.closest('[data-open-results]');
+    if (!link) return;
+    e.preventDefault();
+    const id = link.dataset.openResults;
+    /* `board.locate` rather than `board.load`: the grid draws one page now, so
+     * a row that is not on the page you happen to be looking at is not missing
+     * — it is on another page, and the server is the only thing that knows
+     * which. Falling back to "outside the current filters" would be false. */
+    if (!grid.querySelector(`tr[data-row="${id}"]`) && !await board.locate(id)) {
+      errors.show('The new session was saved but is outside the current filters — '
+                  + 'clear them to see it.');
+      return;
+    }
+    const row = grid.querySelector(`tr[data-row="${id}"]`);
+    if (!row) {
+      errors.show('The new session was saved but could not be shown here — '
+                  + 'clear the filters to find it.');
+      return;
+    }
+    row.scrollIntoView({behavior: 'smooth', block: 'center'});
+    if (drawer.dataset.session !== String(id)) await openResults(id);
+  });
+
+  // ── Download / upload, filtered exactly like the grid ────────────────
+  const exportUrl = "{% url 'pipeline:session_board_export' %}";
+  const previewUrl = "{% url 'pipeline:session_board_upload_preview' %}";
+  const commitUrl = "{% url 'pipeline:session_board_upload_commit' %}";
+
+  function downloadBoard() {
+    // 440 sessions is what "no filters" meant here, from a button beside the
+    // one you wanted. It says so now rather than just doing it.
+    if (!OGABoard.confirmWholeDownload(filtersForm, board.count, 'session')) return;
+    window.location = `${exportUrl}?${board.query()}`;
+  }
+  // Two doors to one download — the Actions row and the upload panel that tells
+  // you to use it — and one function behind them, so the panel's copy cannot
+  // drift from what the button does or lose the grid's filters on the way.
+  document.getElementById('dl-btn').addEventListener('click', downloadBoard);
+  document.getElementById('upload-dl-btn').addEventListener('click', downloadBoard);
+  const panel = document.getElementById('upload-panel');
+  document.getElementById('upload-btn').addEventListener('click',
+    () => panel.classList.remove('hidden'));
+  document.querySelectorAll('.close-upload').forEach(
+    b => b.addEventListener('click', () => panel.classList.add('hidden')));
+
+  function uploadBody() {
+    const fd = new FormData();
+    fd.append('file', document.getElementById('upload-file').files[0]);
+    fd.append('apply_overwrites',
+      document.getElementById('apply-overwrites').checked ? 'true' : 'false');
+    return fd;
+  }
+  async function postJson(url, out, busy) {
+    out.innerHTML = `<span class="text-gray-500">${esc(busy)}</span>`;
+    return OGABoard.requestJson(
+      url, {method: 'POST', headers: {'X-CSRFToken': csrf}, body: uploadBody()},
+      msg => { out.innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; });
+  }
+
+  document.getElementById('preview-btn').addEventListener('click', async () => {
+    const out = document.getElementById('upload-result');
+    if (!document.getElementById('upload-file').files[0]) {
+      out.textContent = 'Choose a file first.'; return;
+    }
+    const d = await postJson(previewUrl, out, 'Reading the file…');
+    if (!d) return;
+    const s = d.summary;
+    const conflicts = d.items.filter(i => (i.changes || []).some(c => c.kind === 'conflict'));
+    /* Rows carrying readings this sheet cannot store, because the row has no
+     * result_id. Listed rather than counted alone: the whole failure was that a
+     * dilution, a signal and a rating went past in silence, so the panel has to
+     * name the columns it is dropping and where the row can be made. */
+    const homeless = d.items.filter(i => (i.no_result_row || []).length);
+    out.innerHTML = `
+      <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <p class="font-semibold text-gray-900">${OGABoard.plural(s.rows, 'row')} read.</p>
+        <ul class="mt-1 text-gray-700 list-disc list-inside">
+          <li>${OGABoard.plural(s.changed_rows, 'row')} would change</li>
+          <li>${s.fills} blank field${s.fills === 1 ? '' : 's'} filled in</li>
+          <li>${OGABoard.plural(s.conflicts, 'value')} ${s.conflicts === 1 ? 'disagrees' : 'disagree'} with the database</li>
+          ${s.unmatched ? `<li class="text-amber-800">${OGABoard.plural(s.unmatched, 'row')} skipped — no matching session or result</li>` : ''}
+          ${s.dropped_readings ? `<li class="text-amber-800">${OGABoard.plural(s.dropped_readings, 'reading')} cannot be recorded — no result_id on the row</li>` : ''}
+        </ul>
+        ${(d.errors || []).length ? `<p class="mt-2 text-xs text-gray-500">${d.errors.slice(0, 10).map(esc).join('<br>')}</p>` : ''}
+      </div>
+      ${homeless.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
+        <p class="font-semibold text-amber-900">Readings with no result row to go in</p>
+        <p class="mt-1 text-xs text-amber-900">This sheet only edits results that already exist — it never creates
+          them. A row added by hand, or one exported from a session with no results yet, has an empty
+          <b>result_id</b> and nothing to write to. Add the antibody to the session (open its row above and use
+          <b>Record its results here</b>), then download the sheet again: it will carry a result_id.</p>
+        <ul class="mt-2 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
+          ${homeless.slice(0, 40).map(i =>
+            `<li><b>${esc(i.sheet)} row ${i.line}</b> (session #${esc(String(i.session_id))}) —
+             ${esc(i.no_result_row.join(', '))}</li>`).join('')}
+        </ul></div>` : ''}
+      ${conflicts.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
+        <p class="font-semibold text-amber-900">Disagreements (left alone unless you tick "update existing values"):</p>
+        <ul class="mt-1 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
+          ${conflicts.slice(0, 40).map(i => i.changes.filter(c => c.kind === 'conflict').map(c =>
+            `<li><b>${esc(i.sheet)} row ${i.line}</b> — ${esc(c.field)}: file says "${esc(c.to)}", database has "${esc(c.from)}"</li>`).join('')).join('')}
+        </ul></div>` : ''}`;
+    document.getElementById('commit-btn').classList.remove('hidden');
+  });
+
+  document.getElementById('commit-btn').addEventListener('click', async () => {
+    const out = document.getElementById('upload-result');
+    const d = await postJson(commitUrl, out, 'Saving… please wait.');
+    if (!d) return;
+    out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+      Saved. ${OGABoard.plural(d.sessions_updated, 'session')} and
+      ${OGABoard.plural(d.results_updated, 'result row')} updated.
+      ${d.skipped ? `${OGABoard.plural(d.skipped, 'row')} skipped.` : ''}
+      ${d.dropped_readings ? `<span class="text-amber-900">${OGABoard.plural(d.dropped_readings, 'reading')}
+        not recorded — those rows have no result_id. Add the antibody to the session, then upload
+        again.</span>` : ''}</div>`;
+    document.getElementById('commit-btn').classList.add('hidden');
+  board.load();
+  });
+
+  // ── New session, in a pop-out on this page ────────────────────────────
+  // A session is a header plus the antibodies to test, so this pop-out has both.
+  // Parsing stays on the server: the check returns each row already resolved
+  // against the gene, and the create sends those same rows back.
+  const planParseUrl = "{% url 'pipeline:session_plan_parse' %}";
+  const planCommitUrl = "{% url 'pipeline:session_plan_commit' %}";
+  let checked = {tsv: null, rows: []};
+  const val = id => (document.getElementById(id).value || '').trim();
+
+  /* Which line did it just use? A bare `HAP1` resolves to your own site's line
+   * out of the several that share the name — right, and until run 8 unsaid, so
+   * the only way to learn what a session was controlled against was to create it
+   * and reopen the row. `services/cell_lines.py::preview` decides; this only
+   * prints it. */
+  function cellLineLine(slot, p) {
+    if (!p || p.status === 'empty') return '';
+    if (p.status === 'error') {
+      return `<li class="text-red-700"><b>${slot}:</b> ${esc(p.error)}</li>`;
+    }
+    if (p.status === 'new') {
+      return `<li class="text-amber-800"><b>${slot}:</b> ${esc(p.typed)} — ${esc(p.note)}</li>`;
+    }
+    return `<li><b>${slot}:</b> ${esc(p.label)}${
+      p.note ? ` <span class="text-amber-800">${esc(p.note)}</span>` : ''}</li>`;
+  }
+
+  const newEntry = OGABoard.newEntry({
+    mount: document.getElementById('new-panel'),
+    csrf,
+    columns: JSON.parse(document.getElementById('new-columns').textContent),
+    example: JSON.parse(document.getElementById('new-example').textContent),
+    templateUrl: "{% url 'pipeline:import_template' kind='sessions' %}",
+    urls: {preview: planParseUrl, commit: planCommitUrl},
+    intro: `<b class="text-gray-900">Plan a session.</b> Set the header, then list the
+            antibodies to test — one per row, or switch to Paste. <b>Check these</b>
+            says which are already on file and which would be added. Anything new —
+            the gene, the cell lines, an unseen catalogue number — is created with
+            the session, in one go, so a bad header creates nothing at all.
+            The two cell-line boxes offer your site's lines as you type; a name
+            nothing answers to is reported as <em>will be created</em> by the check,
+            not after the save.`,
+    extraHtml: `<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Gene *</span>
+          <input type="text" id="ne-gene" placeholder="e.g. SOD1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Application *</span>
+          <select id="ne-procedure" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            {% for p in procedures %}<option value="{{ p.value }}">{{ p.label }}</option>{% endfor %}
+          </select></label>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Date</span>
+          <input type="date" id="ne-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Status</span>
+          <select id="ne-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            {% for s in statuses %}<option value="{{ s.value }}"{% if s.value == 'planned' %} selected{% endif %}>{{ s.label }}</option>{% endfor %}
+          </select></label>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+          <select id="ne-site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">Mine</option>
+            {% for s in sites %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}
+          </select></label>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Experimenter</span>
+          <select id="ne-experimenter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">Me</option>
+            {% for m in experimenters %}<option value="{{ m.pk }}">{{ m }}</option>{% endfor %}
+          </select></label>
+        ${/* The two boxes that make this a WT/KO comparison, and the two that
+              could quietly create a record. Anything new is created with the
+              session, deliberately — a bench that has just made a knockout
+              should not have to leave and come back — but that also means a
+              typo does not fail, it mints a near-duplicate cell line and
+              controls the session against it.
+
+              So they offer your site's lines (`cell_lines.picker_options`,
+              rendered as the two <datalist>s above), spelled exactly as the
+              parser reads them back. Still text inputs: a C-number, another
+              site's line named after the dash, or one genuinely new is typed
+              as before, and the check below reports which line it resolved
+              the entry to. */''}
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">WT cell line</span>
+          <input type="text" id="ne-wt" list="wt-line-options" placeholder="e.g. HAP1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>
+        ${/* `HAP1`, not `HAP1-WT` or `SOD1-KO`, which is what these two said.
+              A line is named for the line — 395 of the 398 knockouts on file do
+              not mention their gene in the name — so a placeholder teaching a
+              decorated name teaches a spelling that matches no row and creates
+              a badly-named one. The decoration belongs to the *label* the list
+              offers, which is a different thing and is generated. */''}
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">KO cell line</span>
+          <input type="text" id="ne-ko" list="ko-line-options" placeholder="e.g. HAP1"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>
+      </div>`,
+    buildRequest: (phase, tsv) => {
+      const gene = val('ne-gene');
+      if (phase === 'preview') {
+        checked = {tsv, rows: []};
+        return {url: planParseUrl, options: {
+          method: 'POST',
+          headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+          // The cell-line boxes go with the check, not only with the commit:
+          // the preview cannot say which HAP1 it resolved if it never saw what
+          // was typed.
+          body: JSON.stringify({gene, text: tsv,
+                                date: val('ne-date'),
+                                procedure_type: val('ne-procedure'),
+                                cell_line_wt: val('ne-wt'),
+                                cell_line_ko: val('ne-ko')}),
+        }};
+      }
+      // The rows the check resolved are what gets created. If the table changed
+      // afterwards they no longer describe what is on screen, so refuse rather
+      // than create something nobody previewed.
+      if (checked.tsv !== tsv) {
+        return {error: 'The antibody list changed after you checked it. '
+                       + 'Press "Check these" again before creating the session.'};
+      }
+      if (!checked.rows.length) {
+        return {error: 'No antibody rows to create. Check the list first.'};
+      }
+      return {url: planCommitUrl, options: {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          gene, procedure_type: val('ne-procedure'), date: val('ne-date'),
+          status: val('ne-status'), site_id: val('ne-site') || null,
+          experimenter_id: val('ne-experimenter') || null,
+          cell_line_wt: val('ne-wt'), cell_line_ko: val('ne-ko'),
+          rows: checked.rows,
+        }),
+      }};
+    },
+    renderPreview: d => {
+      checked.rows = (d.items || []).map(i => i.row);
+      const s = d.summary || {};
+      const cl = d.cell_lines || {};
+      const lines = cellLineLine('WT cell line', cl.wt)
+                  + cellLineLine('KO cell line', cl.ko);
+      // Named here, not at the save. A check that is silent about a required
+      // field is a refusal deferred.
+      //
+      // The half-typed case is the client's own knowledge and cannot be the
+      // server's: a native <input type="date"> holding `2 August 2026` reports
+      // `value === ""` with `validity.badInput`, so the string never leaves the
+      // browser and the server can only see an empty date. Telling somebody who
+      // has visibly typed into the box that it is "empty" is true of what was
+      // sent and wrong about what they did.
+      const dateEl = document.getElementById('ne-date');
+      const halfTyped = !!(dateEl && dateEl.validity && dateEl.validity.badInput);
+      const blocking = (halfTyped
+        ? ['That date is not finished — the box has something in it that is not a '
+           + 'complete date, so nothing was sent. Use the picker, or type it as '
+           + 'YYYY-MM-DD.']
+        : (d.blocking || [])
+      ).map(b => `<li class="text-red-700">${esc(b)}</li>`).join('');
+      if (!d.target) {
+        return `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 text-amber-900">
+          <b>${esc(val('ne-gene')) || 'No gene given'}</b> isn't a target yet — it will be
+          created with the session. Check the spelling first: a typo becomes a new gene.
+          <br>${s.rows || 0} antibody row(s) read.
+          ${(lines || blocking) ? `<ul class="mt-1 list-disc list-inside">${blocking}${lines}</ul>` : ''}</div>`;
+      }
+      return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <p class="font-semibold text-gray-900">${esc(d.target)} — ${s.rows || 0} antibody row(s).</p>
+        <ul class="mt-1 text-gray-700 list-disc list-inside">
+          <li>${s.existing || 0} already on file</li>
+          <li>${s.new || 0} would be added as new antibodies</li>
+          ${s.blocked ? `<li class="text-amber-800">${s.blocked} without a catalogue number — these are skipped</li>` : ''}
+          ${lines}
+          ${blocking}
+        </ul></div>`;
+    },
+    renderResult: d => {
+      const extras = [];
+      if (d.created_target) extras.push(`new target ${esc(d.created_target)}`);
+      (d.created_cell_lines || []).forEach(c => extras.push(`cell line ${esc(c)}`));
+      (d.created_antibodies || []).forEach(a => extras.push(`antibody ${esc(a)}`));
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Session created with ${(d.created_results || []).length} result row(s).
+        ${extras.length ? `<br>Also created: ${extras.join(', ')}.` : ''}
+        <br><button type="button" class="mt-1 font-semibold underline"
+                data-open-results="${d.session_id}">Record its results here →</button>
+      </div>`;
+    },
+    onDone: () => board.load(),
+  });
+  document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  // Arriving from a gene's page with "add" in the query means: open the Add
+  // panel, ready to type, with the gene already filled in. The gene filter is
+  // applied too, so you can see what is there before adding to it.
+  (function () {
+    const p = new URLSearchParams(location.search);
+    if (!p.get('add')) return;
+    const gene = p.get('gene') || '';
+    const box = document.getElementById('ne-gene');
+    if (box && gene) box.value = gene;
+    newEntry.open();
+  })();
+
+
+  /* `?open=<id>` — arriving from somewhere that just wrote a session, or from an
+   * old /pipeline/session/<id>/ bookmark. Land with its results already open,
+   * which is what the retired session page was for. */
+  /* One fetch, not two: with `?open=` the first load *is* the locate, so a
+   * bookmark does not draw page 1 and then jump. */
+  (new URLSearchParams(location.search).get('open')
+    ? board.locate(new URLSearchParams(location.search).get('open'))
+    : board.load()
+  ).then(async (found) => {
+    const want = new URLSearchParams(location.search).get('open');
+    if (!want) return;
+    // `found === false` means the id really is not in this filtered set. A row
+    // simply being on another page is not that, and used to be reported as it.
+    if (found === false) {
+      errors.show('That session is outside the current filters — clear them to '
+                  + 'see it.');
+      return;
+    }
+    const row = grid.querySelector(`tr[data-row="${want}"]`);
+    if (!row) {
+      errors.show('That session could not be shown — clear the filters to find it.');
+      return;
+    }
+    row.scrollIntoView({behavior: 'smooth', block: 'center'});
+    if (drawer.dataset.session !== String(want)) {
+      await openResults(want);
+    }
+  });
+
+  /* Deleting, on every board rather than only the two with an identity dialog —
+   * targets were the one actually asked for and were one of the two without.
+   * `services/deletion.py` decides: another site's record is refused by name,
+   * and work behind your own is a manifest you have to tick past.
+   *
+   * **This has to be at genuine top level.** It was first put next to the
+   * board.load() above, which on this page is inside the upload callback — so
+   * the listener never registered and the delete control highlighted red and
+   * did nothing. Valid syntax, silent at load, broken only when pressed. */
+  const del = OGABoard.deleteDialog({
+    mount: document.getElementById('delete-panel'),
+    csrf, kind: 'session',
+    urls: {preview: "{% url 'pipeline:delete_preview' %}",
+           commit: "{% url 'pipeline:delete_commit' %}"},
+    onDeleted: OGABoard.rowDeleted(board, errors),
+  });
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('.delete-row');
+    if (b) del.open(b.dataset.id);
+  });
+
+  /* The bench-workbook upload creates whole sessions, so there is no single row
+   * to redraw — but this board can fetch its grid again, which is what "Show
+   * them" should do here rather than throwing the page away. */
+  window.OGABenchUploadDone = () => board.load();
+
+  /* Page-level downloads say they happened. The panel's own links are wired
+   * again as each panel is drawn, because they do not exist yet. */
+  OGABoard.downloadReceipts();
+})();
+</script>
+
+{% with bench_gene=filters.gene %}{% include "pipeline/_bench_workbook_upload.html" %}{% endwith %}
+{% endblock %}

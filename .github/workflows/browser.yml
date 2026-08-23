@@ -1,0 +1,135 @@
+# The boards in a real browser — the slowest job, and the only one that catches
+# "the server answered correctly and the page did the wrong thing with it".
+#
+# Path-scoped to what a browser can actually see break: templates, static JS,
+# the views behind them, and the suite itself. A change to a service or a
+# management command is covered by the Django and pytest suites in django.yml,
+# which are ~40 s; this one costs minutes and should not ride along with them.
+name: browser boards and search
+
+on:
+  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
+  # The month's GitHub Actions minutes are spent, so every automatic run was
+  # failing before a single test executed -- a red tick on `beta` that says
+  # nothing about the code and trains everyone to ignore red ticks.
+  #
+  # The automatic triggers below are commented out, NOT deleted, so restoring
+  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
+  # left on, so the Actions tab can still run this by hand.
+  #
+  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
+  # is off is a suite nobody runs, and it looks exactly like a suite that
+  # passes.
+  # ───────────────────────────────────────────────────────────────────────
+#   push:
+#     paths:
+#       - 'pipeline/templates/**'
+#       - 'pipeline/static/**'
+#       - 'pipeline/views/**'
+#       - 'templates/**'
+#       - 'pipeline/tests_browser_board.py'
+#       - 'core/templates/**'
+#       - 'core/static/**'
+#       - 'core/views.py'
+#       - 'core/tests_browser_search.py'
+#       - 'core/tests_browser_availability.py'
+#       - 'core/tests_browser_portal_pipeline.py'
+#       - '.github/workflows/browser.yml'
+#   pull_request:
+#     paths:
+#       - 'pipeline/templates/**'
+#       - 'pipeline/static/**'
+#       - 'pipeline/views/**'
+#       - 'templates/**'
+#       - 'pipeline/tests_browser_board.py'
+#       - 'core/templates/**'
+#       - 'core/static/**'
+#       - 'core/views.py'
+#       - 'core/tests_browser_search.py'
+#       - 'core/tests_browser_availability.py'
+#       - 'core/tests_browser_portal_pipeline.py'
+#       - '.github/workflows/browser.yml'
+#   # Nightly, so the commissioning tests are checked daily rather than on every
+#   # push. They are excluded below by tag; this is where they run.
+#   schedule:
+#     - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# One run per branch. Pushing a series of commits used to leave every superseded
+# run going to completion -- eight commits in one session meant eight full
+# rounds, seven of them answering a question about code that had already moved.
+# The only run whose answer anybody acts on is the one on the tip commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: boards and search in a real browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          grep -v '^mysqlclient' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt playwright
+      # Installed under /opt/pw-browsers to match the container the field tests
+      # run in. `_find_chrome()` searches both that and the default cache, and
+      # both the `chrome-linux` and `chrome-linux64` layouts — the first run of
+      # this job installed Chromium successfully and the suite skipped anyway,
+      # because newer playwright unpacks to chrome-linux64 and the glob only
+      # knew the older name. The listing is here so the next layout change is
+      # one log line away rather than a silent skip.
+      - name: Cache Chromium
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/pw-browsers
+          key: pw-chromium-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+      - name: Install Chromium
+        run: |
+          sudo mkdir -p /opt/pw-browsers
+          sudo chown -R "$USER" /opt/pw-browsers
+          # --with-deps needs root and installs OS packages, so it runs whether
+          # or not the browser itself was restored from cache; the download is
+          # the part the cache saves.
+          PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python -m playwright install --with-deps chromium
+          echo "--- what was installed, and where the suite will look:"
+          ls -d /opt/pw-browsers/*/ || true
+          python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','OGA_website.settings');django.setup();from pipeline.tests_browser_board import CHROME;print('resolved CHROME =', CHROME or '(none found)')"
+      # Tests that skip silently everywhere else. They are worth a job of
+      # their own: "the server answered correctly and the page did the wrong
+      # thing with it" is the shape only a browser catches, and driving one at
+      # the corrected cell-line example FOUND the knockout-matching-a-wild-type
+      # bug that three passing source-level suites had missed.
+      #
+      # A skip is not a pass, so the run is checked for having actually run
+      # them — the whole point of this job is the case where it silently would
+      # not have.
+      - name: Browser tests
+        env:
+          DJANGO_ALLOW_ASYNC_UNSAFE: '1'
+        # `set -o pipefail` is not optional here. Without it the exit status of
+        # `... | tee` is tee's, which is always 0 — so the first version of this
+        # step reported the job GREEN over `FAILED (failures=3, errors=1)`. A
+        # skip-guard that hides real failures is worse than no guard, and it is
+        # the same shape as everything else this workflow exists to catch.
+        run: |
+          set -o pipefail
+          # A push runs the regression tier. The nightly and manual runs take the
+          # lot, `commissioning` included — see the tag's note in the suite for
+          # what earns it. Coverage is not dropped, only moved off the hot path.
+          EXCLUDE=""
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            EXCLUDE="--exclude-tag commissioning"
+          fi
+          echo "running with: ${EXCLUDE:-<everything>}"
+          python manage.py test pipeline.tests_browser_board core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
+          if grep -q "needs playwright and the bundled Chromium" /tmp/browser.log; then
+            echo "::error::Browser tests skipped — Chromium was not found where the suite looks for it."
+            exit 1
+          fi

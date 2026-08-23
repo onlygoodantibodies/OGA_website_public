@@ -1,0 +1,2761 @@
+/* Root Variables */
+:root {
+    --main-blue: #10428a;
+    --font-primary: 'Open Sans', sans-serif;
+    --heading-color: var(--main-blue);
+    --background-color: #f4f4f4;
+    --section-padding: 60px; /* Consistent section padding */
+}
+
+/* Horizontal overflow is clipped on `html` ALONE, deliberately.
+   `overflow-x: hidden` on `body` forces its computed `overflow-y` to `auto`
+   (CSS: `visible` becomes `auto` when the other axis is not visible), and the
+   `html, body { height: 100% }` rule further down then pins body to the
+   viewport height — so the page scrolled INSIDE body while `window.scrollY`
+   stayed 0. Every "Back to Top" button on the site calls
+   `window.scrollTo({top: 0})`, which scrolls the viewport and did nothing, and
+   the scroll-spy on News & Publications and the anchor offsets on the Roadmap
+   read `window.scrollY`/`pageYOffset` and read 0 forever. Clipping on `html`
+   propagates to the viewport, so horizontal scrolling is still prevented. */
+html {
+    overflow-x: hidden;
+}
+
+/* General Page Styles */
+body {
+    font-family: var(--font-primary);
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Text Styling for Headings and Paragraphs */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-primary);
+    color: var(--heading-color);
+    margin-top: 0;
+    font-weight: bold;
+    text-align: center;
+}
+
+p, li {
+    font-family: var(--font-primary);
+    color: #333;
+    font-size: 1.1rem;
+    margin-bottom: 1.5em;
+    line-height: 1.6;
+}
+
+a {
+    color: var(--main-blue);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Header Section */
+.header {
+    background-color: white;
+    padding: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+}
+
+.header .logo {
+    display: flex;
+    align-items: center;
+}
+
+.header .logo-img {
+    max-width: 150px;
+}
+
+/* Navigation Link Styles */
+nav ul {
+    list-style-type: none;
+    display: flex;
+    gap: 20px;
+}
+
+nav ul li a {
+    color: var(--main-blue);
+    text-decoration: none;
+    font-weight: normal;
+}
+
+nav ul li a:hover {
+    text-decoration: underline;
+}
+
+/* Banner Section */
+.banner {
+    position: relative;
+    text-align: center;
+    color: white;
+    width: 100vw;
+    height: 300px;
+    background-color: var(--main-blue);
+    margin: 0;
+    overflow: hidden;
+}
+
+.banner img {
+    width: 100vw;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+    z-index: 1;
+}
+
+.banner-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 90%;
+    z-index: 2;
+    color: white;
+}
+
+.banner-text h2 {
+    font-size: 2.5rem;
+    color: white !important;
+    font-weight: 500;
+}
+
+/* Specific Banner Heights */
+.home-banner {
+    height: 800px;
+}
+
+.about-banner {
+    height: 200px;
+}
+
+/* General Section Styling for Connected Layout */
+.introduction,
+.our-approach,
+.open-science {
+    background-color: #ffffff; /* Clean white background */
+    border: none; /* Remove borders for a softer look */
+    border-radius: 8px; /* Smooth, subtle edges */
+    padding: 40px 20px; /* Balanced padding */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); /* Lighter shadow for subtle depth */
+    margin-bottom: 40px; /* Add space between sections */
+    display: grid; /* Use grid layout */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive columns */
+    gap: 20px; /* Space between grid items */
+    align-items: start; /* Align content to the top of the grid */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effect */
+}
+
+/* General Section Styling for Connected Layout */
+.introduction,
+.our-approach,
+.open-science,
+.section-divider {
+    padding: 40px 20px;
+    background-color: #f7f7f7;
+    max-width: 1400px;
+    margin: 0 auto;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+/* Content Container - Wider Layout */
+.content-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+/* Text Content for Sections */
+.introduction p,
+.our-approach p,
+.open-science p,
+.our-approach ul,
+.open-science ul {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #333;
+    max-width: 100%;
+    margin: 0 auto;
+    text-align: justify;
+}
+
+/* List Item Styling */
+.our-approach ul,
+.open-science ul {
+    list-style-type: disc; 
+    padding-left: 20px; 
+    margin: 20px 0; 
+    text-align: left; 
+}
+
+.our-approach ul li::marker,
+.open-science ul li::marker {
+    color: var(--main-blue); /* Make bullet points blue */
+    font-size: 1.2rem; /* Adjust bullet size  */
+}
+
+
+
+/* Centered Section Headings */
+.introduction h2,
+.our-approach h2,
+.open-science h2 {
+    font-family: 'Open Sans', sans-serif;
+    color: var(--main-blue);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Divider Styling */
+.section-divider .divider-line {
+    width: 50%;
+    height: 2px;
+    background-color: var(--main-blue);
+    margin: 0 auto 40px;
+    opacity: 0.8;
+}
+
+
+
+/* Button Styles */
+.cta-button,
+.learn-more-button {
+    background-color: var(--main-blue);
+    color: white;
+    padding: 10px 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+    font-weight: 500;
+}
+
+.cta-button:hover,
+.learn-more-button:hover {
+    background-color: #1f3a5e;
+}
+
+/* Center the buttons container */
+.buttons {
+    display: flex;
+    justify-content: center;
+    margin: 40px auto 80px;
+    text-align: center;
+}
+
+/* Partners Section Styling */
+.partners {
+    padding: 40px 0; 
+    background-color: #f4f4f4;
+    text-align: center;
+}
+
+/* Wrapper to control width of each partner grid */
+.partner-wrapper {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Partner Section Title */
+.partner-section-title {
+    font-size: 2rem;
+    color: var(--main-blue);
+    margin: 40px 0 20px;
+    font-weight: 500;
+}
+
+/* General Partner Grid */
+.partner-grid {
+    display: grid;
+    gap: 20px;
+    justify-content: center;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1000px;
+}
+
+/* Two-column grid */
+.partner-grid.two-column {
+    grid-template-columns: repeat(2, 1fr); /* Ensures two columns for two-partner sections */
+}
+
+/* Three-column grid */
+.partner-grid.three-column {
+    grid-template-columns: repeat(3, 1fr); /* Three columns for three or more partners */
+}
+
+/* Partner Card Styling */
+.partner-card {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 250px; 
+}
+
+/* Partner Logo */
+.partner-logo {
+    width: 100%;
+    height: auto;
+    max-height: 150px;
+    margin-bottom: 10px;
+    object-fit: contain;
+}
+
+/* Learn More Button */
+.learn-more-button {
+    display: inline-block;
+    margin-top: auto;
+    padding: 8px 16px;
+    background-color: var(--main-blue);
+    color: white;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.learn-more-button:hover {
+    background-color: #1f3a5e;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .partner-grid.two-column {
+        grid-template-columns: repeat(2, 1fr); /* Maintains two columns on smaller screens */
+    }
+
+    .partner-grid.three-column {
+        grid-template-columns: repeat(2, 1fr); /* Switches to two columns on smaller screens */
+    }
+}
+
+
+/* Divider Section */
+.section-divider {
+    text-align: center;
+    padding: 40px 0;
+}
+
+.divider-line {
+    width: 50%;
+    height: 2px;
+    background-color: var(--main-blue);
+    margin: 0 auto;
+}
+
+/* Footer Styling */
+.footer {
+    width: 100vw;
+    padding: 40px 20px;
+    background-color: var(--main-blue);
+    color: #ffffff;
+    margin: 0;
+}
+
+/* Footer Inner Container */
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Adjustments for small screens */
+@media (max-width: 768px) {
+    .footer-container {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* Footer Columns */
+.footer-column {
+    flex: 1;
+    min-width: 180px;
+}
+
+.footer-column h4 {
+    font-size: 1.2rem;
+    color: #ffffff;
+    margin-bottom: 15px;
+}
+
+.footer-column a {
+    color: #e0e0e0;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.footer-column a:hover {
+    color: #ffffff;
+}
+
+/* Social Media Icon */
+.social-icon {
+    width: 24px;
+    margin-right: 10px;
+    transition: transform 0.3s ease;
+}
+
+.social-icon:hover {
+    transform: scale(1.1);
+}
+
+/* Bottom Footer Styling */
+.footer-bottom {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #cccccc;
+    font-size: 0.9rem;
+}
+
+.back-to-top {
+    background-color: transparent;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    text-decoration: underline;
+}
+
+.back-to-top:hover {
+    color: #e0e0e0;
+}
+
+/* Responsive Footer for Smaller Screens */
+@media (max-width: 768px) {
+    .footer-container {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* Antibody Page Footer */
+/* Antibody Footer Styling */
+.antibody-footer {
+    width: 100vw;
+    padding: 40px 20px;
+    background-color: var(--main-blue);
+    color: #ffffff;
+    margin: 0;
+}
+
+/* Footer Inner Container */
+.antibody-footer .footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Adjustments for small screens */
+@media (max-width: 768px) {
+    .antibody-footer .footer-container {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* Footer Columns */
+.antibody-footer {
+    width: 100%;               /* Full width */
+    padding: 40px 20px;
+    background-color: var(--main-blue);
+    color: #ffffff;
+    margin: 0;
+    box-sizing: border-box;    /* Ensure padding is included in the width calculation */
+}
+
+.antibody-footer .footer-column h4 {
+    font-size: 1.2rem;
+    color: #ffffff;
+    margin-bottom: 15px;
+}
+
+.antibody-footer .footer-column a {
+    color: #e0e0e0;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.antibody-footer .footer-column a:hover {
+    color: #ffffff;
+}
+
+/* Social Media Icon */
+.antibody-footer .social-icon {
+    width: 24px;
+    margin-right: 10px;
+    transition: transform 0.3s ease;
+}
+
+.antibody-footer .social-icon:hover {
+    transform: scale(1.1);
+}
+
+/* Bottom Footer Styling */
+.antibody-footer .footer-bottom {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #cccccc;
+    font-size: 0.9rem;
+}
+
+.antibody-footer .back-to-top {
+    background-color: transparent;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    text-decoration: underline;
+}
+
+.antibody-footer .back-to-top:hover {
+    color: #e0e0e0;
+}
+
+/* Footer Inner Container */
+.antibody-footer .footer-container {
+    max-width: 100%;           /* Ensure container stretches to full width */
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+
+/* Adjustments for small screens */
+@media (max-width: 768px) {
+    .antibody-footer {
+        width: 100vw;          /* Full viewport width */
+    }
+
+    .antibody-footer .footer-container {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* Our Team Section */
+.our-team {
+    text-align: center;
+    background-color: #f7f7f7;
+    padding: var(--section-padding);
+}
+
+.our-team h2 {
+    font-size: 2.5rem;
+    color: var(--main-blue);
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+.team-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.team-member {
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    width: 200px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.team-member img {
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.team-member h3 {
+    color: var(--main-blue);
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.team-member p {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Responsive Design for Smaller Screens */
+@media (max-width: 768px) {
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .team-member {
+        width: 100%;
+    }
+
+    .team-member img {
+        width: 120px;
+        height: 120px;
+    }
+}
+/* Publications Section */
+.publications {
+    width: 90%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: left;
+}
+
+.publications h2 {
+    font-size: 2.5rem;
+    color: var(--main-blue);
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+/* Adjusted Publications Grid to One Column and More Width */
+.publications-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.publication-card {
+    display: flex;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    gap: 20px;
+    align-items: center;
+}
+
+.publication-card h3 a {
+    font-size: 1.5rem;
+    color: var(--main-blue);
+    margin-bottom: 10px;
+    text-decoration: none;
+}
+
+.publication-card strong,
+.publication-card b {
+    color: var(--main-blue);
+}
+
+/* Larger Image Styling */
+.publication-image {
+    width: 190px;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+/* Publication Content Styling */
+.publication-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: var(--main-blue);
+}
+
+.publication-content h3 {
+    margin-top: 0;
+    text-align: left;
+}
+
+.read-more {
+    color: var(--main-blue);
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* Main content area of the page */
+.publications {
+    flex: 1;
+}
+
+/* Force footer to be full width */
+.footer-publications {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    padding: 40px 20px;
+    background-color: var(--main-blue);
+    color: white;
+    box-sizing: border-box;
+}
+
+.footer-publications .footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+/* Ensures all text within the footer is white */
+.footer-publications,
+.footer {
+    color: white !important;
+}
+
+
+.footer-publications a,
+.footer a,
+.footer-bottom p {
+    color: white !important;
+    text-decoration: none;
+}
+
+.footer-publications h4,
+.footer h4,
+.footer-publications p,
+.footer p,
+.footer-publications span,
+.footer span {
+    color: white !important;
+}
+
+html, body {
+    height: 100%; 
+    margin: 0; 
+}
+
+
+/* Success Wrapper ensures the page stretches to full height */
+.success-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; 
+    box-sizing: border-box; 
+}
+
+/* Banner Section */
+.success-banner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 250px; 
+    background-color: var(--main-blue); 
+    color: white; 
+    text-align: center;
+}
+
+/* Banner Text */
+.success-banner h2 {
+    font-size: 2.5rem; 
+    font-weight: bold;
+    margin: 0;
+}
+
+/* Introduction Section */
+.introduction {
+    text-align: center;
+    padding: 20px 20px; 
+    margin-top: 0; 
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center; 
+    gap: 20px; 
+}
+
+/* Buttons */
+.buttons {
+    margin-top: 10px; 
+}
+
+/* News Section Styling */
+.news-section {
+    padding: 40px 0;
+    background-color: #f7f7f7;
+    text-align: center;
+}
+
+.news-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.news-card {
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    gap: 20px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+/* News Content Styling */
+.news-content {
+    padding: 20px;
+    color: #333;
+    text-align: justify;
+    
+}
+
+.news-content h3 {
+    font-size: 1.8rem;
+    color: var(--main-blue);
+    margin-bottom: 15px;
+}
+
+.news-content p {
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+/* Bold Text for Emphasis */
+.news-content strong {
+    color: var(--main-blue);
+    font-weight: bold;
+}
+
+.styled-list {
+    list-style-type: disc; 
+    padding-left: 20px; 
+    margin: 20px 0; 
+    font-family: 'Open Sans', sans-serif; 
+    font-size: 1.2rem; 
+    color: #333; 
+}
+
+.styled-list li::marker {
+    color: var(--main-blue); 
+}
+
+.styled-list li {
+    margin-bottom: 0.8em; 
+    font-size: 1.2rem;
+}
+
+
+.read-more {
+    color: var(--main-blue);
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 10px;
+    align-self: flex-start;
+}
+
+.read-more:hover {
+    text-decoration: underline;
+}
+
+/* News Image Styling */
+.news-image-container {
+    text-align: center; 
+}
+
+.news-image {
+    max-width: 90%; 
+    height: auto; 
+    margin: 10px auto; 
+    display: block; 
+}
+
+@media (max-width: 768px) {
+    /* Reduce Banner Height */
+    .home-banner {
+        height: 400px; /* Adjust height proportionately */
+    }
+
+    /* Adjust Banner Text */
+    .home-banner .banner-text h2 {
+        font-size: 1.5rem; /* Smaller heading size */
+        line-height: 1.3; /* Adjust line spacing */
+    }
+
+    /* Adjust Learn More Button */
+    .home-banner .cta-button {
+        font-size: 0.9rem; /* Smaller text on the button */
+        padding: 10px 20px; /* Adjust button size */
+    }
+
+    /* Adjust Introduction Section Text */
+    .introduction p {
+        font-size: 0.9rem; /* Reduce paragraph text size */
+        line-height: 1.5; /* Improve readability */
+        margin-bottom: 15px; /* Add space between paragraphs */
+    }
+
+    /* Adjust Browse Button */
+    .browse-section .cta-button {
+        font-size: 0.9rem; /* Smaller text */
+        padding: 8px 16px; /* Adjust button padding */
+    }
+
+    /* Footer Layout */
+    .footer-container {
+        display: flex;
+        flex-wrap: wrap; /* Allow columns to wrap */
+        justify-content: space-between; /* Distribute columns evenly */
+        align-items: flex-start; /* Align to the top */
+        text-align: left; /* Align text to the left */
+        gap: 20px; /* Add spacing between columns */
+    }
+
+    .footer-column {
+        flex: 1 1 calc(50% - 20px); /* Two columns with spacing */
+        min-width: 200px; /* Ensure columns don’t shrink too much */
+    }
+
+    /* Text Styling for Footer */
+    .footer-column h4 {
+        font-size: 1rem; /* Reduce heading size */
+        margin-bottom: 10px;
+    }
+
+    .footer-column p,
+    .footer-column a {
+        font-size: 0.8rem; /* Smaller text for paragraphs and links */
+        margin-bottom: 8px; /* Add spacing between items */
+    }
+
+    /* Footer Adjustments */
+    .footer-bottom p {
+    font-size: 0.8rem; /* Smaller font size */
+    color: #ffffff; /* Ensure consistent color */
+    text-align: center; /* Center-align text */
+    margin: 0; /* Remove unnecessary margins */
+    }
+
+
+    .back-to-top {
+        font-size: 0.8rem; /* Smaller "Back to Top" button */
+        padding: 8px 12px;
+    }
+
+    /* Social Media Icons */
+    .social-icon {
+        width: 20px; /* Smaller icon size */
+        height: 20px;
+    }
+
+    /* Navigation Links */
+   /* Hide Navigation Links */
+   nav ul {
+    display: none; /* Hide the links */
+}
+
+/* Show Hamburger Icon */
+  .hamburger {
+    display: block; /* Ensure the hamburger is visible */
+    cursor: pointer; /* Change cursor to pointer */
+    font-size: 1.5rem; /* Adjust size of the hamburger */
+    position: absolute; /* Position it properly */
+    top: 15px;
+    right: 15px;
+   }
+
+/* Adjust Banner */
+.about-banner {
+    height: 150px; /* Reduce banner height */
+}
+
+.about-banner .banner-text h2 {
+    font-size: 1.5rem; /* Smaller banner title */
+    line-height: 1.3; /* Adjust line height for readability */
+}
+
+/* Adjust Section Titles */
+.our-approach h2,
+.our-team h2 {
+    font-size: 1.8rem; /* Smaller section titles */
+    line-height: 1.4;
+}
+
+/* Adjust Paragraph and List Text */
+.our-approach p,
+.our-approach ul li,
+.our-team p {
+    font-size: 0.9rem; /* Consistent smaller text size */
+    line-height: 1.5; /* Improve readability */
+    margin-bottom: 10px; /* Reduce spacing */
+}
+
+/* Team Section - Two Columns with Spacing */
+/* Team Section - Two Columns with Spacing */
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(150px, 1fr)); /* Two equal columns with a minimum width of 150px */
+    gap: 30px; /* Reduced gap for better alignment */
+    justify-content: center;
+    max-width: 800px; /* Set a max-width for the entire grid */
+    margin: 0 auto; /* Center the grid on the page */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+
+/* Individual Team Member Styling */
+.team-member {
+    width: 100%;
+    max-width: 180px;
+    margin: 0 auto;
+    text-align: center;
+    background-color: #f7f7f7;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box; /* Include padding in width calculations */
+}
+
+
+/* Team Member Image Styling */
+.team-member img {
+    max-width: 80%; /* Allow image to fit proportionally within the card */
+    height: auto; /* Maintain aspect ratio */
+    margin: 0 auto 10px; /* Center-align image and add space below */
+    display: block; /* Ensure the image is properly centered */
+}
+
+/* Team Member Name */
+.team-member h3 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+    color: var(--main-blue);
+    font-weight: 600;
+}
+
+/* Team Member Role */
+.team-member p {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0;
+}
+
+/* Hide Divider Section */
+.section-divider {
+    display: none; /* Hide divider section on small screens */
+}
+
+/* Contact Form */
+.contact-form input,
+ .contact-form textarea {
+    width: 90%; /* Adjust to fit within smaller screens */
+}
+
+.contact-form textarea {
+    height: 100px; /* Adjust height */
+}
+
+ /* Publication Cards */
+ .publication-card {
+    gap: 10px; /* Reduce spacing */
+    padding: 15px; /* Smaller padding */
+}
+
+.publication-image {
+    width: 150px; /* Reduce image size */
+    height: 200px;
+}
+
+.publication-content h3 {
+    font-size: 1rem;
+}
+
+.publication-content p {
+    font-size: 0.9rem; /* Smaller text size */
+}
+
+/* News Card Layout */
+.news-card {
+    display: flex;
+    flex-direction: column; /* Stack text and image vertically */
+    gap: 15px; /* Add space between content and image */
+    padding: 15px; /* Add inner spacing */
+    background-color: #fff; /* Background for card */
+    border-radius: 10px; /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    overflow: hidden; /* Prevent overflow */
+    width: 100%; /* Full-width of container */
+    margin-bottom: 20px; /* Space between cards */
+}
+
+.news-content {
+    font-size: 0.9rem; /* Smaller font size */
+    line-height: 1.6; /* Improve readability */
+    color: #333; /* Text color */
+    margin-bottom: 10px; /* Space below paragraphs */
+    text-align: justify; /* Align text for cleaner layout */
+}
+
+.news-content h3 {
+    font-size: 1rem; /* Smaller title size */
+    margin-bottom: 8px; /* Space below the title */
+    word-wrap: break-word; /* Ensure no text overflow */
+    color: var(--main-blue); /* Use primary color */
+}
+
+.news-content p {
+    font-size: 0.9rem; /* Consistent paragraph text size */
+    line-height: 1.5; /* Line spacing for better readability */
+}
+
+/* Bullet Points Styling */
+.news-content ul.styled-list {
+    padding-left: 20px; /* Add indentation */
+    margin-bottom: 10px; /* Space below lists */
+    font-size: 0.85rem; /* Ensure smaller font size for lists */
+    line-height: 1.4; /* Adjust line height for lists */
+    color: #333; /* Ensure consistent text color */
+}
+
+.news-content ul.styled-list li {
+    font-size: 0.85rem; /* Smaller list text */
+    margin-bottom: 8px; /* Space between list items */
+    line-height: 1.4; /* Ensure proper spacing */
+}
+
+/* Apply consistent font size globally for styled lists */
+.styled-list {
+    font-size: 0.85rem; /* Smaller list text */
+    line-height: 1.4; /* Consistent spacing */
+    color: #333; /* Consistent text color */
+}
+
+.read-more {
+    font-size: 0.85rem; /* Adjust Read More text */
+    color: var(--main-blue);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.read-more:hover {
+    text-decoration: underline;
+}
+
+/* Image Styling */
+.news-image-container {
+    width: 100%; /* Full width of the container */
+    text-align: center; /* Center-align the image */
+    margin-top: 10px; /* Space above image */
+}
+
+.news-image {
+    width: 90%; /* Resize image for mobile */
+    max-height: 180px; /* Cap image height */
+    object-fit: cover; /* Maintain aspect ratio */
+    border-radius: 5px; /* Add slight rounding */
+}
+
+/* Adjust Partner Section Title */
+.partner-section-title {
+    font-size: 1.5rem; /* Consistent title size */
+    text-align: center; /* Center the title */
+    margin-bottom: 20px; /* Add spacing below title */
+}
+
+/* Adjust Partner Cards */
+.partner-card {
+    width: 90%; /* Slightly smaller to ensure alignment */
+    padding: 15px; /* Add inner padding */
+    margin: 10px auto; /* Center horizontally and add vertical spacing */
+    background-color: #fff; /* Ensure white background */
+    border-radius: 8px; /* Slight rounding of edges */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Add shadow for separation */
+    height: auto; /* Let the height adjust dynamically */
+    display: flex;
+    flex-direction: column; /* Stack content vertically */
+    align-items: center; /* Center-align content */
+    justify-content: space-between; /* Distribute content evenly */
+}
+
+.partner-logo {
+    max-width: 70%; /* Shrink logo size */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 10px; /* Add spacing below the logo */
+}
+
+.learn-more-button {
+    font-size: 0.85rem; /* Reduce button text size */
+    padding: 8px 12px; /* Adjust button padding */
+}
+
+/* Adjust Partner Grid for Two Columns */
+.partner-grid {
+    display: grid; /* Use grid layout */
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 20px; /* Add space between the cards */
+    justify-content: center; /* Center-align the entire grid horizontally */
+    align-items: center; /* Center items vertically */
+    padding: 0; /* Remove extra padding causing misalignment */
+    margin: 0 auto; /* Ensure grid is centered in the parent container */
+    max-width: 95%; /* Constrain grid width for perfect centering */
+    box-sizing: border-box; /* Include padding in width calculation */
+}
+
+/* General Spacing for Partner Section */
+.partner-wrapper {
+    padding: 20px 10px; /* Add spacing around each section */
+    text-align: center; /* Center-align the section content */
+}
+
+    /* Banner Title Adjustments for Small Screens */
+    .about-banner h2 {
+        font-size: 1.5rem; /* Smaller title size */
+        line-height: 1.2; /* Adjust line height for readability */
+    }
+
+
+        /* Banner Title Adjustments */
+        .about-banner h2 {
+            font-size: 1.5rem; /* Reduce title size */
+            text-align: center; /* Center-align the title */
+        }
+    
+        /* Contact Info Section */
+        .contact-info .content h2 {
+            font-size: 1.8rem; /* Smaller heading size */
+            margin-bottom: 15px; /* Add space below heading */
+            text-align: center; /* Center-align heading */
+        }
+    
+        .contact-info .content p {
+            font-size: 0.9rem; /* Reduce paragraph text size */
+            line-height: 1.5; /* Improve readability */
+            text-align: justify; /* Align text for a cleaner look */
+            margin-bottom: 15px; /* Add space below text */
+        }
+    
+        .contact-info .content ul {
+            padding-left: 20px; /* Add indentation */
+        }
+    
+        .contact-info .content ul li {
+            font-size: 0.9rem; /* Smaller list item text */
+            margin-bottom: 10px; /* Add space between list items */
+        }
+    
+        .contact-info .content ul li strong {
+            font-size: 1rem; /* Ensure bold text is slightly larger for emphasis */
+        }
+    
+        .contact-info .content ul li a {
+            font-size: 0.9rem; /* Adjust link size */
+            text-decoration: underline; /* Highlight links */
+        }
+    
+        /* Contact Form Section */
+        .contact-form .content h2 {
+            font-size: 1.8rem; /* Smaller form heading */
+            text-align: center; /* Center-align form heading */
+            margin-bottom: 20px;
+        }
+    
+        .contact-form .cta-button {
+            font-size: 0.9rem; /* Adjust button text size */
+            padding: 10px 20px; /* Adjust button padding */
+            display: block; /* Ensure button spans full width */
+            max-width: 200px; /* Restrict max width of button */
+            margin: 0 auto; /* Center-align the button */
+        }
+
+}
+
+/* Hide the hamburger icon on larger screens */
+@media (min-width: 769px) {
+    .hamburger {
+        display: none; /* Hide the hamburger icon */
+    }
+}
+
+
+/* Dropdown Menu for Small Screens */
+@media (max-width: 768px) {
+    /* Hamburger Icon Styling */
+    .hamburger {
+        display: block; /* Show hamburger icon */
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Hidden Dropdown Menu */
+    nav ul.menu {
+        display: none; /* Hide menu by default */
+        flex-direction: column; /* Stack items vertically */
+        background: white; /* Background color */
+        padding: 10px;
+        border: 1px solid #ddd; /* Optional: Add a border */
+        position: absolute; /* Dropdown below header */
+        top: 60px; /* Adjust based on header height */
+        left: 0;
+        right: 0; /* Full width */
+        z-index: 1000; /* Ensure it is above other content */
+        transition: all 0.3s ease-in-out; /* Smooth dropdown transition */
+    }
+
+    /* Show Menu When Hamburger is Toggled */
+    nav ul.menu.show {
+        display: flex; /* Show menu */
+    }
+
+    /* Dropdown Menu List Items */
+    nav ul.menu li {
+        margin: 5px 0; /* Spacing between menu items */
+    }
+
+    /* Menu Links */
+    nav ul.menu li a {
+        font-size: 0.9rem; /* Adjust font size for small screens */
+        color: #333; /* Text color */
+        text-decoration: none; /* Remove underline */
+        padding: 5px 10px; /* Add padding for touch targets */
+    }
+
+    nav ul.menu li a:hover {
+        background: #f0f0f0; /* Add hover effect */
+        color: #000; /* Optional hover text color */
+    }
+}
+
+@media (max-width: 768px) {
+    /* Apply the no-wobble fixes only to the pages with the class "no-wobble" */
+    body.no-wobble {
+        margin: 0;
+        padding: 0;
+        width: 100%; /* Ensure body fits within the viewport */
+        /* No `overflow-x` here: clipping is on `html` (top of this file),
+           which propagates to the viewport. Setting it on `body` makes
+           body a scroll container and strands `window.scrollTo`. */
+    }
+
+    /* Normalize box-sizing */
+    body.no-wobble * {
+        box-sizing: border-box; /* Include padding and border in width/height */
+    }
+
+    /* Ensure specific elements don't overflow */
+    body.no-wobble img,
+    body.no-wobble video {
+        max-width: 100%; /* Images/videos stay within their container */
+        height: auto; /* Maintain aspect ratio */
+    }
+
+    /* Prevent unintended changes to buttons, links, and other specific elements */
+    body.no-wobble button,
+    body.no-wobble .cta-button,
+    body.no-wobble a {
+        max-width: none; /* Ensure buttons/links are not constrained */
+        width: auto; /* Reset width for buttons */
+        display: inline-block; /* Ensure proper button/link display */
+    }
+
+    /* Avoid overly broad rules */
+    body.no-wobble .container,
+    body.no-wobble .content,
+    body.no-wobble section,
+    body.no-wobble nav {
+        max-width: 100%; /* Restrict content to viewport */
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+/* Home Page Banner Styling */
+section.banner.home-banner {
+    position: relative; /* Allow positioning of text over the banner */
+    width: 100%; /* Full width of the section */
+    height: 100vh; /* Full height of the viewport */
+    overflow: hidden; /* Prevent any content overflow */
+    margin: 0;
+    padding: 0;
+}
+
+/* Banner Image Styling */
+section.banner.home-banner img {
+    width: 100%; /* Stretch image to fit the width of the section */
+    height: 100%; /* Stretch image to fit the height of the section */
+    object-fit: cover; /* Ensure the image covers the section without distortion */
+    object-position: center; /* Center the image within the section */
+    display: block; /* Remove any inline gaps caused by images */
+}
+
+/* Text and Button Overlay Styling */
+section.banner.home-banner .banner-text {
+    position: absolute; /* Position text over the banner */
+    top: 50%; /* Center vertically */
+    left: 50%; /* Center horizontally */
+    transform: translate(-50%, -50%); /* Ensure perfect centering */
+    text-align: center; /* Align text and button in the center */
+    z-index: 2; /* Ensure it appears above the banner image */
+    color: white; /* Ensure text is readable */
+    padding: 10px; /* Add padding for spacing */
+}
+
+/* Banner Heading Styling */
+section.banner.home-banner .banner-text h2 {
+    font-size: 1.8rem; /* Adjust font size for better readability */
+    margin-bottom: 15px; /* Add space below the heading */
+    line-height: 1.4; /* Adjust line height for better readability */
+}
+
+/* Call-to-Action Button Styling */
+section.banner.home-banner .banner-text .cta-button {
+    display: inline-block; /* Ensure the button stays inline */
+    font-size: 1rem; /* Adjust font size */
+    padding: 10px 20px; /* Adjust padding for a clickable area */
+    color: white; /* Text color */
+    background-color: var(--main-blue); /* Use your brand color */
+    text-decoration: none; /* Remove underline */
+    border-radius: 5px; /* Round corners */
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); /* Optional: Add a shadow for depth */
+    transition: background-color 0.3s ease; /* Smooth hover transition */
+}
+
+/* Button Hover Effect */
+section.banner.home-banner .banner-text .cta-button:hover {
+    background-color: #003366; /* Slightly darken color on hover */
+}
+
+
+    /* Prevent Horizontal Scrolling (No Wobble) */
+    body.home-page {
+        margin: 0;
+        padding: 0;
+        /* No `overflow-x` here: clipping is on `html` (top of this file),
+           which propagates to the viewport. Setting it on `body` makes
+           body a scroll container and strands `window.scrollTo`. */
+    }
+
+    /* Ensure All Elements Fit */
+    body.home-page * {
+        box-sizing: border-box;
+    }
+
+    /* Reset Margins or Overflow */
+    body.home-page .container,
+    body.home-page .content,
+    body.home-page section,
+    body.home-page nav {
+        max-width: 100%;
+        overflow-x: hidden;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Ensure Media Elements Do Not Overflow */
+    body.home-page img,
+    body.home-page video {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Avoid Extra Margins */
+    body.home-page * {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+/* Adjust Partner Card Size - Specific to Partner Page */
+body.no-wobble .partner-grid .partner-card {
+    width: 180px; /* Set a fixed width */
+    height: 200px; /* Proportional height */
+    background-color: #ffffff; /* Optional: Ensure consistent background */
+    border: 1px solid #ddd; /* Add a subtle border */
+    border-radius: 10px; /* Add rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Optional: Subtle shadow for depth */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px; /* Add inner padding for spacing */
+    margin: 10px auto; /* Adjust spacing between cards */
+}
+
+/* Style Partner Logos to Fit Inside the Cards */
+body.no-wobble .partner-grid .partner-card img {
+    max-width: 100%;
+    max-height: 100px; /* Restrict the logo height */
+    object-fit: contain; /* Keep aspect ratio */
+    margin-bottom: 10px; /* Add space below the logo */
+}
+
+/* Style the Learn More Button */
+body.no-wobble .partner-grid .partner-card .learn-more-button {
+    display: inline-block;
+    padding: 8px 12px; /* Adjust button padding */
+    background-color: var(--main-blue); /* Use your primary brand color */
+    color: white;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-radius: 5px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add slight shadow */
+    transition: background-color 0.3s ease; /* Smooth hover transition */
+}
+
+/* Hover Effect for Buttons */
+body.no-wobble .partner-grid .partner-card .learn-more-button:hover {
+    background-color: #003366; /* Darker shade on hover */
+}
+
+/* Adjust Grid Layout for Two Columns */
+body.no-wobble .partner-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two equal columns */
+    gap: 20px; /* Space between cards */
+    justify-content: center;
+    align-items: start;
+    margin: 20px auto; /* Center the grid within the page */
+    padding: 0 10px; /* Add padding for mobile screens */
+}
+}
+
+/* Table Container */
+.table-container {
+    width: 100%;
+    max-width: 1600px; /* Allow more width overall */
+    margin: 30px auto;
+    padding: 0 20px; /* Increased side padding */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Row Box */
+.row-box {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    margin: 25px 0;
+    padding: 24px;
+    background-color: #fff;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.08);
+    width: 98%; /* Wider content */
+    max-width: 1600px;
+    box-sizing: border-box;
+}
+
+/* Ideal Antibody Row */
+.ideal-antibody-row {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #eef2f5;
+    border: 2px solid #10428a;
+    border-radius: 10px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+}
+
+/* Header Labels */
+.header-label {
+    color: var(--main-blue);
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+/* Ensure table cells align content at the top */
+td {
+    vertical-align: top;
+}
+
+/* Antibody Details */
+.antibody-details {
+    text-align: left;
+    font-size: 1rem;
+    width: 28%;
+    min-width: 260px; /* Prevents awkward shrinking and over-wrapping */
+}
+
+.antibody-details h3 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+    color: var(--main-blue);
+    text-align: left;
+}
+
+.antibody-details p {
+    margin: 6px 0;
+    color: var(--text-gray);
+    font-size: 0.9rem;
+    max-width: 280px; /* Helps wrap long application lists earlier */
+}
+
+/* Description Links */
+.antibody-details a {
+    color: #666;
+    text-decoration: none;
+}
+
+.antibody-details a:hover {
+    text-decoration: underline;
+}
+
+/* Experiment Image Box */
+.experiment-box {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #fff;
+    width: 100%;
+    max-width: 240px;
+    height: 240px; /* Fixed height instead of aspect-ratio */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.experiment-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* On smaller screens, reduce box size */
+@media (max-width: 768px) {
+    .experiment-box {
+        max-width: 100px;
+        height: 100px;
+        padding: 5px;
+    }
+}
+
+
+
+  
+/* Search Bar Wrapper */
+.search-bar-wrapper {
+    width: 100%; /* Full width below the header */
+    background-color: var(--main-blue); /* Same background as the header */
+    padding: 20px 0; /* Add vertical space */
+    display: flex;
+    justify-content: center; /* Center the search bar */
+}
+
+/* Search Container */
+.search-container {
+    width: 70%; /* Adjust width for longer appearance */
+    max-width: 800px; /* Ensure it doesn't exceed this size */
+    display: flex;
+    align-items: center;
+    background-color: white; /* White background for the search bar */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for modern look */
+    border-radius: 10px; /* Rounded corners for smooth look */
+    overflow: hidden; /* Prevent children from exceeding bounds */
+    border: none; /* Remove any border */
+}
+
+/* Input Field */
+.search-bar {
+    flex: 1; /* Allow it to take all available space */
+    padding: 15px 20px; /* Comfortable padding */
+    border: none; /* No border for a seamless look */
+    outline: none; /* Remove focus outline */
+    font-size: 1rem; /* Readable font size */
+    background-color: transparent; /* Transparent to fit container's color */
+}
+
+
+/* Input Field */
+.search-bar {
+    flex: 1; /* Allow it to take all available space */
+    padding: 15px 20px;
+    border: none; /* No border for a seamless look */
+    outline: none; /* Remove focus outline */
+    font-size: 1rem; /* Readable font size */
+    background-color: transparent; /* Transparent to fit container's color */
+}
+
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .search-container {
+        width: 90%; /* Expand to fill smaller screens */
+    }
+
+    .search-bar {
+        font-size: 0.9rem;
+        padding: 12px 15px;
+    }
+
+    .search-button {
+        padding: 0 15px;
+    }
+}
+
+
+/* Educational Material Section */
+.educational-section {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 30px 20px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.edu-box {
+    background-color: #f3f8ff;
+    border: 1px solid #dce7f5;
+    border-radius: 8px;
+    padding: 20px;
+    width: 260px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    
+}
+
+.edu-box h3 {
+    color: #10428a;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.edu-box p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 15px;
+    flex-grow: 1;
+}
+
+.learn-more-button {
+    display: inline-block;
+    background-color: #10428a;
+    color: white;
+    padding: 8px 15px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    width: fit-content;         /* makes button only as wide as text */
+    margin: 0 auto;             /* centers it inside the box */
+}
+
+.learn-more-button:hover {
+    background-color: #08356c;
+}
+
+/* Gene List Section */
+.gene-list {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.gene-list h2 {
+    color: #10428a;
+    margin-bottom: 20px;
+}
+
+/* Gene Box Container */
+.gene-list-container {
+    display: flex; /* Flexbox for side-by-side layout */
+    flex-wrap: wrap; /* Allow wrapping for responsiveness */
+    gap: 20px; /* Space between boxes */
+    justify-content: center; /* Center the items in the container */
+}
+
+/* Individual Gene Box */
+.gene-box {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    width: 200px; /* Fixed width for consistency */
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s; /* Hover effects */
+}
+
+.gene-box:hover {
+    transform: translateY(-5px); /* Subtle lift on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.gene-box h3 {
+    color: #10428a;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.gene-box p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 15px;
+}
+
+.details-button {
+    display: inline-block;
+    background-color: #10428a;
+    color: white;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.details-button:hover {
+    background-color: #08356c;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .gene-box {
+        width: 150px; /* Smaller box width on smaller screens */
+    }
+
+    .gene-box h3 {
+        font-size: 16px;
+    }
+
+    .details-button {
+        font-size: 12px;
+        padding: 6px 15px;
+    }
+}
+
+
+
+/* Prevent scaling for the antibody table page */
+.antibody-table-page {
+    min-width: 1024px; /* Set a minimum width for desktop layout */
+    overflow-x: auto; /* Allow horizontal scrolling if needed */
+}
+
+.antibody-table-page * {
+    box-sizing: border-box;
+  }
+  
+/* Adjust Banner */
+.antibody-banner {
+    height: 150px; /* Reduce banner height */
+}
+
+.antibody-banner .banner-text h2 {
+    font-size: 1.5rem; /* Smaller banner title */
+    line-height: 1.3; /* Adjust line height for readability */
+}
+
+
+@media (max-width: 768px) {
+    .antibody-table-page {
+        width: 1024px;  /* Fixed desktop-like width */
+        height: auto;
+        overflow-x: auto;  /* Allow horizontal scrolling */
+        margin: 0 auto;
+    }
+
+    .antibody-table-page .container,
+    .antibody-table-page .header,
+    .antibody-table-page .filter-sidebar,
+    .antibody-table-page .table-container,
+    .antibody-table-page .antibody-banner {
+        max-width: 1024px;  /* Ensure all sections stay in desktop width */
+    }
+}
+.antibody-banner {
+    height: 150px;
+    width: 100%;       /* Ensure it stretches the full width of its parent */
+    background-size: cover; /* Cover the entire space if you are using a background image */
+    background-color: var(--main-blue); /* Add a background color if needed */
+}
+
+.antibody-banner .banner-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 90%;
+    z-index: 2;
+    color: white;
+}
+
+.antibody-banner .banner-text h2 {
+    font-size: 2.5rem;
+    color: white !important;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .antibody-table-page {
+        width: 100vw;       /* Use the full viewport width */
+        height: auto;
+        overflow-x: auto;
+        margin: 0 auto;
+    }
+
+    .antibody-banner {
+        width: 100vw;       /* Ensure the banner stretches across the full viewport width */
+    }
+
+    .antibody-banner .banner-text h2 {
+        font-size: 1.2rem;
+    }
+}
+
+
+/* No Results Message Styling */
+.no-results {
+    display: none; /* Ensure it is hidden by default */
+    max-width: 600px; /* Restrict width for better readability */
+    margin: 20px auto; /* Center horizontally with vertical margin */
+    text-align: center;
+    padding: 20px; /* Balanced padding */
+    background-color: #f9f9f9; /* Very light gray for a soft background */
+    border-radius: 10px; /* Subtle rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Very soft shadow for depth */
+    font-family: 'Open Sans', sans-serif; /* Consistent font styling */
+    animation: fadeIn 0.3s ease-out; /* Add a subtle fade-in effect */
+}
+
+.no-results-icon {
+    font-size: 2rem; /* Larger icon size */
+    color: #08356c; /* Slightly darker blue for contrast */
+}
+
+.no-results-text {
+    font-size: 1.4rem; /* Larger text */
+    font-weight: 500; /* Semi-bold for emphasis */
+    line-height: 1.6; /* Improve readability */
+}
+.no-results p:first-child {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--main-blue);
+    margin-bottom: 10px;
+  }
+  
+
+.nominate-target-button {
+    margin-left: 15px; /* Space between text and button */
+    background-color: #10428a; /* Primary blue */
+    color: white; /* High contrast text */
+    padding: 10px 20px; /* Balanced padding */
+    border-radius: 8px; /* Rounded corners */
+    font-size: 1rem; /* Standard button font size */
+    font-weight: bold; /* Emphasized text */
+    text-decoration: none; /* Remove underline */
+    cursor: pointer; /* Pointer cursor */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
+}
+
+.nominate-target-button:hover {
+    background-color: #08356c; /* Darker blue on hover */
+    transform: translateY(-2px); /* Slight lift */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
+}
+
+
+/* Container for Cards */
+.edu-container {
+    width: 70%;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem; /* Space between cards */
+}
+
+/* Card Style */
+.card {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+/* Hover Effect for Interactivity */
+.card:hover {
+    box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.edu-banner .banner-image {
+    width: 100%;
+    height: auto;
+    max-height: 400px; /* Limit the height to keep it proportional */
+    object-fit: contain; /* Maintain aspect ratio without cropping */
+    display: block;
+    border-radius: 12px;
+}
+/* Banner Image Card */
+.edu-banner {
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Content Card */
+.edu-content {
+    width: 100%;
+    text-align: justify;
+}
+
+/* Headings */
+.edu-content h2 {
+    font-size: 2rem;
+    color: #10428a;
+    margin-bottom: 1rem;
+}
+
+/* Paragraphs */
+.edu-content p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Bold Text for Emphasis */
+strong {
+    color: var(--main-blue);
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .educational-section {
+        flex-wrap: wrap; /* Allow wrapping */
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .edu-box {
+        flex: 1 1 calc(45% - 10px); /* Two per row with gap */
+        padding: 12px;
+        font-size: 13px;
+        background-color: #f3f8ff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 200px;
+        margin: 6px;
+    }
+
+    .edu-box h3 {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+
+    .edu-box p {
+        font-size: 0.85rem;
+        line-height: 1.3;
+        margin-bottom: auto;
+    }
+
+    .learn-more-button {
+        align-self: center;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        margin-top: 12px;
+        width: fit-content;
+    }
+}
+
+
+
+
+
+/* General container for better layout */
+label {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    margin-right: 10px;
+}
+
+select {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #333;
+    outline: none;
+    transition: border-color 0.3s ease;
+    width: 200px; /* Adjust as needed */
+}
+
+select:focus {
+    border-color: #007BFF; /* Highlight color when focused */
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Add focus glow */
+}
+
+option {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #333;
+}
+
+/* Contact Information Section */
+.contact-info {
+    padding: 60px 20px;
+    background-color: #f9f9f9; /* Light background for subtle contrast */
+    text-align: center;
+    border-top: 3px solid var(--main-blue); /* Consistent with your site design */
+}
+
+.contact-info .content {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.contact-info h2 {
+    font-size: 2.5rem;
+    font-weight: 600; /* Lighter than bold for a softer feel */
+    color: var(--main-blue);
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+    text-transform: capitalize; /* Refined look */
+}
+
+.contact-info p {
+    font-size: 1.2rem;
+    color: #333; /* Neutral, consistent text color */
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.contact-info ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+}
+
+.contact-info ul li {
+    font-size: 1.1rem;
+    color: #333; /* Neutral text color */
+    margin-bottom: 15px;
+    line-height: 1.5; /* Comfortable spacing between lines */
+}
+
+.contact-info ul li strong {
+    font-size: 1.2rem;
+    color: var(--main-blue); /* Highlight the main field in blue */
+    font-weight: 600;
+}
+
+.contact-info ul li a {
+    color: #333; /* Link text color matches the regular text */
+    text-decoration: none; /* Remove underline */
+    font-weight: 500; /* Slightly lighter font for links */
+    transition: color 0.3s ease;
+}
+
+.contact-info ul li a:hover {
+    color: var(--main-blue); /* Change color on hover for interactivity */
+}
+
+
+/* Contact Form */
+.contact-form {
+    padding: 60px 20px;
+    background-color: #fff; /* Cleaner white background */
+    text-align: center;
+    font-family: 'Open Sans', sans-serif;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
+    border-radius: 10px; /* Slightly round the edges */
+    margin: 40px auto; /* Add spacing around the form */
+    max-width: 800px; /* Limit the form width */
+}
+
+.contact-form .content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px; /* Inner padding for a clean look */
+}
+
+.contact-form h2 {
+    font-size: 2.4rem; /* Slightly larger heading */
+    color: var(--main-blue);
+    margin-bottom: 30px;
+    font-weight: 700;
+    letter-spacing: 0.5px; /* Subtle spacing for elegance */
+}
+
+.contact-form form {
+    text-align: left;
+}
+
+.contact-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333; /* Darker text color for labels */
+}
+
+.contact-form input,
+.contact-form textarea,
+.contact-form select {
+    width: 100%;
+    padding: 12px; /* Slightly more padding */
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px; /* Rounded inputs for a modern look */
+    font-size: 1rem;
+    font-family: 'Open Sans', sans-serif;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth focus effect */
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus,
+.contact-form select:focus {
+    border-color: var(--main-blue);
+    box-shadow: 0 0 5px rgba(16, 66, 138, 0.5);
+    outline: none; /* Remove default outline */
+}
+
+.contact-form textarea {
+    resize: vertical; /* Allow vertical resizing only */
+}
+
+.contact-form button {
+    display: inline-block;
+    width: 100%; /* Full-width button */
+    padding: 14px 0;
+    background-color: var(--main-blue);
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    text-transform: uppercase; /* Make the text uppercase for impact */
+}
+
+.contact-form button:hover {
+    background-color: #083165;
+    transform: translateY(-2px); /* Add a slight lift effect */
+}
+
+/* Ensure the blue background stretches full width */
+.search-bar-wrapper {
+    position: relative;
+    width: 100%; /* Ensures the blue background spans the full width */
+    background-color: var(--main-blue); /* Keep the blue background */
+    padding: 20px 0; /* Add padding to make the area look balanced */
+    display: flex;
+    justify-content: center; /* Center the search bar */
+}
+
+/* Fix search bar size */
+.search-bar {
+    width: 100%; /* Make sure it fills the available space */
+    max-width: 700px; /* Increased by 50px from previous 440px */
+    padding: 16px; /* Keeps the latest increased padding */
+    font-size: 16px; /* Keep text size the same */
+    border-radius: 5px; /* Keep nice rounded edges */
+}
+
+/* Ensure the suggestion box matches the search bar */
+.suggestion-box {
+    display: none;
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%); /* Center it under the search bar */
+    width: 100%;
+    max-width: 700px; /* Increased by 50px from previous 440px */
+    background-color: white;
+    border: 1px solid #ddd;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 250px; /* Keeps it taller for better visibility */
+    overflow-y: auto;
+    border-radius: 4px;
+}
+
+/* Style for each suggestion */
+.suggestion {
+    padding: 16px 15px; /* Keep the padding consistent */
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.suggestion:hover {
+    background-color: #f4f4f4;
+}
+
+/* Responsive Fix */
+@media (max-width: 768px) {
+    .search-bar-wrapper {
+        width: 100%;
+        padding: 15px 0;
+    }
+
+    .search-bar {
+        max-width: 390px; /* Increased mobile width by 50px */
+        padding: 16px; /* Keep increased padding for uniformity */
+    }
+
+    .suggestion-box {
+        max-width: 500px; /* Match mobile search bar width */
+        max-height: 250px; /* Keep visibility consistent */
+    }
+
+    .suggestion {
+        padding: 16px 15px; /* Keep suggestion padding consistent with search bar */
+    }
+}
+
+
+/* Cookie Banner Styling */
+.cookie-banner {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 500px;
+    background: rgba(255, 255, 255, 0.95); /* Light and modern look */
+    color: #333; /* Dark text for readability */
+    padding: 15px 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+    z-index: 9999;
+}
+
+/* Cookie Banner Buttons */
+.cookie-banner button {
+    background: var(--main-blue); /* Your primary color */
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 8px 5px;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+
+.cookie-banner button:hover {
+    background: #0056b3; /* Darker blue on hover */
+}
+
+/* Link Styling */
+.cookie-banner a {
+    color: var(--main-blue);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+.cookie-banner a:hover {
+    color: #0056b3;
+}
+
+/* Privacy & Cookie Policy Styling */
+.policy-page {
+    font-family: Arial, sans-serif;
+    color: #333;
+    background-color: #f8f8f8;
+    margin: 0;
+    padding: 0;
+}
+
+.policy-header {
+    background-color: var(--main-blue);
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+.policy-header h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.policy-content {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for policy sections */
+.policy-section {
+    border-left: 4px solid var(--main-blue); /* Side border for styling */
+    padding-left: 15px;
+    margin-bottom: 20px;
+}
+
+/* Style for headers to be smaller and to the side */
+.policy-section h2 {
+    font-size: 1.3rem;
+    color: var(--main-blue);
+    margin-bottom: 5px;
+}
+
+.policy-content p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+/* Table Styling */
+.policy-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.policy-content table, .policy-content th, .policy-content td {
+    border: 1px solid #ddd;
+}
+
+.policy-content th, .policy-content td {
+    padding: 10px;
+    text-align: left;
+}
+
+.policy-footer {
+    text-align: center;
+    padding: 15px;
+    background-color: var(--main-blue);
+    color: white;
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .policy-content {
+        width: 90%;
+    }
+
+    .policy-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .policy-footer {
+        font-size: 0.9rem;
+    }
+
+    .policy-section h2 {
+        font-size: 1.1rem; /* Slightly smaller for mobile */
+    }
+}
+/* Beta Test Banner */
+.beta-test-notice {
+    text-align: center;
+    background-color: #f0f0f0; /* Light gray for subtle contrast */
+    color: #333;
+    font-weight: 500;
+    font-size: 0.65rem;  /* Slightly smaller font size */
+    margin-top: 5px;
+    border-radius: 2px;
+}
+
+/* Container for the citation text and button */
+.cite-data-section {
+    text-align: center; /* Center everything inside */
+    padding: 20px; /* Adds spacing inside the section */
+}
+
+/* Style the Copy Citation Button */
+#copy-btn {
+    display: inline-block;
+    background-color: white; /* White background by default */
+    color: var(--main-blue); /* Main blue text */
+    text-decoration: none; /* No underline initially */
+    border: 1px solid white; /* White thin border */
+    padding: 5px 12px; /* Keeps it thin */
+    font-size: 14px; /* Slightly smaller text */
+    font-weight: normal; /* Not too bold */
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s, transform 0.2s;
+    margin-top: 10px; /* Space between citation text and button */
+}
+
+/* Hover effect */
+#copy-btn:hover {
+    text-decoration: underline; /* Underlined text on hover */
+    transform: translateY(-1px); /* Subtle lift effect */
+}
+
+/* Active click effect */
+#copy-btn:active {
+    transform: translateY(0px); /* Resets after click */
+}
+
+/* Filter Container */
+.filter-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+    padding: 10px;
+}
+
+/* Title */
+.filter-title {
+    font-size: 1.3rem;
+    color: var(--main-blue);
+    font-weight: 600;
+    text-align: center;
+}
+
+
+/* Container holding the filters */
+.filter-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  
+  /* Flexbox for form to align everything in one line */
+  .filter-form {
+    display: flex;
+    gap: 15px;
+    align-items: end; /* aligns all dropdowns and button bottom edge */
+    flex-wrap: wrap; /* wrap ONLY if screen is small */
+  }
+  
+  /* Individual filter dropdown group */
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+  }
+  
+  /* Filter button styling */
+  .filter-button {
+    background-color: var(--main-blue);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    height: 40px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .filter-button:hover {
+    background-color: #0c3673;
+  }
+  
+  /* Ensure selects are visually aligned with button */
+  .filter-group select {
+    padding: 10px;
+    font-size: 0.95rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  /* Add this to your CSS */
+.filter-group.button-wrapper {
+    align-self: flex-end;
+    margin-top: 0;
+    min-width: auto; /* override inherited width */
+}
+
+  
+  /* Optional: make the layout mobile friendly */
+  @media (max-width: 768px) {
+    .filter-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  
+    .filter-group {
+      width: 100%;
+    }
+  
+    .button-wrapper {
+      align-self: flex-start;
+      margin-top: 10px;
+    }
+  }
+  
+
+.banner-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    background-color: var(--main-blue);
+    color: white;
+    border-radius: 5px;
+    position: relative;
+  }
+  
+  /* Center section should take minimal width and be centered */
+  .banner-center {
+    flex: 0 1 auto;
+    text-align: center;
+  }
+  
+  /* Right section stays in the top right */
+  .banner-right {
+    position: absolute;
+    right: 40px;
+    top: 20px;
+    max-width: 40%;
+  }
+  
+  .banner-center h2 {
+    color: white;
+    font-size: 1.8rem;
+    margin: 0;
+  }
+  
+  .f1000-link {
+    display: inline-block;
+    margin-top: 8px;
+    text-decoration: underline;
+    color: white;
+    font-weight: bold;
+    font-size: 1.3rem;
+  }
+  
+  
+  /* Citation Box */
+  .compact-citation {
+    color: white;
+    font-size: 0.8rem;
+    border-left: 1px solid white;
+    padding-left: 12px;
+    max-width: 500px;
+    line-height: 1.3;
+    text-align: left;
+  }
+  
+  .compact-citation button {
+    background: none;
+    border: none;
+    color: white;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+  
+  .compact-citation button:hover {
+    font-weight: bold;
+  }
+
+  @media (max-width: 768px) {
+    .banner-content {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+  
+    .banner-left {
+      flex: 1;
+      margin-left: 10px;
+    }
+  
+    .banner-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      margin-right: 20px;
+      text-align: right;
+    }
+  
+    .banner-center h2,
+    .banner-center .f1000-link {
+      margin: 4px 0;
+      font-size: 0.8rem; /* Optional: reduce size on small screens */
+    }
+  
+    .cite-data-section {
+      max-width: 240px;
+      font-size: 0.75rem;
+    }
+  
+    .cite-data-section button {
+      font-size: 0.5rem;
+    }
+  }
+  a.product-link {
+    color: #0000EE;
+    text-decoration: underline;
+}
+
+a.product-link:hover {
+    color: #551A8B;
+    text-decoration: underline;
+}
+.site-purpose-banner {
+    background-color: #e6f2ff;
+    padding: 12px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #003366;
+}
+
+
+
+

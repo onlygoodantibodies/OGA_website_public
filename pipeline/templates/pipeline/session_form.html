@@ -1,0 +1,578 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Plan an experiment — YCharOS Pipeline{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+  {# ── Header ── #}
+  <div class="mb-4">
+    <a href="{% url 'pipeline:session_board' %}" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2 min-h-[44px]">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      Sessions
+    </a>
+    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Plan Experiment</h1>
+    <p class="text-sm text-gray-500 mt-1">Create a session, then add results from the session detail page.</p>
+  </div>
+
+  {# ── Validation errors ── #}
+  {% if errors %}
+  <div class="mb-4 bg-red-50 border border-red-200 rounded-xl p-4">
+    <p class="text-sm font-medium text-red-800 mb-1">Please fix the following:</p>
+    {% for err in errors %}
+    <p class="text-sm text-red-700">• {{ err }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Step indicator (3 steps) ── #}
+  <div class="flex items-center gap-1 mb-6 overflow-x-auto pb-1" id="step-indicator">
+    <button type="button" onclick="goToStep(1)" class="step-dot flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap min-h-[36px]" data-step="1">
+      <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-blue-600 text-white step-num">1</span>
+      <span class="hidden sm:inline">Setup</span>
+    </button>
+    <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    <button type="button" onclick="goToStep(2)" class="step-dot flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap min-h-[36px]" data-step="2">
+      <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold step-num">2</span>
+      <span class="hidden sm:inline">Protocol</span>
+    </button>
+    <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    <button type="button" onclick="goToStep(3)" class="step-dot flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap min-h-[36px]" data-step="3">
+      <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold step-num">3</span>
+      <span class="hidden sm:inline">Conditions</span>
+    </button>
+  </div>
+
+  <form method="post" id="session-form">
+    {% csrf_token %}
+    {# Default status to planned #}
+    <input type="hidden" name="status" value="planned">
+
+    {# ════════════════════════════════════════════════════════════ #}
+    {# STEP 1: Target + Procedure + Metadata                       #}
+    {# ════════════════════════════════════════════════════════════ #}
+    <div class="step-panel" data-step="1">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-5">
+        <h2 class="text-lg font-semibold text-gray-900">Session Setup</h2>
+
+        {# Target select with search #}
+        <div>
+          <label for="target-search" class="block text-sm font-medium text-gray-700 mb-1">Target *</label>
+          <input type="text" id="target-search" autocomplete="off"
+                 placeholder="Type gene name to search..."
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[48px]">
+          <input type="hidden" name="target" id="target-id" value="{{ post_data.target|default:'' }}">
+          <div id="target-dropdown" class="hidden relative z-50">
+            <div class="absolute w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
+          </div>
+          <p id="target-selected" class="text-xs text-green-600 mt-1 hidden"></p>
+          <p id="err-target" role="alert" class="hidden text-xs text-red-600 mt-1"></p>
+        </div>
+
+        {# Procedure type — big tap buttons #}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Procedure Type *</label>
+          <input type="hidden" name="procedure_type" id="procedure-type-input" value="{{ post_data.procedure_type|default:'' }}">
+          <div class="grid grid-cols-2 gap-3">
+            {% for value, label in procedure_choices %}
+            <button type="button"
+                    onclick="selectProcedure('{{ value }}')"
+                    class="proc-btn flex flex-col items-center justify-center p-4 rounded-xl border-2 transition min-h-[72px]
+                      {% if post_data.procedure_type == value %}border-blue-500 bg-blue-50{% else %}border-gray-200 bg-white hover:border-gray-300{% endif %}"
+                    data-proc="{{ value }}">
+              <span class="text-2xl mb-1">
+                {% if value == 'WB' %}🧬{% elif value == 'IP' %}🔬{% elif value == 'IF' %}🔍{% elif value == 'FC' %}📊{% endif %}
+              </span>
+              <span class="text-sm font-semibold text-gray-800">{{ label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <p id="err-procedure" role="alert" class="hidden text-xs text-red-600 mt-1"></p>
+        </div>
+
+        {# FC sub-protocol #}
+        <div id="fc-sub-wrapper" class="hidden">
+          <label for="fc-sub" class="block text-sm font-medium text-gray-700 mb-1">FC Sub-Protocol</label>
+          <select name="fc_sub_protocol" id="fc-sub"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px]">
+            {% for value, label in fc_sub_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Date (auto today) #}
+        <div>
+          <label for="session-date" class="block text-sm font-medium text-gray-700 mb-1">Planned Date</label>
+          <input type="date" name="date" id="session-date"
+                 value="{{ post_data.date|default:today }}"
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base min-h-[48px]">
+        </div>
+
+        {# Site (auto from member) #}
+        <div>
+          <label for="session-site" class="block text-sm font-medium text-gray-700 mb-1">Site *</label>
+          <select name="site" id="session-site" required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px]">
+            <option value="">Select site</option>
+            {% for s in sites %}
+            <option value="{{ s.pk }}" {% if default_site_id == s.pk %}selected{% endif %}>{{ s.name }} ({{ s.short_code }})</option>
+            {% endfor %}
+          </select>
+          <p id="err-site" role="alert" class="hidden text-xs text-red-600 mt-1"></p>
+        </div>
+
+        {# Experimenter (auto from user) #}
+        <div>
+          <label for="session-exp" class="block text-sm font-medium text-gray-700 mb-1">Experimenter *</label>
+          <select name="experimenter" id="session-exp" required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px]">
+            <option value="">Select experimenter</option>
+            {% for m in experimenters %}
+            <option value="{{ m.pk }}" {% if member and member.pk == m.pk %}selected{% endif %}>{{ m }} ({{ m.site.short_code }})</option>
+            {% endfor %}
+          </select>
+          <p id="err-exp" role="alert" class="hidden text-xs text-red-600 mt-1"></p>
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" onclick="goToStep(2)"
+                class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-base min-h-[48px]">
+          Next: Protocol →
+        </button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════ #}
+    {# STEP 2: Protocol Template                                   #}
+    {# ════════════════════════════════════════════════════════════ #}
+    <div class="step-panel hidden" data-step="2">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">Protocol Template</h2>
+        <p class="text-sm text-gray-500 mb-4">Select a template to pre-fill conditions, or skip to enter manually.</p>
+
+        <input type="hidden" name="protocol_template" id="template-id-input" value="">
+
+        <div id="template-list" class="space-y-3">
+          <div class="text-sm text-gray-400 py-4 text-center">Select a target and procedure first.</div>
+        </div>
+
+        <button type="button" onclick="selectTemplate(null); goToStep(3)" id="skip-template-btn"
+                class="mt-3 w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-gray-400 transition min-h-[48px]">
+          Skip — enter conditions manually
+        </button>
+      </div>
+      <div class="mt-4 flex justify-between">
+        <button type="button" onclick="goToStep(1)"
+                class="px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition text-base min-h-[48px]">
+          ← Back
+        </button>
+        <button type="button" onclick="goToStep(3)"
+                class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-base min-h-[48px]">
+          Next: Conditions →
+        </button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════ #}
+    {# STEP 3: Shared Conditions + Cell Lines + Create             #}
+    {# ════════════════════════════════════════════════════════════ #}
+    <div class="step-panel hidden" data-step="3">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-1">Conditions & Cell Lines</h2>
+        <p class="text-sm text-gray-500 mb-4">Pre-filled from template. Edit as needed — you can also change these later on the session page.</p>
+
+        <div id="condition-fields" class="space-y-4">
+          {# Dynamically populated by JS #}
+        </div>
+
+        {# Cell lines #}
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Cell Lines</h3>
+          {% comment %}A box with nothing in it says nothing about which of
+          "none exist" and "this is broken" is true, so an empty picker is
+          greyed and carries a sentence — the same shape as a save button
+          disabled with its reason beside it. The link is a way to act on the
+          sentence, and it carries the gene: NA for the wild types, because a
+          wild type has no gene and a gene filter structurally cannot find
+          one.{% endcomment %}
+          <div id="cell-line-selects" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="cl-wt" class="block text-xs font-medium text-gray-500 mb-1">WT Cell Line</label>
+              <select name="cell_line_wt" id="cl-wt"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px] disabled:bg-gray-100 disabled:text-gray-400">
+                <option value="">— Select WT —</option>
+              </select>
+              <p id="cl-wt-note" class="hidden text-xs text-amber-700 mt-1"></p>
+              <a id="cl-wt-link" href="{% url 'pipeline:cell_line_board' %}?gene=NA"
+                 class="hidden text-xs font-medium text-blue-600 hover:text-blue-800 mt-1 inline-block">
+                Open the cell lines board →
+              </a>
+            </div>
+            <div>
+              <label for="cl-ko" class="block text-xs font-medium text-gray-500 mb-1">KO Cell Line</label>
+              <select name="cell_line_ko" id="cl-ko"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px] disabled:bg-gray-100 disabled:text-gray-400">
+                <option value="">— Select KO —</option>
+              </select>
+              <p id="cl-ko-note" class="hidden text-xs text-amber-700 mt-1"></p>
+              <a id="cl-ko-link" href="{% url 'pipeline:cell_line_board' %}"
+                 class="hidden text-xs font-medium text-blue-600 hover:text-blue-800 mt-1 inline-block">
+                Open the cell lines board →
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {# Comments #}
+        <div class="mt-4">
+          <label for="session-comments" class="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+          <textarea name="comments" id="session-comments" rows="2"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+                    placeholder="Any notes for this experiment...">{{ post_data.comments|default:'' }}</textarea>
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-between">
+        <button type="button" onclick="goToStep(2)"
+                class="px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition text-base min-h-[48px]">
+          ← Back
+        </button>
+        <button type="submit"
+                class="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:bg-green-800 transition text-base min-h-[48px] shadow-sm">
+          ✓ Plan Session
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function() {
+  const TARGETS = {{ targets_json|safe }};
+  const CONDITION_FIELDS = {{ condition_fields_json|safe }};
+  const CREATE_URL = '{% url "pipeline:session_create" %}';
+  const CELL_LINE_BOARD_URL = '{% url "pipeline:cell_line_board" %}';
+
+  let currentStep = 1;
+  let selectedProcedure = document.getElementById('procedure-type-input').value || '';
+  let selectedTargetId = document.getElementById('target-id').value || '';
+  let selectedGene = '';
+  let cellLines = {wt: [], ko: [], wt_note: '', ko_note: ''};
+
+  // ── Required fields ──
+  // Three required fields used to be three blocking popups in a row, each
+  // fired one at a time and none of them attached to the field it was about.
+  // Everything is checked at once and answered beside the box, which is what
+  // every other refusal in this app does.
+  //
+  // Target and Procedure Type are hidden inputs behind a search box and a row
+  // of tap buttons, so the browser's own `required` cannot help: the spec
+  // ignores it on a hidden input, and a focusable-but-invisible one blocks
+  // submission with a message nobody can see. Site and Experimenter are real
+  // selects and carry it in the markup.
+  const REQUIRED = [
+    {id: 'err-target', get: () => selectedTargetId, msg: 'Choose the gene this session is about.'},
+    {id: 'err-procedure', get: () => selectedProcedure, msg: 'Choose which application you are running.'},
+    {id: 'err-site', get: () => document.getElementById('session-site').value, msg: 'Choose the site this session was run at.'},
+    {id: 'err-exp', get: () => document.getElementById('session-exp').value, msg: 'Choose who is running it.'},
+  ];
+
+  // Every problem at once, each beside the box it is about. Returns the first
+  // one so the caller can bring it into view — a refused step that shows
+  // nothing off-screen reads as a button that does not work.
+  function showProblems() {
+    let first = null;
+    REQUIRED.forEach(f => {
+      const el = document.getElementById(f.id);
+      const missing = !f.get();
+      el.textContent = missing ? f.msg : '';
+      el.classList.toggle('hidden', !missing);
+      if (missing && !first) first = el;
+    });
+    return first;
+  }
+
+  function showStep(step) {
+    currentStep = step;
+    document.querySelectorAll('.step-panel').forEach(p => {
+      p.classList.toggle('hidden', parseInt(p.dataset.step) !== step);
+    });
+    updateStepIndicator();
+  }
+
+  // ── Step navigation ──
+  window.goToStep = function(step) {
+    // Going back is never blocked: a half-filled step 1 is exactly what you
+    // return to step 1 to fix. Everything required lives on step 1, so a
+    // refused move forward lands you where the boxes are.
+    if (step > 1) {
+      const problem = showProblems();
+      if (problem) {
+        showStep(1);
+        problem.scrollIntoView({block: 'center', behavior: 'smooth'});
+        return;
+      }
+    }
+
+    showStep(step);
+
+    if (step === 2) loadTemplates();
+    if (step === 3) buildConditionFields();
+
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+
+  // The same check on submit. The step dots jump straight to step 3, so the
+  // form can be reached with step 1 unanswered — and the server's refusal is a
+  // page reload away from the boxes that caused it.
+  document.getElementById('session-form').addEventListener('submit', function(e) {
+    const problem = showProblems();
+    if (problem) {
+      e.preventDefault();
+      showStep(1);
+      problem.scrollIntoView({block: 'center', behavior: 'smooth'});
+    }
+  });
+
+  function updateStepIndicator() {
+    document.querySelectorAll('.step-dot').forEach(dot => {
+      const s = parseInt(dot.dataset.step);
+      const numEl = dot.querySelector('.step-num');
+      // Reset classes
+      dot.className = 'step-dot flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap min-h-[36px]';
+      numEl.className = 'w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold step-num';
+
+      if (s === currentStep) {
+        dot.classList.add('bg-blue-50', 'text-blue-700');
+        numEl.classList.add('bg-blue-600', 'text-white');
+      } else if (s < currentStep) {
+        dot.classList.add('bg-green-50', 'text-green-700');
+        numEl.classList.add('bg-green-500', 'text-white');
+      } else {
+        dot.classList.add('bg-gray-50', 'text-gray-400');
+        numEl.classList.add('bg-gray-300', 'text-white');
+      }
+    });
+  }
+
+  // ── Target search ──
+  const targetSearch = document.getElementById('target-search');
+  const targetDropdown = document.getElementById('target-dropdown');
+  const targetDropdownInner = targetDropdown.querySelector('div');
+
+  targetSearch.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    if (q.length < 1) { targetDropdown.classList.add('hidden'); return; }
+
+    const matches = TARGETS.filter(t =>
+      (t.gene_name && t.gene_name.toLowerCase().includes(q)) ||
+      (t.protein_name && t.protein_name.toLowerCase().includes(q))
+    ).slice(0, 15);
+
+    if (!matches.length) { targetDropdown.classList.add('hidden'); return; }
+
+    targetDropdownInner.innerHTML = matches.map(t => `
+      <button type="button"
+              onclick="pickTarget(${t.id}, '${(t.gene_name||'').replace(/'/g,"\\'")}', '${(t.protein_name||'').replace(/'/g,"\\'")}' )"
+              class="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0 min-h-[44px]">
+        <span class="font-medium text-gray-900">${t.gene_name || '—'}</span>
+        <span class="text-gray-400 ml-2">${t.protein_name || ''}</span>
+      </button>
+    `).join('');
+    targetDropdown.classList.remove('hidden');
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!targetSearch.contains(e.target) && !targetDropdown.contains(e.target)) {
+      targetDropdown.classList.add('hidden');
+    }
+  });
+
+  // An answered field stops complaining straight away, rather than waiting for
+  // the next press of Next to find out whether it counted.
+  function clearProblem(id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
+  document.getElementById('session-site').addEventListener('change', () => clearProblem('err-site'));
+  document.getElementById('session-exp').addEventListener('change', () => clearProblem('err-exp'));
+
+  window.pickTarget = function(id, gene, protein) {
+    selectedTargetId = id;
+    selectedGene = gene || '';
+    clearProblem('err-target');
+    document.getElementById('target-id').value = id;
+    targetSearch.value = gene || protein;
+    document.getElementById('target-selected').textContent = `✓ ${gene} — ${protein}`;
+    document.getElementById('target-selected').classList.remove('hidden');
+    targetDropdown.classList.add('hidden');
+    loadCellLines(id);
+  };
+
+  // ── Procedure selection ──
+  window.selectProcedure = function(proc) {
+    selectedProcedure = proc;
+    clearProblem('err-procedure');
+    document.getElementById('procedure-type-input').value = proc;
+    document.querySelectorAll('.proc-btn').forEach(btn => {
+      const sel = btn.dataset.proc === proc;
+      btn.classList.toggle('border-blue-500', sel);
+      btn.classList.toggle('bg-blue-50', sel);
+      btn.classList.toggle('border-gray-200', !sel);
+      btn.classList.toggle('bg-white', !sel);
+    });
+    document.getElementById('fc-sub-wrapper').classList.toggle('hidden', proc !== 'FC');
+  };
+
+  // ── Templates ──
+  function loadTemplates() {
+    const container = document.getElementById('template-list');
+    container.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">Loading...</div>';
+
+    fetch(`${CREATE_URL}?ajax=templates&procedure=${selectedProcedure}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.templates || !data.templates.length) {
+          container.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No templates for this procedure.</div>';
+          return;
+        }
+        window._loadedTemplates = data.templates;
+        container.innerHTML = data.templates.map((t, i) => `
+          <button type="button" onclick="selectTemplate(window._loadedTemplates[${i}])"
+                  class="template-card w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition min-h-[56px]"
+                  data-tmpl-id="${t.id}">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-gray-900">${t.name}</span>
+              ${t.is_default ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Default${
+                  t.site ? ` at ${t.site}` : ''}</span>` : ''}
+            </div>
+            ${t.description ? `<p class="text-xs text-gray-500 mt-1">${t.description}</p>` : ''}
+          </button>
+        `).join('');
+
+        {% comment %}A template is the default for its own site and procedure, so
+        a list spanning sites can show several. Pick your own bench's default
+        first; only then anybody's. Before this, "the one you will get" was
+        whichever the query happened to return first.{% endcomment %}
+        const mine = data.my_site_id;
+        const def = data.templates.find(t => t.is_default && mine && t.site_id === mine)
+                 || data.templates.find(t => t.is_default);
+        if (def) selectTemplate(def);
+      })
+      .catch(() => {
+        container.innerHTML = '<div class="text-sm text-red-500 py-4 text-center">Error loading templates.</div>';
+      });
+  }
+
+  window.selectTemplate = function(tmpl) {
+    document.querySelectorAll('.template-card').forEach(c => {
+      c.classList.remove('border-blue-500', 'bg-blue-50');
+      c.classList.add('border-gray-200');
+    });
+    if (tmpl && tmpl.id) {
+      document.getElementById('template-id-input').value = tmpl.id;
+      const card = document.querySelector(`[data-tmpl-id="${tmpl.id}"]`);
+      if (card) { card.classList.remove('border-gray-200'); card.classList.add('border-blue-500', 'bg-blue-50'); }
+      window._templateConditions = tmpl.conditions || {};
+    } else {
+      document.getElementById('template-id-input').value = '';
+      window._templateConditions = {};
+    }
+  };
+
+  // ── Condition fields ──
+  function buildConditionFields() {
+    const container = document.getElementById('condition-fields');
+    const fields = CONDITION_FIELDS[selectedProcedure] || [];
+    const prefill = window._templateConditions || {};
+
+    container.innerHTML = fields.map(([key, label, inputType, placeholder]) => {
+      const val = prefill[key] || '';
+      return `<div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">${label}</label>
+        <input type="${inputType === 'number' ? 'number' : 'text'}" name="cond_${key}" value="${val}"
+               placeholder="${placeholder}" ${inputType === 'number' ? 'step="any"' : ''}
+               class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 min-h-[48px]">
+      </div>`;
+    }).join('');
+
+    updateCellLineSelects();
+  }
+
+  // ── Cell lines ──
+  // Two boxes, two lists, both decided on the server: see
+  // services/cell_lines.py::session_options. This used to fetch one list and
+  // split it here by genotype, putting anything of genotype `other` in BOTH
+  // boxes, over a query that also let a line with no gene at all through. So a
+  // gene with no knockout on file offered exactly one KO option, a line that is
+  // not a knockout of anything, and a dropdown with one option reads as the
+  // answer.
+  const READ_FAILED = 'Could not read the cell lines. Nothing has been changed — reopen this step to try again.';
+
+  function loadCellLines(targetId) {
+    fetch(`${CREATE_URL}?ajax=cell_lines&target=${targetId}`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => { cellLines = data || {}; updateCellLineSelects(); })
+      .catch(() => {
+        // A failed read is not an empty result: printing "no knockout line on
+        // file" because the request died states as fact something the app did
+        // not manage to ask.
+        cellLines = {wt: [], ko: [], wt_note: READ_FAILED, ko_note: READ_FAILED};
+        updateCellLineSelects();
+      });
+  }
+
+  function fillCellLineBox(id, options, note, placeholder, gene) {
+    const sel = document.getElementById(id);
+    const noteEl = document.getElementById(id + '-note');
+    const linkEl = document.getElementById(id + '-link');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = options.length ? placeholder : '— none on file —';
+    sel.appendChild(blank);
+    options.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      // The site is part of the label: two labs both call their parental HAP1,
+      // so without it the WT list offered the same words twice.
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    });
+    // Disabled with its reason beside it, the same shape as a save button that
+    // cannot yet be pressed. An empty picker on its own says nothing about
+    // which of "none exist" and "this is broken" is true.
+    sel.disabled = options.length === 0;
+    noteEl.textContent = note || '';
+    noteEl.classList.toggle('hidden', !note);
+    // Only offer the way out when the box is genuinely empty: a read that
+    // failed is not fixed by adding a cell line.
+    const canAdd = !!note && note !== READ_FAILED;
+    linkEl.classList.toggle('hidden', !canAdd);
+    if (canAdd && gene) linkEl.href = CELL_LINE_BOARD_URL + '?gene=' + encodeURIComponent(gene);
+  }
+
+  function updateCellLineSelects() {
+    fillCellLineBox('cl-wt', cellLines.wt || [], cellLines.wt_note,
+                    '— Select WT —', 'NA');
+    fillCellLineBox('cl-ko', cellLines.ko || [], cellLines.ko_note,
+                    '— Select KO —', selectedGene);
+  }
+
+  // ── Init ──
+  updateStepIndicator();
+
+  {% if post_data.target %}
+  const rt = TARGETS.find(t => t.id == {{ post_data.target }});
+  if (rt) pickTarget(rt.id, rt.gene_name, rt.protein_name);
+  {% endif %}
+
+  {% if post_data.procedure_type %}
+  selectProcedure('{{ post_data.procedure_type }}');
+  {% endif %}
+})();
+</script>
+{% endblock %}

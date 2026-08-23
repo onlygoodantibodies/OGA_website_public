@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Extension — Only Good Antibodies</title>
+    <meta name="description" content="A free browser extension that marks antibodies cited in a paper with their knockout-controlled validation status, for the application they were used in.">
+    {% if not is_public %}<meta name="robots" content="noindex, nofollow">{% endif %}
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   BROWSER EXTENSION PAGE
+   Prefix: bx-
+   ══════════════════════════════════════ */
+
+.bx-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 72px 24px 56px; text-align: center; position: relative; overflow: hidden;
+}
+.bx-hero::before {
+  content: ''; position: absolute; top: -40%; right: -15%; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%); border-radius: 50%;
+}
+.bx-hero-inner { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+.bx-hero-label {
+  display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
+}
+.bx-hero h1 {
+  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
+  line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
+}
+.bx-hero p {
+  font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.85); max-width: 680px; margin: 0 auto 28px;
+}
+
+/* ── Install buttons ── */
+.bx-install { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.bx-btn {
+  display: inline-block; padding: 13px 28px; border-radius: 8px; font-weight: 700;
+  text-decoration: none; background: #fff; color: #10428a !important; border: 1px solid #fff;
+  transition: transform .15s, box-shadow .15s;
+}
+.bx-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+/* Shown until a store listing is approved, so the page never links to nothing. */
+.bx-btn-alt {
+  background: rgba(255,255,255,0.12); color: #fff !important;
+  border-color: rgba(255,255,255,0.45);
+}
+.bx-btn-alt:hover { background: rgba(255,255,255,0.2); }
+.bx-btn-wait {
+  background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.75) !important;
+  border-color: rgba(255,255,255,0.28); cursor: default; font-weight: 600;
+}
+.bx-btn-wait:hover { transform: none; box-shadow: none; }
+.bx-hero-sub { font-size: .9rem; color: rgba(255,255,255,0.7); margin: 18px 0 0; }
+
+/* ── Main ── */
+.bx-main { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
+.bx-block { margin-bottom: 44px; }
+.bx-block h2 {
+  font-family: 'Open Sans', sans-serif; font-size: 1.5rem; font-weight: 800;
+  color: #0d2b5e; margin: 0 0 12px; letter-spacing: -0.3px;
+}
+.bx-block p { line-height: 1.7; margin: 0 0 12px; }
+.bx-block p:last-child { margin-bottom: 0; }
+
+/* ── Colour key ── */
+.bx-key { width: 100%; border-collapse: collapse; margin-top: 18px; }
+.bx-key th {
+  text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+  color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 0 14px 8px 0;
+}
+.bx-key td { border-bottom: 1px solid #eef2f6; padding: 14px 14px 14px 0; vertical-align: top; line-height: 1.6; }
+.bx-key td:first-child { width: 11rem; white-space: nowrap; }
+.bx-swatch { display: inline-block; font-weight: 700; font-size: .95rem; padding-bottom: 2px; }
+.bx-sw-green { color: #1c8f4b; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-red   { color: #c62f2f; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-amber { color: #d98217; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-grey  { color: #8b98a5; box-shadow: inset 0 -1px 0 0 currentColor; }
+.bx-sw-mixed {
+  color: #334155;
+  background-image: linear-gradient(90deg, #1c8f4b 0 50%, #c62f2f 50% 100%);
+  background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 2px;
+}
+
+/* ── Callout ── */
+.bx-callout {
+  background: #f0f7ff; border-left: 4px solid #4a8ec9; border-radius: 0 8px 8px 0;
+  padding: 20px 24px; margin: 0;
+}
+.bx-callout h2 { font-size: 1.25rem; margin-bottom: 8px; }
+
+.bx-limits { margin: 12px 0 0; padding-left: 20px; line-height: 1.7; }
+.bx-limits li { margin-bottom: 10px; }
+
+.bx-code {
+  display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .9rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 8px 12px; word-break: break-all;
+}
+
+.bx-cta { text-align: center; padding-top: 8px; }
+.bx-cta p { margin-bottom: 14px; }
+
+/* Pre-release install instructions. */
+.bx-steps { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 24px 28px; }
+.bx-steps h2 { margin-bottom: 10px; }
+.bx-steps h3 {
+  font-family: 'Open Sans', sans-serif; font-size: 1rem; font-weight: 700;
+  color: #0d2b5e; margin: 22px 0 8px;
+}
+.bx-steps ol { margin: 0; padding-left: 22px; line-height: 1.7; }
+.bx-steps ol li { margin-bottom: 7px; }
+.bx-steps code {
+  background: #e8eef5; border-radius: 4px; padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em;
+}
+.bx-caveat { color: #64748b; font-size: .92rem; margin-top: 10px !important; }
+
+/* ── Listing screenshots ── */
+/* Each image carries its own headline and sentence, drawn into the picture, so
+   nothing is printed under it and `alt` says the same words for a reader who
+   cannot see it. */
+.bx-shots {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px;
+}
+.bx-shot { margin: 0; }
+.bx-shot img {
+  display: block; width: 100%; height: auto; border-radius: 8px;
+  border: 1px solid #dbe3ec; box-shadow: 0 2px 10px rgba(13,43,94,.08);
+}
+@media (max-width: 700px) { .bx-shots { grid-template-columns: 1fr; } }
+
+/* Shown only while the page is unlisted, so a preview is never mistaken for live. */
+.bx-unlisted {
+  background: #fff8e1; border-bottom: 1px solid #f0d99b; color: #7a5b12;
+  padding: 12px 24px; text-align: center; font-size: .92rem; line-height: 1.6;
+}
+.bx-unlisted code {
+  background: #f6ecd2; border-radius: 4px; padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em;
+}
+
+/* Shown on the public page: the listing is live, but the extension is new and
+   what it gets wrong is only findable by readers opening papers they know. */
+.bx-early {
+  background: #eef4fb; border-bottom: 1px solid #cfe0f2; color: #1f3f6b;
+  padding: 12px 24px; text-align: center; font-size: .92rem; line-height: 1.6;
+}
+.bx-early a { color: #10428a; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .bx-key td:first-child { width: auto; white-space: normal; }
+  .bx-key, .bx-key tbody, .bx-key tr, .bx-key td { display: block; }
+  .bx-key thead { display: none; }
+  .bx-key td { border-bottom: none; padding: 0 0 4px; }
+  .bx-key tr { border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 14px; }
+}
+</style>
+</head>
+
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+{% if not is_public %}
+<div class="bx-unlisted">
+  <strong>Not released yet — team only.</strong> This page is behind the pipeline login and
+  isn't linked from the public site. Set <code>EXTENSION_PAGE_PUBLIC=True</code> once the
+  store listings are live, and it becomes public and appears on the Tools hub.
+</div>
+{% endif %}
+
+{% if is_public %}
+<div class="bx-early">
+  <strong>Early release.</strong> This is the first public version. Publisher pages vary a
+  lot and we cannot test them all in advance, so wrong colours, missed antibodies and marks
+  on ordinary text are all worth reporting —
+  <a href="{% url 'contact' %}">tell us what you find</a>.
+</div>
+{% endif %}
+
+<!-- ── Hero ── -->
+<section class="bx-hero">
+  <div class="bx-hero-inner">
+    <div class="bx-hero-label">Free browser extension</div>
+    <h1>See which antibodies in a paper have been tested</h1>
+    <p>
+      Marks every antibody cited on a page with what independent, knockout-controlled
+      testing found — for the application it was actually used in. Hover any mention
+      to see the data behind it.
+    </p>
+
+    {% if is_public %}
+    <div class="bx-install">
+      {% if chrome_url %}
+        <a class="bx-btn" href="{{ chrome_url }}" target="_blank" rel="noopener">Add to Chrome</a>
+      {% else %}
+        <span class="bx-btn bx-btn-wait">Chrome — in review</span>
+      {% endif %}
+
+      {% if firefox_url %}
+        <a class="bx-btn" href="{{ firefox_url }}" target="_blank" rel="noopener">Add to Firefox</a>
+      {% elif signed_xpi %}
+        {# No AMO listing, but a Mozilla-signed build exists — far better than a dead button. #}
+        <a class="bx-btn" href="{% url 'extension_firefox_xpi' %}">Install for Firefox</a>
+      {% else %}
+        <span class="bx-btn bx-btn-wait">Firefox — in review</span>
+      {% endif %}
+
+      {% if edge_url %}
+        <a class="bx-btn" href="{{ edge_url }}" target="_blank" rel="noopener">Add to Edge</a>
+      {% endif %}
+    </div>
+    <p class="bx-hero-sub">Works in Chrome, Edge, Brave, Arc and Firefox. Free, and always will be.</p>
+    {% else %}
+    <div class="bx-install">
+      {% if signed_xpi %}
+        <a class="bx-btn" href="{% url 'extension_firefox_xpi' %}">Install for Firefox</a>
+      {% endif %}
+      <a class="bx-btn {% if signed_xpi %}bx-btn-alt{% endif %}" href="{% url 'extension_download' %}">Download for Chrome</a>
+    </div>
+    <p class="bx-hero-sub">
+      {% if signed_xpi %}
+        Firefox installs in one click and updates itself. Chrome needs a few manual steps
+        until the Web Store listing is approved — see below.
+      {% else %}
+        Contains a snapshot of the current database, so it works on real papers straight away.
+        Installing it takes four steps — see below.
+      {% endif %}
+    </p>
+    {% endif %}
+  </div>
+</section>
+
+<div class="bx-main">
+
+  {% if not is_public %}
+  <!-- ── Team install, before a store listing exists ── -->
+  <div class="bx-block">
+    <div class="bx-steps">
+      <h2>Installing it before it is on the stores</h2>
+      <p>
+        Chrome has blocked installing extensions from anywhere but the Web Store since 2018,
+        so until our listing is approved there is no one-click install. The route below works
+        today and takes about a minute.
+      </p>
+
+      <h3>Chrome, Edge, Brave or Arc</h3>
+      <ol>
+        <li>Download the zip above and unzip it. Keep the folder somewhere permanent:
+          the browser reads it from disk each time it starts, so deleting the folder
+          removes the extension.</li>
+        <li>Go to <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>
+          (top right).</li>
+        <li>Click <strong>Load unpacked</strong> and choose the unzipped folder.</li>
+        <li>Open any paper and look for coloured antibody names.</li>
+      </ol>
+      <p class="bx-caveat">
+        Chrome shows a "Disable developer mode extensions" prompt on each restart while it is
+        loaded this way. That goes away once we are on the Web Store.
+      </p>
+
+      <h3>Firefox</h3>
+      {% if signed_xpi %}
+      <p>
+        The Firefox build is signed by Mozilla, so
+        <a href="{% url 'extension_firefox_xpi' %}">Install for Firefox</a> above does it in
+        one click. It stays installed across restarts and updates itself when we publish a
+        new version.
+      </p>
+      <p class="bx-caveat">
+        Needs Firefox 142 or newer (version {{ xpi_version }} is current). Older builds,
+        including some institutional ESR releases, will refuse to install. Anyone with
+        this link can install it, so feel free to pass it on.
+      </p>
+      {% else %}
+      <ol>
+        <li>Go to <code>about:debugging#/runtime/this-firefox</code>.</li>
+        <li><strong>Load Temporary Add-on</strong>, then pick <code>manifest.json</code>
+          inside the unzipped folder.</li>
+      </ol>
+      <p class="bx-caveat">
+        Firefox unloads temporary add-ons when it closes, so use this for a quick look
+        only.
+      </p>
+      {% endif %}
+
+      <h3>Testing it properly</h3>
+      <p>
+        The most useful thing you can do is open papers you know well and check the marks
+        against what you already believe about those antibodies. Wrong colours, missed
+        antibodies and false positives on ordinary text are all worth reporting: publisher
+        pages vary a lot and we cannot test them all in advance.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── What it looks like ── -->
+  {% if screenshots %}
+  <div class="bx-block">
+    <h2>What it looks like on a paper</h2>
+    <p>
+      Four real methods sections, marked by the extension. Each mention is coloured for the
+      application that paper used it in, and the card behind it carries the knockout-controlled
+      image the verdict rests on.
+    </p>
+    <div class="bx-shots">
+      {% for shot in screenshots %}
+      <figure class="bx-shot">
+        <img src="{% static shot.src %}" alt="{{ shot.title }} — {{ shot.note }}" loading="lazy">
+      </figure>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Colour key ── -->
+  <div class="bx-block">
+    <h2>What the colours mean</h2>
+    <p>
+      Results are given <strong>per application</strong>. An antibody that works on a
+      Western blot may fail in immunofluorescence, so the extension reads the application
+      from the surrounding text and colours the mention for <em>that</em> application.
+      Of the antibodies we have published against TDP-43, two thirds pass in one
+      application and fail in another.
+    </p>
+
+    <table class="bx-key">
+      <thead>
+        <tr><th>Colour</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="bx-swatch bx-sw-green">Recommended</span></td>
+          <td>Tested with knockout controls and recommended for the application used here.</td>
+        </tr>
+        <tr>
+          <td><span class="bx-swatch bx-sw-red">Not recommended</span></td>
+          <td>Tested with knockout controls and did not meet the bar for the application used here. Where the page doesn't say which application, this means it did not meet the bar in any application tested.</td>
+        </tr>
+        <tr>
+          <td><span class="bx-swatch bx-sw-mixed">Split</span></td>
+          <td>Passes in some applications and fails in others. Either the paper used it for several applications with a different result in each, or it never said which application it used, so all four assessed are shown. The hover card says which, and lists the results.</td>
+        </tr>
+        <tr>
+          <td><span class="bx-swatch bx-sw-amber">Alternatives exist</span></td>
+          <td>This antibody has not been tested, but its target has. Validated alternatives are available.</td>
+        </tr>
+        <tr>
+          <td><span class="bx-swatch bx-sw-grey">Application untested</span></td>
+          <td>In the dataset, but not tested in the application this page used it for. Antibodies we hold no data on are left unmarked.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>{% include 'core/_recommendation_caveat.html' %}</p>
+  </div>
+
+  <!-- ── Privacy ── -->
+  <div class="bx-block">
+    <div class="bx-callout">
+      <h2>It does not watch you read</h2>
+      <p>
+        The dataset is downloaded and stored in your browser, and all matching happens
+        there. <strong>No page text, URL or reading history is sent to us or to
+        anyone else.</strong> An unpublished or under-review manuscript stays private.
+      </p>
+      <p>
+        The extension contacts this site for exactly two things: a once-a-day refresh of
+        the validation data, and loading a validation image when you open a card. Neither
+        carries any information about what you are reading.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Where it runs ── -->
+  <div class="bx-block">
+    <h2>Where it runs</h2>
+    <p>
+      On journal and preprint sites — Nature, Science, Cell Press, ScienceDirect, Wiley,
+      Springer, PLOS, eLife, Frontiers, MDPI, OUP, bioRxiv, medRxiv, PubMed and PMC among
+      others. Supplier catalogue pages can be switched on in settings, so you see the same
+      results while choosing what to buy.
+    </p>
+    <p>
+      It reads the HTML full text of a page. A paper opened as a PDF is not annotated.
+    </p>
+  </div>
+
+  <!-- ── Honest limits ── -->
+  <div class="bx-block">
+    <h2>What it can and cannot tell you</h2>
+    <ul class="bx-limits">
+      <li>
+        It reports what independent testing found. It does not judge the paper.
+      </li>
+      <li>
+        Most antibodies have never been independently tested. Grey means we have no
+        result for the application used here.
+      </li>
+      <li>
+        Which application a reagent was used for is inferred from the surrounding text.
+        Where a page is ambiguous the extension falls back to a whole-antibody summary and
+        says so on the card.
+      </li>
+      <li>
+        Every card links to the knockout-controlled images, the RRID and the published
+        report, so you can check the colour yourself.
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── Early release: what is worth reporting ── -->
+  {% if is_public %}
+  <div class="bx-block">
+    <h2>It is an early release — tell us what you find</h2>
+    <p>
+      This is the first public version. The most useful thing you can do is open papers you
+      know well and check the marks against what you already believe about those antibodies.
+      Worth a message:
+    </p>
+    <ul class="bx-limits">
+      <li>A colour that looks wrong on an antibody you know.</li>
+      <li>An antibody the paper cites that was left unmarked.</li>
+      <li>A mark on ordinary text that was never a catalogue number.</li>
+      <li>A journal or preprint site where nothing is marked at all.</li>
+    </ul>
+    <p>
+      Say which page you were on and what you expected —
+      <a href="{% url 'contact' %}">get in touch</a>. A store review helps other people find
+      the extension; the specifics reach us faster here.
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- ── Developers ── -->
+  <div class="bx-block">
+    <h2>Building on the same data</h2>
+    <p>The extension reads a public snapshot of the dataset, refreshed daily:</p>
+    <p><a class="bx-code" href="{% url 'extension_index' %}">{% url 'extension_index' %}</a></p>
+    <p>
+      The same data is available to AI assistants through our
+      <a href="{% url 'connect_your_ai' %}">MCP connector</a>, so an assistant reading a
+      manuscript can flag the same antibodies. If you are building something with it,
+      <a href="{% url 'contact' %}">tell us</a> — we would like to help.
+    </p>
+  </div>
+
+  <div class="bx-cta">
+    <p>Spotted an antibody we haven't tested?</p>
+    <a href="{% url 'contact' %}" class="nominate-target-button">Nominate a Target</a>
+  </div>
+
+</div><!-- /.bx-main -->
+
+</body>
+</html>

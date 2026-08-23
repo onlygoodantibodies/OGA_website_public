@@ -1,0 +1,18 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz Incomplete</title>
+  <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+</head>
+{% include 'academy/header.html' %}
+
+<body class="container py-5 text-center">
+  <h1>Almost there!</h1>
+  <p>You scored {{ score }}%, but you need at least {{ pass_mark }}% to pass.</p>
+  <a href="{% url 'academy:quiz' quiz_id=quiz.id %}" class="btn btn-secondary">
+    Try Again
+  </a>
+</body>
+</html>

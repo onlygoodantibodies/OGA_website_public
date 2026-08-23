@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News &amp; Publications — Only Good Antibodies</title>
+    <meta name="description" content="Latest news, peer-reviewed publications, preprints, and open resources from the Only Good Antibodies community.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   NEWS & PUBLICATIONS COMBINED PAGE
+   Prefix: np-
+   ══════════════════════════════════════ */
+
+/* ── HERO ── */
+.np-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff;
+  padding: 72px 24px 56px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.np-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%; right: -15%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.np-hero-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.np-hero-label {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  color: rgba(255,255,255,0.9);
+}
+.np-hero h1 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+  color: #fff !important;
+}
+.np-hero p {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* ── JUMP BAR ── */
+.np-jump-bar {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.np-jump-bar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.np-jump-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  padding: 14px 8px 14px 0;
+}
+.np-jump-link {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+  padding: 14px 14px;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.np-jump-link:hover,
+.np-jump-link.active {
+  color: #10428a;
+  border-bottom-color: #10428a;
+}
+
+/* ── SECTION LAYOUT ── */
+.np-section {
+  padding: 64px 24px;
+}
+.np-section-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.np-section-header {
+  margin-bottom: 40px;
+}
+.np-section-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #4a8ec9;
+  margin-bottom: 8px;
+}
+.np-section-title {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #10428a;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+.np-section-desc {
+  color: #555;
+  font-size: 0.97rem;
+  line-height: 1.7;
+  max-width: 800px;
+}
+.np-bg-light { background: #f5f8ff; }
+.np-bg-white { background: #fff; }
+
+/* ── NEWS CARDS ── */
+.np-news-feed {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.nc {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: box-shadow 0.3s, transform 0.2s;
+}
+.nc:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+.nc-body { padding: 32px 36px; }
+.nc-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.nc-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tag-new     { background: #fee2e2; color: #b91c1c; }
+.tag-update  { background: #dcfce7; color: #15803d; }
+.tag-feature { background: #dbeafe; color: #1e40af; }
+.tag-guide   { background: #ede9fe; color: #5b21b6; }
+.tag-report  { background: #e0f2fe; color: #0c4a6e; }
+.tag-funding { background: #fef3c7; color: #92400e; }
+.nc-date {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+.nc-body h2 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #10428a;
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+.nc-body p {
+  font-size: 0.93rem;
+  color: #444;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+.nc-body ul {
+  margin: 8px 0 12px 0;
+  padding-left: 0;
+  list-style: none;
+}
+.nc-body ul li {
+  font-size: 0.9rem;
+  color: #444;
+  line-height: 1.5;
+  padding: 4px 0 4px 18px;
+  position: relative;
+}
+.nc-body ul li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: #86bef0;
+  font-weight: 700;
+}
+.nc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 7px 18px;
+  background: #10428a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.nc-link:hover { background: #4a8ec9; }
+.nc-link-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  margin-left: 8px;
+  padding: 7px 18px;
+  border: 1px solid #e2e8f0;
+  color: #10428a;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.nc-link-ghost:hover { background: #f5f8ff; }
+
+/* ── IMAGE CARD ── */
+.nc-with-image {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+}
+.nc-with-image .nc-body { padding: 32px 32px 32px 36px; }
+.nc-img-wrap { overflow: hidden; position: relative; }
+.nc-img-wrap img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block; transition: transform 0.4s;
+}
+.nc:hover .nc-img-wrap img { transform: scale(1.03); }
+.nc-img-nature img { object-position: 15% center; }
+.nc-img-team img   { object-position: center 20%; }
+
+/* ── PUBLICATION CARDS ── */
+.pub-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.pub-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 26px 28px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s, transform 0.2s;
+}
+.pub-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+.np-bg-light .pub-card { background: #fff; }
+.pub-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  width: fit-content;
+}
+.badge-nature   { background: #fce7f3; color: #9d174d; }
+.badge-elife    { background: #d1fae5; color: #065f46; }
+.badge-f1000    { background: #dbeafe; color: #1e40af; }
+.badge-mabs     { background: #ede9fe; color: #5b21b6; }
+.badge-scirep   { background: #fef3c7; color: #92400e; }
+.badge-report   { background: #e0f2fe; color: #0c4a6e; }
+.badge-preprint { background: #fee2e2; color: #b91c1c; }
+.badge-resource { background: #f0fdf4; color: #166534; }
+.pub-card h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #10428a;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  flex-grow: 1;
+}
+.pub-meta {
+  font-size: 0.84rem;
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.pub-meta strong { color: #333; }
+.pub-card-footer {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pub-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 16px;
+  background: #10428a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.pub-link:hover { background: #4a8ec9; }
+.pub-link-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 16px;
+  border: 1px solid #e2e8f0;
+  color: #10428a;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.pub-link-ghost:hover { background: #f5f8ff; }
+
+.pub-new-tag {
+  display: inline-block;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.preprint-featured {
+  background: linear-gradient(135deg, #fff8f8 0%, #fff 60%);
+  border: 1px solid #fca5a5;
+}
+.preprint-featured h3 { color: #991b1b; }
+
+/* ── RESOURCE CARDS ── */
+.resource-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.resource-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  transition: box-shadow 0.3s, transform 0.2s;
+}
+.resource-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+.resource-card h3 {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #10428a;
+  margin-bottom: 10px;
+}
+.resource-card p {
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .pub-grid, .resource-grid { grid-template-columns: 1fr; }
+  .np-section { padding: 44px 20px; }
+}
+@media (max-width: 680px) {
+  .nc-with-image {
+    grid-template-columns: 1fr;
+    grid-template-rows: 200px auto;
+  }
+  .nc-img-wrap { order: -1; }
+  .nc-img-wrap img { height: 200px; }
+  .np-hero { padding: 48px 20px 40px; }
+  .nc-body { padding: 24px 22px; }
+}
+</style>
+</head>
+
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+
+<!-- ═══════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════ -->
+<section class="np-hero">
+    <div class="np-hero-inner">
+        <div class="np-hero-label">Latest Updates &amp; Research</div>
+        <h1>News &amp; Publications</h1>
+        <p>Updates from the OGA community, peer-reviewed research, preprints, and open resources.</p>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     JUMP BAR
+     ═══════════════════════════════════════ -->
+<div class="np-jump-bar" id="npJumpBar">
+    <div class="np-jump-bar-inner">
+        <span class="np-jump-label">Jump to</span>
+        <a href="#news" class="np-jump-link active">News</a>
+        <a href="#peer-reviewed" class="np-jump-link">Peer-Reviewed</a>
+        <a href="#preprints" class="np-jump-link">Preprints</a>
+        <a href="#open-resources" class="np-jump-link">Open Resources</a>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     NEWS
+     ═══════════════════════════════════════ -->
+<section class="np-section np-bg-light" id="news">
+    <div class="np-section-inner">
+        <div class="np-section-header">
+            <div class="np-section-label">Latest Updates</div>
+            <div class="np-section-title">News</div>
+            <div class="np-section-desc">Updates from the Only Good Antibodies community — new research, tools, and initiatives.</div>
+        </div>
+
+        <div class="np-news-feed">
+
+            <!-- March 2026 research release -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-new">New Research</span>
+                        <span class="nc-date">March 2026</span>
+                    </div>
+                    <h2>OGA March 2026 Research Release: A Roadmap for Better Antibodies in Research</h2>
+                    <p>We have released two linked preprints examining the antibody validation problem, together with an evidence-based strategy to address it.</p>
+                    <p>The first study quantifies the ethical and scientific costs of poor antibody validation using rigorous knockout-control data, focus groups, a national survey, and systematic analysis of 785 publications. The second presents 15 consensus recommendations from a Delphi process involving 32 international experts across five stakeholder groups — institutions, funders, publishers, manufacturers, and researchers.</p>
+                    <p>Together they form a practical roadmap for change. We have produced tailored action plan documents for each stakeholder group, and tools on this site to support implementation.</p>
+                    <a href="{% url 'roadmap' %}" class="nc-link">Read the Roadmap →</a>
+                </div>
+            </article>
+
+            <!-- Champions scheme -->
+            <article class="nc nc-with-image">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-update">Launched</span>
+                        <span class="nc-date">April 2026</span>
+                    </div>
+                    <h2>OGA/NC3Rs Antibody Champions Scheme — Now Launched</h2>
+                    <p>The <strong>Antibody Champions scheme</strong>, a joint initiative with the <a href="https://www.nc3rs.org.uk/" target="_blank" rel="noopener">NC3Rs</a>, has now launched. This 12-month programme recruits early career researchers to drive the validation and use of better antibodies across the scientific community.</p>
+                    <p>Champions receive professional training in communication and influencing from <strong>Inspire Change</strong>, expert mentorship from <strong>AstraZeneca</strong> and <strong>YCharOS</strong>, and support to promote best practice at their own institutions. The programme is open to UK-based PhD students and postdoctoral scientists.</p>
+                    <a href="https://nc3rs.org.uk/only-good-antibodies-nc3rs-antibody-champions-scheme" class="nc-link" target="_blank" rel="noopener">Learn more at NC3Rs →</a>
+                </div>
+                <div class="nc-img-wrap">
+                    <img src="{% static 'core/news37.png' %}" alt="Antibody Champions scheme launch">
+                </div>
+            </article>
+
+            <!-- Nature Feature -->
+            <article class="nc nc-with-image">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-feature">Press</span>
+                        <span class="nc-date">2024</span>
+                    </div>
+                    <h2>Nature Feature: OGA Community Spotlight</h2>
+                    <p>Diana Kwon and <strong>Nature Magazine</strong> featured the work of the OGA community, highlighting our role as part of a large international collaboration striving to achieve a future with better antibodies, better science, and better patient outcomes.</p>
+                    <a href="https://www.nature.com/articles/d41586-024-03590-0" class="nc-link" target="_blank" rel="noopener">Read the Feature →</a>
+                </div>
+                <div class="nc-img-wrap nc-img-nature">
+                    <img src="{% static 'core/nat3.png' %}" alt="Nature feature on OGA community">
+                </div>
+            </article>
+
+            <!-- Addgene Flow Cytometry -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-guide">Guide</span>
+                        <span class="nc-date">2024</span>
+                    </div>
+                    <h2>Antibody Validation for Flow Cytometry</h2>
+                    <p>We worked with Rachel Leeson from <strong>Addgene</strong> to develop a practical guide to validating antibodies for flow cytometry. Key principles:</p>
+                    <ul>
+                        <li>Confirm your antibody can detect the antigen at endogenously expressed levels, using your specific staining protocol.</li>
+                        <li>Test several antibodies where possible.</li>
+                        <li>When a good candidate is found, explore its validity in your samples of interest.</li>
+                        <li>More than one approach may be needed if genetic manipulation of your cells is not possible.</li>
+                    </ul>
+                    <a href="https://blog.addgene.org/antibody-validation-for-flow-cytometry" class="nc-link" target="_blank" rel="noopener">Read the Guide →</a>
+                </div>
+            </article>
+
+            <!-- NC3Rs meeting report -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-report">Report</span>
+                        <span class="nc-date">2024</span>
+                    </div>
+                    <h2>Improving Antibody Reproducibility — NC3Rs &amp; OGA Workshop Report</h2>
+                    <p>The OGA community co-hosted a workshop with the <strong>NC3Rs</strong> bringing together antibody manufacturers, end-users, pharmaceutical industry representatives, academic researchers, publishers, research funders, and experts in research culture and integrity.</p>
+                    <p>Participants explored challenges including quality control, lot-to-lot variability, and validation practices, and identified actions to improve reproducibility and research integrity. The full meeting report is available below.</p>
+                    <a href="https://nc3rs.org.uk/sites/default/files/2024-07/NC3Rs-OGA%20Meeting%20report%20%E2%80%93%20Defining%20the%20role%20of%20antibodies%20in%20improving%20research%20reproducibility.pdf" class="nc-link" target="_blank" rel="noopener">Read the Report →</a>
+                </div>
+            </article>
+
+            <!-- MRC grant -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-funding">Funding</span>
+                        <span class="nc-date">2024</span>
+                    </div>
+                    <h2>MRC Better Methods Better Research Award</h2>
+                    <p>The OGA team received an Investigator Award from the <strong>MRC Better Methods Better Research</strong> panel. The grant supports our work to improve the selection and use of high-quality antibodies in biomedical research, enhancing the integrity, reproducibility, and impact of research outcomes.</p>
+                    <p>The project aims to benefit researchers, funders, biotech companies, and ultimately patients by reducing waste and ensuring meaningful, trustworthy scientific findings.</p>
+                    <a href="https://leicesterbrc.nihr.ac.uk/hdv/" class="nc-link" target="_blank" rel="noopener">Read More →</a>
+                </div>
+            </article>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     PEER-REVIEWED PUBLICATIONS
+     ═══════════════════════════════════════ -->
+<section class="np-section np-bg-white" id="peer-reviewed">
+    <div class="np-section-inner">
+        <div class="np-section-header">
+            <div class="np-section-label">Peer-Reviewed</div>
+            <div class="np-section-title">Journal Publications</div>
+            <div class="np-section-desc">Primary research, reviews, commentaries, and policy publications from the OGA community.</div>
+        </div>
+
+        <div class="pub-grid">
+
+            <!-- ALS toolbox 2026 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-elife">eLife · 2026</span>
+                <h3>A validated antibody toolbox for ALS research</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Ayoubi R, MacDougall EJ, McDowell I, et al.</p>
+                <p class="pub-meta"><strong>Citation:</strong> eLife 2026;15:RP111349</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.7554/eLife.111349.1" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- PKN2 2026 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2026</span>
+                <h3>A guide to selecting high-performing antibodies for PKN2 (UniProt ID: Q16513) for use in western blot and flow cytometry</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Cooper J, Jones C, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.12688/f1000research.185471.1" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- TGF-beta receptor type-2 2026 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2026</span>
+                <h3>A guide to selecting high-performing antibodies for TGF-beta receptor type-2 (UniProt ID: P37173) for use in western blot and flow cytometry</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Cooper J, Jones C, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.12688/f1000research.185842.1" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- Alpha-1-antitrypsin 2026 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2026</span>
+                <h3>A guide to selecting high-performing antibodies for Alpha-1-antitrypsin (UniProt ID: P01009) for use in western blot, immunoprecipitation and flow cytometry</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Cooper J, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.12688/f1000research.175969.1" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- MMP7 2026 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2026</span>
+                <h3>A guide to selecting high-performing antibodies for MMP7 (UniProt ID: P09237) for use in western blot and immunoprecipitation</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.12688/f1000research.175973.1" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- Nature Protocols 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-nature">Nature Protocols · 2024</span>
+                <h3>A consensus platform for antibody characterization</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Ayoubi R, Ryan J, Gonzalez Bolivar S, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.1038/s41596-024-01025-4" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- Synaptotagmin-1 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2024</span>
+                <h3>A guide to selecting high-performing antibodies for Synaptotagmin-1 (UniProt ID P21579) for use in western blot, immunoprecipitation, immunofluorescence and flow cytometry</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle MS, Alende C, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://f1000research.com/articles/13-817" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- FUS 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2024</span>
+                <h3>Identification of high-performing antibodies for FUS (UniProt ID P35637) for use in western blot, immunoprecipitation, immunofluorescence and flow cytometry</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Alshafie W, Biddle MS, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://f1000research.com/articles/12-376" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- eLife Science Forum 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-elife">eLife · 2024</span>
+                <h3>Science Forum: Antibody characterization is critical to enhance reproducibility in biomedical research</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Khan RA, Virk H, Laflamme C, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.7554/eLife.100211" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- mAbs 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-mabs">mAbs · 2024</span>
+                <h3>Improving research integrity and reproducibility with antibodies: a technical, data sharing, behavioral and policy challenge</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Virk H, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://figshare.le.ac.uk/articles/journal_contribution/25347991" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- NC3Rs report 2024 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-report">NC3Rs Report · 2024</span>
+                <h3>Defining the role of antibodies in improving research reproducibility</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Virk H, Eyre R, Holmes A, Biddle M, Krockow E</p>
+                <p class="pub-meta"><strong>Organisation:</strong> NC3Rs and Only Good Antibodies community</p>
+                <div class="pub-card-footer">
+                    <a href="https://nc3rs.org.uk/sites/default/files/2024-07/NC3Rs-OGA%20Meeting%20report%20%E2%80%93%20Defining%20the%20role%20of%20antibodies%20in%20improving%20research%20reproducibility.pdf" class="pub-link" target="_blank">Read Report →</a>
+                </div>
+            </div>
+
+            <!-- eLife Scaling 2023 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-elife">eLife · 2023</span>
+                <h3>Scaling of an antibody validation procedure enables quantification of antibody performance in major research applications</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Ayoubi R, Ryan J, Biddle MS, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://elifesciences.org/articles/91645" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- eLife Careers 2023 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-elife">eLife · 2023</span>
+                <h3>Careers: Tales of the unexpected</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Aponte Santiago N, Konecki S, Porter L, Virk H</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.7554/eLife.87444" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- F1000 YCharOS 2023 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-f1000">F1000Research · 2023</span>
+                <h3>YCharOS open antibody characterization data: Lessons learned and progress made</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle MS, Virk HS</p>
+                <div class="pub-card-footer">
+                    <a href="https://www.proquest.com/docview/2884639302" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- Nature Comment 2023 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-nature">Nature · 2023</span>
+                <h3>Heed a decade of calls for antibody validation</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Kahn RA, Virk HS, McPherson PS</p>
+                <div class="pub-card-footer">
+                    <a href="https://www.nature.com/articles/d41586-023-02566-w" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+            <!-- Scientific Reports 2019 -->
+            <div class="pub-card">
+                <span class="pub-badge badge-scirep">Scientific Reports · 2019</span>
+                <h3>Validation of antibodies for the specific detection of human TRPA1</h3>
+                <p class="pub-meta"><strong>Authors:</strong> Virk HS, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.1038/s41598-019-55133-7" class="pub-link" target="_blank">Read Article →</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     PREPRINTS
+     ═══════════════════════════════════════ -->
+<section class="np-section np-bg-light" id="preprints">
+    <div class="np-section-inner">
+        <div class="np-section-header">
+            <div class="np-section-label">Under Review</div>
+            <div class="np-section-title">Preprints</div>
+            <div class="np-section-desc">Preprints are not yet peer-reviewed. They represent work in progress and should be interpreted accordingly.</div>
+        </div>
+
+        <div class="pub-grid">
+
+            <!-- Drivers & ethical impacts — Paper 1 -->
+            <div class="pub-card preprint-featured">
+                <span class="pub-badge badge-preprint">Preprint · 2026</span>
+                <h3>Drivers and ethical impacts of insufficient validation of antibodies in research <span class="pub-new-tag">New</span></h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Cooper J, Blades G, et al.</p>
+                <p class="pub-meta">Mixed-methods study quantifying the ethical costs of poor antibody validation.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.64898/2026.02.19.706766" class="pub-link" target="_blank">Read Preprint →</a>
+                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
+                </div>
+            </div>
+
+            <!-- Delphi consensus — Paper 2 -->
+            <div class="pub-card preprint-featured">
+                <span class="pub-badge badge-preprint">Preprint · 2026</span>
+                <h3>Addressing antibody validation failures: a multi-stakeholder Delphi consensus study on actionable solutions <span class="pub-new-tag">New</span></h3>
+                <p class="pub-meta"><strong>Authors:</strong> Blades G, Biddle M, Froud R, et al.</p>
+                <p class="pub-meta">15 consensus recommendations from 32 international experts across 5 stakeholder groups.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.64898/2026.03.04.709541" class="pub-link" target="_blank">Read Preprint →</a>
+                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     OPEN RESOURCES
+     ═══════════════════════════════════════ -->
+<section class="np-section np-bg-white" id="open-resources">
+    <div class="np-section-inner">
+        <div class="np-section-header">
+            <div class="np-section-label">Open Access</div>
+            <div class="np-section-title">Open Resources, Datasets and Online Resources</div>
+            <div class="np-section-desc">Openly available datasets, presentations, and community repositories from the OGA and YCharOS community.</div>
+        </div>
+
+        <div class="resource-grid">
+
+            <!-- Cassyni -->
+            <div class="resource-card">
+                <span class="pub-badge badge-resource">Presentation</span>
+                <h3>Antibodies and Research Reproducibility: A Technical, Open Data, Behavioural and Policy Challenge</h3>
+                <p>Recorded seminar covering the scientific, behavioural, and policy dimensions of the antibody validation problem.</p>
+                <p class="pub-meta"><strong>Authors:</strong> Virk HS, et al.</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.52843/cassyni.dh8zrx" class="pub-link" target="_blank">Watch Presentation →</a>
+                </div>
+            </div>
+
+            <!-- YCharOS Zenodo -->
+            <div class="resource-card">
+                <span class="pub-badge badge-resource">Dataset Repository</span>
+                <h3>YCharOS Zenodo Community</h3>
+                <p>Open repository of antibody characterisation datasets with DOIs, spanning knockout-controlled western blot, immunoprecipitation, ICC/IF, and flow cytometry experiments.</p>
+                <div class="pub-card-footer">
+                    <a href="https://zenodo.org/communities/ycharos/" class="pub-link" target="_blank">Browse Datasets →</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════ -->
+<div class="footer-wrapper">
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'roadmap' %}">Roadmap</a>
+            <a href="{% url 'news_publications' %}" class="active">News &amp; Publications</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+        <div class="footer-column">
+            <h4>Contact Us</h4>
+            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+            <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
+            <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
+        </div>
+        <div class="footer-column">
+            <h4>Follow Us</h4>
+            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+            </a>
+            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+                <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+            </a>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+</footer>
+</div>
+
+
+<script>
+/* Jump-bar active state on scroll */
+(function() {
+  const links = document.querySelectorAll('.np-jump-link');
+  const sections = [];
+  links.forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ el, link: a });
+  });
+  if (!sections.length) return;
+
+  function update() {
+    const scrollY = window.scrollY + 120;
+    let current = sections[0];
+    for (const s of sections) {
+      const top = s.el.getBoundingClientRect().top + window.scrollY;
+      if (top <= scrollY) current = s;
+    }
+    sections.forEach(s => s.link.classList.toggle('active', s === current));
+  }
+
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+})();
+</script>
+
+</body>
+</html>

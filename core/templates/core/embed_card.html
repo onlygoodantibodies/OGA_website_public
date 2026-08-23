@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if antibody %}{{ antibody.name }} ({{ antibody.gene.name }}) — Only Good Antibodies{% else %}Antibody Card — Only Good Antibodies{% endif %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background: transparent;
+      color: #333;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Error state ── */
+    .embed-error {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .embed-error p { color: #666; font-size: 0.9rem; }
+    .embed-error a { color: #10428a; text-decoration: none; font-weight: 600; }
+
+    /* ── Card ── */
+    .embed-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(16, 66, 138, 0.06);
+    }
+
+    /* ── Header ── */
+    .embed-header {
+      background: linear-gradient(135deg, #0d2b5e 0%, #10428a 100%);
+      padding: 8px 16px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .embed-header .ab-name {
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .embed-header .gene-name {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.85rem;
+      font-weight: 400;
+    }
+
+    /* ── Metadata strip ── */
+    .embed-meta {
+      padding: 8px 16px;
+      background: #f8faff;
+      border-bottom: 1px solid #e8eef6;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      align-items: baseline;
+    }
+    .meta-item {
+      font-size: 0.78rem;
+      color: #555;
+      line-height: 1.6;
+    }
+    .meta-item .ml { color: #999; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    .meta-item .mv { font-weight: 600; color: #333; }
+    .meta-item a { color: #10428a; text-decoration: none; font-weight: 600; }
+    .meta-item a:hover { text-decoration: underline; }
+    .meta-rec {
+      font-size: 0.78rem;
+      color: #10428a;
+      font-weight: 700;
+    }
+
+    /* ── Experiment images ── */
+    .embed-experiments {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    .embed-exp {
+      border-left: 1px solid #f0f0f0;
+      text-align: center;
+    }
+    .embed-exp:first-child { border-left: none; }
+    .embed-exp-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #10428a;
+      padding: 5px 2px 3px;
+      background: #f8faff;
+      border-bottom: 1px solid #eef2f8;
+    }
+    .embed-exp-img {
+      padding: 6px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .embed-exp-img img {
+      max-width: 100%;
+      max-height: 160px;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* ── Footer ── */
+    .embed-footer {
+      padding: 5px 16px;
+      background: #f8faff;
+      border-top: 1px solid #e8eef6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .embed-footer a {
+      color: #10428a;
+      text-decoration: none;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    /* Quieter than the footer above it: the terms have to be present and
+       legible, and they are not what the card is for. */
+    .embed-licence {
+      padding: 3px 16px 6px;
+      background: #f8faff;
+      font-size: 0.62rem;
+      color: #7b8794;
+    }
+    .embed-licence a {
+      color: #7b8794;
+      text-decoration: underline;
+    }
+    /* The card renders inside somebody else's page, so it is the one surface
+       where a reader may act on a recommendation without ever seeing a page of
+       ours — the caveat has to travel with it. Same quiet treatment as the
+       licence line: present and legible, not what the card is for. */
+    .embed-scope {
+      padding: 5px 16px 0;
+      background: #f8faff;
+      font-size: 0.62rem;
+      line-height: 1.45;
+      color: #7b8794;
+    }
+    .embed-scope a {
+      color: #7b8794;
+      text-decoration: underline;
+    }
+    .embed-footer a:hover { text-decoration: underline; }
+    .oga-brand { font-size: 0.65rem; color: #999; }
+    .oga-brand a { color: #999; }
+
+    /* ── Responsive: stack on very narrow ── */
+    @media (max-width: 350px) {
+      .embed-experiments { grid-template-columns: repeat(2, 1fr); }
+      .embed-meta { gap: 2px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+{% if error %}
+
+  <div class="embed-error">
+    <div>
+      <p>{{ error }}</p>
+      <p style="margin-top: 0.4rem;">
+        <a href="https://onlygoodantibodies.co.uk" target="_blank">Search Only Good Antibodies →</a>
+      </p>
+    </div>
+  </div>
+
+{% else %}
+
+  <div class="embed-card">
+
+    <div class="embed-header">
+      <span class="ab-name">{{ antibody.name }}</span>
+      <span class="gene-name">{{ antibody.gene.name }}</span>
+    </div>
+
+    <div class="embed-meta">
+      {% if desc %}
+        {% if desc.rrid %}
+          <span class="meta-item"><span class="ml">RRID</span> <span class="mv">{{ desc.rrid }}</span></span>
+        {% endif %}
+        <span class="meta-item"><span class="ml">Supplier</span>
+          {% if desc.product_link %}
+            <a href="{{ desc.product_link }}" target="_blank" rel="noopener">{{ desc.supplier }}</a>
+          {% else %}
+            <span class="mv">{{ desc.supplier }}</span>
+          {% endif %}
+        </span>
+        <span class="meta-item"><span class="ml">Host</span> <span class="mv">{{ desc.host }}</span></span>
+        <span class="meta-item"><span class="ml">Clonality</span> <span class="mv">{{ desc.clonality }}</span></span>
+        {% if desc.clone_ID %}
+          <span class="meta-item"><span class="ml">Clone</span> <span class="mv">{{ desc.clone_ID }}</span></span>
+        {% endif %}
+        {% if applications %}
+          <span class="meta-rec">Recommended: {{ applications|join:", " }}</span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="embed-experiments">
+      {% for card in experiment_cards %}
+        <div class="embed-exp">
+          <div class="embed-exp-label">{{ card.label }}</div>
+          <div class="embed-exp-img">
+            <img src="{{ card.image_url }}" alt="{{ card.label }} image for {{ antibody.name }}">
+          </div>
+        </div>
+      {% empty %}
+        <div style="padding: 1.5rem; text-align: center; color: #999; font-style: italic; font-size: 0.85rem;">
+          No experiment images available
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="embed-footer">
+      <a href="https://onlygoodantibodies.co.uk/antibodies/{{ antibody.gene.name }}/" target="_blank" rel="noopener">
+        View all {{ antibody.gene.name }} antibodies →
+      </a>
+      <span class="oga-brand">
+        <a href="https://onlygoodantibodies.co.uk" target="_blank" rel="noopener">Only Good Antibodies</a>
+      </span>
+    </div>
+
+    {% comment %}
+    Drawn whether or not the "Recommended:" line above is — the figures are what
+    a reader judges the antibody on, and a card carrying four images and no
+    recommendation is still a card somebody reads as performance.
+    {% endcomment %}
+    <div class="embed-scope">{% include 'core/_recommendation_caveat.html' %}</div>
+
+    {% comment %}
+    The licence, and what attribution means, on the card that renders inside
+    somebody else's page. A gene with no report yet has no DOI, so the line
+    stops after the licence rather than citing a URL.
+    {% endcomment %}
+    <div class="embed-licence">
+      <a href="{{ licence_url }}" target="_blank" rel="noopener license">{{ licence_name }}</a>{% if report_link %} —
+      cite <a href="{{ report_link }}" target="_blank" rel="noopener">doi</a>{% endif %}
+    </div>
+
+  </div>
+
+{% endif %}
+
+</body>
+</html>

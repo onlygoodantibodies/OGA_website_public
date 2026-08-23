@@ -1,0 +1,1965 @@
+{% extends "pipeline/base.html" %}
+{% load pipeline_tags static %}
+
+{% block title %}{{ target.gene_name|default:target.protein_name }} — YCharOS Pipeline{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+  {# ================================================================ #}
+  {# Back link + page header                                          #}
+  {# ================================================================ #}
+  <div class="mb-6">
+    {% comment %}"Back to dashboard" pointed at pipeline:dashboard, which
+    redirects to the target board — so following the app's own link put you
+    somewhere other than where the link said. It names where it goes now, and
+    the task hub, the pipeline's actual front door, is offered alongside.{% endcomment %}
+    <div class="flex items-center gap-4 mb-2">
+      <a href="{% url 'pipeline:target_board' %}" class="text-sm text-gray-500 hover:text-blue-600 inline-flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to the target board
+      </a>
+      <a href="{% url 'pipeline:hub' %}" class="text-sm text-gray-500 hover:text-blue-600">Task hub</a>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">
+          {{ target.gene_name|default:"No gene name" }}
+          <span class="text-lg font-normal text-gray-500">{{ target.protein_name }}</span>
+        </h1>
+        {% comment %}Both alias columns, joined by services/targets.py::other_names.
+        This read `target.alternative_name` alone, and a gene's other names live in
+        two columns: the one UniProt fills when the gene is created, and the one
+        the Downloads & uploads round trip writes. So an alias filled in through
+        the spreadsheet — the bulk route that page exists for — was stored, was
+        findable in the search box, and appeared on no screen anywhere, which is
+        indistinguishable from the upload having silently done nothing.{% endcomment %}
+        {% if other_names %}
+          <p class="text-sm text-gray-500 mt-0.5">Also known as: {{ other_names|join:", " }}</p>
+        {% endif %}
+      </div>
+      {% comment %}
+        Derived, not the stored Target.status. That field is written once as "not
+        started" and advanced by nothing, so this badge read "Not Started" in the
+        same viewport as a progress strip showing two procedures complete and six
+        antibodies on file — the same trap as Target.site. It comes from
+        services/gene_progress.py::headline now, so the badge and the strip
+        cannot disagree.
+      {% endcomment %}
+      <div>
+        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ progress_headline.tone }}"
+              title="Worked out from what is recorded — nominations, cell lines, antibodies, sessions and reports.">{{ progress_headline.label }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% comment %}Where a refused cell edit says so. `OGABoard.banner` scrolls it
+  into view and gives it role="alert", because this page is long and a save
+  refused in the Reports panel is a message a reader is otherwise nowhere near —
+  and a refusal that shows nothing is indistinguishable from a save that
+  worked.{% endcomment %}
+  <div id="board-error"
+       class="hidden mb-3 flex items-start gap-3 border border-red-200 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+    <span id="board-error-text" class="flex-1"></span>
+    <button type="button" id="board-error-close"
+            class="text-red-500 hover:text-red-800 font-bold leading-none" aria-label="Dismiss">&times;</button>
+  </div>
+
+  {# ================================================================ #}
+  {# Target metadata card                                             #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Target Information</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
+      <div>
+        <dt class="text-xs text-gray-500">Gene Name</dt>
+        <dd class="text-sm font-medium text-gray-900">{{ target.gene_name|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500">Protein Name</dt>
+        <dd class="text-sm font-medium text-gray-900">{{ target.protein_name|default:"—" }}</dd>
+      </div>
+      {% comment %}A labelled slot, not only the subtitle above, and it draws a
+      dash when there is nothing rather than disappearing: somebody filling
+      aliases across many genes through Downloads & uploads needs a place on this
+      page that is *about* the field, so an empty one reads as "nothing recorded"
+      instead of as "this page does not hold that".{% endcomment %}
+      <div>
+        <dt class="text-xs text-gray-500">Also Known As</dt>
+        <dd class="text-sm font-medium text-gray-900">{{ other_names|join:", "|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500">UniProt ID</dt>
+        <dd class="text-sm font-medium text-gray-900">
+          {% if target.uniprot_id %}
+            <a href="https://www.uniprot.org/uniprot/{{ target.uniprot_id }}"
+               target="_blank" rel="noopener"
+               class="text-blue-600 hover:underline">
+              {{ target.uniprot_id }}
+              <svg class="inline w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+            </a>
+          {% else %}
+            <span class="text-gray-400">—</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500">Theoretical Mass</dt>
+        <dd class="text-sm font-medium text-gray-900">
+          {% if target.theoretical_mass_kda %}
+            {{ target.theoretical_mass_kda }} kDa
+          {% else %}
+            <span class="text-gray-400">—</span>
+          {% endif %}
+        </dd>
+      </div>
+      {% comment %}Site, project and funder are **not** here any more. They are
+      the nomination's, and the nomination is editable in the card immediately
+      below — so a read-only copy up here is the same fact drawn twice, and the
+      copy is the one that would still be showing McGill a second after somebody
+      moved the gene to Leicester. One fact, one control; the panel that can
+      change it is the panel that states it.{% endcomment %}
+      <div>
+        <dt class="text-xs text-gray-500">Protein Type</dt>
+        <dd class="text-sm font-medium text-gray-900">{{ target.protein_type|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500">Commercial KO Available</dt>
+        <dd class="text-sm font-medium text-gray-900">
+          {% if target.commercial_ko_available %}
+            <span class="text-green-600">Yes</span>
+          {% else %}
+            <span class="text-gray-400">No</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500">KO Validated</dt>
+        {% comment %}
+          Derived from the knockout lines, not from Target.ko_validated — that is
+          an Access column nothing writes, so it read "No" beside a progress
+          strip saying the knockout was confirmed. Counts and verbs agree here:
+          "1 of 1 line confirmed", never "1 lines".
+        {% endcomment %}
+        <dd class="text-sm font-medium text-gray-900">
+          {% if ko_confirmed_count %}
+            <span class="text-green-600">Yes</span>
+            <span class="text-xs text-gray-500">
+              — {{ ko_confirmed_count }} of {{ ko_line_count }}
+              line{{ ko_line_count|pluralize }} confirmed</span>
+          {% elif ko_line_count %}
+            <span class="text-gray-400">No</span>
+            <span class="text-xs text-gray-500">
+              — {{ ko_line_count }} knockout line{{ ko_line_count|pluralize }}, none confirmed yet</span>
+          {% else %}
+            <span class="text-gray-400">No</span>
+            <span class="text-xs text-gray-500">— no knockout line on file</span>
+          {% endif %}
+          {% comment %}
+          The tick and the reason beside it disagree on 54 rows of the live
+          data, and this count follows `services/ko_validation.py` in never
+          resolving that in favour of "confirmed". Saying so is the other half:
+          a line silently left out of the count is a line nobody knows to fix.
+          {% endcomment %}
+          {% if ko_disputed_count %}
+            <span class="block text-xs text-amber-700 mt-0.5">
+              {{ ko_disputed_count }} line{{ ko_disputed_count|pluralize }}
+              {{ ko_disputed_count|pluralize:"has,have" }} a tick and a reason that
+              disagree — not counted above.
+              <a href="{% url 'pipeline:cell_line_board' %}?gene={{ target.gene_name|urlencode }}&amp;ko_validated=disputed"
+                 class="font-semibold hover:underline">Check them</a>
+            </span>
+          {% endif %}
+        </dd>
+      </div>
+      {% if target.depmap_expression %}
+      <div>
+        <dt class="text-xs text-gray-500">DepMap Expression</dt>
+        <dd class="text-sm font-medium text-gray-900">
+          {{ target.depmap_expression }} log₂(TPM+1)
+          {% if target.depmap_expression >= 2.5 %}
+            <span class="ml-1 text-green-600 text-xs">≥ threshold</span>
+          {% else %}
+            <span class="ml-1 text-amber-600 text-xs">&lt; threshold</span>
+          {% endif %}
+        </dd>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% comment %}Where this gene has got to. Every step is derived from records
+  that already exist — a nomination, a KO line, an antibody, a real session, a
+  Zenodo DOI — never from a typed status. There is no percentage on purpose:
+  many targets will never need all four applications, so a fraction would call
+  finished work incomplete. See services/gene_progress.py.{% endcomment %}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Where this gene has got to</h2>
+      {% if next_step %}
+        <p class="text-sm text-gray-600">
+          Next: <a href="{{ next_step.url }}" class="font-semibold text-ycharos-700 hover:underline">{{ next_step.label }}</a>
+        </p>
+      {% else %}
+        <p class="text-sm font-semibold text-emerald-700">Everything on this list is done.</p>
+      {% endif %}
+    </div>
+
+    <ol class="flex flex-wrap gap-2">
+      {% for s in progress_steps %}
+      <li>
+        <a href="{{ s.url }}"
+           title="{% if s.done %}{{ s.detail }}{% else %}{{ s.hint }}{% endif %}"
+           class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors
+                  {% if s.done %}border-emerald-200 bg-emerald-50 hover:bg-emerald-100
+                  {% elif next_step and next_step.key == s.key %}border-ycharos-400 bg-ycharos-50 hover:bg-ycharos-100 ring-1 ring-ycharos-300
+                  {% else %}border-gray-200 bg-gray-50 hover:bg-gray-100{% endif %}">
+          {% if s.done %}
+            <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          {% else %}
+            <span class="w-4 h-4 rounded-full border-2 flex-shrink-0
+                         {% if next_step and next_step.key == s.key %}border-ycharos-500{% else %}border-gray-300{% endif %}"
+                  aria-hidden="true"></span>
+          {% endif %}
+          <span>
+            <span class="font-semibold {% if s.done %}text-emerald-900{% else %}text-gray-700{% endif %}">{{ s.label }}</span>
+            {% if s.detail %}<span class="block text-xs text-gray-500">{{ s.detail }}</span>{% endif %}
+          </span>
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+
+    {% if next_step %}
+      <p class="mt-3 text-xs text-gray-500 border-l-2 border-ycharos-200 pl-3">{{ next_step.hint }}</p>
+    {% endif %}
+    <p class="mt-3 text-xs text-gray-400">
+      Worked out from what is recorded, not from a status anyone typed. Many
+      targets only ever need some of the four applications.
+    </p>
+  </div>
+
+  {% comment %}Nominations, one block each, and editable here.
+
+  A gene funded under one project and wish-listed under another is one Target
+  and two TargetNomination rows. The board can only edit the site when there is
+  exactly one — one text box cannot say which of several to move — so it sends
+  people here, and until now what they came for was a read-only table.
+
+  Every cell posts to the target board's own patch endpoint with this
+  nomination's id, so there is one writer, one set of refusals and one row
+  payload behind both doors. The card is drawn from that payload by
+  `funding-grid`'s row renderer, and it always shows: a gene nominated nowhere
+  is the case where "record whose this is" matters most, and the panel that only
+  appeared once there were two of them was invisible in exactly that case.
+
+  It carries the two other things the board can write and draws nowhere —
+  whether the gene is essential, and its protein classes — because "the board's
+  columns, on the gene's page" is the whole point and leaving two out would
+  restate the original complaint one field over.{% endcomment %}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6" id="funding-card">
+    <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-1">
+      Funding &amp; classification
+    </h2>
+    <p class="text-xs text-gray-500 mb-4">
+      Who is pursuing this gene, under which grant, and what kind of protein it
+      is. Click any value to change it — the same cells as the
+      <a href="{% url 'pipeline:target_board' %}?gene={{ target.gene_name|urlencode }}"
+         class="font-semibold text-ycharos-700 hover:underline">target board</a>,
+      saved the same way.
+    </p>
+    {% comment %}The Access import stamped a site on 508 targets and wrote no
+    nomination behind it, so the cells below would sit empty for every founding
+    target while Overview lists the same gene under that site — and anybody
+    tidying up would start filling in a site that is already on file.
+    `services/targets.py::sites_of` is the reader; this says which of the two
+    kinds of evidence it found. Server-rendered rather than drawn with the
+    cells, and it stays after a nomination is filed on purpose: it is a
+    statement about what the import recorded, not about what is true now, so it
+    does not go stale.{% endcomment %}
+    {% if legacy_site %}
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+        This gene is recorded as <b>{{ legacy_site }}</b>’s
+        <b>from the original import</b> — a 2019 spreadsheet column with no
+        funder, project or date behind it, and no nomination. Setting the site
+        below files a proper one.
+      </p>
+    {% endif %}
+    <table class="w-full">
+      <tbody id="funding-grid"></tbody>
+    </table>
+  </div>
+
+  {# ================================================================ #}
+  {# Procedure completion summary                                     #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Procedure Status</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {% for proc_code, proc_data in procedure_summary.items %}
+      <div class="text-center p-3 rounded-lg {% if proc_data.complete %}bg-green-50 border border-green-200{% elif proc_data.sessions > 0 %}bg-blue-50 border border-blue-200{% else %}bg-gray-50 border border-gray-200{% endif %}">
+        <p class="text-lg font-bold {% if proc_data.complete %}text-green-700{% elif proc_data.sessions > 0 %}text-blue-700{% else %}text-gray-400{% endif %}">
+          {{ proc_code }}
+        </p>
+        <p class="text-xs mt-1 {% if proc_data.complete %}text-green-600{% elif proc_data.sessions > 0 %}text-blue-600{% else %}text-gray-400{% endif %}">
+          {% comment %}A session with nothing recorded on it is planned, not done.
+          This said "Complete" over a session with zero results, on the same page
+          as a strip that counts readings.{% endcomment %}
+          {% if proc_data.complete %}
+            {{ proc_data.results }} result{{ proc_data.results|pluralize }}
+          {% elif proc_data.sessions > 0 %}
+            {{ proc_data.sessions }} session{{ proc_data.sessions|pluralize }}, no results yet
+          {% else %}
+            Not started
+          {% endif %}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ================================================================ #}
+  {# Target assignments (if available)                                #}
+  {# ================================================================ #}
+  {% if assignments %}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Site Assignments</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for a in assignments %}
+          <tr>
+            <td class="px-4 py-2 text-sm text-gray-900">{{ a.site.name }}</td>
+            <td class="px-4 py-2 text-sm text-gray-700">{{ a.get_task_type_display }}</td>
+            <td class="px-4 py-2 text-sm">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                {% if a.status == 'complete' %}bg-green-100 text-green-700
+                {% elif a.status == 'in_progress' %}bg-blue-100 text-blue-700
+                {% elif a.status == 'blocked' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ a.get_status_display }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ================================================================ #}
+  {# Antibodies — grouped by site                                     #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+        Antibodies
+        <span class="text-gray-400 font-normal">({{ antibody_count }})</span>
+      </h2>
+      {% comment %}This page gathered everything about a gene and let you change
+      none of it — "Antibodies (0)" with a download button and no way to add one,
+      so the answer to "record STMN2's antibodies" was to leave. The Add panel is
+      the same OGABoard.newEntry the board uses, posting to the same endpoints,
+      with the gene already filled in.{% endcomment %}
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="ab-add-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-ycharos-600 text-white rounded-lg text-xs font-semibold hover:bg-ycharos-700">
+          + Add antibodies
+        </button>
+        {% comment %}The blank sheet, on the page rather than inside a pop-out.
+        It was reachable — `newEntry` and `uploadPanel` both render it — but only
+        after opening one of them, so a person standing at "Antibodies (0)"
+        deciding how to record twenty vials could not see that a spreadsheet was
+        an option at all. Same fix the targets board's header already carries,
+        and it sits beside Upload a sheet because the two are halves of one
+        job.{% endcomment %}
+        <a href="{% url 'pipeline:import_template' kind='antibodies' %}"
+           data-receipt="ab-template-receipt"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="An empty spreadsheet with the right columns and an example row — fill it in and bring it back with Upload a sheet">
+          ⬇ Blank template
+        </a>
+        {% comment %}The other half of the round trip, on the page that offers
+        the template. The Add panel's own text says "fill it in, then bring it
+        back with the upload button" — and this page had no upload button, so
+        the one instruction it gives could not be followed here. Sending people
+        to the board instead would be the backtrack an earlier field test
+        already recorded.{% endcomment %}
+        <button type="button" id="ab-upload-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          ⬆ Upload a sheet
+        </button>
+        {% comment %}Which of a gene's antibodies OGA recommends is a judgement
+        made off that gene's published figures, and the surface for making it
+        had no link from here at all — so the route was the task hub, then a
+        160-item dropdown scrolled by hand, for a gene whose page you were
+        already standing on. It takes `?gene=` like the four boards do
+        (twentieth field test).{% endcomment %}
+        <a href="{% url 'pipeline:recommendations' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="Review this gene's published figures and mark which antibodies are recommended">
+          ★ Set recommendations
+        </a>
+        <a href="{% url 'pipeline:antibody_board' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          Edit on the board →
+        </a>
+        {% if antibody_count %}
+        <a href="{% url 'pipeline:antibody_export' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="Download this gene's antibodies as an editable spreadsheet, then put it back from the board">
+          ⬇ Excel
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% comment %}A download says it happened: a plain href writes the file and
+    the page does not move, which the sixth field test read as a broken
+    feature.{% endcomment %}
+    <p id="ab-template-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+    <div id="ab-add-panel"></div>
+      <div id="ab-upload-panel"></div>
+
+    {% if antibodies_by_site %}
+      {% for site_name, abs in antibodies_by_site.items %}
+      <div class="mb-6 last:mb-0">
+        <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+            {{ site_name }}
+          </span>
+          <span class="text-gray-400">{{ abs|length }} antibod{{ abs|length|pluralize:"y,ies" }}</span>
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cat #</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lot</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">RRID</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Clonality</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Host</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Conc.</th>
+                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase"
+                    title="What the supplier recommends this antibody for">Apps</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {% for ab in abs %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2 font-mono text-gray-900">
+                  {% comment %}The antibody page is retired; the board is where a
+                  row is looked at and changed now, including its identity.{% endcomment %}
+                  <a href="{% url 'pipeline:antibody_board' %}?q={{ ab.catalogue_number|urlencode }}"
+                     class="text-blue-600 hover:underline"
+                     title="Open this antibody on the board">
+                    {{ ab.catalogue_number|default:"—" }}
+                  </a>
+                </td>
+                <td class="px-3 py-2 text-gray-700">{{ ab.company.name|default:"—" }}</td>
+                <td class="px-3 py-2 text-gray-600">{{ ab.lot_number|default:"—" }}</td>
+                <td class="px-3 py-2 text-gray-600 font-mono">
+                  {% if ab.rrid %}
+                    <a href="https://scicrunch.org/resolver/{{ ab.rrid }}"
+                       target="_blank" rel="noopener"
+                       class="text-blue-600 hover:underline text-xs">
+                      {{ ab.rrid }}
+                    </a>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                {% comment %}`clonality_label`, not `get_clonality_display` —
+                the enum alone drew Leicester's recombinants as plain
+                Monoclonal beside McGill's identical clones marked Recombinant,
+                on this very table. See pipeline/services/clonality.py.
+                {% endcomment %}
+                <td class="px-3 py-2 text-gray-600">{{ ab.clonality_label }}</td>
+                <td class="px-3 py-2 text-gray-600">{{ ab.host_species|default:"—"|truncatechars:20 }}</td>
+                <td class="px-3 py-2 text-right text-gray-600">
+                  {% if ab.concentration %}{{ ab.concentration }} µg/mL{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-center">
+                  {% supplier_app_icons ab %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-sm text-gray-500 py-4">No antibodies recorded for this target.</p>
+    {% endif %}
+  </div>
+
+  {# ================================================================ #}
+  {# Figures cropped and not yet published                            #}
+  {# ================================================================ #}
+  {% comment %}
+  The stage of the work that used to be invisible.
+
+  The figure cropper wrote straight to `PublicationImage`, which *is*
+  publication — so between "somebody cropped the figures" and "they are on the
+  website" there was nothing, because there was no between. There is now
+  (`services/review.py`), and this panel is it: the crops, what releasing each
+  one would do, and the press that does it.
+
+  Drawn even when empty, and only for a gene that has something to crop. A
+  panel that simply vanishes is a feature a reader concludes does not exist,
+  which is how the app came to have a whole review step nobody could find.
+  {% endcomment %}
+  {% if pending_count or antibody_count %}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+        Figures awaiting release
+        <span class="text-gray-400 font-normal">({{ pending_count }})</span>
+      </h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="{% url 'pipeline:cropper' %}?gene={{ target.gene_name|urlencode }}"
+           class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
+          Crop figures
+        </a>
+        {% if pending_count %}
+        {% comment %}Releasing is a superuser's press (`services/review.py::
+        release_refusal`), and this link is drawn for everybody on purpose: the
+        queue is where you check the figures, and only the button at the end of
+        it is narrowed. Naming it for what *this reader* can do there stops the
+        link promising a press they will find greyed.{% endcomment %}
+        <a href="{% url 'pipeline:review_queue' %}?gene={{ target.gene_name|urlencode }}"
+           class="px-3 py-1.5 {% if user.is_superuser %}bg-red-700 text-white hover:bg-red-800{% else %}border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %} rounded-lg text-xs font-semibold">
+          {% if user.is_superuser %}Review &amp; release{% else %}Review{% endif %} ({{ pending_count }})
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if pending_count %}
+      <p class="text-xs text-gray-600 mb-3">
+        Cropped and <strong>not on the public website</strong>. The supplier whose
+        reagent each one is can see it in the data portal before release; nobody else
+        outside the pipeline can. Releasing publishes the figure and applies the
+        recommendation set in the cropper.
+        {% if pending_manifest.replaces_published %}
+          <span class="block mt-1 text-amber-800">{{ pending_manifest.replaces_published }}
+          of these would replace a figure already on the site.</span>
+        {% endif %}
+        {% if pending_manifest.new_public_genes %}
+          <span class="block mt-1 text-amber-800">Releasing gives {{ target.gene_name }}
+          a public page for the first time.</span>
+        {% endif %}
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {% for r in pending_rows %}
+          <figure class="rounded border border-gray-200 overflow-hidden">
+            <img src="{{ r.image_url }}" loading="lazy"
+                 alt="Staged {{ r.application }} figure for {{ r.catalogue }}"
+                 class="w-full bg-gray-50">
+            <figcaption class="px-2 py-1.5 text-[11px] text-gray-600">
+              <span class="font-semibold text-gray-800">{{ r.catalogue }}</span>
+              · {{ r.application }}
+              {% if r.recommended %}
+                <span class="block text-emerald-700 font-semibold">recommended</span>
+              {% endif %}
+              {% if r.replaces_published %}
+                <span class="block text-amber-700">replaces a published figure</span>
+              {% endif %}
+            </figcaption>
+          </figure>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-500">
+        Nothing is waiting. Figures made in the cropper wait here for the review
+        meeting before they go on the public gene page.
+      </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ================================================================ #}
+  {# Cell lines — WT / KO pairs                                      #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+        Cell Lines
+        <span class="text-gray-400 font-normal">({{ cell_line_count }})</span>
+      </h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="cl-add-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-ycharos-600 text-white rounded-lg text-xs font-semibold hover:bg-ycharos-700">
+          + Add cell lines
+        </button>
+        {% comment %}A wild type is an ordinary cell-line row with two cells set a
+        particular way — genotype WT, and **no gene**, which is the rule this
+        repo has been bitten by four times and the one this page's own
+        `default_gene` would otherwise break. Same grid, same endpoint, same
+        preview; the button fills the two cells instead of printing the rule
+        under the grid and hoping. It matters most when the list below is empty:
+        the panel says a knockout needs a parent, and until now nothing said
+        where the first one comes from.{% endcomment %}
+        <button type="button" id="cl-add-wt-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+                title="A wild-type parental — recorded once, with no gene, and pointed at by every knockout made from it">
+          + Add a wild type
+        </button>
+        {% comment %}Same as the antibodies panel above: the blank sheet on the
+        page, beside the upload it pairs with, rather than only inside the two
+        pop-outs.{% endcomment %}
+        <a href="{% url 'pipeline:import_template' kind='cell-lines' %}"
+           data-receipt="cl-template-receipt"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="An empty spreadsheet with the right columns and an example row — fill it in and bring it back with Upload a sheet">
+          ⬇ Blank template
+        </a>
+        <button type="button" id="cl-upload-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          ⬆ Upload a sheet
+        </button>
+        <a href="{% url 'pipeline:cell_line_board' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          Edit on the board →
+        </a>
+        {% if cell_line_count %}
+        <a href="{% url 'pipeline:cell_line_export' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="Download this gene's cell lines as an editable spreadsheet, then put it back from the board">
+          ⬇ Excel
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    <p id="cl-template-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+    <div id="cl-add-panel"></div>
+      <div id="cl-upload-panel"></div>
+
+    {% if cell_line_pairs %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">WT Line</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">KO Line</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cat #</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cellosaurus</th>
+            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Site</th>
+            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Received</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for pair in cell_line_pairs %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 text-gray-900">
+              {% if pair.wt %}
+                {{ pair.wt.name }}
+              {% elif pair.other %}
+                <span class="text-gray-400 italic">—</span>
+              {% else %}
+                <span class="text-gray-400 italic">No WT match</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-gray-900">
+              {% if pair.ko %}
+                {{ pair.ko.name }}
+                {% comment %}
+                A green tick read off `ko_validated` alone appeared beside lines
+                whose own reason says the validation failed. `ko_badge` comes
+                from services/ko_validation.py — the same reader the cell-lines
+                board's pill and the count above use, so one row cannot be
+                confirmed on one screen and disputed on another.
+                {% endcomment %}
+                {% if pair.ko.ko_badge.outcome == 'confirmed' %}
+                  <span class="ml-1 text-green-600 text-xs" title="Knockout confirmed">✓</span>
+                {% elif pair.ko.ko_badge.outcome != 'unchecked' %}
+                  <span class="ml-1 text-amber-700 text-xs"
+                        title="{{ pair.ko.ko_badge.note|default:pair.ko.ko_validation_notes }}">{{ pair.ko.ko_badge.label }}</span>
+                {% endif %}
+              {% elif pair.other %}
+                {{ pair.other.name }}
+                <span class="ml-1 text-xs text-gray-500">({{ pair.other.get_genotype_display }})</span>
+              {% else %}
+                <span class="text-gray-400 italic">No KO</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-gray-600">
+              {# Show the KO supplier if available, else WT #}
+              {% if pair.ko and pair.ko.company %}
+                {{ pair.ko.company.name }}
+              {% elif pair.wt and pair.wt.company %}
+                {{ pair.wt.company.name }}
+              {% elif pair.other and pair.other.company %}
+                {{ pair.other.company.name }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-gray-600 font-mono text-xs">
+              {% if pair.ko %}{{ pair.ko.catalogue_number|default:"—" }}{% elif pair.wt %}{{ pair.wt.catalogue_number|default:"—" }}{% elif pair.other %}{{ pair.other.catalogue_number|default:"—" }}{% else %}—{% endif %}
+            </td>
+            <td class="px-3 py-2 text-gray-600">
+              {% with cl=pair.ko|default:pair.wt|default:pair.other %}
+                {% if cl and cl.cellosaurus_id %}
+                  <a href="https://www.cellosaurus.org/{{ cl.cellosaurus_id }}"
+                     target="_blank" rel="noopener"
+                     class="text-blue-600 hover:underline text-xs">
+                    {{ cl.cellosaurus_id }}
+                  </a>
+                {% else %}
+                  —
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td class="px-3 py-2 text-center text-gray-600">
+              {% with cl=pair.ko|default:pair.wt|default:pair.other %}
+                {% if cl and cl.site %}
+                  <span class="text-xs">{{ cl.site.short_code }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td class="px-3 py-2 text-center">
+              {% with cl=pair.ko|default:pair.wt|default:pair.other %}
+                {% if cl and cl.received %}
+                  <span class="text-green-600">✓</span>
+                {% else %}
+                  <span class="text-gray-400">✗</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="text-sm text-gray-500 py-4">No cell lines recorded for this target.</p>
+    {% endif %}
+
+    {% comment %}A wild type is recorded once, with no gene, so it can never be
+    listed under a gene — which is why this panel can read (0) at a site that
+    owns eight parentals. The panel above says "add the KO line and its wild-type
+    parent" and the Add grid warns that a second one is a mistake; without this
+    list the only way to find out which of those you were in was to attempt the
+    error and read the preview.{% endcomment %}
+    {% if wt_parentals %}
+    <p class="mt-3 text-xs text-gray-500 border-t border-gray-100 pt-3">
+      <span class="font-semibold text-gray-700">Wild-type parentals already on file
+      at your site:</span> {{ wt_parentals|join:", " }}.
+      A wild type is recorded once with no gene, so it never appears under a gene —
+      {% comment %}This used to end "name one of these in a knockout's parent
+      column rather than adding it again", which is a list you read and then
+      retype into a cell from memory. The cell offers them now, so the sentence
+      says where they are instead of asking you to carry them there.{% endcomment %}
+      the <span class="font-mono">parent</span> cell in
+      <span class="font-semibold">Add cell lines</span> offers them, and takes a
+      C-number too.
+    </p>
+    {% elif my_site %}
+    <p class="mt-3 text-xs text-gray-500 border-t border-gray-100 pt-3">
+      {% comment %}The empty half of the same fact, and the one the list could
+      never state: with no parental on file the panel above says a knockout needs
+      a parent and nothing says where the first one comes from. A wild type is an
+      ordinary cell-line row with no gene — the button fills in the two cells
+      that make it one.{% endcomment %}
+      <span class="font-semibold text-gray-700">No wild-type parentals on file at
+      {{ my_site }} yet.</span> A knockout is paired with the wild type it was
+      made from, so record that line once with
+      <span class="font-semibold">Add a wild type</span> — it has no gene, and
+      every knockout made from it points at it afterwards.
+    </p>
+    {% endif %}
+  </div>
+
+  {# ================================================================ #}
+  {# Experiment sessions — grouped by procedure type                  #}
+  {# ================================================================ #}
+  <div id="sessions-card" class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+    {% comment %}A session needs a header — application, date, site, experimenter,
+    which WT and KO lines — so its pop-out is a bigger thing than the other two.
+    Rather than a second copy of it here, these open the sessions board's own,
+    with the gene already filled in. One implementation, opened from here.{% endcomment %}
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+        Experiment Sessions
+        <span class="text-gray-400 font-normal">({{ session_count }})</span>
+      </h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="{% url 'pipeline:session_board' %}?gene={{ target.gene_name|urlencode }}&add=1"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-ycharos-600 text-white rounded-lg text-xs font-semibold hover:bg-ycharos-700">
+          + Record a session
+        </a>
+        <a href="{% url 'pipeline:session_board' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          Edit on the board →
+        </a>
+        {% if target.gene_name %}
+        <a href="{% url 'pipeline:session_template_export' %}?gene={{ target.gene_name|urlencode }}"
+           data-receipt="workbook-receipt"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+           title="One workbook, a tab per application, pre-filled — take it to the bench">
+          ⬇ Bench workbook
+        </a>
+        {% comment %}The way back in. Handing out a pre-filled workbook with
+        nowhere to return it meant everything on it had to be retyped, on the one
+        page whose whole purpose is this gene.{% endcomment %}
+        <button type="button" id="bench-upload-btn" data-csrf="{{ csrf_token }}"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+                title="Upload the workbook you filled in at the bench">
+          ⬆ Upload filled workbook
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    <p id="workbook-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+    {% comment %}Two sheets with almost the same name, and they do opposite
+    things. This one captures a week and always makes *new* sessions; the bench
+    sheet on the sessions board belongs to one session that already exists and
+    records into it. The sixth field test planned a session here, downloaded this
+    from the same panel a few centimetres below it, and ended up with two Western
+    Blots — one Planned with no results and one Complete with three. Naming the
+    other artefact is the fix at the point of confusion; the upload preview also
+    says when the gene already has a session for that procedure.{% endcomment %}
+    <p class="text-xs text-gray-500 -mt-2 mb-3">
+      The <span class="font-semibold">bench workbook</span> is for a week you have
+      not recorded yet — every tab you fill in becomes a <em>new</em> session. Each
+      session listed below has its own pair of files instead, both stamped with
+      its number: a printable <span class="font-semibold">bench sheet</span>, and
+      a <span class="font-semibold">workbook</span> with every field for that
+      procedure. Filling in either one records into <em>that</em> session.
+    </p>
+
+    {% for proc_code, proc_sessions in sessions_by_type.items %}
+    <div class="mb-6 last:mb-0">
+      <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
+          {% if proc_code == 'WB' %}bg-blue-100 text-blue-700
+          {% elif proc_code == 'IP' %}bg-purple-100 text-purple-700
+          {% elif proc_code == 'IF' %}bg-teal-100 text-teal-700
+          {% elif proc_code == 'FC' %}bg-orange-100 text-orange-700
+          {% endif %}">
+          {{ proc_code }}
+        </span>
+        <span>
+          {% if proc_code == 'WB' %}Western Blot
+          {% elif proc_code == 'IP' %}Immunoprecipitation
+          {% elif proc_code == 'IF' %}Immunofluorescence
+          {% elif proc_code == 'FC' %}Flow Cytometry
+          {% endif %}
+        </span>
+        <span class="text-gray-400">({{ proc_sessions|length }})</span>
+      </h3>
+
+      {% if proc_sessions %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Experimenter</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
+              <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Results</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">At the bench</th>
+              {% comment %}The raw files each session produced — the scan, the
+              plate overview, the .fcs. They were attachable only by opening the
+              session's own drawer on the sessions board, and they are what a
+              Zenodo deposit packages as this gene's underlying data, from a
+              button at the bottom of this page. So the one place the deposit is
+              pressed was the one place its contents could not be added
+              to.{% endcomment %}
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Raw data</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for session in proc_sessions %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 text-gray-900">
+                <a href="{% url 'pipeline:session_detail' session.pk %}"
+                   class="text-blue-600 hover:underline">
+                  {{ session.date|date:"j M Y" }}
+                </a>
+              </td>
+              <td class="px-3 py-2 text-gray-700">
+                {{ session.experimenter }}
+              </td>
+              <td class="px-3 py-2 text-gray-600">
+                {{ session.site.short_code|default:"—" }}
+              </td>
+              {% comment %}
+              Rows and readings, because they are different numbers and this
+              column was headed with the second word while showing the first.
+              Planning a session writes a blank row per antibody, so a session
+              nobody had run read "22". A blank row is not a claim that the work
+              was not done — completion is a published report — so this says
+              what is recorded and stops there.
+              {% endcomment %}
+              <td class="px-3 py-2 text-center text-gray-700"
+                  title="{{ session.result_count }} antibody row{{ session.result_count|pluralize }}, {{ session.reading_count }} with something written on {{ session.reading_count|pluralize:"it,them" }}">
+                {% if session.reading_count == session.result_count %}
+                  {{ session.result_count }}
+                {% else %}
+                  {{ session.reading_count }}<span class="text-gray-400">/{{ session.result_count }}</span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if session.status == 'complete' %}bg-green-100 text-green-700
+                  {% elif session.status == 'in_progress' %}bg-blue-100 text-blue-700
+                  {% elif session.status == 'failed' %}bg-red-100 text-red-700
+                  {% elif session.status == 'repeat_needed' %}bg-amber-100 text-amber-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">
+                  {{ session.get_status_display }}
+                </span>
+              </td>
+              {% comment %}The sheet that belongs to *this* session, where you
+              are when you want it. It has always existed on the sessions board,
+              and reaching it meant knowing to open the row there — so the thing
+              people reached for instead was the per-gene bench workbook a few
+              centimetres above, which cannot fill a session and makes a new one.
+              Warning about that was half an answer; this is the other half.
+              {% endcomment %}
+              <td class="px-3 py-2 whitespace-nowrap">
+                <a href="{% url 'pipeline:session_download' session.pk 'bench-sheet' %}"
+                   data-receipt="workbook-receipt"
+                   class="text-sm font-semibold text-ycharos-700 hover:underline"
+                   title="Few columns, landscape — made to be printed and written on">⬇ Bench sheet</a>
+                {% comment %}The other half of the pair, and the one that closes
+                the gap: a session planned through the step-by-step form has no
+                result rows, and until it existed neither file could fill one in —
+                the workbook could only create and the bench sheet could only
+                update.{% endcomment %}
+                <a href="{% url 'pipeline:session_download' session.pk 'workbook' %}"
+                   data-receipt="workbook-receipt"
+                   class="ml-2 text-sm font-semibold text-ycharos-700 hover:underline"
+                   title="Every result field for this procedure, plus the session's conditions">⬇ Workbook</a>
+              </td>
+              {% comment %}A count with nothing to press is half a message, and
+              a zero here is the one that matters: it is what the deposit will
+              find. So an empty session says what to do about it rather than
+              stating a fact — the rule an empty cell's prompt already
+              follows.{% endcomment %}
+              <td class="px-3 py-2 whitespace-nowrap">
+                <button type="button" class="gene-files-btn text-sm font-semibold text-ycharos-700 hover:underline"
+                        data-session="{{ session.pk }}" data-files="{{ session.attachment_count }}"
+                        aria-expanded="false"
+                        title="The scan, the plate overview, the instrument file these readings were taken off">
+                  {% if session.attachment_count %}📎 Raw data ({{ session.attachment_count }}){% else %}+ Add raw data{% endif %}
+                </button>
+              </td>
+            </tr>
+            {% comment %}The panel itself, under the row it is about. Hidden
+            until asked for: a gene with eight sessions would otherwise fire
+            eight fetches on load, for files most visits do not need.{% endcomment %}
+            <tr class="hidden bg-gray-50" data-files-row="{{ session.pk }}">
+              <td colspan="7" class="px-3 py-3"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-sm text-gray-400 ml-10">No {{ proc_code }} sessions recorded.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ================================================================ #}
+  {# Reports                                                          #}
+  {# ================================================================ #}
+  <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+        <div class="flex items-center justify-between mb-4">
+      {% comment %}The count is written by the same script that draws the list,
+      at load as well as on every save — the `filesPanel` rule a few sections
+      down. The server's copy is the fallback for the moment before that runs;
+      leaving it as the only writer would put "Reports (0)" above a record that
+      had just been published into the panel underneath it.{% endcomment %}
+      <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+        Reports
+        <span class="text-gray-400 font-normal" id="reports-count">({{ reports|length }})</span>
+      </h2>
+      {% comment %}A read that produces a file, so it is not gated the way the
+      Add-to-Pipeline button on the feasibility page is — that one writes to the
+      master list and a press cannot be taken back, where this one costs a file
+      in Downloads. What it owes the reader is a manifest: what is about to be
+      in it. With no readings on file at all the press is worth making
+      deliberate, because the document that comes back reads like a finding —
+      "we have characterized 0 antibodies", two header-only tables, and a title
+      ending "[no application has a recorded result yet]" — and it lands in a
+      folder from which things get attached to emails.{% endcomment %}
+      <a href="{% url 'pipeline:generate_report' target.pk %}"
+         data-receipt="report-receipt"
+         {% if report_draft.warning %}data-confirm="{{ report_draft.warning }} Download it anyway?"{% endif %}
+         class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium
+                rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2
+                focus:ring-blue-500 transition-colors">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Generate Report
+      </a>
+    </div>
+
+    {% comment %}Two things this panel has to say, because the field test read
+    its silence as failure. What Generate Report gives you is a draft Word
+    document in your Downloads folder — it is not filed here, and this panel is
+    not where it would go. And what this panel *is* for is the published output:
+    a Zenodo deposit or an F1000 paper, which is also what makes a gene count as
+    completed elsewhere in the app. "No reports generated for this target" said
+    neither, under a button called Generate Report.{% endcomment %}
+    <p class="text-sm text-gray-500 -mt-2 mb-3">
+      <span class="font-semibold text-gray-700">Generate Report</span> writes a
+      draft Data Note to your Downloads folder to edit and submit. This list is
+      the published record — a Zenodo deposit or an F1000 paper — so a draft
+      never appears here.
+    </p>
+    {% comment %}What the draft would be built from, counted the way the
+    document counts it — `report_generator.draft_contents`, not the procedure
+    summary above, which counts result rows including blank ones. Two numbers
+    disagreeing on one screen is the failure that reads as data loss.{% endcomment %}
+    <p class="text-sm mb-3 {% if report_draft.warning %}text-amber-800{% else %}text-gray-500{% endif %}">
+      {% if report_draft.warning %}
+        {{ report_draft.warning }}
+      {% else %}
+        The draft would be built from {{ report_draft.summary }}.
+      {% endif %}
+    </p>
+    <p id="report-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+
+    {% comment %}The published record and the cells that write it, drawn from
+    one payload.
+
+    This panel was read-only and said so twice — "fix it on the target board" —
+    which is what the owner ran into on publishing PKN2 in F1000: the gene's own
+    page is where you go when a paper comes out, and it was the one place the
+    fact could not be written down.
+
+    The list and the cells have to be redrawn *together*, which is why the whole
+    block is one board row rather than a server-rendered list with an editor
+    bolted under it. Type an F1000 date into a gene with nothing published and
+    the record becomes published — so a list rendered once at page load would go
+    on saying "nothing published for this target yet" directly above the value
+    that had just made it untrue. Two answers to one question on one screen is
+    the failure this file has the most scar tissue about.
+
+    `services/target_board.py::row_for` does the split, through
+    `is_completed_report` — the same sentence as `completed_report_q`, which is
+    what the board, the Portfolio and Overview's headline all count.{% endcomment %}
+    <table class="w-full">
+      <tbody id="publication-grid"></tbody>
+    </table>
+
+    {% comment %}Depositing to Zenodo, from the page the gene is on.
+
+    Two presses, and the first one costs nothing and reaches nothing: the
+    preview is built entirely from records here, makes no network call, and so
+    answers with no token configured and on a blocked network. It is the only
+    place a person sees what is about to carry their name and a DOI, which is
+    why the creator list is drawn out rather than summarised — who counts as an
+    author is a social question the app is guessing at.
+
+    What the second press does NOT do is publish. It creates an unpublished
+    draft and hands it to the ycharos community for review; a curator accepting
+    it is what makes it public. That is Zenodo's own behaviour, so the panel
+    says it plainly rather than the app claiming a safeguard of its own.
+    {% endcomment %}
+    <div class="mt-5 pt-4 border-t border-gray-100">
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" id="deposit-btn"
+                class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm
+                       font-medium rounded-md hover:bg-gray-800">
+          Deposit to Zenodo…</button>
+        <span class="text-xs text-gray-500">
+          Shows what would be sent. Nothing leaves until you press again.</span>
+      </div>
+      <div id="deposit-panel" class="mt-3 text-sm" role="alert"></div>
+    </div>
+  </div>
+
+  {% comment %}Removing the gene lives here and only here — the owner's call
+  after using it on the target board. The warning box was right; the place was
+  not. The board is 585 rows scrolled past at speed, so a control on each row is
+  a control beside every gene you were not thinking about. This page is about
+  one gene, so having arrived is already the deliberate act.
+
+  At the very bottom, under everything the gene has, rather than beside the
+  title: you reach it by reading past the antibodies, cell lines and sessions
+  it would take with it.{% endcomment %}
+  <div class="mt-10 pt-5 border-t border-gray-200">
+    <div id="target-delete-panel"></div>
+    <div class="flex flex-wrap items-baseline gap-3">
+      <button type="button" id="target-delete-btn"
+              class="text-sm text-gray-400 hover:text-red-700 underline underline-offset-2">
+        Delete {{ target.gene_name|default:"this target" }}</button>
+      <span class="text-xs text-gray-500">
+        Opens a panel listing everything that would go with it. Nothing is
+        removed until you have read that and ticked the box.</span>
+    </div>
+  </div>
+
+</div>{# end max-w-7xl #}
+
+{{ ab_columns|json_script:"ab-columns" }}
+{{ ab_example|json_script:"ab-example" }}
+{{ cl_columns|json_script:"cl-columns" }}
+{{ cl_example|json_script:"cl-example" }}
+{% comment %}The site's wild types, for the `parent` cell's dropdown. Through
+`json_script` like the columns beside it rather than interpolated into the
+script: a cell line called `HAP1 "clone 2"` would otherwise close the string
+and take the page's JavaScript with it.{% endcomment %}
+{{ wt_options|json_script:"wt-options" }}
+{% comment %}This gene as the target board sees it — `target_board.row_for`, the
+same payload every patch reply carries back, so the panels below are drawn once
+by the same renderer at load and again after every save.{% endcomment %}
+{{ board_row|json_script:"board-row" }}
+{{ board_sites|json_script:"board-sites" }}
+{{ board_agencies|json_script:"board-agencies" }}
+{{ board_projects|json_script:"board-projects" }}
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>
+(function () {
+  /* Adding, on the gene's own page.
+   *
+   * This page already gathered everything about a gene and let you change none
+   * of it, so the answer to "record STMN2's antibodies" was to go somewhere
+   * else. These are OGABoard.newEntry — the same pop-out the boards use, posting
+   * to the same parse and commit endpoints — with the gene fixed, so there is
+   * one write path per entity and not a second one that can drift.
+   *
+   * Sessions are not here on purpose: a session's header is a form of its own,
+   * so "Record a session" opens the sessions board's pop-out pre-filled rather
+   * than copying it. */
+  const csrf = "{{ csrf_token }}";
+  const gene = "{{ target.gene_name|escapejs }}";
+  const json = id => JSON.parse(document.getElementById(id).textContent);
+
+  /* Generate Report and the bench workbook are plain links to a file, and a
+   * plain link is silent — the page does not move and nothing says the document
+   * was written. Both name what landed and where, so a download that worked
+   * stops looking like one that failed. */
+  OGABoard.downloadReceipts();
+
+  /* Removing the gene. The same `deleteDialog` the child boards use and the
+   * same endpoints — `services/deletion.py` still decides — but mounted here,
+   * because this is the one page that is about this gene alone.
+   *
+   * There is no row to redraw afterwards: the record this page describes has
+   * gone, so staying on it would leave a page of stale panels about something
+   * that no longer exists. It goes back to the board — and carries `?deleted=`
+   * so the board can say what happened, because arriving somewhere new with no
+   * message is the same silence as a download that does not announce itself. */
+  const targetDelete = OGABoard.deleteDialog({
+    mount: document.getElementById('target-delete-panel'),
+    csrf, kind: 'target',
+    urls: {preview: "{% url 'pipeline:delete_preview' %}",
+           commit: "{% url 'pipeline:delete_commit' %}"},
+    onDeleted: (id, d) => {
+      window.location = "{% url 'pipeline:target_board' %}?deleted="
+        + encodeURIComponent(d.label || '');
+    },
+  });
+  document.getElementById('target-delete-btn').addEventListener(
+    'click', () => targetDelete.open("{{ target.pk }}"));
+
+  /* Raw data, on the gene's own page.
+   *
+   * `OGABoard.filesPanel` — the same panel the sessions board opens in its
+   * drawer, posting to the same endpoints, with `services/attachments.py` still
+   * the one reader of what may be attached. Not a copy: two panels writing raw
+   * lab data would drift, and the reader would have no way to tell which of the
+   * two was the wrong one.
+   *
+   * It is here because this is the page the deposit button is on.
+   * `services/deposit.py` packages every `FileAttachment` on the gene into
+   * `<GENE>_underlying_data.zip`, so the preview a few sections down counts
+   * these files — and until now the only way to add one was to leave this page,
+   * open the sessions board, find the row and open its drawer. A deposit whose
+   * underlying data is an empty zip is the shape of published work with nothing
+   * under it, and the press that would create one was the one place you could
+   * not fix it.
+   *
+   * One panel per session, drawn under its row and only when asked for: a gene
+   * with eight sessions would otherwise fire eight fetches nobody wanted. */
+  (function () {
+    const card = document.getElementById('sessions-card');
+    if (!card) return;
+
+    /* One writer for the button's text, so the count beside "Raw data" cannot
+     * come to disagree with the list under it — two numbers on one screen
+     * disagreeing reads as data loss, and this one is also what the deposit
+     * will find. A session with none says what to do about it instead of
+     * stating a fact. */
+    function setLabel(id, n) {
+      const btn = card.querySelector(`.gene-files-btn[data-session="${id}"]`);
+      if (!btn) return;
+      btn.dataset.files = n;
+      btn.textContent = n > 0 ? `📎 Raw data (${n})` : '+ Add raw data';
+    }
+
+    const files = OGABoard.filesPanel({
+      root: card, csrf,
+      urls: {list: "{% url 'pipeline:attachment_list' %}",
+             upload: "{% url 'pipeline:attachment_upload' %}",
+             remove: "{% url 'pipeline:attachment_delete' %}"},
+      onChange: (id, d) => setLabel(id, d.files),
+    });
+
+    /* Written once here at load as well as on every change, so `setLabel` is
+     * the only thing that ever renders what a reader sees. The server draws the
+     * same words into the button for the moment before this runs; that copy is
+     * a fallback, and this is what stops the two coming to disagree. */
+    card.querySelectorAll('.gene-files-btn').forEach(
+      b => setLabel(b.dataset.session, Number(b.dataset.files) || 0));
+
+    card.addEventListener('click', async e => {
+      const btn = e.target.closest('.gene-files-btn');
+      if (!btn) return;
+      const id = btn.dataset.session;
+      const row = card.querySelector(`tr[data-files-row="${id}"]`);
+      if (!row) return;
+      if (!row.classList.contains('hidden')) {
+        row.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      row.classList.remove('hidden');
+      btn.setAttribute('aria-expanded', 'true');
+      const cell = row.querySelector('td');
+      if (!cell.querySelector('.files-panel')) cell.innerHTML = files.shell(id);
+      /* Fetched on every open, not only the first: the count on the button was
+       * rendered when the page loaded, and somebody else's upload since then
+       * would leave this page quietly stating an old number. */
+      const d = await files.load(id);
+      if (d) setLabel(id, (d.rows || []).length);
+    });
+  })();
+
+  /* Depositing to Zenodo. Preview, then submit — and the submit button does not
+   * exist until a preview has said the deposit can go, which is the same rule
+   * as `Create them` on every paste box: two steps, and you can see which one
+   * you are on. */
+  (function () {
+    const btn = document.getElementById('deposit-btn');
+    const out = document.getElementById('deposit-panel');
+    const esc = OGABoard.esc;
+    const fail = msg => { out.innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; };
+    const post = (url, body) => OGABoard.requestJson(
+      url, {method: 'POST', headers: {'X-CSRFToken': csrf}, body: body || new FormData()},
+      fail);
+
+    function fileLine(f) {
+      const size = f.size_bytes > 0
+        ? ` — ${(f.size_bytes / 1048576).toFixed(1)} MB` : '';
+      /* An empty archive is worth saying rather than showing as a file. A
+       * deposit whose underlying data is an empty zip is the shape of published
+       * work with nothing under it. */
+      return `<li><span class="font-mono">${esc(f.name)}</span>
+        <span class="text-gray-500">${esc(f.what)}${esc(size)}</span>
+        ${f.empty ? '<span class="text-amber-800"> — nothing to put in it yet</span>' : ''}</li>`;
+    }
+
+    function render(d) {
+      const blocked = (d.blocking || []).concat(
+        d.not_connected ? [d.not_connected] : []);
+      out.innerHTML = `
+        <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <p class="font-semibold text-gray-900">${esc(d.title)}</p>
+          <p class="text-gray-600 text-xs mt-0.5">
+            To the <span class="font-mono">${esc(d.community)}</span> community at
+            ${esc(d.where)}, under ${esc(d.licence.toUpperCase())}.</p>
+          <p class="text-gray-700 mt-2">Named as authors:
+            ${esc((d.creators || []).join(', ')) || '—'}.
+            <span class="text-gray-500">Check this before submitting — it is
+            taken from who ran the sessions, which is not the same question as
+            who should be an author.</span></p>
+          <ul class="mt-2 space-y-0.5">${(d.files || []).map(fileLine).join('')}</ul>
+          <p class="text-gray-500 text-xs mt-2">
+            ${OGABoard.plural(d.sessions, 'session')} with readings ·
+            ${OGABoard.plural(d.antibodies, 'antibody', 'antibodies')} ·
+            ${OGABoard.plural(d.attachments, 'raw file')}.</p>
+          ${d.attachments ? '' : `<p class="text-amber-800 text-xs mt-1">
+            Nothing has been attached to this gene's sessions, so the underlying
+            data would be an empty archive. Raw data is attached per session, in
+            the <span class="font-semibold">Raw data</span> column of Experiment
+            Sessions above.</p>`}
+          ${d.already_deposited ? `<p class="text-amber-800 mt-2">
+            This gene already has a Zenodo record:
+            <a class="underline" target="_blank" rel="noopener"
+               href="${esc(d.already_deposited)}">${esc(d.already_deposited)}</a>.
+            Depositing again creates a second, separate record.</p>` : ''}
+          ${blocked.length ? `<div class="mt-2 text-amber-900">
+            ${blocked.map(b => `<p>${esc(b)}</p>`).join('')}</div>` : ''}
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          ${d.can_submit
+            ? `<button type="button" id="deposit-go"
+                 class="px-3 py-1.5 rounded-lg bg-ycharos-600 text-white text-sm font-semibold">
+                 Submit to ${esc(d.community)} for review</button>`
+            : `<button type="button" disabled
+                 class="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-500 text-sm
+                        font-semibold cursor-not-allowed">Submit for review</button>`}
+          <span class="text-xs text-gray-500">
+            This creates an unpublished draft and hands it to the community's
+            curators. It does not publish it — their acceptance does, and that is
+            when it becomes public.</span>
+        </div>`;
+      const go = document.getElementById('deposit-go');
+      if (go) go.addEventListener('click', submit);
+    }
+
+    async function submit() {
+      const go = document.getElementById('deposit-go');
+      go.disabled = true;
+      go.textContent = 'Submitting…';
+      const d = await post("{% url 'pipeline:deposit_submit' target.pk %}");
+      if (!d) return;
+      if (d.ok === false) { fail((d.errors || []).join(' ')); return; }
+      /* The receipt stays on screen. Nothing reloads underneath it — the page
+       * offers the link and the reader decides when to leave. */
+      out.innerHTML = `
+        <div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+          <p class="font-semibold">Submitted for review.</p>
+          <p>${d.files} file(s) uploaded, covering ${d.attachments} raw file(s)
+             from ${d.sessions} session(s).</p>
+          ${d.doi ? `<p>Reserved DOI: <span class="font-mono">${esc(d.doi)}</span>
+             — it becomes live when the community accepts the record.</p>` : ''}
+          <p><a class="underline" target="_blank" rel="noopener"
+                href="${esc(d.url)}">Open the draft on Zenodo</a>. It is not
+             public until a curator accepts it.</p>
+        </div>`;
+    }
+
+    btn.addEventListener('click', async () => {
+      out.innerHTML = '<p class="text-gray-500">Working out what would be sent…</p>';
+      const d = await post("{% url 'pipeline:deposit_preview' target.pk %}");
+      if (!d) return;
+      if (d.ok === false) { fail(d.error || 'That could not be worked out.'); return; }
+      render(d);
+    });
+  })();
+
+  function panel(mount, button, cfg) {
+    const entry = OGABoard.newEntry(Object.assign({
+      mount: document.getElementById(mount),
+      csrf,
+      // The gene is fixed: this is that gene's page, so every row belongs to it
+      // and nobody should have to type it again on each line.
+      extraValues: () => ({default_gene: gene}),
+      // Both commit endpoints default to a dry run — a commit that does not say
+      // which phase it is previews again and creates nothing.
+      buildBody: (text, extra, phase) =>
+        Object.assign({text}, extra, {dry_run: phase !== 'commit'}),
+      // The panels below have to catch up with what was just written, or a
+      // "Saved" message sits above a list that still says (0). This used to
+      // reload after 900 ms, which fixed the counts and **destroyed the
+      // receipt**: the ninth field test needed an 80 ms poller to read
+      // "1 row saved without a concentration: A-STMN2-R9D (3 mM)" before the
+      // page went. A message a human cannot read is not a message, and it was
+      // the one line saying a value had been dropped.
+      //
+      // So the reader decides when to move. Same shape as the workbook upload's
+      // "Show them" — one click, not an instruction, and nothing disappears on
+      // its own.
+      onDone: () => {},
+      afterResult: out => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mt-2 block font-semibold underline text-emerald-900';
+        btn.textContent = 'Show them on this page →';
+        btn.addEventListener('click', () => window.location.reload());
+        out.appendChild(btn);
+      },
+    }, cfg));
+    document.getElementById(button).addEventListener('click', entry.open);
+    // Returned so a second button can open the same panel with a row already
+    // started — "Add a wild type" is this grid with two cells filled in.
+    return entry;
+  }
+
+  panel('ab-add-panel', 'ab-add-btn', {
+    columns: json('ab-columns'),
+    example: json('ab-example'),
+    templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
+    urls: {
+      preview: "{% url 'pipeline:bulk_antibodies_parse' %}",
+      commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
+    },
+    intro: `<b class="text-gray-900">Add antibodies for {{ target.gene_name }}.</b>
+            Leave the gene column blank — every row here is {{ target.gene_name }}.
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2">
+              A row is one <b>vial</b>: catalogue + supplier + gene, plus the
+              <b>lot</b> and <b>site</b> that say which tube was tested. A different
+              lot is a second row on purpose. The same lot updates what is there,
+              and a blank never overwrites a value.
+            </span>`,
+    renderPreview: d => {
+      const s = d.summary || {};
+      const sites = s.sites || [];
+      /* supplierLabel, not the typed name: a vendor is matched against the ones
+       * on file, and this preview echoed what was typed while the save wrote
+       * what was resolved. Fixed on the antibodies board first, which is exactly
+       * why it now lives in board.js rather than in a template. */
+      return `<p class="font-semibold text-gray-900">${s.rows || 0} row(s) read —
+        ${s.create || 0} new, ${s.update || 0} already known.</p>
+        ${sites.length ? `<p class="text-xs text-gray-500">Recorded at: ${
+          sites.map(OGABoard.esc).join(', ')}</p>` : ''}
+        ${OGABoard.checkNotes(s) ? `<ul class="text-sm list-disc list-inside">${
+          OGABoard.checkNotes(s)}</ul>` : ''}
+        ${OGABoard.previewRows(d.items, i => [
+          i.catalogue, OGABoard.supplierLabel(i),
+          i.lot ? `lot ${i.lot}` : 'no lot', i.site].filter(Boolean).join(' · '))}`;
+    },
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+  });
+
+  const cellLines = panel('cl-add-panel', 'cl-add-btn', {
+    columns: json('cl-columns'),
+    example: json('cl-example'),
+    templateUrl: "{% url 'pipeline:import_template' kind='cell-lines' %}",
+    /* The site's wild types, on the cell that asks for one. The values come
+     * from the server as the *parser* takes them — a bare name, or a C-number
+     * where two of this site's parentals share a name — never the display label
+     * the sessions board prints, which `resolve_parent` would refuse. Still a
+     * text box: another site's line, a C-number, or one added five minutes ago
+     * on the cell-lines board is typed exactly as before. */
+    suggestions: {parent: json('wt-options')},
+    urls: {
+      preview: "{% url 'pipeline:bulk_cell_lines_parse' %}",
+      commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
+    },
+    /* The same rules as the cell-lines board's own Add panel. Both are here
+     * because a guidance fix applied to one surface is a fix for one surface —
+     * the supplier preview cost two field tests learning that. */
+    intro: `<b class="text-gray-900">Add cell lines for {{ target.gene_name }}.</b>
+            <span class="block mt-2 border-l-4 border-gray-300 bg-gray-50 pl-3 py-2 text-gray-800">
+              <b>The least a row needs:</b> a <b>name</b> — and for a knockout, the
+              <b>gene</b>. Everything else can follow on the cell lines board.
+            </span>
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2">
+              <b>Name</b> is the line as written on the flask —
+              <span class="font-mono">HAP1</span>, <span class="font-mono">HeLa</span> —
+              with the gene in its own column, not in the name.
+              <span class="block mt-1">A <b>KO</b> line needs its gene and its
+              <b>parent</b> — that pairing is what makes a knockout mean anything.</span>
+              <span class="block mt-1">A <b>WT</b> parental line is recorded
+              <b>once, with no gene</b>: leave its gene column blank or write
+              <span class="font-mono">NA</span>, or you make a second, wrong line.</span>
+              <span class="block mt-1">The <b>parent</b> is that wild type, by
+              <b>name</b> (<span class="font-mono">HAP1</span>) or by <b>C-number</b>
+              (<span class="font-mono">C-48</span>). This line's own
+              <span class="font-mono">c number</span> is its freeze-down batch, and
+              <span class="font-mono">paired ko</span> is only for a WT that arrived
+              beside a knockout.</span>
+            </span>`,
+    renderPreview: d => {
+      const s = d.summary || {};
+      return `<p class="font-semibold text-gray-900">${s.rows || 0} row(s) read —
+        ${s.create || 0} new, ${s.update || 0} already known.</p>
+        ${OGABoard.checkNotes(s) ? `<ul class="mt-1 list-disc list-inside">${
+          OGABoard.checkNotes(s)}</ul>` : ''}
+        ${OGABoard.previewRows(d.items, i => [
+          i.name || (i.row || {}).name, i.genotype || (i.row || {}).genotype,
+          i.gene || (i.row || {}).gene || (i.genotype === 'WT' ? 'no gene — wild type' : ''),
+          i.site].filter(Boolean).join(' · '))}`;
+    },
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+  });
+
+  /* "Add a wild type" is the panel above with row 1 already saying what kind of
+   * row it is: genotype WT, and gene `NA` — the app's own word for "there isn't
+   * one", which `services/targets.py::is_not_applicable` reads and never turns
+   * into a target.
+   *
+   * Both cells matter and neither is decoration. This page sends `default_gene`
+   * with every row, and a WT that inherited it would be the second-wrong-line
+   * mistake the panel warns about; a row that leaves the genotype blank is read
+   * as a wild type anyway, so the button and the parser agree rather than the
+   * button relying on a default. Prefilled, not fixed — someone who pressed the
+   * wrong button types over it. */
+  document.getElementById('cl-add-wt-btn').addEventListener(
+    'click', () => cellLines.open({genotype: 'WT', gene: 'NA'}));
+
+  /* **The other half of the round trip, on the page that offers the template.**
+   *
+   * The Add panel's own text ends "fill it in, then bring it back with the
+   * upload button" — and this page had no upload button, so the one instruction
+   * it gives could not be followed here. Sending people to the board for it is
+   * the backtrack an earlier field test already recorded on the targets board:
+   * one panel for the link, close it, another page to use it.
+   *
+   * The same `OGABoard.uploadPanel` the boards mount, posting to the same
+   * endpoints, with `default_gene` set the way the Add panels set it — so a
+   * sheet filled in from this page's template lands on this gene even with the
+   * gene column left blank, exactly as the grid does. */
+  function upload(mount, button, cfg) {
+    const panel = OGABoard.uploadPanel(Object.assign({
+      mount: document.getElementById(mount),
+      csrf,
+      // The gene is fixed here, the same as the Add panels above. It goes on
+      // both halves: the upload parses server-side and the commit writes.
+      extraFields: () => ({default_gene: gene}),
+      extraBody: () => ({default_gene: gene}),
+      onDone: () => {},
+      afterResult: out => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mt-2 block font-semibold underline text-emerald-900';
+        btn.textContent = 'Show them on this page →';
+        btn.addEventListener('click', () => window.location.reload());
+        out.appendChild(btn);
+      },
+    }, cfg));
+    document.getElementById(button).addEventListener('click', panel.open);
+  }
+
+  upload('ab-upload-panel', 'ab-upload-btn', {
+    templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
+    urls: {
+      preview: "{% url 'pipeline:import_upload' kind='antibodies' %}",
+      commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
+    },
+    intro: `<b class="text-gray-900">Upload a sheet of antibodies for
+            {{ target.gene_name }}.</b> The blank template — from the button
+            beside this one, or from the Add panel — or a sheet you downloaded;
+            the columns are the same. Leave the gene column blank and every row
+            is {{ target.gene_name }}. You see what will happen to each row
+            before anything is saved.
+            ${/* **Not the example row.** The template's row 2 is greyed and its
+                  first cell reads "e.g. SNCA" — and that first cell is the gene
+                  column, which is the one column the sentence above tells you to
+                  clear. `services/example_row.py` knows the row by that label,
+                  so clearing it turns Abcam's ab138501 into a real antibody
+                  against this gene: visible in the preview, and easy to miss
+                  among rows you did type. Say which row it is and what to do
+                  with it, next to the instruction that collides with it. */''}
+            <span class="block mt-2 text-gray-500">Row 2 is the greyed
+            <b>e.g.</b> example. Type your own values over it or delete the whole
+            row — don't just clear its gene, or it is read as a real antibody.</span>
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              Keep the <b>site</b> column as it came. It says whose vial each row
+              is, so leaving it alone is what makes a row you downloaded update
+              itself rather than be copied to your own bench. A <b>blank</b> site
+              means yours.
+            </span>`,
+    label: i => [i.catalogue, OGABoard.supplierLabel(i),
+                 i.lot ? `lot ${i.lot}` : 'no lot', i.site]
+                .filter(Boolean).join(' · '),
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+  });
+
+  upload('cl-upload-panel', 'cl-upload-btn', {
+    templateUrl: "{% url 'pipeline:import_template' kind='cell-lines' %}",
+    urls: {
+      preview: "{% url 'pipeline:import_upload' kind='cell-lines' %}",
+      commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
+    },
+    intro: `<b class="text-gray-900">Upload a sheet of cell lines for
+            {{ target.gene_name }}.</b> The blank template — from the button
+            beside this one, or from the Add panel — or a sheet you downloaded.
+            A knockout row can leave the gene blank; every row here is
+            {{ target.gene_name }}.
+            <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2 text-gray-800">
+              A <b>wild type</b> is the exception: it has no gene, so put
+              <b>NA</b> in its gene column rather than leaving it to inherit
+              this page's.
+              ${/* The other half of the same rule, and the one nothing said. A
+                    row with no genotype and no parent is read as a WILD TYPE
+                    (`bulk_cell_lines.norm_genotype`), and a wild type is exactly
+                    the row this page refuses to give its gene to — so a knockout
+                    that leaves both blank goes in as a gene-less parental line,
+                    which is the opposite of what was meant. The genotype column
+                    is what decides, not the gene column. */''}
+              <b class="block mt-1">Fill the genotype column in.</b> A row with
+              no genotype and no parent is taken as a wild type — so a knockout
+              that leaves it blank is written as a parental line with no gene,
+              not as a knockout of {{ target.gene_name }}. The preview shows each
+              row's genotype; check it before saving.
+            </span>`,
+    label: i => [i.name, i.genotype, i.c_number ? `C-${i.c_number}` : '',
+                 i.site].filter(Boolean).join(' · '),
+    renderResult: d => {
+      const r = d.result || {};
+      return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+        Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
+        ${OGABoard.saveNotes(r)}</div>`;
+    },
+  });
+})();
+</script>
+
+<script>
+/* The target board's own columns, on the gene's own page.
+ *
+ * The complaint this answers: an F1000 paper came out for PKN2, the gene's page
+ * is where you go to record what happened to a gene, and the only place the
+ * fact could be written was the 585-row board. Once you look, most of what the
+ * board writes was in the same position — the nomination that says whose gene
+ * it is, the funder paying for it, the protein class a grant is written from,
+ * and the two dates that say when the work came out — all editable through
+ * `target_board_patch` and drawn on this page not at all.
+ *
+ * Two mounts, both `OGABoard.create`, both posting to that same endpoint. Not a
+ * second editor: the refusals (`services/doi.py` on a DOI, `services/sites.py`
+ * on a site, the date reader beside them), the fill/clear rules and the row
+ * payload are the board's, so the two doors cannot come to disagree about what
+ * a Zenodo DOI is. That is the same reason the Add panels above are
+ * `OGABoard.newEntry` rather than a form written here.
+ *
+ * Three things about `create` on a one-row page:
+ *
+ *   - **No `filtersForm` and no `urls.rows`.** `query()` is then empty, so the
+ *     patch is asked with no filters and `matches` is always true — a row on
+ *     this page cannot be filtered off the screen, and there is no board to
+ *     reload it from. The initial paint is `render([row])` with the payload the
+ *     view put in `board-row`, drawn by the same `rowHtml` as every redraw, so
+ *     the `<tr>` a save looks for is always the one this file wrote.
+ *   - **One `<tr>` per panel, everything inside its single `<td>`.** That is
+ *     what makes the redraw whole: the list of what is published and the cells
+ *     that write it are repainted together from one payload, so neither can be
+ *     left stating something the other has just made false. It is also what
+ *     keeps the held-redraw rule working — a reply that lands while another
+ *     cell in the panel is open waits for it.
+ *   - **The panels below and beside these are server-rendered**, so a save that
+ *     changes a derived answer (the badge at the top, the progress strip) leaves
+ *     them stale. Said out loud with a button, never an instruction to reload
+ *     and never a reload of its own: this page has a rule about not pulling
+ *     itself out from under its own result line.
+ */
+(function () {
+  const grid = id => document.getElementById(id);
+  const fundingGrid = grid('funding-grid');
+  const publicationGrid = grid('publication-grid');
+  if (!fundingGrid || !publicationGrid) return;
+
+  const json = id => {
+    const el = document.getElementById(id);
+    return el ? JSON.parse(el.textContent) : null;
+  };
+  const row0 = json('board-row');
+  if (!row0) return;
+
+  const {esc, pill, cell, doiCell, dateText, plural} = OGABoard;
+  const csrf = "{{ csrf_token }}";
+  const patchUrl = "{% url 'pipeline:target_board_patch' %}";
+  const errors = OGABoard.banner('board-error', 'board-error-text', 'board-error-close');
+
+  /* What each cell may hold. A site is refused unless it is one on file
+   * (`services/sites.py::strict_id` names the alternatives), so that one is a
+   * closed list with a blank option — clearing it is how an allocation is
+   * withdrawn. Funders and projects are created on demand by the same writer
+   * the board uses, so theirs are reminders, not rules. */
+  const cellChoices = {
+    site: {strict: true, values: [{value: '', label: '— none —'}].concat(
+      (json('board-sites') || []).map(s => ({value: s, label: s})))},
+    granting_agency: {values: json('board-agencies') || []},
+    project: {values: json('board-projects') || []},
+    essential_gene: {values: ['YES', 'NO', 'slightly']},
+  };
+
+  /* Whether this gene reads as completed, as it was when the page was drawn.
+   * A publication save can flip it, and the badge at the top and the progress
+   * strip are both server-rendered — so the panel says the page is now behind
+   * itself and offers one click, rather than an instruction or a reload nobody
+   * asked for. */
+  const completedAtLoad = !!row0.completed;
+  let staleNote = '';
+
+  function noteCompletion(row) {
+    staleNote = (!!row.completed === completedAtLoad) ? '' :
+      `<div class="mt-3 border border-amber-200 bg-amber-50 text-amber-900 rounded-lg px-3 py-2 text-sm">
+         This gene now counts as <b>${row.completed ? 'completed' : 'not completed'}</b>.
+         The badge at the top of the page and the progress strip were worked out
+         before that, so they are behind.
+         <button type="button" id="refresh-page"
+                 class="ml-1 font-semibold underline hover:no-underline">Bring them up to date</button>
+       </div>`;
+  }
+
+  /* ── Funding, nominations and classification ─────────────────────── */
+
+  function nominationBlock(r, nom, only) {
+    const c = (field, value, opts) =>
+      cell(r.id, field, value || '', {'nomination-id': nom.id || ''}, opts);
+    const note = (field, value, label, hint) =>
+      `<div><dt class="text-xs text-gray-500">${esc(label)}</dt>
+         <dd class="text-sm text-gray-800">${c(field, value, {label, empty: hint})}</dd></div>`;
+    return `<div class="rounded-lg border border-gray-200 p-3 mb-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
+        <div>
+          <dt class="text-xs text-gray-500">Site</dt>
+          <dd class="text-sm font-medium text-gray-900">${c('site', nom.site, {
+            label: nom.site
+              ? 'site — moves this gene off ' + nom.site + ' onto the site you choose'
+              : 'site',
+            empty: 'set site'})}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Funder</dt>
+          <dd class="text-sm text-gray-800">${c('granting_agency', nom.agency,
+            {label: 'funder', empty: 'set funder'})}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Project</dt>
+          <dd class="text-sm text-gray-800">${c('project', nom.project,
+            {label: 'project', empty: 'set project'})}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Funded</dt>
+          <dd class="text-sm">
+            ${/* The one button here, and its accessible name says which field it
+                  is and what the press will do — the board's own funded toggle
+                  was clicked by a field test expecting the site cell. */''}
+            <button class="toggle" data-target="${r.id}" data-field="funded"
+                    data-nomination-id="${nom.id || ''}"
+                    data-value="${nom.funded ? '' : 'yes'}"
+                    aria-pressed="${nom.funded ? 'true' : 'false'}"
+                    aria-label="Funded: ${nom.funded ? 'yes' : 'no'}${
+                      esc(nom.site ? ` at ${nom.site}` : '')}. Click to mark it ${
+                      nom.funded ? 'not funded' : 'funded'}."
+                    title="Click to mark it ${nom.funded ? 'not funded' : 'funded'}.">
+              ${nom.funded ? pill('funded', 'good') : pill('not funded', 'flat')}
+            </button>
+          </dd>
+        </div>
+      </div>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3 mt-3 pt-3 border-t border-gray-100">
+        ${note('comments', nom.comments, 'Notes', 'add a note')}
+        ${note('status_note', nom.status_note, 'Status note', 'add a status note')}
+        ${note('conclusion_note', nom.conclusion_note, 'Conclusion', 'add a conclusion')}
+        ${note('antibodies_requested', nom.antibodies_requested,
+               'Antibodies requested', 'e.g. 6')}
+      </dl>
+      ${!only ? '' : `<p class="text-xs text-gray-400 mt-2">${
+        nom.id
+          ? 'Changing the site moves this gene onto another bench’s list — it does not add a second one.'
+          : 'Nothing has been recorded yet. Filling any of these in files a nomination for this gene.'}</p>`}
+    </div>`;
+  }
+
+  function classBlock(r) {
+    /* Only a hand-added label may be taken off — `remove_class` deletes the
+     * manual row and nothing else — so a × on a UniProt- or family-derived one
+     * would be a control that silently does nothing. Those say where they came
+     * from instead. */
+    const chips = (r.class_rows || []).map(c => {
+      const body = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs
+        font-medium bg-blue-50 text-blue-700" title="${esc(c.from)}">${esc(c.label)}${
+        c.removable ? `<button type="button" class="toggle ml-1 text-blue-500 hover:text-blue-900
+            font-bold leading-none" data-target="${r.id}" data-field="remove_class"
+            data-value="${esc(c.label)}"
+            aria-label="Remove the class ${esc(c.label)} from this gene">&times;</button>` : ''}</span>`;
+      return body;
+    }).join(' ');
+    return `<div class="mt-4 pt-4 border-t border-gray-100">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-3">
+        <div class="lg:col-span-2">
+          <dt class="text-xs text-gray-500 mb-1">Protein class${
+            (r.class_rows || []).length === 1 ? '' : 'es'}</dt>
+          <dd class="text-sm">${chips || `<span class="text-gray-400">none recorded</span>`}
+            <span class="ml-2">${cell(r.id, 'add_class', '', {},
+              {label: 'add a protein class', empty: '+ add a class'})}</span>
+            ${(r.class_rows || []).some(c => !c.removable)
+              ? `<span class="block text-xs text-gray-400 mt-1">A class with no
+                   × was derived from UniProt or from the gene’s family
+                   and is re-derived on each backfill — add a correction beside
+                   it rather than trying to remove it.</span>` : ''}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500 mb-1">Essential gene</dt>
+          <dd class="text-sm">${cell(r.id, 'essential_gene', r.essential_gene, {},
+            {label: 'essential gene', empty: 'YES / NO / slightly'})}
+            <span class="block text-xs text-gray-400 mt-1">A human call read off
+              DepMap — not the expression figure above it.</span></dd>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function fundingRow(r) {
+    const noms = r.nominations || [];
+    /* A gene nominated nowhere still gets one block, with every cell empty:
+     * the first allocation is the case this panel matters most in, and an
+     * empty list is exactly where "there is nowhere to record it" was true. */
+    const blocks = noms.length
+      ? noms.map(n => nominationBlock(r, n, noms.length === 1)).join('')
+      : nominationBlock(r, {}, true);
+    /* The import-recorded site is said above the table, server-rendered — a
+     * statement about what the 2019 sheet held rather than about what is true
+     * now, so it neither belongs in a row that redraws nor goes stale when a
+     * nomination is finally filed. */
+    return `<tr data-row="${r.id}"><td class="p-0">
+      ${noms.length > 1
+        ? `<p class="text-xs text-gray-500 mb-2">${plural(noms.length, 'nomination')} —
+             the same gene at two sites is a real state, not a duplicate record.</p>`
+        : ''}
+      ${blocks}
+      ${classBlock(r)}
+    </td></tr>`;
+  }
+
+  /* The two panels are deliberately not wired to redraw each other. Nothing the
+   * funding cells write appears in the publication panel or the other way
+   * about, so a cross-redraw would buy nothing — and `afterPatch` calling the
+   * other board's `replaceRow`, which calls *its* `afterPatch`, is a loop with
+   * no exit. */
+  const funding = OGABoard.create({
+    grid: fundingGrid, errors, csrf, cellChoices,
+    urls: {patch: patchUrl},
+    rowHtml: fundingRow,
+  });
+
+  /* ── The published record ────────────────────────────────────────── */
+
+  function publishedList(r) {
+    const rep = r.reports || {published: [], unpublished: 0};
+    const one = p => {
+      const link = (label, text, href, iso) => {
+        if (!text) return '';
+        const when = iso ? ` <span class="text-gray-400">(${esc(dateText(iso))})</span>` : '';
+        return href
+          ? `<a href="${esc(href)}" target="_blank" rel="noopener"
+               class="text-blue-600 hover:underline">${esc(label)}${when}</a>`
+          : `<span class="text-amber-700">${esc(label)}: “${esc(text)}” is not a DOI
+               or an address — correct it below.</span>`;
+      };
+      const zen = link('Zenodo', p.zenodo_text, p.zenodo_link, p.zenodo_date);
+      const f10 = link('F1000Research', p.f1000_text, p.f1000_link, p.f1000_date);
+      const tone = p.status === 'published' ? 'bg-green-100 text-green-700'
+        : p.status === 'submitted' ? 'bg-blue-100 text-blue-700'
+        : p.status === 'generated' ? 'bg-amber-100 text-amber-700'
+        : 'bg-gray-100 text-gray-600';
+      return `<div class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tone}">${
+          esc(p.status_label)}</span>
+        <div class="text-sm">${[zen, f10].filter(Boolean).join(
+          '<span class="text-gray-300 mx-1">|</span>') ||
+          '<span class="text-gray-500">No DOI linked yet</span>'}</div>
+      </div>`;
+    };
+    const listed = rep.published.length
+      ? `<div class="space-y-3">${rep.published.map(one).join('')}</div>`
+      : `<p class="text-sm text-gray-500 py-4">Nothing published for this target yet.
+           A Zenodo deposit or an F1000 paper is recorded here, and that is what
+           marks the gene completed.</p>`;
+    /* Say what was left out rather than dropping it. The Access import wrote
+     * Carl's F1000 column ("YES with IF repeat", "coming") onto rows with no
+     * DOI, and a record that vanishes from the one page about its gene is how a
+     * value nobody can see becomes a value nobody can fix. */
+    const rest = rep.unpublished
+      ? `<p class="text-sm text-gray-500 mt-3">${
+           plural(rep.unpublished, 'other report record')} on file for this gene with
+         no Zenodo DOI and no published F1000 date, so ${
+           rep.unpublished === 1 ? 'it is' : 'they are'} not listed above. The boxes
+         below edit whichever of them carries each value.</p>`
+      : '';
+    return listed + rest;
+  }
+
+  /* One writer for the heading's count, so it cannot come to disagree with the
+   * list under it — the same rule the raw-data buttons above follow. */
+  function setReportsCount(r) {
+    const el = document.getElementById('reports-count');
+    if (el) el.textContent = `(${((r.reports || {}).published || []).length})`;
+  }
+
+  function publicationRow(r) {
+    setReportsCount(r);
+    const plain = (field, value, label, hint) =>
+      `<div><dt class="text-xs text-gray-500">${esc(label)}</dt>
+         <dd class="text-sm text-gray-800">${
+           cell(r.id, field, value || '', {}, {label, empty: hint})}</dd></div>`;
+    return `<tr data-row="${r.id}"><td class="p-0">
+      ${publishedList(r)}
+      <div class="mt-4 pt-4 border-t border-gray-100">
+        <p class="text-xs text-gray-500 mb-3">
+          Record what was published. A <b>Zenodo DOI</b> or an <b>F1000
+          publication date</b> is what marks this gene completed — an F1000 DOI
+          on its own does not, because a paper has one before it is accepted.
+        </p>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          <div>
+            <dt class="text-xs text-gray-500">Zenodo</dt>
+            <dd class="text-sm text-gray-800">${doiCell(r.id, {
+              field: 'zenodo_doi', label: 'Zenodo DOI',
+              text: r.zenodo_text, href: r.zenodo_link,
+              dateField: 'zenodo_date', dateLabel: 'Zenodo deposit date',
+              date: r.zenodo_date})}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-gray-500">F1000Research</dt>
+            <dd class="text-sm text-gray-800">${doiCell(r.id, {
+              field: 'f1000_doi', label: 'F1000 DOI',
+              text: r.f1000_text, href: r.f1000_link,
+              dateField: 'f1000_date', dateLabel: 'F1000 publication date',
+              date: r.f1000_date})}</dd>
+          </div>
+          ${plain('f1000_priority', r.f1000_priority, 'F1000 write-up',
+                  'e.g. YES with IF repeat')}
+          ${plain('f1000_note', r.f1000_note, 'F1000 note',
+                  'anything that is not a link')}
+        </dl>
+      </div>
+      ${staleNote}
+    </td></tr>`;
+  }
+
+  const publication = OGABoard.create({
+    grid: publicationGrid, errors, csrf,
+    urls: {patch: patchUrl},
+    rowHtml: publicationRow,
+    afterPatch: d => noteCompletion(d.row),
+  });
+
+  /* Painted from the payload the view supplied, by the same renderers every
+   * redraw uses — so there is one description of these panels and not a
+   * server-rendered copy of it that can drift. */
+  funding.render([row0]);
+  publication.render([row0]);
+
+  /* One click, not an instruction to reload. It is only ever offered after a
+   * save whose result line is already on screen and read. */
+  document.addEventListener('click', e => {
+    if (e.target && e.target.id === 'refresh-page') window.location.reload();
+  });
+})();
+</script>
+
+{% with bench_gene=target.gene_name %}{% include "pipeline/_bench_workbook_upload.html" %}{% endwith %}
+{% endblock %}

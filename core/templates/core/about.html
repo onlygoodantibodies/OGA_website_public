@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <title>About Us — Only Good Antibodies Community</title>
+    <meta name="description" content="Only Good Antibodies (OGA) is an open science platform combining a knockout-validated antibody database, free e-learning Academy, and Antibody Champions scheme — working with 26+ partners to improve research reproducibility.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+
+<style>
+/* ══════════════════════════════════════════
+   ABOUT PAGE — self-contained, roadmap-aligned
+   ══════════════════════════════════════════ */
+html { scroll-behavior: smooth; }
+.abt-page { font-family: 'Open Sans', sans-serif; color: #1e293b; }
+.abt-page * { box-sizing: border-box; }
+
+/* ── HERO ── */
+.abt-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff;
+  text-align: center;
+  padding: 80px 24px 64px;
+  position: relative;
+  overflow: hidden;
+}
+.abt-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%; right: -15%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.abt-hero-inner {
+  max-width: 850px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.abt-hero h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+  color: #fff !important;
+}
+.abt-hero p {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  max-width: 700px;
+  margin: 0 auto 32px;
+}
+.abt-hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 36px;
+}
+.abt-hero-stat {
+  text-align: center;
+  flex: 0 0 140px;
+}
+.abt-hero-stat-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+.abt-hero-stat-label {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 4px;
+}
+
+/* ── SECTIONS ── */
+.abt-section {
+  padding: 64px 24px;
+  text-align: center;
+}
+.abt-section-inner { max-width: 1100px; margin: 0 auto; }
+.abt-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #4a8ec9;
+  margin-bottom: 8px;
+}
+.abt-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #10428a;
+  margin-bottom: 14px;
+  letter-spacing: -0.3px;
+}
+.abt-desc {
+  color: #444;
+  font-size: 1rem;
+  line-height: 1.7;
+  margin-bottom: 40px;
+  max-width: 750px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.abt-bg-light { background: #f5f8ff; }
+.abt-bg-white { background: #fff; }
+.abt-bg-dark {
+  background: #0d2b5e;
+  color: #fff;
+}
+.abt-bg-dark .abt-label { color: rgba(255,255,255,0.45) !important; }
+.abt-bg-dark .abt-title { color: #fff !important; }
+.abt-bg-dark .abt-desc { color: rgba(255,255,255,0.7); }
+
+/* ── PLATFORM CARDS ── */
+.abt-platform-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  text-align: left;
+}
+.abt-platform-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 28px;
+  transition: all 0.25s;
+}
+.abt-bg-light .abt-platform-card { background: #fff; }
+.abt-platform-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(16,66,138,0.10);
+}
+.abt-platform-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #10428a !important;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.abt-platform-card p {
+  font-size: 0.92rem;
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+.abt-card-icon {
+  font-size: 1.6rem;
+  margin-bottom: 12px;
+}
+
+/* ── PROJECT CARDS ── */
+.abt-projects-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  text-align: left;
+}
+.abt-project-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 28px;
+  transition: all 0.25s;
+}
+.abt-project-card:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-3px);
+}
+.abt-project-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff !important;
+  margin-bottom: 10px;
+}
+.abt-project-card p {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.abt-project-card .abt-project-funder {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.45);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.abt-project-card a {
+  color: #86bef0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.abt-project-card a:hover { text-decoration: underline; }
+
+/* ── RECOGNITION ── */
+.abt-recognition-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  text-align: center;
+}
+.abt-recognition-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 28px 20px;
+}
+.abt-recognition-card h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #10428a !important;
+  margin-bottom: 8px;
+}
+.abt-recognition-card p {
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* ── TEAM ── */
+.abt-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 28px;
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.abt-team-member img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+.abt-team-member h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #10428a !important;
+  margin-bottom: 4px;
+}
+.abt-team-member p {
+  font-size: 0.82rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* ── FUNDERS ── */
+.abt-funders {
+  padding: 48px 24px;
+  text-align: center;
+  background: #f5f8ff;
+}
+.abt-funders-inner {
+  max-width: 750px;
+  margin: 0 auto;
+}
+.abt-funders p {
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.7;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .abt-platform-grid { grid-template-columns: 1fr; }
+  .abt-projects-grid { grid-template-columns: 1fr; }
+  .abt-recognition-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  .abt-hero { padding: 56px 20px 48px; }
+  .abt-hero-stats { gap: 20px; }
+  .abt-team-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; }
+}
+</style>
+</head>
+
+<body class="no-wobble abt-page">
+
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+
+<!-- ═══════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════ -->
+<section class="abt-hero">
+  <div class="abt-hero-inner">
+    <h1>About Only Good Antibodies</h1>
+    <p>We're an open science community making best practice in antibody choice and use feasible, easy, and rewarding. Led from the University of Leicester and working with 26+ partner organisations across manufacturing, funding, publishing, and research.</p>
+    <div class="abt-hero-stats">
+      <div class="abt-hero-stat">
+        <div class="abt-hero-stat-num">{{ gene_count }}</div>
+        <div class="abt-hero-stat-label">genes in database</div>
+      </div>
+      <div class="abt-hero-stat">
+        <div class="abt-hero-stat-num">{{ antibody_count }}</div>
+        <div class="abt-hero-stat-label">antibodies tested</div>
+      </div>
+      <div class="abt-hero-stat">
+        <div class="abt-hero-stat-num">14</div>
+        <div class="abt-hero-stat-label">manufacturer partners</div>
+      </div>
+      <div class="abt-hero-stat">
+        <div class="abt-hero-stat-num">26+</div>
+        <div class="abt-hero-stat-label">partner organisations</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     WHAT WE DO
+     ═══════════════════════════════════════ -->
+<section class="abt-section abt-bg-light">
+  <div class="abt-section-inner">
+    <div class="abt-label">Our Platform</div>
+    <div class="abt-title">What we offer</div>
+    <div class="abt-desc">OGA brings together a searchable database of knockout-validated antibody characterisation data, a free e-learning Academy, an Antibody Champions scheme, and an evidence-based roadmap for stakeholder action. Everything is free and open access.</div>
+
+    <div class="abt-platform-grid">
+
+      <div class="abt-platform-card">
+        <div class="abt-card-icon">🔍</div>
+        <h3>Antibody Database</h3>
+        <p>Search knockout-validated characterisation data across western blot, immunoprecipitation, immunofluorescence, and flow cytometry. Compare antibodies from 14 manufacturers side by side, with application-specific recommendations. All data generated through our collaboration with YCharOS Inc.</p>
+      </div>
+
+      <div class="abt-platform-card">
+        <div class="abt-card-icon">🎓</div>
+        <h3>OGA Academy</h3>
+        <p>Free, self-paced e-learning covering antibody selection, the five pillars of validation, database navigation, and data interpretation. Five modules with quizzes and a downloadable PDF certificate on completion.</p>
+      </div>
+
+      <div class="abt-platform-card">
+        <div class="abt-card-icon">🏅</div>
+        <h3>Antibody Champions</h3>
+        <p>A joint OGA/NC3Rs programme recruiting early career researchers to drive culture change in antibody validation at their own institutions. 12-month programme with professional training from Inspire Change and expert mentorship from AstraZeneca and YCharOS.</p>
+      </div>
+
+      <div class="abt-platform-card">
+        <div class="abt-card-icon">📄</div>
+        <h3>Evidence &amp; Roadmap</h3>
+        <p>Two peer-reviewed preprints published March 2026 — quantifying the ethical and scientific costs of inadequate validation and presenting 15 consensus recommendations from 32 international experts, with action plans for institutions, funders, publishers, and manufacturers.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     OUR COLLABORATION WITH YCHAROS
+     ═══════════════════════════════════════ -->
+<section class="abt-section abt-bg-white">
+  <div class="abt-section-inner">
+    <div class="abt-label">Open Science Partnership</div>
+    <div class="abt-title">Our collaboration with YCharOS Inc.</div>
+    <div class="abt-desc" style="margin-bottom:0;">The OGA community and YCharOS Inc. work together to increase the availability and use of well-performing research antibodies, eliminate the use of inappropriate antibodies and the associated waste of animals for their production, and promote education and awareness about best practices in antibody use and validation. Our YCharOS collaborative lab has been running since 2021 and now spans four laboratories, characterising antibodies from 14 manufacturers using standardised knockout-validated protocols.</div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     PROJECTS
+     ═══════════════════════════════════════ -->
+<section class="abt-section abt-bg-dark">
+  <div class="abt-section-inner">
+    <div class="abt-label">Our Projects</div>
+    <div class="abt-title">Three projects</div>
+    <div class="abt-desc">Our work runs in three strands.</div>
+
+    <div class="abt-projects-grid">
+
+      <div class="abt-project-card">
+        <h3>Better Antibodies</h3>
+        <p>Identifying robust reagents to study key targets of interest, in collaboration with antibody manufacturers through YCharOS and the NC3Rs. Characterising antibodies across four applications with knockout-validated controls to build a trusted, open dataset.</p>
+        <div class="abt-project-funder">Funded by NC3Rs</div>
+        <br>
+        <a href="https://nc3rs.org.uk/our-portfolio/characterisation-antibodies-and-affinity-reagents-promote-adoption-robust" target="_blank">Learn more →</a>
+      </div>
+
+      <div class="abt-project-card">
+        <h3>Better Science</h3>
+        <p>Driving better standards in antibody choice and use across the research lifecycle — from funding applications through purchasing decisions, experimental design, and manuscript assessment. Developing the database, training resources, and stakeholder engagement tools.</p>
+        <div class="abt-project-funder">Funded by MRC-NIHR Better Methods, Better Research</div>
+        <br>
+        <a href="https://leicesterbrc.nihr.ac.uk/hdv/" target="_blank">Learn more →</a>
+      </div>
+
+      <div class="abt-project-card">
+        <h3>Better Patient Outcomes</h3>
+        <p>Using well-characterised antibodies to identify proteins that predict treatment responses in interstitial lung disease (ILD) patients — working towards better diagnosis and more targeted treatment selection through robust, reproducible antibody tools.</p>
+        <div class="abt-project-funder">Supported by Leicester Institute for Precision Health &amp; MRC Impact Accelerator</div>
+        <br>
+        <a href="{% url 'contact' %}">Contact us →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     RECOGNITION
+     ═══════════════════════════════════════ -->
+<section class="abt-section abt-bg-light">
+  <div class="abt-section-inner">
+    <div class="abt-label">Impact</div>
+    <div class="abt-title">Recognition</div>
+
+    <div class="abt-recognition-grid">
+
+      <div class="abt-recognition-card">
+        <h3>Nature Feature</h3>
+        <p>Our work was featured in Nature Magazine, highlighting OGA's role in the international effort to improve antibody quality and research reproducibility.</p>
+        <a href="https://doi.org/10.1038/d41586-024-03590-0" target="_blank" rel="noopener noreferrer">Read more →</a>
+      </div>
+
+      <div class="abt-recognition-card">
+        <h3>Dorothy Bishop Award</h3>
+        <p>Awarded for contributions to reproducible and open research culture — recognising the OGA community's collaborative approach to tackling the antibody crisis.</p>
+        <a href="https://le.ac.uk/news/2025/april/dorothy-bishop-prize-researchers-leicester" target="_blank" rel="noopener noreferrer">Read more →</a>
+      </div>
+
+      <div class="abt-recognition-card">
+        <h3>UKRN Case Study</h3>
+        <p>Published as an impact case study by the UK Reproducibility Network, demonstrating how OGA's collaboration with YCharOS supports better biomedical research using antibodies.</p>
+        <a href="https://www.ukrn.org/2025/01/28/ukrn-case-study-supporting-improvements-to-biomedical-research-using-antibodies/" target="_blank" rel="noopener noreferrer">Read more →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     TEAM
+     ═══════════════════════════════════════ -->
+<section class="abt-section abt-bg-white">
+  <div class="abt-section-inner">
+    <div class="abt-label">Our People</div>
+    <div class="abt-title">Meet the team</div>
+
+    <div class="abt-team-grid">
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team1.png' %}" alt="Harvinder Virk">
+        <h3>Harvinder Virk</h3>
+        <p>Co-lead (Clinical)</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team2.png' %}" alt="Michael Biddle">
+        <h3>Michael Biddle</h3>
+        <p>Co-lead (Molecular Biology)</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team4.png' %}" alt="Eva Krockow">
+        <h3>Eva Krockow</h3>
+        <p>Co-lead (Behavioural Science)</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team3.png' %}" alt="Carolyn Jones">
+        <h3>Carolyn Jones</h3>
+        <p>Characterisation &amp; biomarker project support</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team8.jpg' %}" alt="Bhavanaa Arunakumar">
+        <h3>Bhavanaa Arunakumar</h3>
+        <p>PhD student (in collaboration with Abcam Ltd)</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team5.png' %}" alt="Bárbara Ferreira">
+        <h3>Bárbara Ferreira</h3>
+        <p>Bioinformatics</p>
+      </div>
+
+      <div class="abt-team-member">
+        <img src="{% static 'core/team7.jpg' %}" alt="Katherine Blades">
+        <h3>Katherine Blades</h3>
+        <p>Partnership manager</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════
+     AFFILIATIONS
+     ═══════════════════════════════════════ -->
+<section class="abt-funders">
+  <div class="abt-funders-inner">
+    <div class="abt-label">Affiliations &amp; Acknowledgements</div>
+    <p>OGA is led from the University of Leicester and is an affiliate stakeholder of the UK Reproducibility Network. Our work is supported by the NC3Rs, the MRC-NIHR Better Methods Better Research programme, the Leicester Institute for Precision Health, and the NIHR Leicester Biomedical Research Centre. We are part of the wider movement to improve research integrity and reproducibility, and our work represents an opportunity for learning in the wider context of trustworthy research and reliable diagnostics.</p>
+  </div>
+</section>
+
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}">Home</a>
+      <a href="{% url 'about' %}">About Us</a>
+      <a href="{% url 'publications' %}">Publications</a>
+      
+      <a href="{% url 'news' %}">News</a>
+      <a href="{% url 'contact' %}">Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+      <p><a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">LinkedIn</a></p>
+      <p><a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">BlueSky</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+      </a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

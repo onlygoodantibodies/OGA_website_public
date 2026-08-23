@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools &amp; Resources — Only Good Antibodies</title>
+    <meta name="description" content="Tools and resources for planning, documenting, and improving antibody validation. Free, open, and built on consensus recommendations.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   TOOLS HUB PAGE
+   Prefix: th-
+   ══════════════════════════════════════ */
+
+/* ── Hero ── */
+.th-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 72px 24px 56px; text-align: center; position: relative; overflow: hidden;
+}
+.th-hero::before {
+  content: ''; position: absolute; top: -40%; right: -15%; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%); border-radius: 50%;
+}
+.th-hero-inner { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+.th-hero-label {
+  display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
+}
+.th-hero h1 {
+  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
+  line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
+}
+.th-hero p {
+  font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.85); max-width: 680px; margin: 0 auto;
+}
+
+/* ── Main ── */
+.th-main { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* ── Card grid ── */
+.th-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 48px;
+}
+
+.th-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 28px 24px 24px; display: flex; flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s; position: relative;
+}
+.th-card:hover {
+  transform: translateY(-3px); box-shadow: 0 8px 24px rgba(16,66,138,0.1);
+}
+
+.th-card-icon {
+  width: 48px; height: 48px; border-radius: 12px; display: flex;
+  align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 16px;
+}
+
+.th-card-label {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.2px; margin-bottom: 6px; line-height: 1;
+}
+
+.th-card h2 {
+  font-family: 'Open Sans', sans-serif; font-size: 1.1rem; font-weight: 800;
+  color: #10428a; margin-bottom: 10px; line-height: 1.3;
+}
+
+.th-card p {
+  font-size: 0.86rem; color: #555; line-height: 1.6; margin-bottom: 16px; flex: 1;
+}
+
+.th-card-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.88rem; font-weight: 700; color: #10428a; text-decoration: none;
+  transition: color 0.2s;
+}
+.th-card-link:hover { color: #4a8ec9; }
+.th-card-link .th-arrow { transition: transform 0.2s; }
+.th-card-link:hover .th-arrow { transform: translateX(3px); }
+
+/* Card colour accents */
+.th-card-database .th-card-icon { background: #dbeafe; }
+.th-card-database .th-card-label { color: #2563eb; }
+
+.th-card-extension .th-card-icon { background: #e6f5ec; }
+.th-card-extension .th-card-label { color: #1c8f4b; }
+
+.th-card-framework .th-card-icon { background: #f0f4f9; }
+.th-card-framework .th-card-label { color: #4a8ec9; }
+
+.th-card-planner .th-card-icon { background: #dcfce7; }
+.th-card-planner .th-card-label { color: #16a34a; }
+
+.th-card-record .th-card-icon { background: #fef3c7; }
+.th-card-record .th-card-label { color: #d97706; }
+
+
+.th-card-academy .th-card-icon { background: #ede9fe; }
+.th-card-academy .th-card-label { color: #7c3aed; }
+
+.th-card-champions .th-card-icon { background: #fce7f3; }
+.th-card-champions .th-card-label { color: #db2777; }
+
+.th-card-stakeholders .th-card-icon { background: #f1f5f9; }
+.th-card-stakeholders .th-card-label { color: #64748b; }
+
+.th-card-portal .th-card-icon { background: #e0e7ff; }
+.th-card-portal .th-card-label { color: #4f46e5; }
+
+/* ── Badge ── */
+.th-badge {
+  display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; padding: 3px 10px; border-radius: 100px;
+  position: absolute; top: 16px; right: 16px;
+}
+.th-badge-new { background: #dcfce7; color: #16a34a; }
+.th-badge-external { background: #f1f5f9; color: #64748b; }
+.th-badge-expanding { background: #fef3c7; color: #d97706; }
+.th-badge-early { background: #ede9fe; color: #6d28d9; }
+
+/* ── Downloads strip ── */
+.th-downloads {
+  background: #f5f8ff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 20px 24px; margin-bottom: 48px;
+}
+.th-downloads-title {
+  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  color: #10428a; margin-bottom: 10px;
+}
+.th-downloads-list {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+}
+.th-downloads-list a {
+  font-size: 0.86rem; color: #4a8ec9; text-decoration: none; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.th-downloads-list a:hover { color: #10428a; text-decoration: underline; }
+
+/* ── Bottom note ── */
+.th-note {
+  text-align: center; max-width: 640px; margin: 0 auto;
+  font-size: 0.88rem; color: #777; line-height: 1.7;
+}
+.th-note a { color: #4a8ec9; text-decoration: none; font-weight: 600; }
+.th-note a:hover { text-decoration: underline; }
+/* The block is centred, so the list is centred as a block but reads
+   left-aligned — bullets on centred text sit at ragged left edges. */
+.th-note ul { text-align: left; display: inline-block; margin: 0.4rem 0 0.9rem;
+              padding-left: 1.1rem; }
+.th-note li { margin-bottom: 0.35rem; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .th-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 580px) {
+  .th-grid { grid-template-columns: 1fr; }
+  .th-hero { padding: 56px 20px 40px; }
+  .th-hero h1 { font-size: 1.6rem; }
+}
+</style>
+</head>
+<body>
+
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+
+{% include 'core/header.html' %}
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<section class="th-hero">
+  <div class="th-hero-inner">
+    <span class="th-hero-label">Tools &amp; Resources</span>
+    <h1>Tools for finding, planning, and documenting antibody validation</h1>
+    <p>Free tools for finding validated antibodies, planning proportionate validation, documenting your results, and learning best practice — built on consensus recommendations from 32 international experts.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════ MAIN ══════════════════════ -->
+<div class="th-main">
+
+<!-- ── Card grid ── -->
+<div class="th-grid">
+
+  <!-- 1. OGA Database -->
+  <div class="th-card th-card-database">
+    <span class="th-badge th-badge-external">External</span>
+    <div class="th-card-icon">🔬</div>
+    <div class="th-card-label">Find antibodies</div>
+    <h2>OGA Antibody Database</h2>
+    <p>Search curated, independent characterisation data with knockout controls across Western blot, IP, IF, and flow cytometry. The starting point for any antibody selection.</p>
+    <a href="https://onlygoodantibodies.co.uk/" target="_blank" rel="noopener" class="th-card-link">
+      Search the database <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 2. Browser extension (hidden until the store listings are live) -->
+  {% if extension_public %}
+  <div class="th-card th-card-extension">
+    <span class="th-badge th-badge-early">Early release</span>
+    <div class="th-card-icon">🔎</div>
+    <div class="th-card-label">Read papers</div>
+    <h2>Browser Extension</h2>
+    <p>Marks every antibody cited in a paper with its knockout-controlled result for the application it was used in, and shows the data on hover. Matching happens in your browser — no page text is sent anywhere.</p>
+    <a href="{% url 'extension' %}" class="th-card-link">
+      Install the extension <span class="th-arrow">→</span>
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- 3. Framework -->
+  <div class="th-card th-card-framework">
+    <span class="th-badge th-badge-new">New</span>
+    <div class="th-card-icon">📐</div>
+    <div class="th-card-label">Understand the approach</div>
+    <h2>Validation Planning Framework</h2>
+    <p>The principles behind proportionate validation — what your scientific question demands, how to select controls, and how to document your reasoning. The guide that underpins the tools below.</p>
+    <a href="{% url 'validation_framework' %}" class="th-card-link">
+      Read the framework <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 3. Selection Tool (replaces the old Validation Planner) -->
+  <div class="th-card th-card-planner">
+    <span class="th-badge th-badge-early">Early release</span>
+    <div class="th-card-icon">🧭</div>
+    <div class="th-card-label">Choose an antibody</div>
+    <h2>Antibody Selection Tool</h2>
+    <p>Answer a few questions about your target and application and get a specific plan:
+       which antibody to choose, the knockout-controlled validation that proves it, and the
+       controls to run — grounded in independent YCharOS characterisation data. Generates a
+       downloadable PDF plan. A plan you save is kept by OGA; a compliance record can be
+       shared with the funder who asked for it.</p>
+    <a href="{% url 'selector:tool' %}" class="th-card-link">
+      Open the Selection Tool <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 4. Validation Record (lightweight self-report) -->
+  <div class="th-card th-card-record">
+    <div class="th-card-icon">📝</div>
+    <div class="th-card-label">Record what you did</div>
+    <h2>Validation Record</h2>
+    <p>A quick record of your antibody validation: what the antibody was, what you used it for, which controls you ran, and why. The same questions as the Planner — filled in after the experiment.</p>
+    <a href="{% url 'validation_record' %}" class="th-card-link">
+      Open the record <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 5. Academy -->
+  <div class="th-card th-card-academy">
+    <div class="th-card-icon">🎓</div>
+    <div class="th-card-label">Learn best practice</div>
+    <h2>OGA Academy</h2>
+    <p>Sign in once for free, self-paced modules and certification in antibody validation
+       best practice — learn the approach at your own pace, all behind a single login.</p>
+    <a href="{% url 'academy:academy_home' %}" class="th-card-link">
+      Start learning <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 6. Connect your AI to the OGA database -->
+  <div class="th-card th-card-academy">
+    <span class="th-badge th-badge-early">Early release</span>
+    <div class="th-card-icon">🤖</div>
+    <div class="th-card-label">Use your own AI</div>
+    <h2>Check a paper's antibodies with your AI</h2>
+    <p>Connect OGA to Claude, ChatGPT, or any MCP-capable assistant, then have it read a
+       manuscript or preprint and flag which of the antibodies it cites are independently
+       knockout-validated — with per-application results, right inside your own chats.</p>
+    <a href="{% url 'connect_your_ai' %}" class="th-card-link">
+      Connect your AI <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 6b. Data portal & API -->
+  <div class="th-card th-card-portal">
+    <div class="th-card-icon">🔌</div>
+    <div class="th-card-label">Use the data in your own systems</div>
+    <h2>Data Portal &amp; API</h2>
+    <p>For manufacturers, registries and data partners. The metadata associated
+       with the antibody testing, including the recommendations and the published
+       figures — browse and download it in the portal, or keep your own catalogue
+       in step with ours over the API. Access is by key.</p>
+    <a href="{% url 'data_access' %}" class="th-card-link">
+      Portal &amp; API <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- 6. Champions -->
+  <div class="th-card th-card-champions">
+    <div class="th-card-icon">🤝</div>
+    <div class="th-card-label">Join the community</div>
+    <h2>Antibody Champions</h2>
+    <p>A community of researchers trained to support good antibody practice in their institutions, run in partnership with the NC3Rs. Get peer support and help drive change locally.</p>
+    <a href="{% url 'champions' %}" class="th-card-link">
+      Meet the Champions <span class="th-arrow">→</span>
+    </a>
+  </div>
+
+<!-- 7. Stakeholders / Roadmap -->
+  <div class="th-card th-card-stakeholders">
+    <div class="th-card-icon">🏛️</div>
+    <div class="th-card-label">For stakeholders</div>
+    <h2>Adoption Guidance</h2>
+    <p>Ready-to-adopt language, practical toolkits, and stakeholder-specific guidance for implementing the Delphi consensus recommendations.</p>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto;">
+      <a href="{% url 'roadmap_institutions' %}" class="th-card-link">Institutions <span class="th-arrow">→</span></a>
+      <a href="{% url 'roadmap_funders' %}" class="th-card-link">Funders <span class="th-arrow">→</span></a>
+      <a href="{% url 'roadmap_publishers' %}" class="th-card-link">Publishers <span class="th-arrow">→</span></a>
+      <a href="{% url 'roadmap_manufacturers' %}" class="th-card-link">Manufacturers <span class="th-arrow">→</span></a>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Downloads ── -->
+<div class="th-downloads">
+  <div class="th-downloads-title">📄 Offline companion documents</div>
+  <div class="th-downloads-list">
+    <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.pdf' %}">Framework (PDF)</a>
+    <a href="{% static 'core/docs/Antibody_Validation_Planning_Framework.docx' %}">Framework (Word)</a>
+    <a href="{% static 'core/docs/Antibody_Validation_Record_Proforma.xlsx' %}">Validation Record (Excel)</a>
+  </div>
+</div>
+
+<!-- ── Bottom note ── -->
+<div class="th-note">
+  <p>All the tools are free. What happens to what you type differs:</p>
+  <ul>
+    <li><strong>Validation Record</strong> — stays in your browser; we receive nothing.</li>
+    <li><strong>Selection Tool</strong> — a plan you save is kept by OGA, and a compliance
+        record may be shared with the funder who asked you to use it.</li>
+  </ul>
+  <p>Gene symbols you enter are looked up against UniProt and public expression
+     datasets. The Academy and the AI connector are
+     covered in our <a href="{% url 'privacy_policy' %}">Privacy Policy</a>.
+     Built on recommendations from a <a href="{% url 'publications' %}">multi-stakeholder
+     Delphi consensus study</a>.</p>
+</div>
+
+</div><!-- /.th-main -->
+
+</body>
+</html>

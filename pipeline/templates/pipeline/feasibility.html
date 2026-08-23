@@ -1,0 +1,1382 @@
+{% extends "pipeline/base.html" %}
+{% load static %}
+{% block title %}Feasibility Lookup{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Feasibility Lookup</h1>
+    <p class="mt-2 text-gray-600">
+      Type a gene name for a go/no-go assessment. Checks UniProt, DepMap expression,
+      Horizon HAP1 KO availability, and proteomics data.
+    </p>
+  </div>
+
+  <!-- Search Box -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="flex gap-3">
+      <div class="flex-1 relative">
+        {% comment %}`value` is the gene the search page sent here. Its "nothing
+        matches — check its feasibility and add it" link carries `?gene=`, and
+        this box used to open empty under it, so the reader retyped the gene
+        they had just typed into the box that sent them. The view supplies `""`
+        rather than `None`, which a template would print as four characters into
+        an autofocused box.{% endcomment %}
+        <input type="text" id="gene-input" value="{{ gene }}"
+          {% if gene %}data-gene="{{ gene }}"{% endif %}
+          placeholder="Enter gene name (e.g. SYT1, SNCA, TGFBR2) or UniProt ID"
+          class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          autocomplete="off" autofocus />
+        <div id="search-spinner" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+          <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      </div>
+      <button id="search-btn" onclick="doLookup()"
+        class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        Search
+      </button>
+    </div>
+    <div class="mt-2 flex gap-2 text-sm text-gray-500">
+      <span>Try:</span>
+      <button onclick="quickSearch('SYT1')" class="text-blue-600 hover:underline">SYT1</button>
+      <button onclick="quickSearch('SNCA')" class="text-blue-600 hover:underline">SNCA</button>
+      <button onclick="quickSearch('TGFBR2')" class="text-blue-600 hover:underline">TGFBR2</button>
+      <button onclick="quickSearch('LRRK2')" class="text-blue-600 hover:underline">LRRK2</button>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- Bulk Add Targets -->
+  <!-- ================================================================= -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
+    <button onclick="toggleBulkPanel()" class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-3">
+        <span class="text-lg">📋</span>
+        <div class="text-left">
+          <h2 class="font-semibold text-gray-900">Bulk Add Targets</h2>
+          <p class="text-sm text-gray-500">Paste a list of gene names to add them all at once</p>
+        </div>
+      </div>
+      <svg id="bulk-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+      </svg>
+    </button>
+
+    <div id="bulk-panel" class="hidden border-t border-gray-200 p-6">
+      <div class="space-y-4">
+        <div>
+          <label for="bulk-genes" class="block text-sm font-medium text-gray-700 mb-1">
+            Gene names (one per line, or comma-separated)
+          </label>
+          <textarea id="bulk-genes" rows="6"
+            placeholder="SYT1&#10;SNCA&#10;TGFBR2&#10;LRRK2&#10;USP30"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono resize-y"></textarea>
+          {% comment %}Say what the wait is for, before it happens. A gene the
+          pipeline has never seen needs a UniProt lookup; one already on file
+          needs none, which is why a list of familiar genes returns instantly and
+          a list of new ones does not. The old copy promised metadata autofill and
+          said nothing about the cost of it.{% endcomment %}
+          <p class="mt-1 text-xs text-gray-500">
+            Max 100 genes per batch. <b>Check these</b> first — it says what will
+            happen to every gene before anything is written. Genes already on file
+            are answered instantly; each <em>new</em> one needs a UniProt lookup,
+            so a long list of unfamiliar genes takes a few seconds. A gene UniProt
+            cannot confirm is not added.
+          </p>
+          {% comment %}The one-column Excel template is gone. The owner's
+          review: "An excel sheet to upload a one column list is not needed."
+          It was right — a spreadsheet whose only column is a gene symbol is a
+          worse way to type gene symbols than the box directly above it, and it
+          was the one template that carried no conventions worth stating. The
+          other three stay: their columns are the thing a person cannot be
+          expected to remember.{% endcomment %}
+          <p class="mt-2 text-sm text-gray-500">
+            The <a href="{% url 'pipeline:target_board' %}" class="underline">targets board</a>'s
+            Add panel does the same check and the same add, on the page where the
+            targets then live — this box is here because you are already looking
+            a gene up.
+          </p>
+        </div>
+
+        {% comment %}Two steps, and the second is greyed with a reason rather
+        than hidden — a first-timer sees that a save exists and which step they
+        are on. Same shape as the boards' Check these / Create them.{% endcomment %}
+        <div class="flex items-center gap-3">
+          <button onclick="doBulkCheck()" id="bulk-check-btn"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Check these
+          </button>
+          <button onclick="doBulkAdd()" id="bulk-add-btn" disabled
+            title="Check the genes first — this turns on once the check has run"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            {% comment %}Not "Add to pipeline": the gene card further down has a
+            button of that name which adds the one gene that was looked up, and
+            this one adds everything in the box. Run 17 matched on the label and
+            reached this one — it was correctly disabled, so nothing happened,
+            but being protected is not the same as being told apart. Once a check
+            has run the label carries its count instead
+            (`OGABoard.targetAddSummary`), which is shared with the target board
+            and already says how many.{% endcomment %}
+            <span class="label">Add the pasted genes</span>
+          </button>
+          <span id="bulk-gene-count" class="text-sm text-gray-500"></span>
+        </div>
+        {% comment %}One site, one funder, one project and one funded flag for
+        the whole batch — the same four the target board's Add panel carries,
+        posting to the same endpoint. Picked from the lists rather than typed:
+        free text here would mint a second "CIHR", the same way a typed supplier
+        minted a third Bio-Techne.
+
+        The site was not asked at all: every gene went on the adder's own list,
+        which is the complaint the single-gene Add box a few centimetres up
+        already answered — "ideally there would be a drop down menu with McGill,
+        Leicester, uOttawa, UBC, Cornell". A coordinator could not put a gene on
+        another bench's list from here, and the two boxes on one page disagreed
+        about whether the site was yours to choose.{% endcomment %}
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-3">
+          <label class="block">
+            <span class="block text-xs font-semibold text-gray-500 mb-1">Site</span>
+            <select id="bulk-site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              {% for s in sites %}<option value="{{ s.pk }}" {% if s.pk == my_site_id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+            </select></label>
+          <label class="block">
+            <span class="block text-xs font-semibold text-gray-500 mb-1">Funder (optional)</span>
+            <select id="bulk-agency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="">Not recorded</option>
+              {% for a in agencies %}<option value="{{ a.pk }}">{{ a.name }}</option>{% endfor %}
+            </select></label>
+          <label class="block">
+            <span class="block text-xs font-semibold text-gray-500 mb-1">Project (optional)</span>
+            <select id="bulk-project" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="">Not recorded</option>
+              {% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}
+            </select></label>
+          <label class="flex items-end gap-2 text-sm text-gray-700 pb-2">
+            <input type="checkbox" id="bulk-funded" class="rounded border-gray-300 mb-1">
+            <span>These are funded</span></label>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Every gene this press adds goes on
+        the site chosen above. A gene already on that site's list keeps whatever
+        is recorded against it — the funder and project only fill blanks.</p>
+        {% if not my_site_id %}
+        <p class="mt-1 text-xs text-amber-800">Your account has no site, so this
+          is the first one on the list rather than yours — pick the one these
+          genes are for, or they go on a bench that did not ask for them.</p>
+        {% endif %}
+        <div class="hidden">
+          {% comment %}The reason Add is greyed, in text rather than only on
+          `title`. A disabled button with its explanation on hover is no
+          explanation on a touch screen, and none at all to anybody who does not
+          hover a button that looks broken.{% endcomment %}
+          <span id="bulk-add-why" class="text-sm text-gray-500"
+                role="status" aria-live="polite">Check the genes first.</span>
+        </div>
+      </div>
+
+      <!-- Bulk progress -->
+      <div id="bulk-progress" class="hidden mt-4">
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+          <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span id="bulk-progress-text">Looking up genes in UniProt…</span>
+        </div>
+      </div>
+
+      <!-- Bulk results -->
+      <div id="bulk-results" class="hidden mt-4 space-y-4">
+
+        <!-- Summary stats -->
+        <div id="bulk-summary" class="flex flex-wrap gap-3"></div>
+
+        <!-- What the check found, before anything is written -->
+        <div id="bulk-preview" class="hidden"></div>
+
+        <!-- Added table -->
+        <div id="bulk-added-section" class="hidden">
+          <h4 class="text-sm font-semibold text-green-700 mb-2">Added to pipeline</h4>
+          <div class="overflow-x-auto rounded-lg border border-green-200">
+            <table class="min-w-full divide-y divide-green-200">
+              <thead class="bg-green-50">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-green-700 uppercase">Gene</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-green-700 uppercase">Protein</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-green-700 uppercase">UniProt</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-green-700 uppercase">Mass (kDa)</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-green-700 uppercase">Link</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-added-rows" class="divide-y divide-green-100 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+
+        {% comment %}
+          Two lists, not one. A gene already on the consortium's list splits into
+          "somebody else was doing it and now you are too" — a nomination this
+          button just wrote — and "it was already yours", which changed nothing.
+          Printing both under one "skipped" heading is what hid run 8's writes.
+        {% endcomment %}
+        <!-- Nominated list — rows this button put on the chosen site's list -->
+        <div id="bulk-nominated-section" class="hidden">
+          <h4 class="text-sm font-semibold text-green-700 mb-2"
+              id="bulk-nominated-heading">Added to the site's list</h4>
+          <p class="text-xs text-gray-500 mb-2">Already on the consortium's list, now
+            nominated at that site too. The target itself was not changed.</p>
+          <div id="bulk-nominated-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Skipped list -->
+        <div id="bulk-skipped-section" class="hidden">
+          <h4 class="text-sm font-semibold text-gray-600 mb-2"
+              id="bulk-skipped-heading">Already on that list — nothing to do</h4>
+          <div id="bulk-skipped-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Not found list -->
+        <div id="bulk-notfound-section" class="hidden">
+          <h4 class="text-sm font-semibold text-amber-700 mb-2">Not found in UniProt</h4>
+          <div id="bulk-notfound-list" class="space-y-1"></div>
+        </div>
+
+        <!-- Errors list -->
+        <div id="bulk-errors-section" class="hidden">
+          <h4 class="text-sm font-semibold text-red-700 mb-2">Errors</h4>
+          <div id="bulk-errors-list" class="space-y-1"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="error-banner" class="hidden mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"></div>
+
+  <!-- Results Container -->
+  <div id="results-container" class="hidden space-y-6">
+
+    <!-- Traffic Light Summary -->
+    <div id="summary-card" class="rounded-xl shadow-sm border p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div id="signal-light" class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold"></div>
+          <div>
+            <h2 id="summary-gene" class="text-2xl font-bold text-gray-900"></h2>
+            <p id="summary-protein" class="text-gray-600"></p>
+            {% comment %}
+              The verdict in words. The coloured circle used to carry it alone, and
+              the amber one said "??" — which reads as a rendering fault rather
+              than as "uncertain", and amber is the commonest verdict, so the
+              headline of the page looked broken for every gene tried in the third
+              field test including the page's own examples.
+            {% endcomment %}
+            <p id="summary-verdict" class="mt-1 text-sm font-semibold"></p>
+          </div>
+        </div>
+        <div id="add-target-container"></div>
+      </div>
+      <div id="summary-reasons" class="mt-4 space-y-1"></div>
+    </div>
+
+    <!-- Detail Cards Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- UniProt Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🧬</span> UniProt
+          </h3>
+          <span id="uniprot-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="uniprot-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- DepMap Expression Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">📊</span> DepMap Expression
+          </h3>
+          <span id="depmap-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="depmap-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Horizon HAP1 KO Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🧬</span> HAP1 KO available (Horizon)
+          </h3>
+          <span id="horizon-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="horizon-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Proteomics Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🧪</span> Proteomics (Mass Spec)
+          </h3>
+          <span id="proteomics-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="proteomics-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Pipeline Status Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🗄️</span> Pipeline Status
+          </h3>
+          <span id="pipeline-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="pipeline-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Commercial antibodies (Antibody Registry) Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🔬</span> Commercial antibodies (Registry)
+          </h3>
+          <span id="registry-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="registry-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+{% csrf_token %}
+<script>
+  function getCookie(name) {
+    let v = null;
+    document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+    });
+    return v;
+  }
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+  let lastResults = null;
+
+  function quickSearch(gene) {
+    document.getElementById('gene-input').value = gene;
+    doLookup();
+  }
+
+  document.getElementById('gene-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLookup();
+  });
+
+  // =========================================================================
+  // Bulk Add — gene count preview
+  // =========================================================================
+  // The rows the last check returned, and the only thing `Add to pipeline` will
+  // write. Null means there is nothing previewed to save.
+  let bulkRows = null;
+
+  document.getElementById('bulk-genes').addEventListener('input', e => {
+    const raw = e.target.value.trim();
+    if (!raw) {
+      document.getElementById('bulk-gene-count').textContent = '';
+      return;
+    }
+    const genes = raw.split(/[,;\n\r\t]+/).map(g => g.trim().toUpperCase()).filter(Boolean);
+    const unique = [...new Set(genes)];
+    const label = unique.length === 1 ? '1 gene' : `${unique.length} genes`;
+    document.getElementById('bulk-gene-count').textContent = label;
+    invalidateBulkCheck();
+  });
+
+  /* A check-then-create pair can write something nobody previewed if the list
+   * changes in between. Typing a gene after pressing Check these must not leave
+   * a live Add button over a preview of the old list. */
+  /* One writer for both halves of the refusal — the tooltip and the visible
+   * line — so they cannot drift apart. Empty means the button is live. */
+  function setBulkAddWhy(reason) {
+    const btn = document.getElementById('bulk-add-btn');
+    const note = document.getElementById('bulk-add-why');
+    btn.title = reason || 'Add the checked genes to the pipeline';
+    if (!note) return;
+    note.textContent = reason || '';
+    note.classList.toggle('hidden', !reason);
+  }
+
+  function invalidateBulkCheck(why) {
+    if (bulkRows === null) return;
+    bulkRows = null;
+    const addBtn = document.getElementById('bulk-add-btn');
+    addBtn.disabled = true;
+    setBulkAddWhy(why || 'The list changed — press Check these again.');
+    addBtn.querySelector('.label').textContent = 'Add the pasted genes';
+    document.getElementById('bulk-preview').classList.add('hidden');
+    document.getElementById('bulk-results').classList.add('hidden');
+  }
+
+  /* Changing the site changes what the check *said*: which of these genes are
+   * already on that site's list is the number the preview counts, and the row
+   * notes name the site by name. So the site is part of the check, and moving
+   * it afterwards puts the panel back to step one rather than leaving a live
+   * save over a forecast about somebody else's bench. The funder and project
+   * deliberately do not do this — they are written by the press and change
+   * nothing the preview verified. */
+  document.getElementById('bulk-site').addEventListener('change', () =>
+    invalidateBulkCheck('The site changed — press Check these again so the '
+                        + 'preview says what will be written.'));
+
+  function toggleBulkPanel() {
+    document.getElementById('bulk-panel').classList.toggle('hidden');
+    document.getElementById('bulk-chevron').classList.toggle('rotate-180');
+  }
+
+  // =========================================================================
+  // Bulk Add — check, then create
+  // =========================================================================
+  //
+  // Two steps, and the split is not tidiness. A gene the pipeline has never seen
+  // costs a UniProt call, so a hundred of them cannot be done inside one request
+  // without risking a gateway timeout — and the old single-shot version did the
+  // lookups *while writing rows*, so a timeout could leave a half-created batch
+  // with nothing on screen saying which half.
+  //
+  // So: the check goes round in passes, each bounded by a server-side deadline,
+  // and genes it did not reach come back `unchecked` for the next pass. That is
+  // what makes the progress line honest — it counts genes actually answered
+  // rather than animating a spinner over an unknown wait.
+
+  const BULK_STATUS = {
+    new:       {label: 'will be added',   cls: 'bg-green-100 text-green-800'},
+    on_file:   {label: 'already on file', cls: 'bg-gray-100 text-gray-700'},
+    synonym:   {label: 'already on file', cls: 'bg-gray-100 text-gray-700'},
+    not_found: {label: 'not in UniProt',  cls: 'bg-amber-100 text-amber-800'},
+    unchecked: {label: 'not checked',     cls: 'bg-amber-100 text-amber-800'},
+  };
+
+  /* Whose list this press adds to. Read at the moment of each request rather
+   * than captured once, so the check and the save cannot be asking about
+   * different sites. */
+  const bulkSite = () => (document.getElementById('bulk-site') || {}).value || '';
+
+  function bulkProgress(text) {
+    document.getElementById('bulk-progress').classList.remove('hidden');
+    document.getElementById('bulk-progress-text').textContent = text;
+  }
+
+  function bulkError(message) {
+    const resultsDiv = document.getElementById('bulk-results');
+    resultsDiv.classList.remove('hidden');
+    document.getElementById('bulk-summary').innerHTML =
+      `<div class="w-full bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">${escHtml(message)}</div>`;
+  }
+
+  async function postJson(url, payload) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.ok === false) {
+      throw new Error(data.error || `HTTP ${resp.status}`);
+    }
+    return data;
+  }
+
+  async function doBulkCheck() {
+    const raw = document.getElementById('bulk-genes').value.trim();
+    if (!raw) return;
+
+    const checkBtn = document.getElementById('bulk-check-btn');
+    const addBtn = document.getElementById('bulk-add-btn');
+    checkBtn.disabled = true;
+    addBtn.disabled = true;
+    bulkRows = null;
+    document.getElementById('bulk-results').classList.add('hidden');
+
+    try {
+      let data = await (async () => {
+        // Say how many, not just that something is happening. The counting-off
+        // line below only exists for genes a first pass could not reach, so on a
+        // healthy UniProt it never appears — and the guidance above promised a
+        // counter that a 62-gene check therefore never showed.
+        const n = raw.split(/[\s,;]+/).filter(Boolean).length;
+        bulkProgress(`Checking ${n} gene${n === 1 ? '' : 's'} against the pipeline`
+                     + ` — each one the pipeline has not seen before is a UniProt`
+                     + ` lookup, so this takes a moment.`);
+        return postJson('/pipeline/feasibility/bulk-check/',
+                        {genes: raw, site: bulkSite()});
+      })();
+      let rows = data.rows;
+
+      // Ask again for whatever the deadline did not reach. Each pass is bounded
+      // server-side, so this terminates on a slow API instead of hanging; a pass
+      // that answers nothing new means UniProt is down, and saying so beats
+      // going round again.
+      for (let pass = 0; pass < 12; pass++) {
+        const pending = rows.filter(r => r.status === 'unchecked').map(r => r.gene);
+        if (!pending.length) break;
+        const done = rows.length - pending.length;
+        bulkProgress(`Looking genes up in UniProt — ${done} of ${rows.length} done, `
+                     + `${pending.length} to go. Each new gene is one lookup, so a long `
+                     + `list takes a moment.`);
+        const more = await postJson('/pipeline/feasibility/bulk-check/',
+                                    {genes: pending, site: bulkSite()});
+        const byGene = new Map(more.rows.map(r => [r.gene, r]));
+        const before = pending.length;
+        rows = rows.map(r => byGene.get(r.gene) || r);
+        data = more;
+        if (rows.filter(r => r.status === 'unchecked').length >= before) {
+          break;   // no progress — UniProt is not answering
+        }
+      }
+
+      bulkRows = rows;
+      renderBulkPreview(rows, data.site);
+    } catch (e) {
+      bulkError(e.message);
+    } finally {
+      checkBtn.disabled = false;
+      document.getElementById('bulk-progress').classList.add('hidden');
+    }
+  }
+
+  function renderBulkPreview(rows, site) {
+    const resultsDiv = document.getElementById('bulk-results');
+    resultsDiv.classList.remove('hidden');
+    document.getElementById('bulk-added-section').classList.add('hidden');
+
+    const count = s => rows.filter(r => r.status === s).length;
+    const creating = count('new');
+    const known = count('on_file') + count('synonym');
+    const missing = count('not_found');
+    const unchecked = count('unchecked');
+    // **Every gene this press will put on your list**, new targets included.
+    //
+    // Excluding the new ones made this chip the only thing on the page counting
+    // something different: run 10 checked four genes and read `2 will go on
+    // Leicester's list` beside a button saying `Add 4 to pipeline`, four rows
+    // each saying "will be added to your site's list", and the *other* door
+    // saying `4 will go on Leicester's list`. The chip was the outlier, and a
+    // reader believing it would have expected two nominations and got four.
+    //
+    // The new-versus-existing split still matters, but it belongs in the
+    // *result* — where "added" and "added to your site's list" are two different
+    // things that happened — not in a forecast of how many genes end up yours.
+    // Every gene the press puts on your list, new targets included — the chip
+    // and the button then agree, which run 10 found they did not.
+    const nominating = rows.filter(r => r.will_nominate).length;
+
+    const badge = (n, text, cls) => n
+      ? `<span class="inline-flex items-center gap-1 px-3 py-1.5 ${cls} text-sm font-medium rounded-full">${text}</span>`
+      : '';
+
+    document.getElementById('bulk-summary').innerHTML =
+      badge(creating, `${creating} to add`, 'bg-green-100 text-green-800')
+      + badge(nominating, `${nominating} will go on ${escHtml(site || 'your site')}'s list`,
+              'bg-green-50 text-green-700')
+      + badge(known, `${known} already on file`, 'bg-gray-100 text-gray-700')
+      + badge(missing, `⚠ ${missing} not in UniProt`, 'bg-amber-100 text-amber-800')
+      + badge(unchecked, `⚠ ${unchecked} not checked`, 'bg-amber-100 text-amber-800');
+
+    const rowHtml = rows.map(r => {
+      const st = BULK_STATUS[r.status] || BULK_STATUS.unchecked;
+      return `<tr class="border-t border-gray-100">
+        <td class="px-3 py-2 text-sm font-medium text-gray-900">${escHtml(r.gene)}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${st.cls}">${st.label}</span></td>
+        <td class="px-3 py-2 text-sm text-gray-600">${escHtml(r.protein_name || '—')}</td>
+        <td class="px-3 py-2 text-sm">${r.uniprot_id
+          ? `<a href="https://www.uniprot.org/uniprot/${escHtml(r.uniprot_id)}" target="_blank" class="text-blue-600 hover:underline">${escHtml(r.uniprot_id)}</a>`
+          : '—'}</td>
+        <td class="px-3 py-2 text-xs text-gray-500">${escHtml(r.note || '')}${
+          /* Named, not "your site's": the site is chosen on this panel now, so a
+             row that says "your" is silent about the one decision the reader
+             just made — and wrong whenever they picked another bench. */
+          r.will_nominate ? ` · will be added to ${escHtml(site || 'your site')}'s list` : ''}
+          ${(r.context || []).map(c => `<span class="block text-amber-800">⚠ ${escHtml(c)}</span>`).join('')}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('bulk-preview').innerHTML = `
+      <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="min-w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Gene</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">What will happen</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Protein</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">UniProt</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
+            </tr>
+          </thead>
+          <tbody>${rowHtml}</tbody>
+        </table>
+      </div>
+      ${(missing || unchecked) ? `<p class="mt-2 text-xs text-amber-800">
+        A gene UniProt could not confirm is <b>not added</b> — check the spelling.
+        ${unchecked ? 'Genes marked <b>not checked</b> just need another press of Check these — UniProt did not answer in time.' : ''}
+      </p>` : ''}`;
+    document.getElementById('bulk-preview').classList.remove('hidden');
+
+    // A save button is disabled with a reason, not hidden.
+    //
+    // The count on the label is **every record the press will write**, not the
+    // new targets alone. `creating || nominating` read 2 on a list that created
+    // two targets and put two more genes on Leicester's list — four records, a
+    // button saying two, and a result summary that then called the other two
+    // "skipped".
+    // **Why it can write nothing is not always "already yours."** This door
+    // greyed the button correctly and then named the wrong reason: on a UniProt
+    // outage every row comes back `unchecked`, and the line under a preview
+    // saying "press Check these again" read "every gene checked is already on
+    // Leicester's list". `OGABoard.targetAddSummary` is the one writer for the
+    // arithmetic *and* the refusal, shared with the target board's Add panel —
+    // which had the arithmetic and not the refusal, and so armed its save.
+    const addBtn = document.getElementById('bulk-add-btn');
+    const summary = OGABoard.targetAddSummary({rows, site}, site);
+    const nothingToDo = !summary.total;
+    const whose = summary.whose;
+    addBtn.disabled = nothingToDo;
+    setBulkAddWhy(summary.why);
+    addBtn.title = nothingToDo
+      ? summary.why
+      : [creating ? `${creating} new target(s)` : '',
+         summary.nominating ? `${summary.nominating} added to ${whose}'s list` : '']
+        .filter(Boolean).join(', ');
+    // `summary.nominating` excludes rows that are also being created: a new
+    // target's own nomination is already counted by `creating`, so adding the
+    // full nomination count here would count each new gene twice. It comes from
+    // the shared helper rather than being recomputed, because a second copy of
+    // this arithmetic is exactly what drifted.
+    addBtn.querySelector('.label').textContent = summary.label || 'Nothing to add';
+  }
+
+  async function doBulkAdd() {
+    if (!bulkRows) return;
+    const btn = document.getElementById('bulk-add-btn');
+    btn.disabled = true;
+    try {
+      bulkProgress('Saving…');
+      // No lookups here — the check already resolved every row, so this is
+      // database work only and cannot time out part-written.
+      //
+      // One funder, one project and one funded flag for the whole batch, read
+      // at the moment of the press. The same three the target board's Add panel
+      // sends, to the same endpoint — a control on one door and not the other
+      // is the shape this pair keeps failing in.
+      const pick = id => (document.getElementById(id) || {}).value || '';
+      const data = await postJson('/pipeline/feasibility/bulk-add/', {
+        rows: bulkRows,
+        // The same site the check ran under — the select disarms this button
+        // when it moves, and the server refuses a mismatch anyway.
+        site: bulkSite(),
+        granting_agency: pick('bulk-agency'),
+        project: pick('bulk-project'),
+        funded: !!(document.getElementById('bulk-funded') || {}).checked,
+      });
+      document.getElementById('bulk-preview').classList.add('hidden');
+      renderBulkResults(data);
+      /* Somewhere to go next. A target lives on the board, and this page is a
+       * lookup screen — landing here with a green tick and no way onward is how
+       * "I added them, now what?" happens.
+       *
+       * It used to be a link to the *whole* board, which is 585 rows with yours
+       * somewhere in them — a receipt, not a place. `OGABoard.targetAddGo`
+       * sends you to the board narrowed to exactly the genes this press added,
+       * and takes you there itself when the result has nothing else to report,
+       * which is the only condition under which a page may move out from under
+       * its own result line. The target board's Add panel calls the same
+       * function; every other thing these two doors share has been wrong on one
+       * of them at some point. */
+      OGABoard.targetAddGo(data, document.getElementById('bulk-summary'));
+      bulkRows = null;
+    } catch (e) {
+      bulkError(e.message);
+      btn.disabled = false;
+    } finally {
+      document.getElementById('bulk-progress').classList.add('hidden');
+    }
+  }
+
+  function renderBulkResults(data) {
+    const resultsDiv = document.getElementById('bulk-results');
+    resultsDiv.classList.remove('hidden');
+
+    // Summary badges
+    const summary = document.getElementById('bulk-summary');
+    let badges = '';
+    if (data.added.length > 0) {
+      // Creating a target nominates it to your site as part of creating it, so
+      // "2 added" is two targets AND two nominations — four records. Run 9
+      // counted seven writes against five reported, worked out why, and declined
+      // to file it; saying it outright costs a parenthesis and removes the last
+      // place the arithmetic has to be inferred.
+      const whose = data.site ? escHtml(data.site) : 'your site';
+      badges += `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-medium rounded-full">✓ ${data.added.length} added (and nominated at ${whose})</span>`;
+    }
+    // A gene already on the consortium's list that was not yet on yours gains a
+    // nomination — a real row, written by this button. It was being counted under
+    // "skipped", which is how run 8 left two Leicester nominations on McGill's
+    // targets and was told nothing had happened to them.
+    const nominated = data.nominated_existing || [];
+    if (nominated.length > 0) {
+      const whose = data.site ? `${escHtml(data.site)}'s` : 'your';
+      badges += `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-medium rounded-full">✓ ${nominated.length} added to ${whose} list</span>`;
+    }
+    if (data.skipped.length > 0) {
+      // "already yours" was true while the site was always the adder's own. It
+      // is a different bench's list as often as not now, so it says whose.
+      const whose = data.site ? `${escHtml(data.site)}'s` : 'your';
+      badges += `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">↷ ${data.skipped.length} already on ${whose} list</span>`;
+    }
+    if (data.not_found.length > 0) {
+      badges += `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-800 text-sm font-medium rounded-full">⚠ ${data.not_found.length} not found</span>`;
+    }
+    if (data.errors.length > 0) {
+      badges += `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-800 text-sm font-medium rounded-full">✗ ${data.errors.length} error${data.errors.length === 1 ? '' : 's'}</span>`;
+    }
+    summary.innerHTML = badges;
+
+    // Added table
+    const addedSection = document.getElementById('bulk-added-section');
+    const addedRows = document.getElementById('bulk-added-rows');
+    if (data.added.length > 0) {
+      addedSection.classList.remove('hidden');
+      addedRows.innerHTML = '';
+      data.added.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-green-50';
+        tr.innerHTML = `
+          <td class="px-3 py-2 text-sm font-medium text-gray-900">${escHtml(t.gene_name)}</td>
+          <td class="px-3 py-2 text-sm text-gray-600">${escHtml(t.protein_name || '—')}</td>
+          <td class="px-3 py-2 text-sm">${t.uniprot_id ? `<a href="https://www.uniprot.org/uniprot/${escHtml(t.uniprot_id)}" target="_blank" class="text-blue-600 hover:underline">${escHtml(t.uniprot_id)}</a>` : '—'}</td>
+          <td class="px-3 py-2 text-sm text-gray-600">${t.mass_kda ? t.mass_kda + ' kDa' : '—'}</td>
+          <td class="px-3 py-2 text-sm"><a href="/pipeline/target/${t.target_id}/" class="text-blue-600 hover:underline">View →</a></td>
+        `;
+        addedRows.appendChild(tr);
+      });
+    } else {
+      addedSection.classList.add('hidden');
+    }
+
+    // Nominated on somebody else's target — the writes that used to read "skipped"
+    const nomSection = document.getElementById('bulk-nominated-section');
+    const nomList = document.getElementById('bulk-nominated-list');
+    if (nominated.length > 0) {
+      nomSection.classList.remove('hidden');
+      const heading = document.getElementById('bulk-nominated-heading');
+      if (heading) {
+        heading.textContent = data.site
+          ? `Added to ${data.site}'s list` : "Added to the site's list";
+      }
+      nomList.innerHTML = nominated.map(g =>
+        `<span class="inline-block px-2 py-0.5 bg-green-50 text-green-800 text-xs rounded border border-green-200 font-mono">${escHtml(g)}</span>`
+      ).join('');
+    } else {
+      nomSection.classList.add('hidden');
+    }
+
+    // Skipped
+    const skippedSection = document.getElementById('bulk-skipped-section');
+    const skippedList = document.getElementById('bulk-skipped-list');
+    if (data.skipped.length > 0) {
+      skippedSection.classList.remove('hidden');
+      const heading = document.getElementById('bulk-skipped-heading');
+      if (heading) {
+        heading.textContent = data.site
+          ? `Already on ${data.site}'s list — nothing to do`
+          : 'Already on that list — nothing to do';
+      }
+      skippedList.innerHTML = data.skipped.map(g =>
+        `<span class="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded border border-gray-200 font-mono">${escHtml(g)}</span>`
+      ).join('');
+    } else {
+      skippedSection.classList.add('hidden');
+    }
+
+    // Not found
+    const notfoundSection = document.getElementById('bulk-notfound-section');
+    const notfoundList = document.getElementById('bulk-notfound-list');
+    if (data.not_found.length > 0) {
+      notfoundSection.classList.remove('hidden');
+      notfoundList.innerHTML = data.not_found.map(nf =>
+        `<p class="text-sm text-amber-700"><span class="font-mono font-medium">${escHtml(nf.gene)}</span> — ${escHtml(nf.error)}</p>`
+      ).join('');
+    } else {
+      notfoundSection.classList.add('hidden');
+    }
+
+    // Errors
+    const errorsSection = document.getElementById('bulk-errors-section');
+    const errorsList = document.getElementById('bulk-errors-list');
+    if (data.errors.length > 0) {
+      errorsSection.classList.remove('hidden');
+      errorsList.innerHTML = data.errors.map(err =>
+        `<p class="text-sm text-red-700"><span class="font-mono font-medium">${escHtml(err.gene)}</span> — ${escHtml(err.error)}</p>`
+      ).join('');
+    } else {
+      errorsSection.classList.add('hidden');
+    }
+  }
+
+  // =========================================================================
+  // Stage 1 — Free lookup
+  // =========================================================================
+  async function doLookup() {
+    const gene = document.getElementById('gene-input').value.trim();
+    if (!gene) return;
+
+    const btn = document.getElementById('search-btn');
+    const spinner = document.getElementById('search-spinner');
+    btn.disabled = true;
+    spinner.classList.remove('hidden');
+    document.getElementById('error-banner').classList.add('hidden');
+    document.getElementById('results-container').classList.add('hidden');
+
+    // Loading state on free cards
+    ['uniprot-body', 'depmap-body', 'horizon-body', 'proteomics-body', 'pipeline-body', 'registry-body'].forEach(id => {
+      document.getElementById(id).innerHTML =
+        '<div class="flex items-center gap-2 text-gray-400"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Searching…</div>';
+    });
+    document.getElementById('results-container').classList.remove('hidden');
+
+    try {
+      const resp = await fetch(`/pipeline/feasibility/lookup/?gene=${encodeURIComponent(gene)}`);
+      if (!resp.ok) throw new Error((await resp.json()).error || `HTTP ${resp.status}`);
+      const data = await resp.json();
+      lastResults = data;
+      renderStage1(data);
+      // Registry antibody count loads progressively (separate, slower call) so
+      // it never delays the fast Stage 1 cards above.
+      loadRegistry(gene);
+    } catch (e) {
+      document.getElementById('error-banner').textContent = `Lookup failed: ${e.message}`;
+      document.getElementById('error-banner').classList.remove('hidden');
+      document.getElementById('results-container').classList.add('hidden');
+    } finally {
+      btn.disabled = false;
+      spinner.classList.add('hidden');
+    }
+  }
+
+  function renderStage1(data) {
+    renderSummary(data);
+    renderUniProt(data.uniprot);
+    renderDepMap(data.depmap);
+    renderHorizon(data.horizon_ko);
+    renderProteomics(data.proteomics);
+    renderPipeline(data.pipeline_status, data.add_refusal);
+  }
+
+
+  // =========================================================================
+  // Card renderers (Stage 1)
+  // =========================================================================
+  function renderSummary(data) {
+    const summary = data.feasibility_summary || {};
+    const signal = summary.signal || 'unknown';
+    const light = document.getElementById('signal-light');
+    const card = document.getElementById('summary-card');
+
+    /* Each signal carries a glyph AND a sentence. The amber glyph was "??", which
+     * is what a template prints when it has failed, so the page's own headline
+     * read as the broken part of an otherwise good report. A single "?" is
+     * legible as uncertainty; the words next to it say what to do about it. */
+    const colors = {
+      green:   { bg: 'bg-green-500',  border: 'border-green-200', cardBg: 'bg-green-50',
+                 label: 'GO', text: 'text-green-800',
+                 verdict: 'Good candidate — the checks below support going ahead.' },
+      amber:   { bg: 'bg-amber-500',  border: 'border-amber-200', cardBg: 'bg-amber-50',
+                 label: '?', text: 'text-amber-800',
+                 verdict: 'Worth a closer look — read the reasons before committing.' },
+      red:     { bg: 'bg-red-500',    border: 'border-red-200',   cardBg: 'bg-red-50',
+                 label: 'NO', text: 'text-red-800',
+                 verdict: 'Not recommended — see the reasons below.' },
+      unknown: { bg: 'bg-gray-400',   border: 'border-gray-200',  cardBg: 'bg-gray-50',
+                 label: '—', text: 'text-gray-600',
+                 verdict: 'Not enough information to judge yet.' },
+    };
+    const c = colors[signal] || colors.unknown;
+
+    light.className = `w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg ${c.bg}`;
+    light.textContent = c.label;
+    light.setAttribute('title', c.verdict);
+    light.setAttribute('aria-label', c.verdict);
+    card.className = `rounded-xl shadow-sm border p-6 ${c.cardBg} ${c.border}`;
+
+    const up = data.uniprot || {};
+    document.getElementById('summary-gene').textContent = up.gene_name || data.gene_query;
+    document.getElementById('summary-protein').textContent = up.protein_name || '';
+    const verdict = document.getElementById('summary-verdict');
+    verdict.textContent = c.verdict;
+    verdict.className = `mt-1 text-sm font-semibold ${c.text}`;
+
+    const reasonsDiv = document.getElementById('summary-reasons');
+    reasonsDiv.innerHTML = '';
+    (summary.reasons || []).forEach(r => {
+      const p = document.createElement('p');
+      p.className = 'text-sm text-gray-700';
+      p.textContent = r;
+      reasonsDiv.appendChild(p);
+    });
+
+    renderAddButton(data);
+  }
+
+  function renderAddButton(data) {
+    const container = document.getElementById('add-target-container');
+    const pipeline = data.pipeline_status || {};
+    if (pipeline.exists) {
+      container.innerHTML = `<a href="/pipeline/target/${pipeline.target_id}/" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm">View in pipeline →</a>`;
+    } else {
+      /* **The site is chosen before the button, not reported after it.**
+       *
+       * Adding a gene has always written a nomination at the adder's own site,
+       * unfunded, and said so in a note *underneath* — the same fact arriving
+       * too late to be a decision. Carl Laflamme read that as the app choosing
+       * for him ("McGill is included by default when adding a new target
+       * entry"), and for anybody whose account is on the wrong site it is
+       * indistinguishable from exactly that.
+       *
+       * Funder and project are optional and sit beside it, because "who is
+       * paying for this" is known at the moment somebody decides to pursue a
+       * gene and is a chore to add afterwards on a board. Naming either marks
+       * the nomination funded — one fact, asked once. */
+
+      /* **A gene UniProt could not confirm is not added, and the button says so
+       * before it is pressed.**
+       *
+       * The paste box four inches down this same page states that rule in as
+       * many words and enforces it; this button was fully live over a verdict
+       * card reading "No human protein found for gene 'ZZZZZZ'". One screen
+       * stating a rule, enforcing it in one path, and offering a live control
+       * that appears to break it in the other — and this is the door that puts
+       * a row on the master list the whole consortium works from.
+       *
+       * Disabled with the reason **on the page**, not on `title`: a tooltip is
+       * no explanation on a touch screen and none at all to anybody who does
+       * not hover a button that looks broken. The sentence is the server's —
+       * `bulk_targets.why_not_added`, the same writer behind the bulk panel's
+       * refusal — so the two doors cannot drift apart again. The endpoint
+       * refuses in those words too; a preview is not a permission slip. */
+      const refusal = data.add_refusal || '';
+      container.innerHTML = `
+        <div class="text-left border border-gray-200 rounded-xl p-3 bg-gray-50 min-w-[18rem]">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add to</p>
+          <label class="block mt-1">
+            <span class="sr-only">Site</span>
+            <select id="add-site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              {% for s in sites %}
+              <option value="{{ s.pk }}" {% if s.pk == my_site_id %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% if not my_site_id %}
+          <p class="mt-1 text-xs text-amber-800">Your account has no site — pick
+            the one this is for, or nobody is shown as pursuing it.</p>
+          {% endif %}
+          <details class="mt-2">
+            <summary class="text-xs text-gray-600 cursor-pointer">Funding (optional)</summary>
+            <label class="block mt-2">
+              <span class="block text-xs font-semibold text-gray-500 mb-1">Funder</span>
+              <select id="add-agency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Not funded yet</option>
+                {% for a in agencies %}<option value="{{ a.pk }}">{{ a.name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="block mt-2">
+              <span class="block text-xs font-semibold text-gray-500 mb-1">Project</span>
+              <select id="add-project" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">None</option>
+                {% for pr in projects %}<option value="{{ pr.pk }}">{{ pr.name }}</option>{% endfor %}
+              </select>
+            </label>
+            <p class="mt-1 text-xs text-gray-500">Naming either records it as
+              funded. Both can be set later on the target board.</p>
+          </details>
+          <button onclick="addToPipeline()" id="add-btn" ${refusal ? 'disabled' : ''}
+                  title="${escHtml(refusal || 'Add this gene to the pipeline')}"
+                  class="mt-3 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Add to Pipeline</button>
+          ${refusal ? `<p id="add-why" role="status" class="mt-2 text-xs text-amber-800">${escHtml(refusal)}</p>` : ''}
+        </div>`;
+    }
+  }
+
+  function renderUniProt(data) {
+    const body = document.getElementById('uniprot-body');
+    const status = document.getElementById('uniprot-status');
+    if (!data || data.error) {
+      status.textContent = 'Error';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700';
+      body.innerHTML = `<p class="text-sm text-red-600">${escHtml(data?.error || 'No response')}</p>`;
+      return;
+    }
+    if (!data.found) {
+      status.textContent = 'Not Found';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = '<p class="text-sm text-gray-500">No matching protein found.</p>';
+      return;
+    }
+    status.textContent = 'Found';
+    status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700';
+    let html = '<dl class="space-y-3 text-sm">';
+    html += field('UniProt ID', data.uniprot_id ? `<a href="https://www.uniprot.org/uniprot/${data.uniprot_id}" target="_blank" class="text-blue-600 hover:underline">${escHtml(data.uniprot_id)}</a>` : '—');
+    html += field('Protein', escHtml(data.protein_name || '—'));
+    html += field('Gene', escHtml(data.gene_name || '—'));
+    if (data.gene_synonyms?.length > 0) html += field('Synonyms', escHtml(data.gene_synonyms.join(', ')));
+    html += field('Mass', data.mass_kda ? `${data.mass_kda} kDa` : '—');
+    if (data.subcellular_location) html += field('Location', escHtml(data.subcellular_location));
+    if (data.function_summary) {
+      const t = data.function_summary.length > 200 ? data.function_summary.substring(0, 200) + '…' : data.function_summary;
+      html += field('Function', `<span class="text-gray-600">${escHtml(t)}</span>`);
+    }
+    html += '</dl>';
+    body.innerHTML = html;
+  }
+
+  function renderDepMap(data) {
+    const body = document.getElementById('depmap-body');
+    const status = document.getElementById('depmap-status');
+    if (!data || !data.found) {
+      status.textContent = data?.error ? 'Error' : 'No Data';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = `<p class="text-sm text-gray-500">${escHtml(data?.error || 'No expression data cached for this gene.')}</p>`;
+      return;
+    }
+    const hap1 = data.hap1_tpm;
+    const above = data.above_threshold;
+    const expressing = data.expressing_count || 0;
+    const total = data.total_lines || 0;
+
+    status.textContent = above ? 'Expressed' : (expressing > 0 ? 'Alt. Lines' : 'Low');
+    status.className = above
+      ? 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700'
+      : expressing > 0 ? 'text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700'
+      : 'text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700';
+
+    let html = '<div class="space-y-3">';
+    if (hap1 !== null && hap1 !== undefined) {
+      html += `<div class="flex items-end gap-3"><span class="text-3xl font-bold ${above ? 'text-green-600' : 'text-amber-600'}">${hap1}</span><span class="text-sm text-gray-500 pb-1">log₂(TPM+1) in HAP1</span></div>`;
+      const maxVal = 12;
+      const pct = Math.min((hap1 / maxVal) * 100, 100);
+      const threshPct = (2.5 / maxVal) * 100;
+      html += `<div class="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div class="${above ? 'bg-green-500' : 'bg-amber-500'} h-full rounded-full" style="width:${pct}%"></div><div class="absolute top-0 h-full border-l-2 border-dashed border-red-400" style="left:${threshPct}%"></div></div>`;
+    } else {
+      html += '<p class="text-sm text-gray-500">HAP1 not in cached dataset.</p>';
+    }
+    if (data.cell_lines?.length > 0) {
+      html += `<p class="text-xs font-medium text-gray-500 uppercase mt-2">Expression across ${total} cell lines (${expressing} above threshold)</p>`;
+      html += '<div class="space-y-1 mt-1">';
+      const maxTpm = data.cell_lines[0]?.tpm || 12;
+      data.cell_lines.slice(0, 10).forEach(cl => {
+        const w = Math.min((cl.tpm / Math.max(maxTpm, 1)) * 100, 100);
+        const isAbove = cl.above_threshold;
+        html += `<div class="flex items-center gap-2 text-xs"><span class="w-24 text-right text-gray-600 truncate">${escHtml(cl.name)}</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="${isAbove ? 'bg-green-400' : 'bg-gray-300'} h-full rounded-full" style="width:${w}%"></div></div><span class="w-10 text-right ${isAbove ? 'text-green-700 font-medium' : 'text-gray-400'}">${cl.tpm}</span></div>`;
+      });
+      if (data.cell_lines.length > 10) html += `<p class="text-xs text-gray-400 mt-1">+ ${data.cell_lines.length - 10} more lines</p>`;
+      html += '</div>';
+    }
+    html += '<p class="text-xs text-gray-400 mt-1">Source: DepMap (cached locally)</p></div>';
+    body.innerHTML = html;
+  }
+
+  function renderHorizon(data) {
+    const body = document.getElementById('horizon-body');
+    const status = document.getElementById('horizon-status');
+    if (!body || !status) return;
+    if (!data || !data.found) {
+      status.textContent = data?.error ? 'Error' : 'None listed';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = data?.error
+        ? `<p class="text-sm text-gray-500">${escHtml(data.error)}</p>`
+        : `<p class="text-sm text-gray-600">No commercial HAP1 knockout clone is listed by Horizon for this gene. A KO line would need to be made (or sourced elsewhere).</p>`;
+      return;
+    }
+    const clones = data.clones || [];
+    const count = data.count || clones.length;
+    status.textContent = `${count} available`;
+    status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700';
+
+    let html = '<div class="space-y-3">';
+    html += `<p class="text-sm text-gray-700"><strong>${count}</strong> ready-made HAP1 KO clone${count === 1 ? '' : 's'} available to order from <strong>Horizon Discovery</strong> — no need to make one.</p>`;
+    html += '<div class="space-y-1 mt-1">';
+    clones.slice(0, 12).forEach(cl => {
+      html += `<div class="flex items-start gap-2 text-xs"><span class="font-mono text-gray-800 whitespace-nowrap">${escHtml(cl.item_number)}</span><span class="text-gray-500">${escHtml(cl.product_name || '')}</span></div>`;
+    });
+    html += '</div>';
+    if (clones.length > 12) html += `<p class="text-xs text-gray-400 mt-1">+ ${clones.length - 12} more clone(s)</p>`;
+    html += '<p class="text-xs text-gray-400 mt-1">Source: Horizon Discovery HAP1 KO catalogue (cached locally)</p></div>';
+    body.innerHTML = html;
+  }
+
+  function renderProteomics(data) {
+    const body = document.getElementById('proteomics-body');
+    const status = document.getElementById('proteomics-status');
+    if (!body || !status) return;
+    if (!data || !data.found) {
+      status.textContent = 'Not Detected';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = `<p class="text-sm text-gray-500">Protein not detected by mass spectrometry in any of the ${data?.total_lines_checked || 12} cached cell lines.</p>`;
+      return;
+    }
+    const count = data.detected_count || 0;
+    status.textContent = `${count} lines`;
+    status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700';
+    let html = '<div class="space-y-3">';
+    html += `<p class="text-sm text-gray-700">Protein detected in <strong>${count}</strong> of ${data.total_lines_checked} cell lines by mass spectrometry.</p>`;
+    if (data.cell_lines?.length > 0) {
+      const maxInt = data.cell_lines[0]?.intensity || 12;
+      html += '<div class="space-y-1 mt-1">';
+      data.cell_lines.forEach(cl => {
+        const w = Math.min((cl.intensity / Math.max(maxInt, 1)) * 100, 100);
+        html += `<div class="flex items-center gap-2 text-xs"><span class="w-24 text-right text-gray-600 truncate">${escHtml(cl.name)}</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="bg-purple-400 h-full rounded-full" style="width:${w}%"></div></div><span class="w-10 text-right text-purple-700">${cl.intensity}</span></div>`;
+      });
+      html += '</div>';
+    }
+    html += '<p class="text-xs text-gray-400 mt-1">Source: Cell Model Passports (DIA-MS, cached locally)</p></div>';
+    body.innerHTML = html;
+  }
+
+  // Commercial antibody availability from the Antibody Registry (SciCrunch).
+  // Loaded separately/progressively — informational only; it does NOT change the
+  // traffic-light score above.
+  async function loadRegistry(gene) {
+    const body = document.getElementById('registry-body');
+    const status = document.getElementById('registry-status');
+    if (!body || !status) return;
+    status.textContent = '';
+    status.className = 'text-xs font-medium px-2 py-1 rounded-full';
+    body.innerHTML =
+      '<div class="flex items-center gap-2 text-gray-400"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Searching the Antibody Registry…</div>';
+    try {
+      const resp = await fetch(`/pipeline/feasibility/antibodies/?gene=${encodeURIComponent(gene)}`);
+      const data = await resp.json();
+      renderRegistry(data);
+    } catch (e) {
+      status.textContent = 'Error';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = `<p class="text-sm text-gray-500">Registry lookup failed: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderRegistry(data) {
+    const body = document.getElementById('registry-body');
+    const status = document.getElementById('registry-status');
+    if (!body || !status) return;
+    if (!data || !data.found) {
+      status.textContent = data?.error && data.error.indexOf('not set') === -1 ? 'None found' : 'Unavailable';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = `<p class="text-sm text-gray-500">${escHtml(data?.error || 'No commercial antibodies found in the registry for this gene.')}</p>`;
+      return;
+    }
+    const total = data.total_count || 0;
+    const rec = data.recombinant_count || 0;
+    // Colour is a guideline cue on TOTAL availability only (≥10 = comfortable).
+    // It does not feed the feasibility score. Recombinant labelling in the
+    // registry is incomplete, so it is NOT used for the colour.
+    let cls = 'bg-gray-100 text-gray-600';
+    if (total >= 10) cls = 'bg-green-100 text-green-700';
+    else if (total > 0) cls = 'bg-amber-100 text-amber-700';
+    status.textContent = `${total} listed`;
+    status.className = `text-xs font-medium px-2 py-1 rounded-full ${cls}`;
+
+    let html = '<div class="space-y-3">';
+    html += `<p class="text-sm text-gray-700"><strong>${total}</strong> commercial antibod${total === 1 ? 'y' : 'ies'} registered against this gene in the Antibody Registry.</p>`;
+    const vendors = data.top_vendors || [];
+    if (vendors.length) {
+      html += '<div class="flex flex-wrap gap-1 mt-1">';
+      vendors.forEach(v => {
+        html += `<span class="text-xs bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">${escHtml(v.vendor)} (${v.count})</span>`;
+      });
+      html += '</div>';
+    }
+    html += `<p class="text-xs text-gray-500 mt-1">Registry-labelled clonality (incomplete): ${rec} recombinant, ${data.monoclonal_count || 0} monoclonal, ${data.polyclonal_count || 0} polyclonal. Many recombinant clones are mislabelled here — use the recombinant deep-search below for a definitive count.</p>`;
+    html += '<p class="text-xs text-gray-400 mt-1">Source: Antibody Registry (SciCrunch). Guideline: ~10–15 available. Informational — not part of the score.</p></div>';
+    body.innerHTML = html;
+  }
+
+  /* `addRefusal` rather than the UniProt payload it used to take and never
+     read: this card's empty state points at the Add button, and pointing at a
+     greyed button is the same failure as pointing at a retired page — a reader
+     who follows the instruction and finds nothing concludes the feature is
+     broken. */
+  function renderPipeline(data, addRefusal) {
+    const body = document.getElementById('pipeline-body');
+    const status = document.getElementById('pipeline-status');
+    if (!data) {
+      status.textContent = '?';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = '<p class="text-sm text-gray-500">Could not check pipeline database.</p>';
+      return;
+    }
+    if (data.exists) {
+      status.textContent = 'In Pipeline';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700';
+      let html = '<dl class="space-y-2 text-sm">';
+      html += field('Status', `<span class="font-medium">${escHtml(data.target_status_display)}</span>`);
+      html += field('Antibodies', `${data.antibody_count} in database`);
+      html += field('Cell Lines', `${data.cell_line_count} in database`);
+      html += field('Sessions', data.has_sessions ? 'Yes — experiments recorded' : 'No experiments yet');
+      html += '</dl>';
+      html += `<a href="/pipeline/target/${data.target_id}/" class="inline-block mt-3 text-sm text-blue-600 hover:underline">View target detail →</a>`;
+      body.innerHTML = html;
+    } else {
+      status.textContent = 'New';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = addRefusal
+        ? `<p class="text-sm text-gray-500">This gene is not in the pipeline, and cannot be added yet.</p><p class="mt-1 text-sm text-amber-800">${escHtml(addRefusal)}</p>`
+        : '<p class="text-sm text-gray-500">This gene is not yet in the pipeline. Use the "Add to Pipeline" button above to create it.</p>';
+    }
+  }
+
+  // =========================================================================
+  // Add to Pipeline
+  // =========================================================================
+  /* Where a refusal from the press goes. Not into the button: the sentence is
+     two clauses long, it read as the button's own label, and it wiped itself
+     after three seconds — so the one explanation of why nothing happened was
+     both unreadable and temporary. Same element the greyed state writes into,
+     so there is one place on this panel that says why. */
+  function addRefused(message) {
+    const box = document.getElementById('add-target-container');
+    let note = document.getElementById('add-why');
+    if (!note && box) {
+      note = document.createElement('p');
+      note.id = 'add-why';
+      note.setAttribute('role', 'alert');
+      note.className = 'mt-2 text-xs text-amber-800';
+      box.querySelector('div')?.appendChild(note);
+    }
+    if (note) { note.textContent = message; OGABoard.bringIntoView(note); }
+  }
+
+  async function addToPipeline() {
+    if (!lastResults) return;
+    // The button is greyed when UniProt could not confirm the gene, and the
+    // endpoint refuses in the same words — this is the third copy of one rule
+    // only because a disabled button is a DOM state and this is a function
+    // anything can call.
+    if (lastResults.add_refusal) { addRefused(lastResults.add_refusal); return; }
+    const btn = document.getElementById('add-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Adding…';
+    }
+    const up = lastResults.uniprot || {};
+    const dm = lastResults.depmap || {};
+    const payload = {
+      gene_name: up.gene_name || lastResults.gene_query,
+      protein_name: up.protein_name || '',
+      uniprot_id: up.uniprot_id || '',
+      mass_kda: up.mass_kda || null,
+      alternative_name: (up.gene_synonyms || []).join(', '),
+      depmap_tpm: dm.hap1_tpm || null,
+      // What the page asked for, rather than what the account happens to say.
+      site_id: (document.getElementById('add-site') || {}).value || '',
+      granting_agency_id: (document.getElementById('add-agency') || {}).value || '',
+      project_id: (document.getElementById('add-project') || {}).value || '',
+    };
+    try {
+      const resp = await fetch('/pipeline/feasibility/add/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.json();
+      /* Added, so go and look at it. This is the one-gene door — you searched a
+       * gene, read its feasibility and pressed Add — so the gene's own page is
+       * where the next thing you want to do lives: its cell lines, its
+       * antibodies, its next step. The panel used to write a green line and a
+       * "View target →" button, which is a receipt rather than a destination,
+       * and the paste box a screen further down does the same thing and lands on
+       * the board. (`created` is checked, not just `target_id`: the endpoint
+       * answers with the id of a gene that was **already** on the list too, and
+       * being carried off to it would read as having just added it.) */
+      if (resp.ok && result.created && result.target_id) {
+        window.location.href = `/pipeline/target/${result.target_id}/`;
+        return;
+      }
+      if (resp.ok && result.target_id) {
+        // One click writes the target AND a nomination at your own site, marked
+        // not funded. It used to report only the first of the three, so the
+        // other two were things you found out from the board afterwards.
+        const note = result.nominated_note
+          ? `<span class="block text-xs text-gray-500 mt-1">${escHtml(result.nominated_note)}</span>` : '';
+        document.getElementById('add-target-container').innerHTML = `<div class="flex items-start gap-3"><span class="text-sm"><span class="text-green-600 font-medium">${escHtml(result.message)}</span>${note}</span><a href="/pipeline/target/${result.target_id}/" class="inline-flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm whitespace-nowrap">View target →</a></div>`;
+        document.getElementById('pipeline-status').textContent = 'In Pipeline';
+        document.getElementById('pipeline-status').className = 'text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700';
+        document.getElementById('pipeline-body').innerHTML = `<p class="text-sm text-green-600 font-medium">${escHtml(result.message)}</p>${note}<a href="/pipeline/target/${result.target_id}/" class="inline-block mt-2 text-sm text-blue-600 hover:underline">View target detail →</a>`;
+      } else {
+        throw new Error(result.error || result.message || 'Failed');
+      }
+    } catch (e) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '+ Add to Pipeline';
+      }
+      addRefused(e.message);
+    }
+  }
+
+  // =========================================================================
+  // Helpers
+  // =========================================================================
+  function field(label, value) {
+    return `<div class="flex justify-between gap-4"><dt class="text-gray-500 flex-shrink-0">${label}</dt><dd class="text-gray-900 text-right">${value}</dd></div>`;
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  /* A gene that arrived in the URL is looked up without being pressed.
+   *
+   * The link that sends one here reads "check its feasibility and add it", so
+   * landing on a filled-in box over an empty verdict would be the same
+   * half-arrival the empty box was — the reader would press Search on a value
+   * they did not type to be told what they came to be told. Read off the input
+   * rather than re-parsed from `location`, so the value asked about is exactly
+   * the one the box shows.
+   *
+   * At the end of the script because `doLookup` is defined above it, and behind
+   * `data-gene` so an empty box asks nothing. */
+  {
+    const sent = document.getElementById('gene-input');
+    if (sent && sent.dataset.gene) doLookup();
+  }
+</script>
+{% comment %}board.js is loaded for one thing here: the template download says it
+happened. This page is not a board and does not want the rest of it, but a bare
+<a href> writes a file and leaves the page silent, which is the finding that had
+a field test file the app's best output as broken.{% endcomment %}
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>document.addEventListener('DOMContentLoaded', () => OGABoard.downloadReceipts());</script>
+{% endblock %}

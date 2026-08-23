@@ -1,0 +1,17 @@
+{% comment %}
+What an OGA recommendation does and does not cover, drawn wherever one is shown.
+
+`scope_note` is `core/recommendations.py::SCOPE_NOTE` — the same sentence the
+API, the bulk archive and the gene pages' JSON-LD carry — and it arrives from
+`core/context_processors.py::recommendation_scope`, so a page only has to
+include this file inside whatever box it already draws its notices in.
+
+Deliberately **no wrapper element**. These are standalone documents with their
+own stylesheets rather than pages off one base template, so a class of ours
+would arrive unstyled on all six; each page wraps this in the notice box it
+already has, and keeps its own look.
+
+**Once per page, never twice** (owner, 12 Aug 2026). A reader who meets the same
+caveat three times on one screen reads none of them — the reason `SCOPE_NOTE` is
+stated per surface rather than per row in the first place.
+{% endcomment %}{{ scope_note }} <a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">Read the protocols</a>.

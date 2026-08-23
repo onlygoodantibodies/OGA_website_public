@@ -1,0 +1,185 @@
+{% load static crispy_forms_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% comment %}`pipeline_chrome` is pipeline/context_processors.py::account_chrome
+  — the `?next=` this page was sent, checked to be one of this site's own
+  pipeline paths. This page used to ask `'/pipeline/' in redirect_field_value`
+  in four places, which is the same question with a trap in it: with no ?next=
+  at all that value is None, `'/pipeline/' not in None` *raises*, and a template
+  swallows the exception as false — so the negative form of the test hid Sign Up
+  from the ordinary Academy sign-in page, the one visitor it exists for.{% endcomment %}
+  <title>{% if pipeline_chrome %}YCharOS Pipeline – Sign In{% else %}OGA Academy – Sign In{% endif %}</title>
+  <link rel="icon" href="{% static 'core/up-logo.ico' %}">
+
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'academy/css/style.css' %}">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    body { background-color: #f4f5f7; }
+    .auth-card {
+      max-width: 380px;
+      width: 100%;
+      margin: auto;
+      margin-top: 5%;
+      padding: 2rem;
+      border-radius: .5rem;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+  </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+  {% comment %}Sent here from the pipeline, this is the pipeline's sign-in page —
+  it says so in the title and in the heading below — and it was wearing the
+  public site's nav: Home, About Us, Roadmap, Champions, Publications, Partners,
+  Contact. None of those is what somebody signing in to record a western blot
+  came for.{% endcomment %}
+  {% if pipeline_chrome %}
+  {% include "pipeline/_slim_nav.html" %}
+  {% else %}
+  <!-- Header / Nav -->
+  <header class="header">
+    <div class="logo">
+      <a href="{% url 'home' %}">
+        <img src="{% static 'core/logo.png' %}" alt="Logo" class="logo-img">
+      </a>
+    </div>
+    <div class="hamburger">☰</div>
+    <nav>
+      <ul class="menu">
+        <li><a href="{% url 'academy:academy_home' %}">Home</a></li>
+        <li><a href="{% url 'about' %}">About Us</a></li>
+        <li><a href="{% url 'roadmap' %}">Roadmap</a></li>
+                <li><a href="{% url 'champions' %}">Champions</a></li>
+        <li><a href="{% url 'publications' %}">Publications</a></li>
+        <li><a href="{% url 'partners' %}">Partners</a></li>
+        <li><a href="{% url 'contact' %}">Contact</a></li>
+        {% if user.is_authenticated %}
+          <li><a href="{% url 'academy:account' %}">My Account</a></li>
+          <li><a href="{% url 'academy:logout' %}">Log Out</a></li>
+        {% else %}
+          <li><a href="{% url 'academy:login' %}">Sign In</a></li>
+          {% comment %}Not offered when you are being sent to the pipeline. Signing
+          up creates an Academy account, which reaches no pipeline page at all —
+          pipeline access is three rows in two databases and only a superuser can
+          grant it (services/members.py). So the invitation reads as the way in and
+          ends at "Access Denied". The body copy below already knew this; the
+          header did not, which is the same rule fixed in one of two places.
+
+          Safe to write as `not` now, and it was not before: this asked
+          `'/pipeline/' not in redirect_field_value`, and with no ?next= at all
+          that value is None, so the expression *raised* and a template swallowed
+          it as false — hiding Sign Up from the ordinary Academy sign-in page,
+          the one visitor it exists for. `pipeline_chrome` is a bool, so the
+          negation means what it reads as.{% endcomment %}
+          {% if not pipeline_chrome %}
+            <li><a href="{% url 'academy:signup' %}">Sign Up</a></li>
+          {% endif %}
+        {% endif %}
+      </ul>
+    </nav>
+  </header>
+  {% endif %}
+
+  <!-- Main Content -->
+  <main class="flex-grow-1 d-flex flex-column align-items-center justify-content-start py-5">
+    <h2 class="mb-4 text-center fw-bold">{% if pipeline_chrome %}Sign in to the YCharOS Pipeline{% else %}Sign In to OGA Academy{% endif %}</h2>
+
+    <div class="card auth-card">
+      <form method="post" action="{% url 'academy:login' %}">
+        {% csrf_token %}
+        {% comment %}Carry the ?next= target through login, so e.g. pipeline
+        invitees land back on /pipeline/start/.
+
+        Only when there is one. This was rendered unconditionally, and with no
+        ?next= at all `redirect_field_value` is None — which a template prints as
+        the four characters `None`. So the form posted `next=None`, allauth took
+        that for a relative URL and resolved it against this page, and signing in
+        from a bare /accounts/login/ landed on /academy/login/None: a 404 as the
+        first page after a successful sign-in, with the session created and the
+        password perfectly correct. The pipeline nav's own Login link sends
+        nobody here with a ?next=, so that was the whole of its sign-in.
+
+        It is the same None the comment at the top of this file is about, in the
+        one expression on the page that was not rewritten to survive it — the
+        rule fixed in one of two places again. Absent, allauth falls back to
+        LOGIN_REDIRECT_URL, which is the Academy.{% endcomment %}
+        {% if redirect_field_value %}
+          <input type="hidden" name="{{ redirect_field_name|default:'next' }}" value="{{ redirect_field_value }}">
+        {% endif %}
+
+        {# Non‑field errors (invalid credentials) #}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for err in form.non_field_errors %}{{ err }}<br>{% endfor %}
+          </div>
+        {% endif %}
+
+        {# Render the form with crispy #}
+        {{ form|crispy }}
+
+   
+
+        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+      </form>
+
+      {# No "Forgot your password?" link here: allauth's form already puts one under the password field, and a second stacked two identical links. #}
+      {% comment %}The same question as the header, asked the same way, for the
+      same reason it is written on a bool rather than on `redirect_field_value`.{% endcomment %}
+      <p class="text-center small mt-3 mb-0">
+        {% if not pipeline_chrome %}
+        Don’t have an account? <a href="{% url 'academy:signup' %}">Sign Up</a>{% endif %}
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  {% if not pipeline_chrome %}
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-column">
+        <h4>Quick Links</h4>
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'about' %}">About Us</a>
+        <a href="{% url 'publications' %}">Publications</a>
+        
+        <a href="{% url 'news' %}">News</a>
+        <a href="{% url 'contact' %}">Contact</a>
+      </div>
+      <div class="footer-column">
+        <h4>Contact Us</h4>
+        <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum" target="_blank">LinkedIn</a></p>
+        <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">BlueSky</a></p>
+      </div>
+      <div class="footer-column">
+        <h4>Follow Us</h4>
+        <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum" target="_blank">
+          <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
+        </a>
+        <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
+          <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom text-center">
+      &copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.
+      <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top">Back to Top</button>
+    </div>
+  </footer>
+  {% endif %}
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'core/script.js' %}"></script>
+</body>
+</html>
