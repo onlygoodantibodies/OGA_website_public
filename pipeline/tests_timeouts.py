@@ -132,7 +132,7 @@ class GuardsAreRealTests(TestCase):
     A no-network assertion that silently passes because the patch missed is
     worse than no test at all — it reads as proof of something never checked.
     """
-    databases = {"default", "pipeline_db"}
+    databases = {"pipeline_db"}
 
     def test_no_network_catches_an_outbound_call(self):
         with self.assertRaises(AssertionError):
@@ -153,7 +153,7 @@ class GuardsAreRealTests(TestCase):
 
 class BoardIsOfflineSafeTests(TestCase):
     """Rule 1 — a UniProt outage must not be able to take the board down."""
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="McGill", short_code="MCG")
@@ -199,7 +199,7 @@ class BoardIsOfflineSafeTests(TestCase):
 
 class SlowApiDegradesTests(TestCase):
     """Rule 2 — a slow or dead endpoint must not raise, and must not block a write."""
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def _resolve(self, gene="SNCA"):
         from pipeline.services.targets import resolve_or_create_target
@@ -245,7 +245,7 @@ class SlowApiDegradesTests(TestCase):
 
 class NoNetworkInsideTransactionTests(TestCase):
     """Rule 3 — the commit path must not hold a connection open across an API call."""
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="McGill", short_code="MCG")
@@ -265,7 +265,7 @@ class TimeoutIsSurvivableTests(TestCase):
     """A commit that dies half way must leave nothing behind, and retrying must
     be safe — those two together are what make a timeout an inconvenience
     rather than a corruption."""
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="McGill", short_code="MCG")

@@ -20,7 +20,7 @@ DB = "pipeline_db"
 
 
 class PublicGeneTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         company = Company.objects.create(name="Proteintech")
@@ -121,7 +121,7 @@ class SameSetAsBeforeTests(TestCase):
     (so they show on the site but not through the recommendations filter), and
     genes at earlier stages.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     # The definition as it stood before pipeline/public.py existed. Kept literal
     # so a future change to the shared helper has to prove itself against it.
@@ -237,7 +237,7 @@ class TheVerdictsAreInThePageTests(TestCase):
     block that does not parse is worse than no block, because a consumer reads
     the failure as the page having no structured data at all.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

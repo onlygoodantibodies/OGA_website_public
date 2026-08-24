@@ -23,7 +23,7 @@ DB = "pipeline_db"
 
 
 class SessionRoundTripTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -216,7 +216,7 @@ class AReadingWithNoResultRowIsRefusedNotDroppedTests(TestCase):
     cannot be converted strikes.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")

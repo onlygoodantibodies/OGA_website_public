@@ -39,7 +39,7 @@ class HeadlineCountsTestCase(TestCase):
     an antibody and no figure, so it is not a public gene at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

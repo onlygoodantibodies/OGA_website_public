@@ -43,7 +43,7 @@ def _documented_client():
 
 
 class TheDocumentedSyncClientWorksTests(LiveServerTestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from django.core.cache import cache

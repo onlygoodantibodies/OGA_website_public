@@ -32,7 +32,7 @@ def _png() -> bytes:
 
 
 class PreReleaseIsScopedToYourOwnReagentsTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()
@@ -114,7 +114,7 @@ class PreReleaseIsScopedToYourOwnReagentsTests(TestCase):
 class PreReleaseNeverReachesAPublishedSurfaceTests(TestCase):
     """The published feeds have no idea this table exists, and must not."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()
@@ -154,7 +154,7 @@ class PreReleaseNeverReachesAPublishedSurfaceTests(TestCase):
 class GeneProgressTests(TestCase):
     """Where the genes a supplier has reagents in have got to."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()
@@ -228,7 +228,7 @@ class ItDoesNotGrowAQueryPerGeneTests(TestCase):
     fine on a handful of dev rows.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()

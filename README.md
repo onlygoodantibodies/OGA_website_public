@@ -11,8 +11,8 @@ applications people actually use it for, with the figure that shows the result.
 Only Good Antibodies and [YCharOS Inc.](https://ycharos.com) run this work
 together.
 
-Everything here is open, because a validation record nobody can inspect is
-asking for the same trust the antibody labels already asked for.
+Everything here is open — the code, and the characterisation data it
+publishes.
 
 ## What is in this repository
 
@@ -66,14 +66,22 @@ Python is pinned in `.python-version` (3.11).
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install pytest            # deliberately not in requirements.txt
-python manage.py migrate
+python manage.py migrate --database=pipeline_db
+python manage.py migrate --database=academy_db
 python manage.py runserver
 ```
 
-The project uses three databases (see `OGA_website/db_router.py`). Locally the
-pipeline database falls back to SQLite unless `PIPELINE_DATABASE_URL` is set, so
-a local checkout has no production data — which is the intended behaviour, not a
-setup step you have missed.
+**Migrate each database by name.** There are two, split by subject (see
+`OGA_website/db_router.py`): `pipeline_db` holds the antibody and scientific
+data, `academy_db` holds people and organisations. A bare `manage.py migrate`
+targets `default`, which is deliberately empty — nothing is routed there, so an
+alias with no engine makes an unrouted access raise instead of quietly reading
+or writing somewhere plausible.
+
+Locally the pipeline database falls back to SQLite unless
+`PIPELINE_DATABASE_URL` is set, so a local checkout has no production data —
+which is the intended behaviour, not a setup step you have missed. `academy_db`
+falls back the same way without `ACADEMY_DATABASE_URL`.
 
 Configuration is environment-driven; there are no secrets in this repository.
 See `.env.example` for the variables the site reads.

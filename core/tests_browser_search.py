@@ -49,7 +49,7 @@ if HAVE_PLAYWRIGHT:
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
                      "needs playwright and the bundled Chromium")
 class SearchBoxInARealBrowserTests(StaticLiveServerTestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpClass(cls):
@@ -115,13 +115,64 @@ class SearchBoxInARealBrowserTests(StaticLiveServerTestCase):
         self.assertIn("PRKN", page.text_content("#oga-dropdown .suggestion"))
 
     @tag("commissioning")
-    def test_a_query_matching_nothing_says_so_once(self):
+    def test_a_query_matching_nothing_says_so_once_and_offers_the_nomination(self):
         """And only once the server has answered — "no match" printed while the
-        antibody half is still in flight is a claim the page cannot make yet."""
+        antibody half is still in flight is a claim the page cannot make yet.
+
+        The one row under it is the offer, not a result: a miss is the moment
+        somebody is most able to tell us they need a gene, and until 23 Aug 2026
+        the reply was a grey line with nothing to click. So the assertion is
+        *exactly one* suggestion and it carries the typed gene — a nominate row
+        that lost its `?gene=` would still look right here while sending the
+        reader to an empty form.
+        """
         page = self._type(reverse("home"), ".search-bar", "zzzznotathing")
         page.wait_for_selector("#oga-dropdown .no-match", state="attached")
         self.assertEqual(page.locator("#oga-dropdown .no-match").count(), 1)
-        self.assertEqual(page.locator("#oga-dropdown .suggestion").count(), 0)
+
+        offers = page.locator("#oga-dropdown .suggestion")
+        self.assertEqual(offers.count(), 1)
+        self.assertIn("zzzznotathing", offers.first.get_attribute("data-href"))
+        self.assertIn(reverse("nominate_gene"),
+                      offers.first.get_attribute("data-href"))
+
+    def test_the_answer_line_never_outlives_the_query_in_the_box(self):
+        """A restored-empty box must not sit under a claim about a gene.
+
+        Coming back to a ``?search=`` page with Back, Chrome restores the input
+        from session history rather than the rendered ``value`` and often hands
+        it back empty. The line is server-rendered, so the page ended up saying
+        "We haven't characterised Trpa1 yet" over a box that did not say Trpa1
+        — two answers to one question, with nothing to tell the reader which is
+        stale. Found on a phone, on the live site.
+
+        Driven by dispatching ``pageshow`` rather than by a real back
+        navigation: headless Chrome does not restore form state the way a phone
+        does, so a ``go_back`` here passes whether or not the handler exists —
+        which is the failure mode this test is for. What is pinned is that the
+        handler is wired and fires on the event a bfcache restore actually
+        sends, since ``DOMContentLoaded`` does not run on one.
+        """
+        page = self.page
+        page.goto(self.live_server_url + reverse("home") + "?search=zzzznotathing")
+        page.wait_for_selector(".search-answer", state="attached")
+
+        page.evaluate("document.querySelector('.search-bar').value = ''")
+        page.evaluate(
+            "window.dispatchEvent(new PageTransitionEvent('pageshow', "
+            "{persisted: true}))")
+        self.assertEqual(page.locator(".search-answer").count(), 0,
+                         "the answer outlived the query it was about")
+
+    def test_the_answer_line_survives_a_box_that_still_names_it(self):
+        """The other direction, or the fix above is 'delete it always'."""
+        page = self.page
+        page.goto(self.live_server_url + reverse("home") + "?search=zzzznotathing")
+        page.wait_for_selector(".search-answer", state="attached")
+        page.evaluate(
+            "window.dispatchEvent(new PageTransitionEvent('pageshow', "
+            "{persisted: true}))")
+        self.assertEqual(page.locator(".search-answer").count(), 1)
 
     # --- the box in the header bar, on every other page --------------------
 

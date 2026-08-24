@@ -13,6 +13,9 @@ urlpatterns = [
     path('roadmap/manufacturers/', views.roadmap_manufacturers, name='roadmap_manufacturers'),
     path('champions/', views.champions, name='champions'),
     path('contact/', views.contact, name='contact'),  # Contact page
+    # Nominate a gene we do not have. It is the home page search box's dead
+    # end made into a door: "no match" now offers this, carrying the gene.
+    path('nominate/', views.nominate_gene, name='nominate_gene'),
     path('success/', views.success, name='success'),  # Success page
     path('using-the-data/', views.using_the_data, name='using_the_data'),
     path('data-access/', views.data_access, name='data_access'),

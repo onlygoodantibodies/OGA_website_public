@@ -84,6 +84,12 @@ OMITTED = {
     # and double the size every day.
     "DatasetSnapshot": "the stored captures themselves — capturing them would "
                        "nest each day's file inside the next",
+    # Same argument as Member, and stronger: these rows are strangers' email
+    # addresses, given to us for one purpose. A snapshot is a file that travels
+    # by email, and personal data does not belong in one. The rows themselves
+    # are covered by the database's own point-in-time recovery, below.
+    "GeneRequest": "public gene nominations — personal data (email addresses) "
+                   "given for one purpose, and a snapshot travels by email",
 }
 
 RESTORE_NOTE = (

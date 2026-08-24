@@ -27,7 +27,7 @@ DB = "pipeline_db"
 
 
 class BoardPatchTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="McGill", short_code="MCG")
@@ -143,7 +143,7 @@ class TheDoiCellCanBeCorrectedTests(TestCase):
     it reopens the gene, and that it lands on the ``Report`` row the board is
     actually drawing.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="McGill", short_code="MCG")
@@ -328,7 +328,7 @@ class BoardQueryCostTests(TestCase):
     added. Asserting it does not *grow* with the row count is the property that
     actually matters, and it is what catches an N+1 the moment it appears.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         site = Site.objects.create(name="McGill", short_code="MCG")
@@ -417,7 +417,7 @@ class RecordingAPublicationFromTheGenePageTests(TestCase):
     the endpoint has always accepted now present in it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

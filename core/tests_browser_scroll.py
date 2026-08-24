@@ -46,7 +46,7 @@ class ViewportScrollingTests(StaticLiveServerTestCase):
     because the failure is invisible to every cheaper tier — and because the
     rule it guards is a CSS one that reads as harmless tidying."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpClass(cls):

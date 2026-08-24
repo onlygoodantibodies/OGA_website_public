@@ -19,7 +19,7 @@ User = get_user_model()
 
 
 class AssistantAndCertTests(TestCase):
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         self.user = User.objects.create_user(
@@ -225,7 +225,7 @@ class AcademyHomeTests(TestCase):
     already passed, a button telling somebody where they are and getting it
     wrong, and a certificate offered for a module that has none.
     """
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -308,7 +308,7 @@ class SlimAntibodyTests(TestCase):
     """_slim_antibody passes the portal/MCP record through VERBATIM except for the
     bulky media keys — so every field (incl. metadata.product_link) is preserved
     exactly, and nothing can be silently renamed/dropped."""
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def test_slim_is_verbatim_minus_bulky_keys(self):
         from academy.assistant import _slim_antibody
@@ -353,6 +353,7 @@ class SharedGuidanceTests(TestCase):
     """The tutoring/data behaviour is single-sourced in tutor_guidance and used by
     BOTH the hosted chat prompts AND the MCP server instructions — so they can't
     drift apart."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_hosted_prompts_use_shared_guidance(self):
         from academy import assistant
@@ -374,6 +375,7 @@ class QuizGradingTests(TestCase):
     """Quiz grading must be deterministic and accept plain letters, so the model
     never has to do letter->index arithmetic (the cause of a real mis-grade where
     a perfect Framework score was reported as 50%)."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_letters_and_indices_grade_equivalently(self):
         from mcp_servers.common import content_pack as cp
@@ -398,7 +400,7 @@ class QuizGradingTests(TestCase):
 
 class PublicPagesRenderTests(TestCase):
     """The public pages I edited must still render (a broken {% url %} would 500)."""
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def test_edited_public_pages_render(self):
         for name in ("home", "tools_hub", "champions", "roadmap",

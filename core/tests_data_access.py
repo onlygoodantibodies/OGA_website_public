@@ -16,7 +16,7 @@ from django.urls import reverse
 
 
 class TheHomepageOffersTheWayInTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_the_homepage_links_to_it(self):
         """A page reachable only by typing its address is not reachable."""
@@ -39,7 +39,7 @@ class ItSaysEnoughToActOnTests(TestCase):
     """"Sufficient to enable them to use the portal and API, and contact us for
     a key" — so each of those three has to actually be on the page."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         import re
@@ -132,7 +132,7 @@ class TheProtocolsAreNotTheDelphiStudyTests(TestCase):
     pages rather than the templates.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_the_extension_page_carries_the_same_caveat(self):
         """It shows OGA results too, so it owes the reader the same sentence.
@@ -176,7 +176,7 @@ class ItsOwnLinksResolveTests(TestCase):
     followed, and this repo has been bitten by pointing readers at dead pages
     before."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_every_internal_link_answers(self):
         """Anchors only.
@@ -212,6 +212,7 @@ class NoPageStyleBlockOverridesTheChromeTests(TestCase):
     navigation — every link present in the HTML and none of them drawn. Scope a
     page's rules to its own elements.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_its_rules_are_prefixed_and_carry_no_important(self):
         import re
@@ -247,7 +248,7 @@ class TheApiReferenceIsOnTheWebsiteTests(TestCase):
     a JSON schema.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_it_renders_the_markdown(self):
         response = self.client.get(reverse("api_reference"))

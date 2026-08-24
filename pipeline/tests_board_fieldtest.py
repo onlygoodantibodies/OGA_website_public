@@ -86,7 +86,7 @@ class NoTemplateWrapsAShortFormCommentTests(SimpleTestCase):
 class BoardsRenderCleanlyTests(TestCase):
     """Nothing meant for a developer's eyes reaches a scientist's screen."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -144,7 +144,7 @@ class BoardsRenderCleanlyTests(TestCase):
 class BulkCommitRefusesInJsonTests(TestCase):
     """A failed paste is a refusal the page can read, never a raw 500."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -182,7 +182,7 @@ class PastePreviewIsPerRowTests(TestCase):
     is the contract it draws from: one item per data row, each carrying a status.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -226,6 +226,7 @@ class ResultColumnGroupingTests(TestCase):
     grouping is a hand-kept list going stale, so what is pinned is that every
     field the model has still lands in exactly one group.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_every_result_field_is_in_exactly_one_group(self):
         from pipeline.services.session_board import (RESULT_MODELS,
@@ -264,7 +265,7 @@ class VialMatchingTests(TestCase):
     paste edited the first site's record instead of recording their own.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Company
@@ -392,7 +393,7 @@ class VialMatchingTests(TestCase):
 class SiteAllocationTests(TestCase):
     """A target's site: typed names are checked, and one can be changed."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -473,7 +474,7 @@ class BoardRowsAreJsonTests(TestCase):
     the value is not null.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -537,7 +538,7 @@ class CNumberIsANumberTests(TestCase):
     not be cleared at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -592,6 +593,7 @@ class BoardScriptsParseTests(TestCase):
     to ``manage.py check`` and to every other test here: the page still renders
     200, and the grid simply never loads. So the scripts are parsed.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     # target_detail is here because it grew OGABoard pop-outs of its own: it is
     # a board surface now, whatever its filename says. The bench-workbook upload
@@ -722,7 +724,7 @@ class BoardScriptsParseTests(TestCase):
 class ScreensAgreeWithEachOtherTests(TestCase):
     """The same fact must not be shown two different ways one screen apart."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -785,7 +787,7 @@ class AnAliasHasAHomeOnScreenTests(TestCase):
     from the upload having quietly done nothing.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -824,7 +826,7 @@ class UploadDefaultsToYourOwnSiteTests(TestCase):
     """A Leicester curator uploading a sheet with no site column nominated every
     row to McGill, because the box was hard-coded to it and it is the default."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.leicester = Site.objects.using(DB).create(name="Leicester",
@@ -857,7 +859,7 @@ class PreviewNamesTheVialTests(TestCase):
     one "will be updated" — and the lot, the only reason the outcomes differ, was
     not shown anywhere. The preview was truthful and unreadable at once."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -906,7 +908,7 @@ class ControlsSayWhatTheyChangeTests(TestCase):
     else. The field test clicked it expecting the site cell and silently flipped a
     gene's funding on the shared master list."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -957,7 +959,7 @@ class AddingATargetSaysWhatElseItWroteTests(TestCase):
     were things you found out from the board row afterwards — and the report
     listed them among the rules a person who never opens a guide gets wrong."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -982,7 +984,7 @@ class MultiSiteNominationsAreVisibleWhereTheBoardSendsYouTests(TestCase):
     and used to say "edit on the target page" — a page that had no editor and did
     not even list the nominations. The claim is now what is actually there."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.leicester = Site.objects.using(DB).create(name="Leicester",
@@ -1026,7 +1028,7 @@ class OverviewCountsNominationsTests(TestCase):
     started work but not yet bought reagents showed as doing nothing.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(
@@ -1068,6 +1070,7 @@ class TwoPanelsOnOnePageDoNotShareTheirControlsTests(TestCase):
     Pinned at the source, because the defect only exists once two panels are on
     one page and no server response shows it.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_new_entry_namespaces_the_elements_it_builds(self):
         js = (Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js").read_text()
@@ -1109,7 +1112,7 @@ class AnExactSupplierNameBeatsTheGuessTests(TestCase):
     and the save writing another is the one thing a preview must never do.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Company
@@ -1158,7 +1161,7 @@ class TheBenchSheetIsTheSessionsOwnAntibodiesTests(TestCase):
     experiment nobody ran.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -1223,7 +1226,7 @@ class ARefusedSiteNamesTheOnesOnFileTests(TestCase):
     dropdown on a different part of the page. The target board already listed
     them; the other three did not."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -1281,6 +1284,7 @@ class CountsAndVerbsAgreeTests(TestCase):
     """"1 recorded result already point at this row" and "1 knockout were made
     from it". Both sit next to a number, which is where a grammar slip costs the
     most: it makes a careful reader distrust the count."""
+    databases = {"academy_db", "pipeline_db"}
 
     def _template(self, name):
         return (Path(settings.BASE_DIR) / "pipeline/templates/pipeline" / name).read_text()
@@ -1303,7 +1307,7 @@ class TheBoardsPointAtPagesThatExistTests(TestCase):
     Between them they made an editable field look uneditable.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1362,6 +1366,7 @@ class TheFeasibilityVerdictIsInWordsTests(TestCase):
     what a page prints when it has failed. Amber is also the commonest verdict, so
     the summary of an otherwise excellent report looked broken for every gene
     tried, including the page's own suggested examples."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_amber_verdict_is_not_two_question_marks(self):
         html = (Path(settings.BASE_DIR)
@@ -1395,7 +1400,7 @@ class AWildTypeNeverTakesThePagesGeneTests(TestCase):
     blank, exactly as instructed, and got ``SH-SY5Y WT`` with ``gene = STMN2``.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1477,7 +1482,7 @@ class ACellLinePreviewSaysWhatItMatchedTests(TestCase):
     prevented); the preview was silent about it. The antibody preview has named
     the vial it matched since run 2."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Company
@@ -1532,7 +1537,7 @@ class ASiteNameInTheQueryStringIsNotA500Tests(TestCase):
     anything else, so the rows endpoints went down the same way: a URL somebody
     copied and edited took the grid out and blamed the filters."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -1597,7 +1602,7 @@ class ThePickingListSaysSoOnEverySheetTests(TestCase):
     is the KO vial's C-number — so the one zero-result session on the site handed
     back a picking list with `C-472` where the explanation should have been."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -1646,7 +1651,7 @@ class TheGenePagesBadgeIsDerivedTests(TestCase):
     ``Target.status`` — written once when the row is created and advanced by
     nothing, the same trap as ``Target.site``."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -1707,6 +1712,7 @@ class OnePlaceDecidesWhatASupplierWillSayTests(TestCase):
     be *saved*. Run 4 pasted on a gene's page and got the typed name back, because
     the fix lived in one page's template. `OGABoard.supplierLabel` is the one
     place now, and nothing may hand-roll it again."""
+    databases = {"academy_db", "pipeline_db"}
 
     STATIC = Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js"
     TEMPLATES = ("antibody_board.html", "cell_line_board.html",
@@ -1746,6 +1752,7 @@ class EscapeAndTheBannerBehaveTheSameEverywhereTests(TestCase):
     not app — the fourth shape in a row where a keystroke was reported as having
     no effect and had one.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     STATIC = Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js"
 
@@ -1811,7 +1818,7 @@ class TheExportReferenceIsFilledInForEveryRowTests(TestCase):
     it put a number in front of a reader that was not the vial's number at
     all."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_new_antibody_gets_a_reference(self):
         from pipeline.models import Antibody, Company
@@ -1884,7 +1891,7 @@ class ThePreviewNamesTheSupplierThatWillBeStoredTests(TestCase):
     spelling or a lookup that asks a different question.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1960,7 +1967,7 @@ class TheGeneTemplateRoundTripKeepsItsConditionsTests(TestCase):
     uses the same convention now, so a condition can never collide with a result.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, ProtocolTemplate
@@ -2043,7 +2050,7 @@ class TheGeneTemplateNamesTheWildTypeParentTests(TestCase):
     The WT is reachable — it is the knockout's ``parent_line``.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -2097,7 +2104,7 @@ class TheSessionTemplateUploadIsReachableTests(TestCase):
     offered it, because the sheet's own instructions promise the upload.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     DOWNLOAD = "/pipeline/session/template/"
     PREVIEW = "/pipeline/session/template/upload/preview/"
@@ -2159,7 +2166,7 @@ class AKnockoutIsConfirmedByItsCellLinesTests(TestCase):
     finding was, one field over.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -2206,7 +2213,7 @@ class ARefusedLotNamesTheVialItClashesWithTests(TestCase):
     this one names nothing at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -2257,8 +2264,7 @@ class TheBenchWorkbookGoesBackInTests(TestCase):
     This drives the endpoints the page now posts to, on a file the app itself
     produced.
     """
-
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, ProtocolTemplate
@@ -2468,7 +2474,7 @@ class AWildTypeIsNeverInItsGenesQuerysetTests(TestCase):
     somebody read the screen against the database.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, ExperimentSession, Member
@@ -2597,7 +2603,7 @@ class ADownloadSaysItHappenedTests(TestCase):
     wrong is a thing that does not happen.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -2674,7 +2680,7 @@ class ThePanelSaysWhatTheDraftWouldContainTests(TestCase):
     Downloads. It owes a manifest, not a wall.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Member
@@ -2758,7 +2764,7 @@ class ConcentrationKeepsItsUnitTests(TestCase):
     the other way. One reader for every write path now.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -2841,7 +2847,7 @@ class ARefusalNamesTheSupplierTheRecordIsFiledUnderTests(TestCase):
     `resolved_company_name`, which answers the other half of the same question.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -2884,7 +2890,7 @@ class ThePreviewSaysWhetherTheParentResolvedTests(TestCase):
     any convention was a placeholder on row 1 that disappears as you type.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -2964,7 +2970,7 @@ class AParentMayBeARowOfTheSamePasteTests(TestCase):
     the write will ask.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     PASTE = ("name\tgene\tgenotype\tparent\n"
              "U2OS\tTRPA1\tKO\tU2OS\n"
@@ -3064,7 +3070,7 @@ class TheGridStatesItsConventionsWhereTheyStayTests(TestCase):
     would have fixed: the lab writes C-numbers, 145 times out of 169.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -3132,7 +3138,7 @@ class TwoLabsHAP1AreTellableApartTests(TestCase):
     sessions board then rendered the pair as "HAP1 / HAP1".
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import ExperimentSession, Member
@@ -3243,8 +3249,7 @@ class TheWorkbookKeepsEveryValueOfAnInventedColumnTests(TestCase):
     plate, it is the first well — so a condition now holds every distinct value
     the column carried. Keeping the column was right; keeping one of it was not.
     """
-
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, ExperimentSession, Member
@@ -3366,7 +3371,7 @@ class TheWrongSessionsBenchSheetIsRefusedAtTheDoorTests(TestCase):
     with the *session's* procedure rather than the sheet's.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         import datetime
@@ -3442,7 +3447,7 @@ class TheSearchBoxReachesWhatItPromisesTests(TestCase):
     alone. From outside that reads as broken rather than narrow.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, Member
@@ -3506,7 +3511,7 @@ class ASessionIsFoundByItsNumberTests(TestCase):
     section at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import ExperimentSession, Member
@@ -3571,7 +3576,7 @@ class ActiveMeansWorkHasStartedTests(TestCase):
     the same page had the right answer already.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -3624,7 +3629,7 @@ class TheTargetBoardSaysHowASecondSiteGetsAGeneTests(TestCase):
     on a shared master list, with a green save flash and no wording.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -3650,7 +3655,7 @@ class TheIdentityDialogTakesEnterTests(TestCase):
     cannot fail.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_enter_in_an_identity_field_saves(self):
         js = (Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js").read_text()
@@ -3673,7 +3678,7 @@ class TheIdentityDialogGoesThroughTheSupplierWriterTests(TestCase):
     (F14) but never opened the dialog on it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company
@@ -3739,7 +3744,7 @@ class ARedrawNeverPaintsAStaleSnapshotTests(TestCase):
     did. Browser-only, so pinned at the source.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_redraw_is_stamped_and_a_stale_one_is_dropped(self):
         js = (Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js").read_text()
@@ -3773,7 +3778,7 @@ class TheTwoBenchSheetsAreToldApartTests(TestCase):
     then made a second one filling in what looked like its sheet.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -3797,7 +3802,7 @@ class AHandTypedConditionColumnReachesItsKeyTests(TestCase):
     paragraph. Snake-casing the promoted key is what connects them.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_spaced_title_case_header_lands_on_the_registry_key(self):
         from pipeline.services import session_import
@@ -3825,7 +3830,7 @@ class EveryPasteSurfaceOffersItsTemplateTests(TestCase):
     difference.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     # Every surface with a paste box, and the import kind its columns come from.
     #
@@ -4023,7 +4028,7 @@ class BulkAddTargetsPreviewsFirstTests(TestCase):
     deliberately offline.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4125,7 +4130,7 @@ class ANominationIsNotASkippedRowTests(TestCase):
     been written for it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4210,7 +4215,7 @@ class BothAddDoorsChooseTheSiteTests(TestCase):
     this suite keeps finding.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4284,7 +4289,7 @@ class ARefusedConcentrationIsCountedAtTheSaveTests(TestCase):
     antibody A-ELP3-R8D with no concentration at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4354,7 +4359,7 @@ class TheQuickSessionPanelSaysWhichCellLineItPickedTests(TestCase):
     line of text.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4431,7 +4436,7 @@ class TheSearchBoxReachesACellLinesOwnNotesTests(TestCase):
     then failed to find them.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4479,7 +4484,7 @@ class AReportDoesNotAssertAProcedureNobodyRanTests(TestCase):
     where the draft goes out to a reader.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -4580,7 +4585,7 @@ class ReportTableThreeHasOneRowPerProcedureTests(TestCase):
     secondaries it used belong inside its row.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -4689,7 +4694,7 @@ class AnExportSpeaksAtClickTimeTests(TestCase):
     action register.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4744,7 +4749,7 @@ class ACellLineThatIsNotYoursSaysSoTests(TestCase):
     Whose it is has to be said whether or not there was a choice to make.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Company
@@ -4813,7 +4818,7 @@ class TheCheckNamesAMissingDateTests(TestCase):
     field it stays quiet about is a refusal deferred to the save.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -4853,7 +4858,7 @@ class OneSearchDefinitionForTheBoxAndTheBoardTests(TestCase):
     broken, and there is no way to tell which from outside.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import Antibody, Company, ExperimentSession, Member
@@ -4920,7 +4925,7 @@ class ATagOnAResultRowIsFindableTests(TestCase):
     warn that the search would not reach them. A reading's comment is part of its
     session's record."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession,
@@ -4980,7 +4985,7 @@ class ASaveReceiptSurvivesLongEnoughToReadTests(TestCase):
     went past.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5015,7 +5020,7 @@ class BothTargetDoorsCountWhatTheyWillWriteTests(TestCase):
     that has a meaningful count says it and the three that do not are unchanged.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5180,7 +5185,7 @@ class TheSaveMessageDoesNotPromiseAReloadTests(TestCase):
     none, because the page now contradicts itself.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5212,7 +5217,7 @@ class TheNominationCountIsTheSameNumberEverywhereTests(TestCase):
     that happened.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5285,7 +5290,7 @@ class AHalfTypedDateIsNotCalledEmptyTests(TestCase):
     that can tell the difference is the client.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5329,7 +5334,7 @@ class ACNumberIsNeverInventedTests(TestCase):
     refusal is counted at the save, not only noted at the check.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     HEADER = "name\tgene\tgenotype\tparent\tc number\tsite"
 
@@ -5445,7 +5450,7 @@ class TheSheetWithTheDataIsTheOneThatIsReadTests(TestCase):
     read from is refused in words rather than answered with a blank panel.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5525,7 +5530,7 @@ class ASiteNamedInTheUrlActuallyFiltersTests(TestCase):
     same failure the ``?gene=`` rule already names, one control along.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     BOARDS = ("/pipeline/targets/board/", "/pipeline/antibodies/board/",
               "/pipeline/cell-lines/board/", "/pipeline/sessions/board/")
@@ -5572,7 +5577,7 @@ class OneListOfWhoCouldHaveRunItTests(TestCase):
     say a name was absent.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5603,7 +5608,7 @@ class TheConcentrationColumnIsOnTheBoardThatNamesItTests(TestCase):
     for fixing a refused concentration could not be followed.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5641,7 +5646,7 @@ class ABenchSheetSaysWhichSessionItIsForTests(TestCase):
     """"Both files carry this session's number" — and the bench sheet's name
     did not, so two for one gene and procedure collide in Downloads."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_the_filename_carries_the_session_number(self):
         from pipeline.models import ExperimentSession
@@ -5667,7 +5672,7 @@ class TheReportDoesNotCallALineSuitableAgainstItsOwnNumberTests(TestCase):
     it, and it drew the wrong one.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def _intro(self, expression):
         """The cell-line selection sentence for a target with this expression."""
@@ -5707,7 +5712,7 @@ class ACountAndTheListItCountsComeFromOneQueryTests(TestCase):
     second query for its count the test says so rather than a reader does.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     ROWS = ("/pipeline/targets/board/rows/", "/pipeline/antibodies/board/rows/",
             "/pipeline/cell-lines/board/rows/", "/pipeline/sessions/board/rows/")
@@ -5756,7 +5761,7 @@ class SigningOutIsNotSomethingALinkPreviewCanDoTests(TestCase):
     for this reason and ``AcademyLogoutView`` had explicitly opted back out.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -5824,7 +5829,7 @@ class TheAccountPagesAreNotRawAllauthTests(TestCase):
     which is how the same defect has been shipped several times in this repo.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     # Reversed rather than typed, so the test follows allauth's own routing —
     # `socialaccount_connections` moved to /accounts/3rdparty/ and the old path
@@ -5887,7 +5892,7 @@ class TheSignInPageDoesNotAdvertiseADeadRouteTests(TestCase):
     the shape of most of the defects in this file.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_the_pipeline_sign_in_does_not_offer_sign_up(self):
         from django.urls import reverse
@@ -5955,7 +5960,7 @@ class ThePortfolioSaysWhatEachTableCountsTests(TestCase):
     class table above them already carried its caveat.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.leicester = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6021,7 +6026,7 @@ class TheStageChartIsDrawnInProportionTests(TestCase):
     read at a glance; that is the whole reason to draw one beside the numbers.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6073,7 +6078,7 @@ class OverviewDrawsAPageNotTheDatasetTests(TestCase):
     page never got the fix, and it is the one a coordinator opens first.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6143,7 +6148,7 @@ class TheGuideIsNotAddressedToOnePersonTests(TestCase):
     to judge.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     GUIDES = ("TARGET_BOARD_GUIDE.md", "ANTIBODY_BOARD_GUIDE.md",
               "CELL_LINE_BOARD_GUIDE.md", "SESSION_BOARD_GUIDE.md")
@@ -6203,7 +6208,7 @@ class AWrongUrlLandsSomewhereWithAWayHomeTests(TestCase):
     that matters is that it renders at all.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_missing_page_is_branded_and_offers_a_way_home(self):
         with self.settings(DEBUG=False, ALLOWED_HOSTS=["testserver"]):
@@ -6246,7 +6251,7 @@ class ProteinClassesAreNotBuriedUnderGeneFamiliesTests(TestCase):
     "McGill has done most Rabs" warning on Add Targets.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import TargetClassification
@@ -6315,7 +6320,7 @@ class AUnitIsNeverCaseTransformedTests(TestCase):
     heading a thousandfold out, over values of 1000 and 529.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6358,7 +6363,7 @@ class AKnockoutThatFailedIsNotConfirmedTests(TestCase):
     failed.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -6494,7 +6499,7 @@ class AResultRowIsNotAReadingTests(TestCase):
     nothing from the difference.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (Antibody, Company, ExperimentSession, Member,
@@ -6591,7 +6596,7 @@ class TargetsWithNoSiteAreReachableTests(TestCase):
     exist.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -6656,7 +6661,7 @@ class RawDataIsReachableFromTheGenePageTests(TestCase):
       will find.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from pipeline.models import (
@@ -6785,7 +6790,7 @@ class ASearchReturnsOneRowPerLineNotOnePerBatchTests(TestCase):
     Both surfaces are asserted here, because a fix to one is what happened last
     time.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6845,7 +6850,7 @@ class ASessionPickerNamesTheLinesOwnNumberTests(TestCase):
     the two together for the board's own cell, which is the rendering a person
     recognises.
     """
-    databases = {"default", "pipeline_db"}
+    databases = {"pipeline_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6899,7 +6904,7 @@ class FeasibilityReadsTheGeneItWasSentTests(TestCase):
     request — it fills the box in and the page asks, exactly as pressing Search
     would.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6944,7 +6949,7 @@ class TwoAddButtonsOnOnePageSayWhatEachAddsTests(TestCase):
     button carries its count (`OGABoard.targetAddSummary`), which is shared with
     the target board and already unambiguous.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -6986,7 +6991,7 @@ class AMergedHeaderCellIsNamedNotSilentlyZeroTests(TestCase):
     headings it read and which matching columns are missing, so a deleted column
     and a renamed one answer the same way.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -7127,7 +7132,7 @@ class TheCellLinesSheetCarriesWhatIsOnTheTubeTests(TestCase):
     The batches column is read-only on purpose: a batch is one press of
     `+ batch`, and its number comes from `services/lab_numbers.py`.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -7194,7 +7199,7 @@ class ABlankTemplateStillPreviewsAsNothingToDoTests(TestCase):
     the refusal fixes. Caught by `tests_conventions` when the refusal was first
     written, and pinned here so it cannot come back the other way round.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -7240,7 +7245,7 @@ class AnUploadedSheetIsHeaderLedNotGuessedAtTests(TestCase):
     those headings, so an upload is header-led by construction; guessing from
     vendor names is for a paste, and the paste box keeps it.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     HEADERLESS_PDF = (
         "Aviva Systems Biology ARP54321_P050 AB_2224621 rabbit polyclonal\n"

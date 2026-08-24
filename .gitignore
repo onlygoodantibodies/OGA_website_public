@@ -42,7 +42,6 @@ staticfiles/
 # a `-journal` companion beside each while a run is in progress. `*.sqlite3`
 # above does not match those, so a run interrupted mid-flight leaves two
 # untracked build artefacts sitting in `git status`.
-test_default.sqlite3
 test_academy_db.sqlite3
 test_pipeline_db.sqlite3
 test_academy_sqlite.sqlite3
@@ -75,3 +74,13 @@ oga_images_*/
 # state, not source: the result belongs in the snapshot's `by_doi`, and a stale
 # cache committed beside a rebuilt snapshot would be answers about other papers.
 core/data/*.doi-cache.json
+
+# Lab data and database dumps that must never be committed again. None of these
+# applies to the copies already tracked — an ignore rule does not reach a tracked
+# file — so this is about the NEXT one. Verified with `git check-ignore`, never by
+# reading the file: `*.sqlite3` contains the string `*.sql`, so a grep for that
+# pattern says yes and is wrong. See AUDIT.md section 5a.
+*.accdb
+*.sql
+data.json
+access_csvs/

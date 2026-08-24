@@ -149,7 +149,7 @@ os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "1")
 class BoardInARealBrowserTests(StaticLiveServerTestCase):
     # A plain LiveServerTestCase does not serve board.js, so the grid never
     # loads and every assertion times out looking like the bug you came for.
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     @classmethod
     def setUpClass(cls):

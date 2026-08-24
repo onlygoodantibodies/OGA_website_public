@@ -22,7 +22,7 @@ DB = "pipeline_db"
 
 
 class MergeMembersTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")

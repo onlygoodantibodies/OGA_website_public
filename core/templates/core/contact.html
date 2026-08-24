@@ -242,22 +242,30 @@
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>
 
-                <label for="enquiry-type">Enquiry Type</label>
-                <select id="enquiry-type" name="enquiry-type" onchange="toggleFields()">
-                    <option value="general">General Enquiry</option>
-                    <option value="suggest-target">Suggest a Target</option>
-                </select>
+                {% comment %}
+                **Suggesting a target is not done here any more.** This form
+                emails and records nothing, so every gene anybody ever asked for
+                sat in an inbox as prose that could not be counted — and "which
+                gene are the most people waiting for?" is the only question a
+                prioritisation meeting asks of it. /nominate/ checks the symbol
+                against UniProt, says straight away when a protein is out of
+                scope, asks which application is needed, and writes it down.
 
-                <div id="suggest-target-fields" style="display: none;">
-                    <label for="gene">Gene of Interest</label>
-                    <input type="text" id="gene" name="gene">
-
-                    <label for="antibody">Application of Interest</label>
-                    <input type="text" id="antibody" name="antibody">
-
-                    <label for="target-details">Additional Details</label>
-                    <textarea id="target-details" name="target-details" rows="4"></textarea>
-                </div>
+                The route is *removed*, not merely deprioritised: two doors to
+                one thing means half the requests arrive in the form that cannot
+                be counted, and nothing on either page would say so. The enquiry
+                type select went with it — with one option left it was a control
+                that asked a question with no answers.
+                {% endcomment %}
+                <p style="margin:14px 0 0;padding:14px 16px;background:#eff6ff;
+                          border:1px solid #bfdbfe;border-radius:10px;
+                          font-size:.9rem;line-height:1.6;color:#1e3a8a">
+                    <strong>Want us to characterise a gene?</strong>
+                    <a href="{% url 'nominate_gene' %}">Nominate it here</a> —
+                    that form checks the gene, asks which application you need,
+                    and records the request so it counts towards what we run
+                    next. This message box only emails us.
+                </p>
 
                 <label for="message">Message</label>
                 <textarea id="message" name="message" rows="5" required></textarea>

@@ -245,7 +245,38 @@ def manifest(rows) -> dict:
 
 # ── Writing ──────────────────────────────────────────────────────────────────
 
-def stage(*, antibody, application_type, content: bytes, filename: str,
+def _still_referenced(name: str, *, pending_pk=None, public_pk=None) -> bool:
+    """Does any row other than the one named still point at this object?
+
+    Staged and published figures share one key now, so "delete my file" and
+    "delete somebody else's figure" became the same call. Every delete in this
+    module asks this first. The excluded pk is the row doing the deleting: it is
+    about to stop pointing at the object, so it does not count as a reference.
+    """
+    if not name:
+        return False
+    queued = PendingPublicationImage.objects.using(DB).filter(image=name)
+    if pending_pk is not None:
+        queued = queued.exclude(pk=pending_pk)
+    if queued.exists():
+        return True
+    live = PublicationImage.objects.using(DB).filter(image=name)
+    if public_pk is not None:
+        live = live.exclude(pk=public_pk)
+    return live.exists()
+
+
+def _free(storage, name: str) -> None:
+    """Delete an object, never letting a storage error break the transaction."""
+    if not name:
+        return
+    try:
+        storage.delete(name)
+    except Exception:
+        pass
+
+
+def stage(*, antibody, application_type, content: bytes | None, filename: str,
           recommended: bool = False, staged_by: str = "", session=None,
           notes: str = "") -> PendingPublicationImage:
     """Put one crop in the waiting room, replacing whatever was staged before.
@@ -260,13 +291,22 @@ def stage(*, antibody, application_type, content: bytes, filename: str,
     if item is None:
         item = PendingPublicationImage(antibody=antibody,
                                        application_type=application_type)
-    elif item.image:
-        # Free the previous staged object rather than leaving it orphaned in
-        # the bucket — nothing else points at it once this row moves on.
-        try:
-            item.image.storage.delete(item.image.name)
-        except Exception:
-            pass
+    if content is not None:
+        # `file_overwrite=False` (settings: AWS_S3_FILE_OVERWRITE) suffixes a
+        # name that is already taken, which would make the "final public URL"
+        # not final — a partner handed one URL would keep reading the old crop.
+        # So free the key we are about to write. That *is* the replacement: a
+        # published row pointing at it is a re-crop of a released figure, and
+        # overwriting is what the owner asked for. What must not be freed is the
+        # row's previous object at some *other* key that a live page still
+        # serves.
+        intended = item.image.field.generate_filename(item, filename)
+        previous = item.image.name if item.image else ""
+        _free(item.image.storage, intended)
+        if previous and previous != intended and not _still_referenced(
+                previous, pending_pk=item.pk):
+            _free(item.image.storage, previous)
+
     item.recommended = bool(recommended)
     item.status = PENDING
     item.staged_by = (staged_by or "")[:150]
@@ -276,7 +316,14 @@ def stage(*, antibody, application_type, content: bytes, filename: str,
         item.notes = notes
     if session is not None:
         item.source_session = session
-    item.image.save(filename, ContentFile(content), save=False)
+    if content is None:
+        # Adopt an object that is already at the right key — `withdraw` putting a
+        # released figure back in the queue. Reading and rewriting identical
+        # bytes would delete and recreate the file the gene page is serving and
+        # leave a window where it 404s, which is a worse withdrawal than none.
+        item.image.name = filename
+    else:
+        item.image.save(filename, ContentFile(content), save=False)
     item.save(using=DB)
     return item
 
@@ -321,27 +368,24 @@ def release(rows, *, actor: str, consented_count: int | None = None) -> ReleaseR
                 raise Refused(
                     f"{item.antibody.catalogue_number} {item.application_type} has "
                     f"no staged image — crop it again before releasing.")
-            item.image.open("rb")
-            try:
-                payload = item.image.read()
-            finally:
-                item.image.close()
-
+            # No bytes move. The crop was written at its final public key when
+            # it was staged, so releasing is a row pointing at an object that is
+            # already there — which is also why this can no longer half-succeed
+            # with a file written and a row missing.
             live = (PublicationImage.objects.using(DB)
                     .filter(antibody_id=item.antibody_id,
                             application_type=item.application_type).first())
-            if live and live.image:
-                # Free the canonical key first (FILE_OVERWRITE=False), so a
-                # re-release keeps the filename instead of suffixing it.
-                try:
-                    live.image.storage.delete(live.image.name)
-                except Exception:
-                    pass
-            name = item.image.name.rsplit("/", 1)[-1]
+            superseded = ""
+            if live and live.image and live.image.name != item.image.name:
+                # An older figure at a different key: nothing will point at it
+                # after this, so free it once the row has moved.
+                superseded = live.image.name
             PublicationImage.objects.using(DB).update_or_create(
                 antibody_id=item.antibody_id,
                 application_type=item.application_type,
-                defaults={"image": ContentFile(payload, name=name)})
+                defaults={"image": item.image.name})
+            if superseded and not _still_referenced(superseded):
+                _free(item.image.storage, superseded)
 
             # The recommendation, held on the row since the cropper, applied to
             # the antibody now that the figure behind it is public.
@@ -384,11 +428,12 @@ def discard(rows, *, actor: str = "") -> int:
                 f"queue and takes it off the site.")
     n = 0
     for item in rows:
-        if item.image:
-            try:
-                item.image.storage.delete(item.image.name)
-            except Exception:
-                pass
+        # A pending row can now share its object with a published one — that is
+        # what re-cropping a released figure produces. Discarding the queue entry
+        # must not blank the gene page still serving those bytes.
+        if item.image and not _still_referenced(item.image.name,
+                                                pending_pk=item.pk):
+            _free(item.image.storage, item.image.name)
         item.delete(using=DB)
         n += 1
     return n
@@ -422,12 +467,14 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
     all, and deleting one would destroy the crop. ``stage`` is the one writer
     for the waiting room, so this calls it rather than building the row here.
 
-    **Re-staging moves the bytes to private storage**, which is the difference
-    between *unpublished* and *unlinked*: ``PendingPublicationImage.image`` uses
-    ``attachment_storage`` — signed, short-lived, never the public custom
-    domain — so the public object is freed only once the figure is safely on the
-    gated one. A figure withdrawn from the gene page but still sitting on a
-    permanent public URL is still published to anybody holding the URL.
+    **Re-staging no longer moves the bytes, and withdrawal is weaker for it.**
+    Staged and published crops share one object at one public key (owner's
+    decision, 23 Aug 2026), so this hands the pending row the object that is
+    already there rather than copying it. The honest consequence: a withdrawn
+    figure leaves the gene page and **stays reachable at its URL**. This used to
+    be the difference between *unpublished* and merely *unlinked*, and that
+    difference is now gone by choice — say so to anyone who asks for a figure to
+    be taken down, because "withdrawn" no longer means "unreachable".
 
     **The verdict rides back with it.** ``release`` applies the pending row's
     ``recommended`` to the antibody; this carries the antibody's flag back onto
@@ -478,15 +525,10 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
                 # is newer than the public one; leave it alone.
                 result.already_queued += 1
             elif img.image:
-                img.image.open("rb")
-                try:
-                    payload = img.image.read()
-                finally:
-                    img.image.close()
                 stage(antibody=antibody,
                       application_type=img.application_type,
-                      content=payload,
-                      filename=img.image.name.rsplit("/", 1)[-1],
+                      content=None,          # already at the public key
+                      filename=img.image.name,
                       recommended=was_recommended,
                       staged_by=actor,
                       notes="Withdrawn from the public site.")
@@ -506,13 +548,13 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
             result.withdrawn.append(
                 (antibody.catalogue_number, img.application_type))
             img.delete(using=DB)
-            if public_name and storage is not None:
-                # Only now — the bytes are on the private store, so freeing the
-                # public object cannot be the thing that loses the figure.
-                try:
-                    storage.delete(public_name)
-                except Exception:
-                    pass
+            if (public_name and storage is not None
+                    and not _still_referenced(public_name)):
+                # Only if nothing points at it any more. A withdrawal that
+                # re-queued this figure left a pending row on the *same* object,
+                # and freeing it there would destroy the only copy — the thing
+                # this whole function exists to avoid.
+                _free(storage, public_name)
 
         for ab in touched.values():
             ab.save(using=DB, update_fields=list(RECOMMENDATION_FIELD.values()))

@@ -50,7 +50,7 @@ class CroppingDoesNotPublishTests(TestCase):
     and the recommendation the human set is not on the antibody yet.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -132,7 +132,7 @@ class OneFigureIsDecodedAtATimeTests(TestCase):
     allocating anything.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -208,7 +208,7 @@ class DeletingASessionKeepsWhatIsQueuedTests(TestCase):
     removed from storage — the half that could delete the wrong file.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -273,7 +273,7 @@ class AnOldGeneNameDoesNotBecomeANewGeneTests(TestCase):
     LRRK2 carrying a caption reading PARK8 is published wrong and un-editably.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -389,7 +389,7 @@ class TheVerdictCanBeChangedAtTheMeetingTests(TestCase):
     site.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -498,7 +498,7 @@ class AnOversizedFigureIsRefusedNotDecodedTests(TestCase):
     — including, had it been bigger, the session that started all this.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -599,7 +599,7 @@ class AnOversizedFigureIsRefusedNotDecodedTests(TestCase):
 class ReleasingPublishesTests(TestCase):
     """The other direction: a release that does not arrive is just as silent."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -670,7 +670,7 @@ class TheQueueIsReachableTests(TestCase):
     """A routed endpoint is not a reachable one, and a staged figure that no
     screen draws is a whole stage of the work nobody can find."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -738,7 +738,7 @@ class OnlyAnAdministratorReleasesTests(TestCase):
     review meeting that ends with nothing released and no reason on the screen.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -822,7 +822,7 @@ class WithdrawingPutsAFigureBackInTheQueueTests(TestCase):
     Not pinned: the command's wording, or the shape of the receipt.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -956,7 +956,7 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
     until somebody presses it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1045,3 +1045,94 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(PublicationImage.objects.using(DB).count(), 2,
                          "a set that grew underneath the panel was withdrawn anyway")
+
+
+class OneObjectAtOnePublicKeyTests(TestCase):
+    """Staged and published figures share one object, so deletes got dangerous.
+
+    Owner's decision, 23 Aug 2026: a crop is written at its final public URL so
+    partners can build on it before release. That removes the copy at release
+    and, with it, the guarantee that "delete my file" only touched my file.
+    Every delete in `review.py` can now blank a live gene page.
+
+    These are the silent ones. Nothing raises when bytes vanish from a bucket —
+    the row is still there, the page still renders, and the image is a broken
+    icon that somebody notices weeks later.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        # A temp MEDIA_ROOT, or leftovers from an earlier run make the very
+        # first crop come back suffixed and the assertions read as bugs.
+        import tempfile
+        self.enterContext(
+            self.settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="review-keys-")))
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.company = Company.objects.using(DB).create(name="Abcam")
+        self.target = Target.objects.using(DB).create(gene_name="TRPA1")
+        self.ab = Antibody.objects.using(DB).create(
+            catalogue_number="ab-key-1", company=self.company,
+            target=self.target, site=self.site)
+
+    def _stage(self, colour=(10, 20, 30)):
+        return svc.stage(antibody=self.ab, application_type="WB",
+                         content=_png(colour), filename="TRPA1_ab-key-1_WB.png",
+                         staged_by="tester")
+
+    def test_a_crop_is_written_at_the_public_key_not_a_pending_one(self):
+        item = self._stage()
+        self.assertTrue(item.image.name.startswith("publication_images/"),
+                        f"staged at {item.image.name!r}")
+
+    def test_release_points_at_the_same_object_and_moves_no_bytes(self):
+        item = self._stage()
+        staged_name = item.image.name
+        svc.release([item], actor="tester", consented_count=1)
+        live = PublicationImage.objects.using(DB).get(
+            antibody=self.ab, application_type="WB")
+        self.assertEqual(live.image.name, staged_name,
+                         "release copied the bytes instead of pointing at them")
+        self.assertTrue(live.image.storage.exists(staged_name))
+
+    def test_discarding_a_recrop_does_not_blank_the_published_figure(self):
+        """The sharp edge: re-cropping a released figure, then changing your mind."""
+        item = self._stage()
+        svc.release([item], actor="tester", consented_count=1)
+        live_name = PublicationImage.objects.using(DB).get(
+            antibody=self.ab, application_type="WB").image.name
+
+        requeued = self._stage(colour=(90, 90, 90))   # back to pending, same key
+        self.assertEqual(requeued.image.name, live_name)
+
+        svc.discard([requeued], actor="tester")
+
+        live = PublicationImage.objects.using(DB).get(
+            antibody=self.ab, application_type="WB")
+        self.assertTrue(
+            live.image.storage.exists(live.image.name),
+            "discarding the queue entry deleted the bytes the gene page serves")
+
+    def test_withdraw_keeps_the_object_for_the_requeued_row(self):
+        item = self._stage()
+        svc.release([item], actor="tester", consented_count=1)
+        live = PublicationImage.objects.using(DB).get(
+            antibody=self.ab, application_type="WB")
+        name = live.image.name
+
+        svc.withdraw([live], actor="tester", consented_count=1)
+
+        queued = PendingPublicationImage.objects.using(DB).get(
+            antibody=self.ab, application_type="WB")
+        self.assertEqual(queued.image.name, name)
+        self.assertTrue(queued.image.storage.exists(name),
+                        "withdrawal deleted the only copy of the figure")
+
+    def test_a_recrop_replaces_the_object_rather_than_suffixing_it(self):
+        """`file_overwrite=False` would make the 'final' URL not final."""
+        first = self._stage()
+        name = first.image.name
+        second = self._stage(colour=(1, 2, 3))
+        self.assertEqual(second.image.name, name,
+                         "a re-crop landed on a suffixed key, so the public URL "
+                         "a partner was given stopped being the live one")

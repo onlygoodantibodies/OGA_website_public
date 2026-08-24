@@ -22,7 +22,7 @@ from pipeline.tests_timeouts import DB
 
 
 class ACNumberOnAVialIsFindableTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

@@ -25,7 +25,7 @@ MISSING_CHIP = '<div class="oga-ab-focus oga-ab-focus-missing" role="status">'
 
 
 class IdentifierSearchTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()  # both the gene index and the antibody index are cached
@@ -219,7 +219,7 @@ class BothSearchBoxesReachAntibodiesTests(TestCase):
     failing to hand it the antibody endpoint, which silently makes that box
     gene-only again.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()
@@ -247,7 +247,7 @@ class TheEmbedCardShowsOnlyPublishedWorkTests(TestCase):
     assessment with every application blank, on the most public surface there is.
     The gene pages 404 on exactly this; the card was the door left open.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()

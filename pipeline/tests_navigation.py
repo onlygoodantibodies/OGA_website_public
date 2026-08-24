@@ -39,7 +39,7 @@ class EveryBoardTakesTheSameGeneTests(TestCase):
     exactly — and a gene could not be carried there from anywhere else.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -203,7 +203,7 @@ class AddingGenesLandsSomewhereTests(TestCase):
     here is that the URL board.js builds by hand is the URL Django serves.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def _board_js(self):
         return (Path(settings.BASE_DIR) / "pipeline" / "static" / "pipeline"
@@ -283,7 +283,7 @@ class AGeneNameIsAWayToItsPageTests(TestCase):
     and clicking it opens that session's results, which is the row's own job.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -332,7 +332,7 @@ class AGeneNameIsAWayToItsPageTests(TestCase):
 class OneSearchBoxTests(TestCase):
     """There was no search box anywhere in the app chrome."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -407,7 +407,7 @@ class WhereThisGeneHasGotToTests(TestCase):
     """The gene page gathers everything about a gene and could not say what was
     missing. The facts all existed; nothing put them in order."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -533,7 +533,7 @@ class TheHubPointsAtTheBoardsTests(TestCase):
     listed the three pages they replaced. The front door and the nav bar
     disagreed about where the app was, and the front door won."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -569,7 +569,7 @@ class AccessEraTargetsAreNotOrphanedTests(TestCase):
     emptied McGill's column overnight and read as data loss.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.leicester = Site.objects.using(DB).create(
@@ -693,7 +693,7 @@ class OneQuestionOneNumberTests(TestCase):
     McGill's targets and had to be kept.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from datetime import date
@@ -795,7 +795,7 @@ class TheGenePageIsAWorkspaceTests(TestCase):
     could actually *do* there was generate a report about work done elsewhere.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -888,7 +888,7 @@ class ChromeIsOnEveryPageTests(TestCase):
     with the browser's Back button.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(
@@ -934,7 +934,7 @@ class AccountPagesReachedFromThePipelineWearItsChromeTests(TestCase):
     hold, and the third is the one that would go wrong quietly.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     PUBLIC_NAV = "/publications/"      # on the public header, nowhere else
     PIPELINE_NAV = "/pipeline/find/"   # the pipeline bar's search box
@@ -1017,6 +1017,7 @@ class NoPageStyleBlockOverridesTheChromeTests(TestCase):
     furniture and is exactly what the fix looks like, so flagging those would
     make the test unpassable.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     TEMPLATE_DIR = Path(settings.BASE_DIR) / "pipeline/templates/pipeline"
 
@@ -1099,7 +1100,7 @@ class EveryPageIsInBrowseTests(TestCase):
     that lists the destinations itself cannot see it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1205,7 +1206,7 @@ class TheGeneFollowsYouEverywhereTests(TestCase):
     where a laptop kept it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1266,7 +1267,7 @@ class SearchSaysWhyItMatchedTests(TestCase):
     printed two different rows identically.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1325,7 +1326,7 @@ class TheHubShowsTheOrderOfTheWorkTests(TestCase):
     stay role-aware, the grid is the order of the work.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -1406,7 +1407,7 @@ class ASessionsBenchSheetIsWhereTheSessionIsTests(TestCase):
     half an answer.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from datetime import date
@@ -1446,7 +1447,7 @@ class WorkArrivingOutOfOrderStillLandsSomewhereTests(TestCase):
     test; the four other routes into `resolve_or_create_target` had not.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         from django.contrib.auth.models import User
@@ -1520,7 +1521,7 @@ class TheWalkthroughIsWiredUpTests(TestCase):
     future edit to the *text* can break.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(
@@ -1586,7 +1587,7 @@ class TheStylesheetComesFromThisSiteTests(TestCase):
     passing until the day CI ran somewhere with a working network.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

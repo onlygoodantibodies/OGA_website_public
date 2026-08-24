@@ -20,7 +20,7 @@ TAG = "[COWORK RUN4]"
 
 
 class PurgeTargetTests(TestCase):
-    databases = {"default", "pipeline_db"}
+    databases = {"pipeline_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester",
@@ -111,7 +111,7 @@ class CheckTagTests(TestCase):
     like the last one's.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -167,7 +167,7 @@ class TheOrphanedWildTypeATestRunCreatedTests(TestCase):
     one of them must leave it exactly where it is.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -314,7 +314,7 @@ class ClearingUpAfterTheGenesHaveAlreadyGoneTests(TestCase):
     unreachable at the only moment anyone would go looking for it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -415,7 +415,7 @@ class RefusingWhenTheTagAndTheGenesNameDifferentRunsTests(TestCase):
     what it touches, and the read-only sweep is why `--check-tag` exists.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -524,7 +524,7 @@ class TheRunsOwnSessionsDoNotProtectTheRunsOwnParentTests(TestCase):
     missed.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
     TAG = "[COWORK RUN5]"
 
     def setUp(self):

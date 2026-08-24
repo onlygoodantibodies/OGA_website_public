@@ -23,7 +23,7 @@ BOARDS = ("/pipeline/antibodies/board/", "/pipeline/cell-lines/board/",
 
 
 class TheStripAppearsForOneGeneTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -64,7 +64,7 @@ class ItSaysTheSameThingAsTheGenesOwnPageTests(TestCase):
     `Target.status` came to say Not Started beside a strip showing two
     procedures run."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -106,7 +106,7 @@ class TheStripDoesNotPretendToBeLiveTests(TestCase):
     say, and nothing redraws a server-rendered strip. CLAUDE.md: never tell the
     reader to reload — offer the button instead."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -133,7 +133,7 @@ class TheSequenceIsTheOrderTheWorkHappensInTests(TestCase):
     understanding the bench.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

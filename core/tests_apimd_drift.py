@@ -48,7 +48,7 @@ def documented_examples():
 
 
 class TheExamplesMatchTheApiTests(TestCase):
-    databases = {'default', 'pipeline_db', 'academy_db'}
+    databases = {'pipeline_db', 'academy_db'}
 
     @classmethod
     def setUpTestData(cls):

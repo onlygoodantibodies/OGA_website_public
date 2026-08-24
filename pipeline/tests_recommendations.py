@@ -35,7 +35,7 @@ PAGE = "/pipeline/recommendations/"
 class TheRecommendationsPageTakesAGeneTests(TestCase):
     """``?gene=`` means the same thing here as it does on the four boards."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(
@@ -113,7 +113,7 @@ class AGenesOwnPageLinksToItsRecommendationsTests(TestCase):
     """Setting a gene's recommendations meant the task hub and then scrolling a
     160-item dropdown by hand — from a page that names the gene in its URL."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(
@@ -138,7 +138,7 @@ class EnlargingAFigureIsAnOrdinaryClickTests(TestCase):
     milliseconds and catches the control being deleted.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(

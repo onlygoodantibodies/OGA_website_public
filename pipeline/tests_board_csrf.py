@@ -23,7 +23,7 @@ DB = "pipeline_db"
 
 
 class BoardCsrfTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         site = Site.objects.create(name="McGill", short_code="MCG")

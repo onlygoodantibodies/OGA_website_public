@@ -20,7 +20,7 @@ DB = "pipeline_db"
 
 
 class AntibodyBoardTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")

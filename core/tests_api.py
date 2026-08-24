@@ -51,7 +51,7 @@ from pipeline.models import (
 from pipeline.public import public_targets
 
 from core import api_throttle
-from core.models import APIConsumer, Gene as LegacyGene
+from core.models import APIConsumer
 from core.recommendations import (
     NOT_RECOMMENDED, NOT_TESTED, RECOMMENDED, curated_gene_ids,
     recommendation,
@@ -76,7 +76,7 @@ class APIFeedTestCase(TestCase):
     gene looks like between the cropper and the recommendations pass.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -386,24 +386,23 @@ class TheFeedsDoNotQueryPerGeneTests(APIFeedTestCase):
     handful of dev rows: ``_target_has_recommendations`` called once per gene,
     ``.count()`` on a prefetched related manager (which issues a fresh COUNT and
     ignores the prefetch), and a ``Gene.objects.get`` per gene for the legacy
-    report link. The last one is on ``default``, so all three databases are
-    counted here — ``genes_feed`` reads pipeline, the git-deployed legacy SQLite,
-    and academy for the consumer.
+    report link. The third is gone outright — the legacy ``core`` layer and the
+    ``default`` database it lived in were retired on 23 Aug 2026 — so two
+    databases are counted here: pipeline for the genes, academy for the
+    consumer.
     """
 
-    ALIASES = ("pipeline_db", "default", "academy_db")
+    ALIASES = ("pipeline_db", "academy_db")
 
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        # One gene whose link comes from a pipeline Report, one whose link comes
-        # from the legacy fallback — both branches present in the baseline.
+        # A gene whose report link comes from a pipeline Report. There used to
+        # be a second one here exercising the legacy fallback; that branch no
+        # longer exists.
         Report.objects.create(
             target=cls.snca, zenodo_doi="https://doi.org/10.5281/zenodo.1",
             zenodo_date=date(2026, 1, 1))
-        LegacyGene.objects.create(
-            name="STMN2",
-            f1000_report_link="https://f1000research.com/articles/1-1")
 
     def _more_genes(self, n=5):
         for i in range(n):
@@ -419,9 +418,6 @@ class TheFeedsDoNotQueryPerGeneTests(APIFeedTestCase):
                 target=target,
                 zenodo_doi=f"https://doi.org/10.5281/zenodo.{100 + i}",
                 zenodo_date=date(2026, 2, 1))
-            LegacyGene.objects.create(
-                name=f"EXTRA{i}",
-                f1000_report_link="https://f1000research.com/articles/1-2")
 
     def _counts(self, name, **params):
         # Warm up first, so the baseline is a *steady-state* request.
@@ -439,14 +435,13 @@ class TheFeedsDoNotQueryPerGeneTests(APIFeedTestCase):
 
         contexts = {alias: CaptureQueriesContext(connections[alias])
                     for alias in self.ALIASES}
-        with contexts["pipeline_db"], contexts["default"], contexts["academy_db"]:
+        with contexts["pipeline_db"], contexts["academy_db"]:
             response = self._get(name, **params)
         self.assertEqual(response.status_code, 200)
         return {alias: len(ctx) for alias, ctx in contexts.items()}
 
     def _same_counts(self, name, baseline, **params):
         with self.assertNumQueries(baseline["pipeline_db"], using="pipeline_db"), \
-             self.assertNumQueries(baseline["default"], using="default"), \
              self.assertNumQueries(baseline["academy_db"], using="academy_db"):
             response = self._get(name, **params)
         self.assertEqual(response.status_code, 200)
@@ -455,7 +450,8 @@ class TheFeedsDoNotQueryPerGeneTests(APIFeedTestCase):
     def test_the_genes_feed_queries_per_request_not_per_gene(self):
         """Three queries per gene — the curation check, the legacy report link
         and a ``.count()`` that ignored its own prefetch — so this endpoint got
-        slower every time OGA published anything."""
+        slower every time OGA published anything. The legacy one is retired;
+        the other two are what this still guards."""
         baseline = self._counts("api:genes_feed")
         self._more_genes(5)
         body = self._same_counts("api:genes_feed", baseline)

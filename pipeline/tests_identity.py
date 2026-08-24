@@ -22,7 +22,7 @@ from pipeline.tests_timeouts import DB, _member_client
 
 
 class AntibodyIdentityTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -124,7 +124,7 @@ class AntibodyIdentityTests(TestCase):
 
 
 class CellLineIdentityTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -186,7 +186,7 @@ class TheLastLegacyPagesAreGoneTests(TestCase):
     """The antibody and cell-line detail and edit pages existed to do one thing
     the boards would not. They no longer do."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

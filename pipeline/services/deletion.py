@@ -293,6 +293,15 @@ _ORPHAN_WORDING = {
     ("experimentsession", "cell_line_ko"): (
         "session that would no longer say which knockout it was run against",
         "sessions that would no longer say which knockout they were run against"),
+    # A public request is evidence that somebody asked for this gene, and it
+    # outlives the target: deleting the gene must not delete the reason anybody
+    # wanted it. The row survives with its symbol and its typed text, so it is
+    # still findable — only the link to a target that no longer exists goes.
+    ("generequest", "target"): (
+        "public request for this gene, which stays on the Gene requests page "
+        "but will no longer link to a target",
+        "public requests for this gene, which stay on the Gene requests page "
+        "but will no longer link to a target"),
 }
 
 

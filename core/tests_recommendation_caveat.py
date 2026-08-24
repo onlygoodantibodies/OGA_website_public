@@ -52,7 +52,7 @@ CAVEAT = re.sub(r"\s+", " ", R.SCOPE_NOTE).lower()
 class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
     """One fixture, every public surface, asked the same two questions."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

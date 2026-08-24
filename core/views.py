@@ -4,16 +4,14 @@ OGA Public Views — core/views.py
 
 Phase 3 rewrite: all data reads come from pipeline PostgreSQL
 (Target, Antibody, PublicationImage, Report, Company) instead
-of core SQLite (Gene, Antibody, Description, Experiment).
-
-Legacy backup: core/views_legacy.py (identical to pre-Phase-3 version).
-Rollback: swap import in core/urls.py → `from . import views_legacy as views`
-
-Models that stay in core/academy_db: APIConsumer, ReviewedAntibody.
+of core SQLite (Gene, Antibody, Description, Experiment). The legacy layer
+and its `default` SQLite database were retired on 23 Aug 2026; the models
+that remain in `core` — APIConsumer, ReviewedAntibody, ApiUsageDay — all
+route to academy_db.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, get_connection, EmailMessage
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
@@ -42,9 +40,8 @@ from pipeline.public import (headline_counts, public_targets,
 from pipeline.services import clonality as clonality_svc
 # Catalogue number / RRID / clone lookup — see core/public_search.py.
 from . import public_search
-
-# Core Gene — legacy fallback only (gene_redirect, report link fallback)
-from .models import Gene
+# Frozen id → name map behind the legacy numeric gene URLs.
+from .legacy_gene_ids import LEGACY_GENE_NAMES
 
 # The three-valued recommendation reader, the scope caveat and the licence —
 # one definition, shared with the API, the extension index and the MCP server.
@@ -81,9 +78,15 @@ GENE_SEARCH_INDEX_CACHE_SECONDS = 3600
 def _get_report_link(target):
     """
     Resolve the best available report link for a target.
-    Priority: (1) Report.f1000_doi, (2) Report.zenodo_doi,
-    (3) core Gene.f1000_report_link as fallback.
+    Priority: (1) Report.f1000_doi, (2) Report.zenodo_doi.
     Returns (url, label) tuple.
+
+    There used to be a third source — the retired ``core.Gene.f1000_report_link``
+    column in the git-deployed SQLite. It was measured before removal on
+    23 Aug 2026: of the 155 public targets, 154 carry a pipeline ``Report`` with
+    a DOI and never reached the fallback, and the one that does not (RAB5B) had
+    no row in the legacy table either. So the fallback returned nothing for
+    every public gene, and dropping it changes no page.
     """
     report = target.reports.filter(
         Q(f1000_doi__gt='') | Q(zenodo_doi__gt='')
@@ -94,14 +97,6 @@ def _get_report_link(target):
             return report.f1000_doi, 'F1000 Report'
         if report.zenodo_doi:
             return report.zenodo_doi, 'Zenodo Report'
-
-    # Fallback: core Gene (still in git-deployed SQLite)
-    try:
-        gene = Gene.objects.get(name=target.gene_name)
-        if gene.f1000_report_link:
-            return gene.f1000_report_link, 'Full Report'
-    except Gene.DoesNotExist:
-        pass
 
     return None, 'Full Report'
 
@@ -324,28 +319,38 @@ def partners(request):
 
 
 def contact(request):
+    """General enquiries. **Not a way to nominate a gene any more.**
+
+    It used to be: an enquiry type of "Suggest a Target" with a gene, an
+    application and a details box, all of which became an email and nothing
+    else. So every gene anybody has ever asked for is prose in an inbox, and
+    the one question worth asking of it — which gene are the most people
+    waiting for? — cannot be answered at all.
+
+    ``nominate_gene`` replaced it, and this route is *removed* rather than
+    quietly deprioritised. Two doors to one thing means half the requests keep
+    arriving in the form that cannot be counted, and nothing on either page
+    would say so.
+
+    The old field names are still read, deliberately: a bookmarked form or a
+    tab left open overnight posts them, and dropping them on the floor would
+    turn a submission somebody watched succeed into a blank message.
+    """
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         email = request.POST.get('email', '').strip()
         message = request.POST.get('message', '').strip()
-        enquiry_type = request.POST.get('enquiry-type', '').strip()
-        gene = request.POST.get('gene', '').strip()
-        antibody = request.POST.get('antibody', '').strip()
-        target_details = request.POST.get('target-details', '').strip()
+        # Only ever set by a stale copy of the old form — see the docstring.
+        stale = [(label, request.POST.get(field, '').strip()) for label, field in
+                 (('Gene', 'gene'), ('Antibody', 'antibody'),
+                  ('Target details', 'target-details'))]
 
         subject = f'Contact Form Submission from {name}'
-        if enquiry_type:
-            subject = f'[{enquiry_type}] {subject}'
 
         lines = [f'Name: {name}', f'Email: {email}']
-        if enquiry_type:
-            lines.append(f'Enquiry Type: {enquiry_type}')
-        if gene:
-            lines.append(f'Gene: {gene}')
-        if antibody:
-            lines.append(f'Antibody: {antibody}')
-        if target_details:
-            lines.append(f'Target details: {target_details}')
+        for label, value in stale:
+            if value:
+                lines.append(f'{label}: {value}')
         lines.append('')
         lines.append('Message:')
         lines.append(message)
@@ -531,30 +536,49 @@ def home(request):
         .order_by('name')
     )
 
+    # **The card grid is never filtered, and that is the point of it.** It is a
+    # link surface for crawlers and a decorative index of what the site holds —
+    # every gene on it has its own sitemap entry and its own page — and it
+    # begins ~1,200px below the search box. So narrowing it answered a search
+    # somewhere no reader could see: on a 900px screen, pressing Enter moved
+    # nothing at all. Worse, a filtered home page is a thinner copy of the home
+    # page at a second URL, which is the wrong thing to hand a crawler.
+    #
+    # The search is answered under the box instead, by `matches` below.
+    matches = []
     if query:
         # A catalogue number or an RRID is a thing people paste into this box,
         # and matching gene names alone answered "no results" for reagents we
         # hold. When it names exactly one antibody, go straight to it — that is a
         # resolution, not a guess, and the gene page is where the verdict is.
-        # Anything less certain narrows the grid instead of picking for them.
         single = public_search.resolve(query)
         if single:
             gene_page = reverse(
                 'antibody_table', kwargs={'gene_name': single['gene']})
             focus = single['catalogue'] or single['rrid']
             return redirect(f"{gene_page}?{urlencode({'ab': focus})}")
-        targets = targets.filter(
-            Q(gene_name__icontains=query)
-            | Q(pk__in=public_search.target_ids(query))
+        # Anything less certain is listed as links, so the answer is a thing to
+        # click rather than an instruction to go and look. Capped, because this
+        # is a line under a search box and not a results page; the count above
+        # it is the whole set, so a truncated list never reads as the total.
+        matches = list(
+            targets.filter(
+                Q(gene_name__icontains=query)
+                | Q(pk__in=public_search.target_ids(query))
+            ).values_list('gene_name', flat=True)
         )
 
-    no_results = not targets.exists() and bool(query)
+    no_results = bool(query) and not matches
 
     from .recommendations import CONSENSUS_PROTOCOL_URL
 
     return render(request, "core/home.html", {
         "genes": targets,
         "search_query": query,
+        # The full match list and how many there are — one queryset, so the
+        # count and the links under it can never disagree.
+        "matches": matches[:12],
+        "match_count": len(matches),
         "no_results": no_results,
         "consensus_protocol_url": CONSENSUS_PROTOCOL_URL,
         **get_live_stats(),
@@ -563,12 +587,16 @@ def home(request):
 
 # ─────────────────────────────────────────────────────────
 # GENE REDIRECT — legacy numeric URLs (/124/ → /antibodies/ARHGDIA/)
-# Still reads core Gene because old numeric IDs don't exist on Target
+# The numeric ids were core.Gene primary keys, and that model is retired. The
+# mapping is frozen in core/legacy_gene_ids.py — see its docstring for why the
+# addresses are kept and what the 155 of them resolve to.
 # ─────────────────────────────────────────────────────────
 
 def gene_redirect(request, gene_id):
-    gene = get_object_or_404(Gene, id=gene_id)
-    return redirect('antibody_table', gene_name=gene.name, permanent=True)
+    gene_name = LEGACY_GENE_NAMES.get(gene_id)
+    if gene_name is None:
+        raise Http404('No gene with that legacy id')
+    return redirect('antibody_table', gene_name=gene_name, permanent=True)
 
 
 # ─────────────────────────────────────────────────────────
@@ -1324,3 +1352,207 @@ def embed_antibody_card(request):
 # Recommendation manager moved to the pipeline app
 # (pipeline/views/recommendations.py, gated by @pipeline_member_required).
 # The old /admin-tools/recommendations/ URL now redirects there.
+
+
+# ─────────────────────────────────────────────────────────
+# NOMINATE A GENE — the public "we don't have this, ask for it" door
+# ─────────────────────────────────────────────────────────
+
+#: A press this often from one address is somebody testing the form, not a lab
+#: with 20 genes. It refuses politely and says what to do instead. Counted in
+#: the process cache like `core/api_throttle.py`'s ceiling and approximate for
+#: the same reason — this is an abuse guard, not a quota.
+NOMINATION_LIMIT_PER_HOUR = 10
+
+
+def _nomination_throttle_key(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    ip = (forwarded.split(',')[0].strip()
+          or request.META.get('REMOTE_ADDR', '') or 'unknown')
+    return f'gene_nomination_count:{ip}'
+
+
+def nominate_gene(request):
+    """Ask us to characterise a gene we do not have.
+
+    Until now this button went to the contact form, so a request became an email
+    and nothing else: unaggregated, unqueryable, and no use at all for answering
+    *"which gene is the most people waiting for?"* — which is the one question a
+    prioritisation meeting actually asks. It writes a ``GeneRequest`` now, and
+    still sends the email, because somebody is watching that inbox today and a
+    change that silently stops a notification is the worst kind.
+
+    Deliberately **not** a ``TargetNomination``: that is the consortium's own
+    list, with a site, a funder and a bench behind each row, and dropping the
+    public's wishes into it would put unfunded strangers into every "who is
+    doing what" total the Portfolio draws.
+
+    The check is ``pipeline/services/gene_requests.py``, and it runs on the way
+    in as well as at the press: arriving from a failed search with ``?gene=``,
+    the reader is told what we know about their gene before they type anything —
+    including the two answers that are refusals ("not human", "that is a
+    modification"), which are more use than a queue position.
+    """
+    from pipeline.services import gene_requests as GR
+    from django.core.cache import cache
+
+    typed = (request.GET.get('gene') or '').strip()
+    source = (request.GET.get('from') or '').strip()[:20]
+    form = {
+        'gene': typed, 'email': '', 'name': '', 'organisation': '',
+        'applications': [], 'applications_other': '', 'note': '',
+        'has_funding': False, 'funding_note': '',
+    }
+    errors = {}
+    verdict = None
+
+    if request.method == 'POST':
+        typed = (request.POST.get('gene') or '').strip()
+        source = (request.POST.get('source') or '').strip()[:20]
+        form = {
+            'gene': typed,
+            'email': (request.POST.get('email') or '').strip(),
+            'name': (request.POST.get('name') or '').strip(),
+            'organisation': (request.POST.get('organisation') or '').strip(),
+            'applications': request.POST.getlist('applications'),
+            'applications_other': (request.POST.get('applications_other') or '').strip(),
+            'note': (request.POST.get('note') or '').strip(),
+            'has_funding': bool(request.POST.get('has_funding')),
+            'funding_note': (request.POST.get('funding_note') or '').strip(),
+        }
+
+        # A field no human sees and every naive bot fills in. Answered with the
+        # ordinary success page rather than an error: telling a bot it was
+        # spotted is how it learns to stop filling the field in.
+        if (request.POST.get('website') or '').strip():
+            return render(request, 'core/nominate_done.html',
+                          {'gene': typed, 'applications': []})
+
+        # Everything is checked at once and answered beside its own box — a
+        # refusal that names one field at a time is a form somebody submits
+        # three times.
+        if not typed:
+            errors['gene'] = 'Which gene? Enter its symbol, e.g. SNCA.'
+        if not form['email']:
+            errors['email'] = ('We need an email address — it is how we tell '
+                               'you if this gene gets funded.')
+        elif '@' not in form['email']:
+            errors['email'] = 'That does not look like an email address.'
+        # Typing in the box is choosing the option: refusing somebody who said
+        # what they need because they did not also tick a box beside it would
+        # be the form arguing with an answer it already has.
+        if form['applications_other'] and GR.OTHER not in form['applications']:
+            form['applications'] = list(form['applications']) + [GR.OTHER]
+
+        if not form['applications']:
+            errors['applications'] = (
+                'Tick at least one application, or "Not sure yet" — which '
+                'application you need changes what we would have to run.')
+        elif GR.OTHER in form['applications'] and not form['applications_other']:
+            # "Something else" on its own records that they need *something*
+            # and not what, which is the one answer this question cannot use.
+            errors['applications'] = (
+                'You ticked "Something else" — say which, in the box beside '
+                'it, or the request cannot tell us what you need.')
+
+        count = cache.get(_nomination_throttle_key(request), 0)
+        if count >= NOMINATION_LIMIT_PER_HOUR:
+            errors['gene'] = (
+                'That is a lot of nominations from one place in an hour. Email '
+                'onlygoodantibodies@gmail.com with the list instead — a batch '
+                'of genes is a conversation we would rather have properly.')
+
+        if not errors:
+            verdict = GR.check(typed)
+            if verdict['status'] in GR.RECORDABLE:
+                gene_request, verdict = GR.record(
+                    typed_text=typed,
+                    email=form['email'],
+                    applications=form['applications'],
+                    applications_other=form['applications_other'],
+                    requester_name=form['name'],
+                    organisation=form['organisation'],
+                    has_funding=form['has_funding'],
+                    funding_note=form['funding_note'],
+                    note=form['note'],
+                    source=source,
+                    verdict=verdict,
+                )
+                cache.set(_nomination_throttle_key(request), count + 1, 3600)
+                # The row is written before the email is attempted: a mail
+                # server hiccup must not lose a request we have already
+                # accepted. Same reason the contact form swallows the error.
+                _email_gene_request(gene_request, form)
+                return render(request, 'core/nominate_done.html', {
+                    'gene': gene_request.gene_symbol or gene_request.typed_text,
+                    'already_here': verdict['status'] == GR.IN_PIPELINE,
+                    'unchecked': verdict['status'] == GR.UNCHECKED,
+                    'has_funding': form['has_funding'],
+                    'applications': GR.application_labels(
+                        gene_request.applications,
+                        gene_request.applications_other),
+                })
+            # A refusal: fall through and draw the verdict's own message.
+
+    elif typed:
+        verdict = GR.check(typed)
+        if verdict['status'] == GR.PUBLISHED and verdict['gene_url']:
+            # We have it. A form asking them to request what they can already
+            # read is the site failing to answer a question it can answer.
+            return redirect(verdict['gene_url'])
+        if verdict.get('gene'):
+            form['gene'] = verdict['gene']
+
+    return render(request, 'core/nominate.html', {
+        'form': form,
+        'errors': errors,
+        'verdict': verdict,
+        'source': source,
+        'application_choices': GR.APPLICATION_CHOICES,
+        'refused': bool(verdict and verdict['status'] not in GR.RECORDABLE),
+    })
+
+
+def _email_gene_request(gene_request, form):
+    """Tell the inbox, as the contact form always has.
+
+    The row is the record; this is the notification. It never raises: the
+    request is already written, and a mail failure that 500s would show the
+    person an error page about something that worked.
+    """
+    if gene_request is None:
+        return
+    lines = [
+        f'Gene: {gene_request.gene_symbol or gene_request.typed_text}',
+        f'Typed: {gene_request.typed_text}',
+        f'UniProt: {gene_request.uniprot_id or "not confirmed"}',
+        f'Protein: {gene_request.protein_name or "-"}',
+        f'Applications: {gene_request.applications or "-"}',
+        f'Other application: {gene_request.applications_other or "-"}',
+        f'From: {form["name"] or "-"} <{gene_request.email}>',
+        f'Organisation: {form["organisation"] or "-"}',
+        f'Possible funding: {"YES" if gene_request.has_funding else "no"}',
+    ]
+    if gene_request.funding_note:
+        lines += ['', 'Funding note:', gene_request.funding_note]
+    if gene_request.note:
+        lines += ['', 'Why they need it:', gene_request.note]
+    lines += ['', 'Recorded in the pipeline — see Gene requests.']
+    # A bounded connection, unlike the contact form's. The row is already
+    # written, so this send is the *optional* half — and the request thread that
+    # is waiting on it belongs to a member of the public looking at a spinner,
+    # on a service running four threads on one instance. An unreachable SMTP
+    # host blocks for the OS default otherwise, which is minutes.
+    try:
+        connection = get_connection(timeout=10)
+        EmailMessage(
+            subject=(f'[Gene nomination] '
+                     f'{gene_request.gene_symbol or gene_request.typed_text}'),
+            body='\n'.join(lines),
+            from_email=settings.EMAIL_HOST_USER,
+            to=[settings.EMAIL_HOST_USER],
+            reply_to=[gene_request.email] if gene_request.email else None,
+            connection=connection,
+        ).send(fail_silently=False)
+    except Exception:
+        logger.exception('Gene nomination notification failed to send')

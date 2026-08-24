@@ -21,7 +21,7 @@ from .models import SelectionRecord
 
 class SelectorFlowTests(TestCase):
     # gene_lookup/record touch multiple routed DBs.
-    databases = {"default", "academy_db", "pipeline_db"}
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         self.c = Client()

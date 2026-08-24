@@ -15,7 +15,7 @@ from pipeline.models import Antibody, Company, PublicationImage, Target
 
 
 class TheUsageCounterTests(TestCase):
-    databases = {'default', 'pipeline_db', 'academy_db'}
+    databases = {'pipeline_db', 'academy_db'}
 
     @classmethod
     def setUpTestData(cls):

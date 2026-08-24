@@ -110,6 +110,11 @@
                                 <a href="{% url 'pipeline:data_io' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Downloads &amp; uploads</a>
                                 <hr class="border-gray-100 my-1">
                                 <a href="{% url 'pipeline:feasibility' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Add a gene</a>
+                                {% comment %}Carries no `?gene=`: it is the
+                                whole list of what people have asked for, and
+                                the point of looking at it is to find out which
+                                gene you did not know about.{% endcomment %}
+                                <a href="{% url 'pipeline:gene_requests' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Gene requests</a>
                                 {% comment %}Carries no `?gene=`: it is the same
                                 fourteen screens whatever you are working on, and
                                 a query string on a static page would only make
@@ -233,6 +238,7 @@
                 <a href="{% url 'pipeline:data_io' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Downloads &amp; uploads</a>
                 <hr class="border-ycharos-700 my-2">
                 <a href="{% url 'pipeline:feasibility' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Add a gene</a>
+                <a href="{% url 'pipeline:gene_requests' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Gene requests</a>
                 <a href="{% url 'pipeline:walkthrough' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">How it all works</a>
                 {% if user.is_superuser %}
                 <a href="{% url 'pipeline:user_board' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">People &amp; access</a>

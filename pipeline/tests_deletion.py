@@ -28,7 +28,7 @@ from pipeline.tests_timeouts import DB, _member_client
 class AMockGeneCanBeRemovedTests(TestCase):
     """The case Carl actually had: a gene tried out and not pursued."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="uOttawa", short_code="UOT")
@@ -96,7 +96,7 @@ class WorkBehindARecordIsNamedBeforeItGoesTests(TestCase):
     own bench's records — so what these pin is that the panel *says* what is
     behind a record, in the counts a scientist would recognise."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -323,7 +323,7 @@ class ASessionCountsItsReadingsRatherThanRefusingTests(TestCase):
     only empty sessions deletable — and one recorded against the wrong gene is
     exactly the case this exists for. Counted loudly instead."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -372,7 +372,7 @@ class TheCheckIsAskedTwiceTests(TestCase):
     commit and has to still be true.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -457,7 +457,7 @@ class TheDeleteIsReachableFromThePagesTests(TestCase):
     five field tests with a download-only workbook whose importer sat written,
     routed and tested with nothing posting to it."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -606,7 +606,7 @@ class YouMayDeleteYourOwnBenchsRecordsTests(TestCase):
     half of what makes a row the row it is.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.mine = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -694,7 +694,7 @@ class ASuperuserMayDeleteThroughTheRefusalsTests(TestCase):
     nobody can agree to what they have not been shown.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         from django.test import Client
@@ -882,7 +882,7 @@ class WhatAMemberMayNotReachTests(TestCase):
     them.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.mine = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

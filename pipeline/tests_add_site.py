@@ -24,7 +24,7 @@ DB = "pipeline_db"
 
 
 class AddSiteTests(TestCase):
-    databases = {"default", DB}
+    databases = {DB}
 
     def setUp(self):
         Site.objects.using(DB).create(name="Montreal", short_code="MTL")

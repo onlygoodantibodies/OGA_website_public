@@ -17,7 +17,7 @@ from pipeline.models import Antibody, Company, PublicationImage, Target
 
 
 class GeneSearchBarTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         cache.clear()  # the index is cached for an hour

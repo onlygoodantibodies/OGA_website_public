@@ -7,9 +7,6 @@ APIConsumer and ReviewedAntibody stay in core/academy_db (unchanged).
 
 API response JSON shape from _serialise_antibody() is preserved exactly.
 
-Legacy backup: core/api_views_legacy.py
-Rollback: swap import in URL wiring → `from . import api_views_legacy as api_views`
-
 Endpoints:
     GET  /api/v1/                 — machine-readable catalogue (core/api_manifest.py)
     GET  /api/v1/manifest/        — download manifest of image URLs (core/api_manifest.py)
@@ -59,9 +56,6 @@ from pipeline.models import (
 
 # Core models that stay in academy_db
 from .models import APIConsumer, ReviewedAntibody
-
-# Core Gene — fallback for f1000_report_link only
-from .models import Gene
 
 from . import api_throttle, api_usage
 from pipeline.public import (public_targets, published_antibodies,
@@ -370,34 +364,21 @@ def _report_link_of(target):
     return best.f1000_doi or best.zenodo_doi
 
 
-def _legacy_report_links(gene_names):
-    """Legacy ``core.Gene.f1000_report_link`` for a batch of genes.
-
-    One query against the git-deployed SQLite instead of one per gene inside the
-    loop. Only a fallback: a gene with a pipeline ``Report`` never reaches it.
-    """
-    names = [n for n in gene_names if n]
-    if not names:
-        return {}
-    return {
-        name: link or None
-        for name, link in Gene.objects.filter(name__in=names)
-                                      .values_list('name', 'f1000_report_link')
-    }
-
-
 def _get_report_link(target):
-    """Single-target form of the above, for callers outside a loop."""
+    """The report DOI for one target, for callers outside a loop.
+
+    There was a fallback here onto ``core.Gene.f1000_report_link`` in the retired
+    ``default`` SQLite. Measured before removing it on 23 Aug 2026: of the 155
+    public targets, 154 carry a pipeline ``Report`` with a DOI and never reached
+    it, and the one that does not (RAB5B) had no row in the legacy table either.
+    It returned nothing for every public gene, so the feed is unchanged.
+    """
     report = target.reports.filter(
         Q(f1000_doi__gt='') | Q(zenodo_doi__gt='')
     ).order_by('-f1000_date', '-zenodo_date').first()
     if report:
         return report.f1000_doi or report.zenodo_doi
-    try:
-        gene = Gene.objects.get(name=target.gene_name)
-        return gene.f1000_report_link or None
-    except Gene.DoesNotExist:
-        return None
+    return None
 
 
 # ─────────────────────────────────────────────────────────
@@ -766,7 +747,6 @@ def genes_feed(request):
 
     targets = list(targets)
     curated = curated_gene_ids({t.pk for t in targets})
-    legacy_links = _legacy_report_links(t.gene_name for t in targets)
 
     results = []
     for target in targets:
@@ -786,7 +766,8 @@ def genes_feed(request):
         # reader should not have to know that rule to see that the list is
         # already in memory. The two N+1s on this endpoint were real and are
         # elsewhere: `_target_has_recommendations` per gene, and a
-        # `Gene.objects.get` per gene in the report-link fallback.
+        # `Gene.objects.get` per gene in the report-link fallback — the latter
+        # gone entirely now that the legacy fallback is retired.
         #
         # The PUBLISHED antibodies, not every antibody on the gene — filtered in
         # Python for the same reason the count is taken that way, so the whole
@@ -808,7 +789,7 @@ def genes_feed(request):
             len(ab.publication_images.all()) for ab in antibodies
         )
 
-        f1000_link = _report_link_of(target) or legacy_links.get(target.gene_name)
+        f1000_link = _report_link_of(target)
 
         gene_data = {
             'gene': target.gene_name,

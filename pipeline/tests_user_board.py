@@ -39,7 +39,7 @@ def _person(username, site, *, role="experimenter", superuser=False,
 
 
 class TheBoardIsSuperusersOnlyTests(TestCase):
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -82,7 +82,7 @@ class TheBoardIsSuperusersOnlyTests(TestCase):
 
 
 class TheBoardShowsBothHalvesTests(TestCase):
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -142,7 +142,7 @@ class OnlyPipelineMembershipIsEditableTests(TestCase):
     admin, where the change is logged.
     """
 
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -216,7 +216,7 @@ class ImportedRecordsAreOutOfTheWayNotGoneTests(TestCase):
     nine who are.
     """
 
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -260,7 +260,7 @@ class SettingAPasswordActuallySetsItTests(TestCase):
     """The thing Django admin's change form cannot do, which is why this page
     exists at all."""
 
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -310,7 +310,7 @@ class SettingAPasswordActuallySetsItTests(TestCase):
 
 
 class AddingSomeoneWritesAllThreeRecordsTests(TestCase):
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -416,7 +416,7 @@ class OneWritePathForBothDoorsTests(TestCase):
     """The command and the board must not grow two implementations of "make a
     login work" — that is precisely how the three rows drifted apart."""
 
-    databases = {"default", DB, ACADEMY}
+    databases = {DB, ACADEMY}
 
     def test_the_command_calls_the_service(self):
         from pathlib import Path

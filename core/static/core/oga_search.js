@@ -198,10 +198,24 @@ window.OGASearch = (function () {
                    then the antibody half is simply not back yet, and saying "no
                    match" about a half-finished lookup is a claim we cannot make. */
                 if (antibodiesFor !== query && cfg.antibodiesUrl) { close(); return; }
+                var typed = input.value.trim();
                 var empty = document.createElement('div');
                 empty.className = emptyClass;
-                empty.textContent = 'No match for "' + input.value.trim() + '"';
+                empty.textContent = 'No match for "' + typed + '"';
                 list.appendChild(empty);
+                /* A dead end is the one answer this box must never give. "We
+                   have not got it" is the moment somebody is most able to tell
+                   us they need it, and until now the reply was a grey line with
+                   nothing to click — the nomination form existed, buried in the
+                   contact page behind a dropdown. It is a row in this list now,
+                   carrying the gene, so the offer is where the miss happened. */
+                if (cfg.nominateUrl) {
+                    var offer = row(cfg.nominateUrl
+                        + '?gene=' + encodeURIComponent(typed) + '&from=search');
+                    offer.textContent = 'Nominate ' + typed;
+                    offer.appendChild(hint('ask us to characterise it'));
+                    list.appendChild(offer);
+                }
             }
 
             position();

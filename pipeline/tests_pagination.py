@@ -32,7 +32,7 @@ from pipeline.tests_timeouts import DB, _member_client
 
 
 class OnePageAtATimeTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -195,7 +195,7 @@ class ALinkToARowStillFindsItTests(TestCase):
     back.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         from pipeline.models import ExperimentSession, Member
@@ -273,7 +273,7 @@ class ADownloadIsNeverPaginatedTests(TestCase):
     """`page` is board state, not a filter field — `formQuery` builds the rows
     fetch, the patch query *and* every export href from the same form."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

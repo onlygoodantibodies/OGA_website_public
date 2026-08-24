@@ -64,7 +64,7 @@ class ManifestCase(TestCase):
     filter select genuinely different subsets. With a fixture where they select
     the same rows, one filter silently doing the other's job is invisible.
     """
-    databases = {'default', 'pipeline_db', 'academy_db'}
+    databases = {'pipeline_db', 'academy_db'}
 
     # Stored object keys, kept as constants so the URL and filename assertions
     # below can name them without repeating the fixture.

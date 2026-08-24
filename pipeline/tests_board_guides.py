@@ -32,7 +32,7 @@ GUIDES = {
 
 
 class BoardGuideTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -106,7 +106,7 @@ class ColumnTipTests(TestCase):
     to the property that matters most for sessions — the page tooltip and the
     workbook's header comment are the same string, so they cannot drift.
     """
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_session_board_tips_come_from_the_workbook_registry(self):
         from pipeline.services import session_io as sio

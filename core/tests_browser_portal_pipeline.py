@@ -47,7 +47,7 @@ def _png() -> bytes:
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
                      "needs playwright and the bundled Chromium")
 class PipelineDataTabInARealBrowserTests(StaticLiveServerTestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpClass(cls):

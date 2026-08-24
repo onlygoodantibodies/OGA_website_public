@@ -1,0 +1,155 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Gene requests — what the public has asked for{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Gene requests</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">Genes the public has asked us to characterise</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+      Somebody searched the public site, could not find their gene, and told us
+      they need it. Most-asked first, with the applications they said they need.
+    </p>
+  </div>
+
+  {% comment %}
+  Said before the table, because the two lists look alike and adding them
+  together is the mistake this page invites. A request is demand from outside
+  with nobody paying for it; a nomination is a site, a funder and a bench. The
+  Portfolio counts the second and must never count the first.
+  {% endcomment %}
+  <div class="mb-6 rounded border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-gray-700">
+    <p><strong>These are not nominations.</strong> Nothing here is on anybody's
+    list, funded, or committed to — it is what people outside the consortium
+    have asked for. A request becomes work by somebody deciding it should:
+    check it on <a class="underline" href="{% url 'pipeline:feasibility' %}">Look a gene up</a>
+    and add it there, or add it straight from the
+    <a class="underline" href="{% url 'pipeline:target_board' %}">target board</a>.
+    That write is what creates a nomination; this page never does.</p>
+  </div>
+
+  {% comment %}
+  Two questions, two numbers, each named — a single "142" over this table would
+  be read as genes by half the room and as requests by the other half.
+  {% endcomment %}
+  <div class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="rounded border border-gray-200 bg-white px-4 py-3">
+      <p class="text-2xl font-bold text-gray-900">{{ gene_count }}</p>
+      <p class="text-xs text-gray-500">gene{{ gene_count|pluralize }} asked for</p>
+    </div>
+    <div class="rounded border border-gray-200 bg-white px-4 py-3">
+      <p class="text-2xl font-bold text-gray-900">{{ request_count }}</p>
+      <p class="text-xs text-gray-500">request{{ request_count|pluralize }} in total</p>
+    </div>
+    <div class="rounded border border-gray-200 bg-white px-4 py-3">
+      <p class="text-2xl font-bold text-gray-900">{{ funded_offers }}</p>
+      <p class="text-xs text-gray-500">said they may have funding</p>
+    </div>
+    <div class="rounded border border-gray-200 bg-white px-4 py-3">
+      <p class="text-2xl font-bold text-gray-900">{{ unchecked }}</p>
+      <p class="text-xs text-gray-500">symbol{{ unchecked|pluralize }} unconfirmed</p>
+    </div>
+  </div>
+
+  {% if not rows %}
+    <div class="rounded border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      Nobody has nominated a gene yet. The form is at
+      <a class="underline" href="{% url 'nominate_gene' %}">/nominate/</a>, and the
+      public search box offers it whenever a search finds nothing.
+    </div>
+  {% else %}
+  <div class="overflow-x-auto rounded border border-gray-200 bg-white">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
+        <tr>
+          <th class="px-4 py-3">Gene</th>
+          <th class="px-4 py-3">Requests</th>
+          <th class="px-4 py-3">Applications asked for</th>
+          <th class="px-4 py-3">Who asked</th>
+          <th class="px-4 py-3">Latest</th>
+          <th class="px-4 py-3">Next step</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for row in rows %}
+        <tr class="align-top">
+          <td class="px-4 py-3">
+            {% comment %}
+            A gene's name is the way to that gene's page wherever it is printed
+            — but only where there is a target to link to. An unconfirmed symbol
+            links nowhere and says so rather than drawing a dead blue word.
+            {% endcomment %}
+            {% if row.target_id %}
+              <a class="font-semibold text-ycharos-700 underline"
+                 href="{% url 'pipeline:target_detail' row.target_id %}">{{ row.gene }}</a>
+              <span class="block text-xs text-gray-500">already a target here</span>
+            {% elif row.gene %}
+              <span class="font-semibold text-gray-900">{{ row.gene }}</span>
+              <span class="block text-xs text-gray-500">not on any list</span>
+            {% else %}
+              <span class="font-semibold text-gray-900">{{ row.typed }}</span>
+              <span class="block text-xs text-amber-700">symbol not confirmed</span>
+            {% endif %}
+            {% if row.unchecked %}
+              <span class="block text-xs text-amber-700">
+                {{ row.unchecked }} recorded while UniProt was unreachable</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 font-semibold text-gray-900">{{ row.count }}</td>
+          {% comment %}
+          The tally already names a free-text "other" rather than counting it:
+          `application_labels` swaps the generic word for what was typed, so a
+          column reading "Something else × 7" — seven requests and nothing about
+          any of them — cannot happen here.
+          {% endcomment %}
+          <td class="px-4 py-3 text-gray-700">
+            {% for label, n in row.applications.items %}
+              <span class="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs mr-1 mb-1">
+                {{ label }}{% if n > 1 %} ×{{ n }}{% endif %}</span>
+            {% empty %}<span class="text-gray-400">—</span>{% endfor %}
+          </td>
+          <td class="px-4 py-3 text-gray-700">
+            {% comment %}
+            A count with no list under it invents the noun, so the addresses are
+            printed rather than tallied — somebody deciding what to run next
+            wants to know whether five requests are five labs or one person.
+            {% endcomment %}
+            {% for req in row.requests %}
+              <div class="text-xs">
+                <a class="underline" href="mailto:{{ req.email }}">{{ req.email }}</a>
+                {% if req.organisation %} · {{ req.organisation }}{% endif %}
+                {% if req.has_funding %}
+                  <span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-800 font-semibold">
+                    may have funding</span>
+                {% endif %}
+                {% if req.note %}
+                  <p class="text-gray-500 mt-0.5">{{ req.note|truncatewords:30 }}</p>
+                {% endif %}
+                {% if req.funding_note %}
+                  <p class="text-emerald-800 mt-0.5">Funding: {{ req.funding_note|truncatewords:30 }}</p>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </td>
+          <td class="px-4 py-3 text-xs text-gray-500">{{ row.latest|date:"j M Y" }}</td>
+          <td class="px-4 py-3 text-xs">
+            {% if row.gene %}
+              <a class="underline text-ycharos-700"
+                 href="{% url 'pipeline:feasibility' %}?gene={{ row.gene|urlencode }}">Check feasibility</a>
+              <br>
+              <a class="underline text-ycharos-700"
+                 href="{% url 'pipeline:target_board' %}?gene={{ row.gene|urlencode }}">Target board</a>
+            {% else %}
+              <span class="text-gray-400">confirm the symbol first</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

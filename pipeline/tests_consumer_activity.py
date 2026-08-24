@@ -41,7 +41,7 @@ DB = "pipeline_db"
 
 
 class ConsumerActivityPageTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester",
@@ -454,7 +454,7 @@ class ConsumerActivityPageTests(TestCase):
 class ImpactPageLinksTests(TestCase):
     """The link, and the grouping bug that making it a link exposed."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester",

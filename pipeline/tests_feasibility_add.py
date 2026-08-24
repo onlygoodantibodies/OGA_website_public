@@ -46,6 +46,8 @@ def _uniprot_says(*, found=True, unavailable=False, gene_name="",
 
 
 class AUniProtIdIsAWayInTests(TestCase):
+    databases = {"academy_db", "pipeline_db"}
+
     def test_an_accession_is_told_from_a_symbol(self):
         for accession in ("P37840", "Q9Y6K9", "A0A0B4J2F0", "p37840"):
             self.assertTrue(uniprot.looks_like_accession(accession), accession)
@@ -98,7 +100,7 @@ class TheLocalChecksFollowTheSymbolTests(TestCase):
     lookup by P37840 reports, accurately and uselessly, that nothing called
     P37840 is on file."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -118,7 +120,7 @@ class TheLocalChecksFollowTheSymbolTests(TestCase):
 
 
 class TheSiteIsChosenTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.mine = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -204,7 +206,7 @@ class TheTwoDoorsToAGeneAgreeTests(TestCase):
     from.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -318,7 +320,7 @@ class TheTwoDoorsToAGeneAgreeTests(TestCase):
 
 
 class TheOneColumnTemplateIsGoneTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -352,7 +354,7 @@ class TheFeasibilityPageSendsYouToTheBoardTests(TestCase):
     that can fail.** A browser is for a failure that is invisible without one.
     """
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def test_the_page_points_at_the_board_and_not_a_one_column_template(self):
         site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

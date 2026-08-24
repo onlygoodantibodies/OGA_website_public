@@ -154,7 +154,7 @@ class TheDocumentMatchesTheCodeTests(SimpleTestCase):
 class EveryDocumentedPathExistsTests(TestCase):
     """A documented endpoint that 404s is worse than an undocumented one."""
 
-    databases = {'default', 'pipeline_db', 'academy_db'}
+    databases = {'pipeline_db', 'academy_db'}
 
     @classmethod
     def setUpClass(cls):

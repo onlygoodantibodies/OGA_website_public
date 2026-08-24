@@ -23,7 +23,7 @@ DB = "pipeline_db"
 
 
 class MergeCellLinesTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="McGill", short_code="MCG")

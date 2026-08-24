@@ -30,7 +30,7 @@ DB = "pipeline_db"
 
 
 class TheGenePageHidesDiscontinuedByDefaultTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -108,7 +108,7 @@ class TheGenePageHidesDiscontinuedByDefaultTests(TestCase):
 class ANamedDiscontinuedRowIsStillShownTests(TestCase):
     """``?ab=`` names a row; the filter must not answer that we do not have it."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):
@@ -160,7 +160,7 @@ class NoTemplateCommentReachesTheGenePageTests(TestCase):
     alongside the discontinued tick promptly rendered on it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

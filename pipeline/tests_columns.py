@@ -34,7 +34,7 @@ def _sheet(content):
 
 
 class TheSheetFollowsTheBoardTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -83,7 +83,7 @@ class AReadOnlyColumnIsNamedNotDroppedTests(TestCase):
     extension index and the MCP server all read it — so a stale spreadsheet must
     not re-assert it. Keeping it silently is the other way to lose data."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -109,7 +109,7 @@ class TheSheetAndTheScreenDifferOnPurposeTests(TestCase):
     """Three values the sheet renders differently from the board — each of them
     a silent data change if the export were built from `row_for()`."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -176,6 +176,7 @@ class TheSheetAndTheScreenDifferOnPurposeTests(TestCase):
 
 class NoBoardKeepsItsOwnColumnListTests(TestCase):
     """The whole point: one registry, not one list per surface."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_old_export_constants_are_gone(self):
         src = (Path(settings.BASE_DIR) / "pipeline/views/search.py").read_text()
@@ -219,6 +220,7 @@ class EveryDrawnColumnHasHoverTextTests(TestCase):
     Pinned as a comparison of the two lists rather than by reading the rendered
     page, so the failure names the key that drifted.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_registry_and_the_tips_use_the_same_vocabulary(self):
         from pipeline.services import antibody_board, cell_line_board
@@ -262,7 +264,7 @@ class AColumnTheSheetCallsWritableIsOneTheParserReadsTests(TestCase):
     happened to work. This asks the parser.
     """
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_every_writable_antibody_column_has_a_parser_alias(self):
         from pipeline.services.cropper import metadata as meta
@@ -300,7 +302,7 @@ class TheSupplierColumnHasOneNameTests(TestCase):
     and a rename must not turn them into silent no-ops.
     """
 
-    databases = {"default", DB}
+    databases = {DB}
 
     NAME = "supplier recommendations"
 
@@ -347,6 +349,7 @@ class TheConcentrationExampleAgreesWithItsHeaderTests(TestCase):
     ``1.0`` for a milligram stock, which is the original thousand-fold bug typed
     by hand.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     HEADER = "concentration (ug/mL)"
 

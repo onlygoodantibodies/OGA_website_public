@@ -34,7 +34,7 @@ LOGO_DIR = Path(settings.BASE_DIR) / "core" / "static" / "core" / "supporters"
 
 
 class SupportersStripTests(SimpleTestCase):
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         self.html = self.client.get(reverse("home")).content.decode()

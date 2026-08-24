@@ -68,9 +68,6 @@ RULES: list[tuple[str, str, str]] = [
      "rules are per-path and not per-app."),
     ("YCharosDataBaseFE_NON-SPLIT.accdb", DROP,
      "Raw internal Access database; exceeds the public dataset."),
-    ("db_core.sqlite3", DROP,
-     "12 accounts: real email addresses, PBKDF2 hashes, 4 superusers, plus "
-     "sessions and certificates. Nothing live reads it (see AUDIT.md 5a)."),
     ("data.json", DROP,
      "DB dump: 8 users with hashes, 102 session rows, 4 certificates naming "
      "learners and their scores."),
@@ -80,15 +77,23 @@ RULES: list[tuple[str, str, str]] = [
      "Freezer inventory and real plate maps: aliquot counts, drawer/box "
      "positions, lot numbers. No code reads these."),
     ("pipeline/mapping_reports/", DROP,
-     "Output of `verify_core_pipeline_mapping`; the command recreates the "
-     "directory when run."),
+     "Working artefact of the core -> pipeline migration: a row-by-row copy "
+     "log naming catalogue numbers. The command that produced it "
+     "(`verify_core_pipeline_mapping`) went with the legacy layer on 23 Aug "
+     "2026, so nothing recreates this now -- it is a frozen record of a "
+     "migration that has already happened."),
     ("embed_urls.xlsx", DROP,
-     "Working artefact, output of `manage.py export_embed_urls`."),
+     "Working artefact. It was the output of `manage.py export_embed_urls`, "
+     "which read the retired core models and was deleted with them on 23 Aug "
+     "2026 -- so this file is a frozen snapshot, and the numbers in it are "
+     "the legacy dataset's, not the pipeline's."),
     ("no_recommended_antibodies.csv", DROP,
      "OWNER'S CALL. Named suppliers and catalogue numbers whose reagents "
      "carry no recommendation. Publishable, but it is a negative-result list "
      "about named commercial products -- decide deliberately. Move to SHIP if "
-     "you want it out."),
+     "you want it out. Note it is now stale as well as sensitive: the script "
+     "that built it (`no_recommendations_export.py`) read the retired core "
+     "models and went with them on 23 Aug 2026."),
 
     # ---- Internal engineering records: owner's call ------------------------
     ("CLAUDE.md", DROP, "OWNER'S CALL. Internal working notes."),
@@ -97,9 +102,11 @@ RULES: list[tuple[str, str, str]] = [
     ("DUPLICATE_ANTIBODY_FINDINGS.md", DROP,
      "OWNER'S CALL. Record of changes applied to live data."),
     ("AUDIT.md", DROP,
-     "MUST stay private unless section 4 is trimmed: it names the two secrets "
-     "(EMAIL_HOST_PASSWORD, SCICRUNCH_API_KEY) that were never rotated and "
-     "says they are still live in Render env and in git history."),
+     "OWNER'S CALL. Candid internal engineering record: every finding, every "
+     "defect, and the individuals involved. The original reason was narrower -- "
+     "section 4 named two secrets as never rotated -- and that reason expired on "
+     "23 Aug 2026 when the last of them was closed. It is dropped on the same "
+     "ground as CLAUDE.md and DECISIONS.md, not because it still leaks anything."),
     (".claude/", DROP, "Internal agent skills, including production-data runbooks."),
     (".vscode/", DROP, "Personal editor settings."),
     ("benchmarks/", DROP,
@@ -109,8 +116,6 @@ RULES: list[tuple[str, str, str]] = [
     ("pipeline_skeleton/", DROP, "Scaffold, not wired into INSTALLED_APPS or urls."),
     ("pipeline_skeleton.tar.gz", DROP, "Archive of the same scaffold."),
     ("script.py", DROP, "One-off dump-fixer; operates on the excluded dumps."),
-    ("no_recommendations_export.py", DROP, "One-off exporter for an excluded CSV."),
-    ("update_report_links.py", DROP, "One-off script against the legacy core DB."),
     ("SYT1_report.docx", DROP, "Generated sample report, not source."),
     ("SYT1_antibody_characterization_report.docx", DROP,
      "Generated sample report, not source."),

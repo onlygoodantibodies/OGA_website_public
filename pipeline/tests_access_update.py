@@ -46,7 +46,7 @@ CHANGED = ["ID", "Column", "OldValue", "NewValue"]
 
 
 class AccessDeltaTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -298,7 +298,7 @@ class AccessDeltaTests(TestCase):
 class CellLineIdentityTests(TestCase):
     """The rename half — where a name is already taken, this is a merge."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -391,7 +391,7 @@ class BenchResolutionTests(TestCase):
     a run that is already there and nothing on any screen says so.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -459,7 +459,7 @@ class ExperimenterLookupTests(TestCase):
     of the Access import cannot show this: every member in it is synthetic.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()

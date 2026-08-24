@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nomination received - Only Good Antibodies</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+<style>
+.nom-done { max-width: 720px; margin: 60px auto 70px; padding: 0 20px; }
+.nom-done-card {
+  background: #fff; border: 1px solid #e3ebf7; border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(16,66,138,.08); padding: 34px 30px;
+}
+.nom-done h1 { color: #10428a; font-size: 1.6rem; margin: 0 0 14px; text-align: left; }
+.nom-done p, .nom-done li { color: #24405f; line-height: 1.7; font-size: .96rem; }
+.nom-done ul { padding-left: 20px; }
+.nom-done .tick { font-size: 2rem; line-height: 1; color: #059669; }
+.nom-done-actions { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+.nom-done-actions a {
+  display: inline-block; padding: .6rem 1.4rem; border-radius: 50px;
+  font-weight: 700; font-size: .92rem; text-decoration: none;
+}
+.nom-done-primary { background: #10428a; color: #fff; }
+.nom-done-secondary { border: 1px solid #d6e1f2; color: #10428a; }
+.nom-done-flag {
+  margin: 18px 0 0; padding: 14px 16px; border-radius: 10px; font-size: .92rem; line-height: 1.6;
+  background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a;
+}
+</style>
+</head>
+<body>
+{% include 'core/header.html' %}
+
+<div class="nom-done">
+  <div class="nom-done-card">
+    <div class="tick">&#10003;</div>
+    <h1>Thank you — {% if gene %}{{ gene }} is{% else %}your nomination is{% endif %} on our list</h1>
+
+    {% comment %}
+    The receipt says what was actually recorded, including the applications:
+    a confirmation that repeats nothing back gives the reader no way to notice
+    they ticked the wrong box.
+    {% endcomment %}
+    {% if applications %}
+      <p>Recorded for: <strong>{{ applications|join:", " }}</strong>.</p>
+    {% endif %}
+
+    {% if already_here %}
+      <div class="nom-done-flag">
+        This gene was already on our list — your request is now attached to it,
+        which is exactly what moves it up the queue.
+      </div>
+    {% endif %}
+    {% if unchecked %}
+      <div class="nom-done-flag">
+        We could not reach UniProt to confirm the symbol, so we have recorded
+        what you typed and will check it ourselves.
+      </div>
+    {% endif %}
+    {% if has_funding %}
+      <div class="nom-done-flag">
+        You said you may have a funding route — that is the part most likely to
+        turn this into work, so we will be in touch about it directly.
+      </div>
+    {% endif %}
+
+    <h2 style="font-size:1.05rem;color:#10428a;margin:26px 0 8px;text-align:left">What this does and does not mean</h2>
+    <ul>
+      <li>Your request is counted. How many people ask for a gene, and for which
+          application, is one of the things we weigh when deciding what to run.</li>
+      <li>We cannot promise to take it on. One gene means knockout cell lines,
+          every commercial antibody for it and four applications' worth of bench
+          work, so what gets done is limited by funding and capacity.</li>
+      <li>If a funding route appears — yours or anyone's — this is the list we
+          look at. Email
+          <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>
+          if you have one.</li>
+    </ul>
+
+    <div class="nom-done-actions">
+      <a class="nom-done-primary" href="{% url 'home' %}">Back to the gene list</a>
+      <a class="nom-done-secondary" href="{% url 'nominate_gene' %}">Nominate another gene</a>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+        <div class="footer-column">
+            <h4>Contact Us</h4>
+            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    </div>
+</footer>
+</body>
+</html>

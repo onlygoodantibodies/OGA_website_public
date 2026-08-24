@@ -19,6 +19,8 @@ CLAIM_SETTINGS = dict(
 
 
 class InstitutionalEmailTests(TestCase):
+    databases = {"academy_db", "pipeline_db"}
+
     def test_free_providers_rejected(self):
         for bad in ("a@gmail.com", "a@outlook.com", "a@yahoo.co.uk", "a@icloud.com"):
             self.assertTrue(is_free_provider(bad))
@@ -35,7 +37,7 @@ class InstitutionalEmailTests(TestCase):
 
 
 class CertificateModelTests(TestCase):
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def test_titles_and_code(self):
         c = Certificate.objects.create(
@@ -48,7 +50,7 @@ class CertificateModelTests(TestCase):
 
 
 class VerifyRouteTests(TestCase):
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def test_verify_genuine_hides_email(self):
         c = Certificate.objects.create(
@@ -66,7 +68,7 @@ class VerifyRouteTests(TestCase):
 
 @override_settings(**CLAIM_SETTINGS)
 class ClaimTests(TestCase):
-    databases = "__all__"
+    databases = {"academy_db", "pipeline_db"}
 
     def test_free_provider_rejected_no_claim(self):
         r = self.client.post("/workshop/claim/",

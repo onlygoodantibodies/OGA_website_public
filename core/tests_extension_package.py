@@ -214,7 +214,7 @@ class TheDownloadIsNamedForTheManifestTests(TestCase):
     behind `pipeline_member_required`; the naming is the view's only other job.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_the_zip_is_named_for_the_version_inside_it(self):
         import io
@@ -262,7 +262,7 @@ class AnUncuratedGeneIsNotAFailedTestTests(TestCase):
     whether anything on them has been recommended.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     @classmethod
     def setUpTestData(cls):

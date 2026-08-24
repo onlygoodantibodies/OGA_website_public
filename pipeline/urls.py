@@ -185,6 +185,10 @@ urlpatterns = [
     path('targets/guide/', views.target_board_guide, name='target_board_guide'),
     path('targets/check/', views.nomination_check, name='nomination_check'),
     path('targets/portfolio/', views.target_portfolio, name='target_portfolio'),
+    # Genes the public asked for on the website — a different list from the
+    # consortium's own nominations, and deliberately read-only. See
+    # pipeline/gene_request_models.py.
+    path('gene-requests/', views.gene_request_board, name='gene_requests'),
     path('impact/', views.impact_dashboard, name='impact'),
     # One organisation's API activity, reached by clicking its name on the
     # impact page. A detail page rather than a Browse destination, the same

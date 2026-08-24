@@ -26,7 +26,7 @@ class ANumberBelongsToABenchTests(TestCase):
     """McGill's A-1 and Leicester's A-1 are different antibodies, and always
     were: each bench keeps its own freezer and its own run of numbers."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     @classmethod
     def setUpTestData(cls):
@@ -77,7 +77,7 @@ class BlankDataStaysBlankTests(TestCase):
     have one (owner, 4 Aug 2026). Nothing backfills them, and the way that could
     happen by accident is an ordinary edit."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     @classmethod
     def setUpTestData(cls):
@@ -106,7 +106,7 @@ class ATypedNumberWinsTests(TestCase):
     is not a refusal, it is the typed number being accepted and then overtaken
     by an issued one, which nothing on screen would show."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -161,7 +161,7 @@ class OneNumberMeansOneRecordTests(TestCase):
     """Two records answering to one number at one bench cannot be told apart on
     a freezer box, which is the whole job of the number."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -218,7 +218,7 @@ class TheAppSaysWhenItGivesOutANumberTests(TestCase):
     A number the app invents goes on a freezer box, so it is not something to
     find out about later by looking at the board."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -268,7 +268,7 @@ class TheSupplierClaimIsWiderThanOGAsVerdictTests(TestCase):
     import — every list in the chain simply stopped at four, so the claim was
     lost on a column whose only job is to record the claim."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -316,7 +316,7 @@ class TheNumberOnScreenGoesBackInTests(TestCase):
     of the value and the writer of it have to agree about the prefix. They did
     not for the supplier column, and it took two field tests."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -364,7 +364,7 @@ class TheSheetsAgreeAboutWhatANumberIsTests(TestCase):
     holds A-numbers. Only the prefix separates them, so the writer and the
     reader have to use the same one."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     @classmethod
     def setUpTestData(cls):

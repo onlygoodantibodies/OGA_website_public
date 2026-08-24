@@ -28,6 +28,8 @@ VECTORS = Path(citations.DATA_DIR) / "title_normalisation_vectors.json"
 
 
 class TitleNormalisationTests(TestCase):
+    databases = {"academy_db", "pipeline_db"}
+
     def test_every_shared_vector_still_holds(self):
         """The same file browser-extension/test/paper.test.mjs reads."""
         data = json.loads(VECTORS.read_text(encoding="utf-8"))
@@ -56,6 +58,7 @@ class TitleNormalisationTests(TestCase):
 
 class MissingArtefactTests(TestCase):
     """The artefact is optional. Absent must not read as empty."""
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         citations.load.cache_clear()
@@ -97,6 +100,7 @@ class MissingArtefactTests(TestCase):
 
 class DeployedArtefactTests(TestCase):
     """What is actually committed, so a bad build cannot ship quietly."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_snapshot_says_which_snapshot_it_is(self):
         data = citations.load()
@@ -138,6 +142,7 @@ class DoiResolutionTests(TestCase):
     the management command is a wrapper, and testing the wrapper would pin the
     packaging rather than the behaviour.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_two_papers_claiming_one_doi_lose_the_key(self):
         """An arbitrary winner is indistinguishable from a correct answer."""

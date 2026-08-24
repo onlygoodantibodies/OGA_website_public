@@ -35,11 +35,12 @@ from OGA_website import academy_db
 from academy.models import Certificate as AcademyCertificate, Lesson
 from core.models import APIConsumer
 
-ALL = {'default', 'academy_db', 'academy_sqlite', 'pipeline_db'}
+ALL = {'academy_db', 'academy_sqlite', 'pipeline_db'}
 
 
 class AcademyModelSelectionTests(TestCase):
     """`academy_db.models()` asks the router, so it cannot drift from routing."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_includes_every_kind_of_academy_model(self):
         labels = {m._meta.label for m in academy_db.models()}
@@ -51,14 +52,22 @@ class AcademyModelSelectionTests(TestCase):
                          'core.ApiUsageDay', 'account.EmailAddress'):
             self.assertIn(expected, labels)
 
-    def test_excludes_core_data_and_every_pipeline_model(self):
+    def test_excludes_every_pipeline_model(self):
+        """The five legacy `core` models used to be excluded here too.
+
+        They were deleted with the `default` database on 23 Aug 2026, so
+        asserting their absence now asserts nothing — a model that does not
+        exist cannot be in any list. What is still worth pinning is the
+        boundary that remains: `academy_db.models()` must not claim anything
+        the pipeline owns.
+        """
         labels = {m._meta.label for m in academy_db.models()}
-        # These five live in db_core.sqlite3, not academy_db.
-        for legacy in ('core.Gene', 'core.Antibody', 'core.Experiment',
-                       'core.Description', 'core.CellLine'):
-            self.assertNotIn(legacy, labels)
         self.assertFalse([label for label in labels
                           if label.startswith('pipeline.')])
+        # And it must still claim the `core` models that survived.
+        for kept in ('core.APIConsumer', 'core.ReviewedAntibody',
+                     'core.ApiUsageDay'):
+            self.assertIn(kept, labels)
 
     def test_includes_the_automatic_many_to_many_tables(self):
         """`User.user_permissions` is a table of its own and holds real rows.
@@ -85,6 +94,7 @@ class AcademyFallbackTests(TestCase):
     of an f-string joining an absolute path onto the scheme, which is exactly the
     sort of thing nobody re-reads.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_no_url_fallback_is_the_render_disk_path(self):
         import dj_database_url
@@ -108,6 +118,7 @@ class AcademyFallbackTests(TestCase):
 
 class AcademyDurabilityGuardTests(TestCase):
     """`refusal()` speaks only when a deploy would eat the file."""
+    databases = {"academy_db", "pipeline_db"}
 
     POSTGRES = {'ENGINE': 'django.db.backends.postgresql', 'NAME': 'oga_academy_db'}
     ON_DISK = {'ENGINE': 'django.db.backends.sqlite3',
@@ -346,6 +357,7 @@ class AcademyUrlParseTests(TestCase):
     nobody chose and nobody can shorten — and never mentions the variable or the
     slash that caused it. It cost a cutover attempt on 23 Aug 2026.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     GOOD = {'ENGINE': 'django.db.backends.postgresql', 'NAME': 'oga_academy_db',
             'HOST': 'dpg-xxxxxxxxxxxxxxxxxxxx-a'}

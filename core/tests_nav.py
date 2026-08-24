@@ -12,7 +12,7 @@ from django.urls import reverse
 
 
 class TheToolsHubCarriesWhatTheBarDroppedTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def _bar(self, html):
         return html.split('<ul class="menu">')[1].split("</ul>")[0]

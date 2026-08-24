@@ -33,7 +33,7 @@ def _run(*args, **opts):
 
 
 class MergeTargetsTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="McGill", short_code="MCG")
@@ -210,7 +210,7 @@ class PTK2BStubTests(TestCase):
     one job, and this command is what closes it.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_stub_holding_only_classifications_merges_and_goes(self):
         real = Target.objects.using(DB).create(gene_name="PTK2B", uniprot_id="Q14289")

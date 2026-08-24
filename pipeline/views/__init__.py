@@ -38,6 +38,7 @@ from pipeline.views.antibody_board import *    # Antibodies board (find + edit i
 from pipeline.views.cell_line_board import *   # Cell lines board (find + edit in place)
 from pipeline.views.guides import *            # Board guides (one Markdown file each)
 from pipeline.views.find import *              # The one search box, and where it lands
+from pipeline.views.gene_requests import *     # Genes the public asked for
 from pipeline.views.user_admin import *        # People board (logins + access), superusers only
 from pipeline.views.impact import *          # Impact metrics across all four apps, superusers only
 # from pipeline.views.reports import *

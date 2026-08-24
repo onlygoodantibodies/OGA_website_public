@@ -35,7 +35,7 @@ def _utc(y, m, d):
 
 
 class ItCapturesTheThingsTheLabAuthorsTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -76,7 +76,7 @@ class ItCapturesTheThingsTheLabAuthorsTests(TestCase):
 
 
 class TheManifestSaysWhatIsMissingTests(TestCase):
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_omissions_are_named_not_dropped(self):
         """A reader must be able to tell "not captured" from "none on file"."""
@@ -133,7 +133,7 @@ class TheManifestSaysWhatIsMissingTests(TestCase):
 
 
 class TheCommandTests(TestCase):
-    databases = {"default", DB}
+    databases = {DB}
 
     def setUp(self):
         import tempfile
@@ -271,7 +271,7 @@ class TheCommandTests(TestCase):
 
 
 class ThePagePresentsItHonestlyTests(TestCase):
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

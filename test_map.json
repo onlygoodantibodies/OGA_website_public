@@ -11,7 +11,7 @@
 "pytest:core/tests.py",
 "pytest:pipeline/services/cropper/tests/test_crops.py"
 ],
-"built_from": "10db2265cb407bd5dbcded8a8e99547a98691cb7",
+"built_from": "19f4920be2b2bfa81afdfe932dfcdb864d709dca",
 "map": {
 "academy/assistant.py": [
 "django:academy.tests_assistant",
@@ -40,7 +40,7 @@
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/admin.py": [
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:core.tests_legacy_retired"
 ],
 "core/api_manifest.py": [
 "django:core.tests_api",
@@ -145,6 +145,7 @@
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_legacy_retired",
 "django:core.tests_nav",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
@@ -162,6 +163,7 @@
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_feasibility_add",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
 "django:pipeline.tests_merge_sites",
@@ -182,6 +184,20 @@
 "django:core.tests_headline_counts",
 "django:core.tests_public_genes"
 ],
+"core/legacy_gene_ids.py": [
+"pytest:pipeline/services/tests/test_attachments.py"
+],
+"core/management/commands/academy_backup.py": [
+"django:core.tests_academy_backup"
+],
+"core/management/commands/academy_db_compare.py": [
+"django:core.tests_academy_backup",
+"django:core.tests_academy_db"
+],
+"core/management/commands/academy_db_copy.py": [
+"django:core.tests_academy_backup",
+"django:core.tests_academy_db"
+],
 "core/management/commands/build_bulk_archive.py": [
 "django:core.tests_bulk_archive"
 ],
@@ -195,11 +211,13 @@
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_headline_counts",
+"django:core.tests_legacy_retired",
 "django:pipeline.tests_consumer_activity"
 ],
 "core/public_search.py": [
 "django:core.tests_availability",
 "django:core.tests_identifier_search",
+"django:pipeline.tests_gene_requests",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/recommendations.py": [
@@ -244,9 +262,11 @@
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_legacy_retired",
 "django:core.tests_nav",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_review",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
@@ -278,6 +298,7 @@
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_legacy_retired",
 "django:core.tests_nav",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
@@ -295,6 +316,7 @@
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_feasibility_add",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
 "django:pipeline.tests_merge_sites",
@@ -463,6 +485,7 @@
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
 "django:pipeline.tests_consumer_activity",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_impact",
 "django:pipeline.tests_review",
 "pytest:pipeline/services/tests/test_attachments.py"
@@ -471,6 +494,7 @@
 "django:core.tests_availability",
 "django:core.tests_identifier_search",
 "django:pipeline.tests_access_update",
+"django:pipeline.tests_gene_requests",
 "pytest:pipeline/services/tests/test_attachments.py",
 "pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
@@ -819,6 +843,10 @@
 "django:core.tests_apimd_drift",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
+"pipeline/services/gene_requests.py": [
+"django:pipeline.tests_gene_requests",
+"pytest:pipeline/services/tests/test_attachments.py"
+],
 "pipeline/services/gene_symbol.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_feasibility_add",
@@ -882,6 +910,7 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_find_c_number",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
@@ -1149,6 +1178,7 @@
 "pipeline/services/uniprot.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_feasibility_add",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_timeouts",
 "django:selector.tests",
 "pytest:pipeline/services/tests/test_attachments.py",
@@ -1187,6 +1217,7 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_find_c_number",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
@@ -1207,6 +1238,7 @@
 "pytest:pipeline/services/tests/test_duplicates.py"
 ],
 "pipeline/storages.py": [
+"django:core.tests_academy_backup",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "pipeline/styling.py": [
@@ -1316,6 +1348,9 @@
 "django:pipeline.tests_retired_pages",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
+"pipeline/views/gene_requests.py": [
+"pytest:pipeline/services/tests/test_attachments.py"
+],
 "pipeline/views/guides.py": [
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_retired_pages",
@@ -1421,6 +1456,9 @@
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_user_board",
 "pytest:pipeline/services/tests/test_attachments.py"
+],
+"selector/admin.py": [
+"django:core.tests_legacy_retired"
 ],
 "selector/models.py": [
 "django:selector.tests"

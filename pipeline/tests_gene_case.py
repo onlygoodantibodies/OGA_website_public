@@ -29,6 +29,7 @@ from pipeline.tests_timeouts import DB
 
 class GeneSymbolCaseTests(TestCase):
     """What ``gene_symbol.canonical`` promises."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_the_eight_miscased_symbols_on_file_are_uppercased(self):
         found = gene_symbol.miscased(
@@ -82,7 +83,7 @@ class TheWritePathStoresTheCanonicalSpellingTests(TestCase):
     that made them open.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_typed_symbol_is_stored_uppercased(self):
         with mock.patch("pipeline.services.uniprot.lookup_gene",
@@ -115,7 +116,7 @@ class TheWritePathStoresTheCanonicalSpellingTests(TestCase):
 class FixGeneCaseCommandTests(TestCase):
     """The command that corrects the eight live rows."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def _run(self, *args):
         out = StringIO()
@@ -183,7 +184,7 @@ class EveryDoorToAGeneStoresTheSameSpellingTests(TestCase):
     — and it is what UniProt itself answers.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     UNIPROT_C9ORF72 = {
         "found": True, "unavailable": False, "gene_name": "C9orf72",

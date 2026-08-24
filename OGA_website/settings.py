@@ -223,22 +223,36 @@ WSGI_APPLICATION = 'OGA_website.wsgi.application'
 
 
 # ──────────────────────────────────────────────────────────────
-# Database split: core data in git, academy/auth on persistent disk,
-# pipeline on PostgreSQL
+# Two databases, split by subject: the science and the people
 # ──────────────────────────────────────────────────────────────
 #
-# db_core.sqlite3 (default)  — in git, auto-deployed. Contains:
-#     Gene, Antibody, Description, Experiment, CellLine
-#
-# academy_db — Contains:
-#     APIConsumer, all Academy models, User, sessions, allauth
-#     PostgreSQL when ACADEMY_DATABASE_URL is set; otherwise the SQLite file
-#     db_academy.sqlite3 on the Render persistent disk. See the note below.
-#
-# pipeline_db (PostgreSQL) — Render PostgreSQL service. Contains:
-#     All YCharOS pipeline models (targets, antibodies, sessions, etc.)
+# pipeline_db (PostgreSQL) — antibody and scientific data. Contains:
+#     All YCharOS pipeline models (targets, antibodies, cell lines, sessions,
+#     results, figures, reports)
 #     Set PIPELINE_DATABASE_URL env var on Render.
 #     Falls back to local SQLite for development.
+#
+# academy_db (PostgreSQL) — people and organisations. Contains:
+#     Users, auth, sessions, allauth, all Academy models, credentials,
+#     selector, and core's APIConsumer / ReviewedAntibody / ApiUsageDay
+#     Set ACADEMY_DATABASE_URL; falls back to the SQLite file. See below.
+#
+# default — DELIBERATELY EMPTY. There is no third database. Django treats
+#     `{}` as "not configured", so any model that reaches `default` raises
+#     ImproperlyConfigured at the point of the query instead of quietly
+#     reading or writing somewhere plausible. Nothing is routed there:
+#     db_router sends pipeline models to pipeline_db and everything else to
+#     academy_db, with no branch in between.
+#
+#     It used to be `db_core.sqlite3` — a SQLite file committed to git holding
+#     the retired `core` models (Gene, Antibody, Description, Experiment,
+#     CellLine) plus stale copies of the academy tables from before the
+#     PostgreSQL move. File and models both went on 23 Aug 2026. Pointing
+#     `default` at either live database instead was considered and rejected:
+#     `manage.py changepassword` defaults to `--database=default`, and both
+#     candidates carry their own `auth_user`, so the documented ghost-write
+#     would have become a real one — the wrong person's password changed, and
+#     "changed successfully" printed over it.
 #
 # See OGA_website/db_router.py for the routing logic.
 # ──────────────────────────────────────────────────────────────
@@ -268,10 +282,7 @@ else:
 # OGA_website/academy_db.py carries the guard that keeps the fallback above from
 # becoming a silently-invented empty database once the disk is gone.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_core.sqlite3',
-    },
+    'default': {},
     'academy_db': dj_database_url.config(
         env='ACADEMY_DATABASE_URL',
         default=f'sqlite:///{ACADEMY_DB_PATH}',
@@ -324,9 +335,24 @@ if sys.argv[1:2] == ['test']:
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db_academy_source.sqlite3',
     })
-    for _alias in DATABASES:
-        DATABASES[_alias].setdefault('TEST', {})
-        DATABASES[_alias]['TEST']['NAME'] = str(BASE_DIR / f'test_{_alias}.sqlite3')
+    # `default` is `{}` and must stay that way — Django decides a database is
+    # unconfigured by looking for ENGINE, and a `default` carrying a TEST block
+    # is an alias the test runner would try to create.
+    #
+    # DEPENDENCIES is the half that is not obvious. Django defaults every
+    # non-default alias to `TEST['DEPENDENCIES'] = ['default']`, so that the
+    # default database is set up first. With `default` empty there is nothing
+    # to set up and nothing to depend on, and the runner fails resolving the
+    # order — `ImproperlyConfigured: Circular dependency in TEST[DEPENDENCIES]`,
+    # which names neither the alias nor `default` and reads like a settings
+    # typo. Stating the empty list is the documented answer for a project with
+    # no default database.
+    for _alias, _config in DATABASES.items():
+        if not _config:
+            continue
+        _config.setdefault('TEST', {})
+        _config['TEST']['NAME'] = str(BASE_DIR / f'test_{_alias}.sqlite3')
+        _config['TEST']['DEPENDENCIES'] = []
 
 
 # Password validation

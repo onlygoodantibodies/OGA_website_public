@@ -63,7 +63,7 @@ REDIRECTED = {
 
 
 class RetiredPagesAreGoneTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_none_of_the_retired_names_still_resolve(self):
         for name in RETIRED:
@@ -132,7 +132,7 @@ class EveryRemainingPageStillRendersTests(TestCase):
     """Deleting a URL name breaks every {% url %} that pointed at it, and that
     only shows when the template is rendered. Nothing else catches it."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(

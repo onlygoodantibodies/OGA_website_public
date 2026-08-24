@@ -22,7 +22,7 @@ DB = "pipeline_db"
 
 
 class SessionBoardTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -317,7 +317,7 @@ class SessionBoardCostTests(TestCase):
     """Same ceiling as the target board: the rows endpoint must not issue more
     queries as the board grows. Sessions grow one per experiment, without
     bound, so this matters more here than it does for targets."""
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -373,7 +373,7 @@ class BoardCarriesWhatTheSessionPageDidTests(TestCase):
     made retiring the page a move rather than a loss.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")

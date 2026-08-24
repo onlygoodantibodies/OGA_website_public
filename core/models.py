@@ -4,102 +4,6 @@ from django.db import models
 from django.utils import timezone
 
 
-class CellLine(models.Model):
-    name = models.CharField(
-        max_length=150,
-        unique=True,
-        help_text="Name of the cell line (e.g., HeLa, HEK293, A549)"
-    )
-    purchase_link = models.URLField(
-        blank=True,
-        null=True,
-        help_text="Optional link to purchase or learn more about this cell line"
-    )
-
-    def __str__(self):
-        return self.name
-
-
-class Gene(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    citation = models.TextField(blank=True, null=True)
-    aliases = models.CharField(
-        max_length=500,
-        blank=True,
-        null=True,
-        help_text="Comma-separated list of alternative gene names/symbols (auto-populated from HGNC)"
-    )
-
-    wb_image = models.ImageField(upload_to="gene_experiments/", null=True, blank=True)
-    ip_image = models.ImageField(upload_to="gene_experiments/", null=True, blank=True)
-    icc_if_image = models.ImageField(upload_to="gene_experiments/", null=True, blank=True)
-    fc_image = models.ImageField(upload_to="gene_experiments/", null=True, blank=True)
-
-    # --- Single link fields ---
-    f1000_report_link = models.URLField(
-        blank=True,
-        null=True,
-        help_text="Link to the external F1000 report for this gene"
-    )
-    cell_line_link = models.URLField(
-        blank=True,
-        null=True,
-        help_text="Link to the cell line used for this gene"
-    )
-
-    def __str__(self):
-        return self.name
-
-
-class Antibody(models.Model):
-    name = models.CharField(max_length=255)
-    gene = models.ForeignKey(Gene, on_delete=models.CASCADE, related_name="antibodies")
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.name} ({self.gene.name})"
-
-
-class Experiment(models.Model):
-    antibody = models.ForeignKey(Antibody, on_delete=models.CASCADE, related_name="experiments")
-    experiment_type = models.CharField(
-        max_length=50,
-        choices=[
-            ("WB", "Western Blot"),
-            ("IP", "Immunoprecipitation"),
-            ("ICC-IF", "Immunocytochemistry/IF"),
-            ("FC", "Flow Cytometry"),
-        ],
-    )
-    file_path = models.FileField(upload_to="experiments/", null=True, blank=True)  # Use FileField for SVG support
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"{self.antibody.name} - {self.experiment_type}"
-
-
-class Description(models.Model):
-    antibody = models.OneToOneField(Antibody, on_delete=models.CASCADE, related_name="description")
-    rrid = models.CharField(max_length=100, blank=True, null=True)
-    supplier = models.CharField(max_length=255, blank=True, null=True)
-    host = models.CharField(max_length=100, blank=True, null=True)
-    clonality = models.CharField(max_length=100, blank=True, null=True)
-    clone_ID = models.CharField(max_length=100, blank=True, null=True)
-    recombinant = models.CharField(max_length=100, blank=True, null=True)
-
-    product_link = models.CharField(max_length=255, blank=True, null=True)
-    discontinued = models.BooleanField(default=False)
-
-    # ✔ Tick-box fields
-    wb_app = models.BooleanField("Western Blot", default=False)
-    icc_if_app = models.BooleanField("ICC / IF", default=False)
-    ip_app = models.BooleanField("Immunoprecipitation (IP)", default=False)
-    fc_app = models.BooleanField("Flow Cytometry (FC)", default=False)
-
-    def __str__(self):
-        return f"Description for {self.antibody.name}"
-
-
 class APIConsumer(models.Model):
     """
     Tracks organisations that consume the OGA API.
@@ -197,7 +101,7 @@ class ReviewedAntibody(models.Model):
     An antibody is considered reviewed if EITHER:
       - it was created before consumer.last_queried_at, OR
       - it exists in this table for that consumer.
-    Routes to academy_db automatically (not in CORE_DATA_MODELS).
+    Routes to academy_db automatically — every core model does now.
     """
     consumer = models.ForeignKey(
         APIConsumer,

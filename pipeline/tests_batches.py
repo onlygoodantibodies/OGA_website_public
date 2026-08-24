@@ -32,6 +32,7 @@ from pipeline.tests_timeouts import DB, _member_client
 
 class FormatBatchesTests(TestCase):
     """Pure, so it costs nothing and covers the case the live data is full of."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_one_batch_is_just_its_number(self):
         self.assertEqual(cell_lines_svc.format_batches([23]), "C-23")
@@ -59,7 +60,7 @@ class FormatBatchesTests(TestCase):
 
 
 class AddBatchTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="McGill", short_code="MCG")
@@ -151,7 +152,7 @@ class AddBatchTests(TestCase):
 
 
 class TheBoardShowsEveryBatchTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def test_a_row_lists_its_batches_so_a_search_hit_explains_itself(self):
         """Searching a second batch's number returns the row; without this the

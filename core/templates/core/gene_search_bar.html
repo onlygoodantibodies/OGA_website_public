@@ -29,6 +29,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
          data-genes-url="{% url 'gene_search_index' %}"
          data-antibodies-url="{% url 'antibody_search' %}"
          data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}"
+         data-nominate-url="{% url 'nominate_gene' %}"
          data-home-url="{% url 'home' %}">
       <input type="text"
              class="oga-genesearch-input"
@@ -160,6 +161,10 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
             itemClass: 'oga-genesearch-item',
             hintClass: 'oga-genesearch-alias',
             emptyClass: 'oga-genesearch-empty',
+            /* The same offer as the homepage box. Two boxes that answer
+               differently give a reader no way to tell which one is broken —
+               the whole reason the behaviour is in one file. */
+            nominateUrl: root.dataset.nominateUrl,
             /* Nothing to pick — hand the query to the homepage, which filters
                the full gene list server-side and reads catalogue numbers and
                RRIDs too, so this is not a dead end for an identifier. */

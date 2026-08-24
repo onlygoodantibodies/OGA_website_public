@@ -1838,11 +1838,16 @@ class PendingPublicationImage(models.Model):
       from "never assessed" on the public gene page. Writing the flag while
       holding the figure back would have moved that answer for every other
       antibody on the gene. It is applied to the antibody at release.
-    * **Private storage.** `attachment_storage` — never the public custom
-      domain, signed and short-lived — because an unreleased figure sitting on
-      a permanent public URL is released to anybody who has the key, whatever
-      the database says. The bytes are served through a gated view
-      (`views/review.py` for staff, `core/api_pipeline.py` for the supplier).
+    * **Public storage, at the released key.** Reversed on 23 Aug 2026 by the
+      owner's decision: partners build on cropped figures before formal release,
+      so a crop is written once at the URL it keeps forever and `release` moves
+      no bytes. Two things this gives up, deliberately, and they are the reason
+      the previous note read the way it did: an unreleased figure is readable by
+      anyone holding its URL, and **`withdraw` can no longer unpublish the
+      bytes** — it takes the gene page down and the object stays. What review
+      gates now is the page, not the file. The gated readers still work and are
+      still the only ones the app links (`views/review.py` for staff,
+      `core/api_pipeline.py` for the supplier, which stays supplier-scoped).
     * **One row per antibody per application**, the same constraint the public
       table carries, so re-cropping a figure *revises* the pending row rather
       than queueing a second copy. Re-cropping something already released puts
@@ -1864,9 +1869,17 @@ class PendingPublicationImage(models.Model):
     application_type = models.CharField(
         max_length=10, choices=PublicationImage.ApplicationType.choices)
     image = models.FileField(
-        upload_to='pending_figures/%Y/%m/',
-        storage=attachment_storage,
-        help_text="The crop as it would appear on the public gene page.",
+        # The *same* key the published figure gets, on the same public storage.
+        # Owner's decision, 23 Aug 2026: partners build on these crops before
+        # formal release, so a crop is written once, at its final public URL,
+        # and release never moves the bytes. What review gates is the **gene
+        # page**, not the object.
+        #
+        # The consequence to know: a staged figure is readable by anyone holding
+        # the URL from the moment it is cropped, and `withdraw` can no longer
+        # unpublish the bytes — only the page. See `review.py`.
+        upload_to='publication_images/%Y/',
+        help_text="The crop, at the public URL it will keep once released.",
     )
     # The human's verdict for this antibody in this application, held here until
     # release rather than written onto the antibody. See the class docstring.
@@ -2000,3 +2013,7 @@ from pipeline.cropper_models import CropperSession, CropperImage  # noqa: E402,F
 # The daily full capture, kept where both the cron job and the web service can
 # reach it (see pipeline/snapshot_models.py).
 from pipeline.snapshot_models import DatasetSnapshot  # noqa: E402,F401
+
+# A gene the *public* asked for — deliberately not a TargetNomination; see the
+# module docstring in pipeline/gene_request_models.py for why the two are apart.
+from pipeline.gene_request_models import GeneRequest  # noqa: E402,F401

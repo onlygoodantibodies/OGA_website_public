@@ -40,7 +40,7 @@ DB = "pipeline_db"
 class NotApplicableIsAnAnswerTests(TestCase):
     """`NA` says a row has no gene. It must never become one."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_na_and_its_spellings_are_recognised(self):
         for said in ("NA", "na", "N/A", "n.a.", "None", "not applicable", "-"):
@@ -89,7 +89,7 @@ class NotApplicableIsAnAnswerTests(TestCase):
 class AParentIsNamedOrNumberedTests(TestCase):
     """145 of 169 parents on file are C-numbers, and 102 are a *vial's*."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -164,7 +164,7 @@ class AKnockoutRowNeverMatchesAWildTypeTests(TestCase):
     driving a browser at the corrected example row.
     """
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -207,7 +207,7 @@ class AKnockoutRowNeverMatchesAWildTypeTests(TestCase):
 class TheNameIsTheLineTests(TestCase):
     """`name` is the parental line; the gene has its own column."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_the_example_row_is_named_the_way_the_database_is(self):
         example = dict(zip(CELL_LINE_COLUMNS, CELL_LINE_EXAMPLE))
@@ -238,7 +238,7 @@ class TheNameIsTheLineTests(TestCase):
 class TheExampleRowSaysItIsAnExampleTests(TestCase):
     """It is labelled `e.g.`, and no parser ever ingests it."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.create(name="Leicester", short_code="LEI")
@@ -292,6 +292,7 @@ class TheExampleRowSaysItIsAnExampleTests(TestCase):
 
 class TheGridShowsTheExampleWithoutOfferingItTests(TestCase):
     """board.js draws it as a pinned header row, not as placeholder text."""
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         from pathlib import Path
@@ -318,7 +319,7 @@ class TheGridShowsTheExampleWithoutOfferingItTests(TestCase):
 class BothDoorsToAGeneTests(TestCase):
     """The hub said adding a gene was the only way. The target board is another."""
 
-    databases = {"default", DB, "academy_db"}
+    databases = {DB, "academy_db"}
 
     def test_the_hub_does_not_claim_one_door(self):
         import importlib
@@ -342,7 +343,7 @@ class BothDoorsToAGeneTests(TestCase):
 class ARefusalNamesAControlThatExistsTests(TestCase):
     """`tick "create targets"` named no control on any page."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_the_cell_line_refusal_quotes_the_checkbox_label(self):
         rows = bulkcl.parse("name\tgene\tgenotype\nHAP1\tTRPA1\tKO")
@@ -378,7 +379,7 @@ class ARefusalNamesAControlThatExistsTests(TestCase):
 class AMissingRowSaysWhichFieldTests(TestCase):
     """One refusal named three possible causes for a row with one problem."""
 
-    databases = {"default", DB}
+    databases = {DB}
 
     def test_a_row_with_no_name_says_so(self):
         item, = bulkcl.plan(bulkcl.parse("name\tgenotype\n\tWT"))

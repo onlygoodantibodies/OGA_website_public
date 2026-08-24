@@ -75,6 +75,26 @@
     }
 
     /* ── Search ── */
+    /* Deliberately small. This is one line of feedback under a search box,
+       not a section of the page — the old panel used `.no-results`, whose
+       `p:first-child { font-size: 2rem }` drew a three-line headline. */
+    .search-answer {
+        /* Same box as the search bar — max-width and padding copied from
+           .search-bar-wrapper below — so the answer lines up with the input's
+           own edges and reads as part of it rather than as a page section. */
+        max-width: 540px;
+        margin: 0.5rem auto 1rem;
+        padding: 0 1rem;
+        text-align: center;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #4a6180;
+    }
+    .search-answer p { margin: 0; font-size: 0.88rem; font-weight: 400; }
+    .search-answer strong { color: #10428a; font-weight: 700; }
+    .search-answer a { color: #10428a; font-weight: 600; }
+    .search-answer-note { color: #7a8ea6; font-size: 0.8rem !important; margin-top: 0.15rem !important; }
     .search-bar-wrapper {
         max-width: 540px;
         margin: 1.8rem auto 0.5rem;
@@ -204,8 +224,62 @@
         margin: 0 0 1.2rem;
         letter-spacing: 0.3px;
     }
-    .sup-group { margin-bottom: 1.1rem; }
-    .sup-group:last-of-type { margin-bottom: 0.4rem; }
+    /* **Stacked by default, three across only where all three genuinely
+       fit.** Two states rather than a wrapping row, and that is what buys the
+       divider: a `border-left` on a group that has wrapped to become first on
+       its line is a vertical stroke with nothing beside it, and no CSS can
+       detect that it has happened. `nowrap` above the breakpoint means every
+       divider always has a group on both sides of it. */
+    .sup-groups {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.1rem;
+    }
+    .sup-group { margin-bottom: 0; }
+
+    @media (min-width: 1100px) {
+        .sup-groups {
+            flex-direction: row;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: stretch;
+            gap: 0 2.6rem;
+        }
+        /* A hairline that fades out at both ends, not a full-height rule: the
+           logos sit in a tall box with air above and below, so a hard stroke
+           terminates against nothing at each end and reads as a table border.
+           Gold rather than grey, at low opacity — an accent against the navy
+           the rest of the page uses, pale enough to separate without
+           competing with the marks it sits between.
+
+           Painted as a background rather than a border because `border-left`
+           takes no gradient. */
+        .sup-groups > .sup-group + .sup-group {
+            padding-left: 2.6rem;
+            background-image: linear-gradient(
+                to bottom,
+                rgba(193, 152, 45, 0) 0%,
+                rgba(193, 152, 45, 0.7) 26%,
+                rgba(193, 152, 45, 0.7) 74%,
+                rgba(193, 152, 45, 0) 100%);
+            background-size: 1px 100%;
+            background-position: left center;
+            background-repeat: no-repeat;
+        }
+        /* Smaller marks in this band, or the three groups do not fit on one
+           line and `nowrap` would overflow rather than wrap. */
+        .oga-supporters .sup-logo { height: 62px; }
+        .oga-supporters .sup-logo img { max-width: 136px; }
+    }
+
+    @media (min-width: 1600px) {
+        .sup-groups { gap: 0 3.4rem; }
+        .sup-groups > .sup-group + .sup-group { padding-left: 3.4rem; }
+        .oga-supporters .sup-logo { height: 78px; }
+        .oga-supporters .sup-logo img { max-width: 170px; }
+    }
+
     .sup-label {
         color: #5b6b85;
         font-size: 0.78rem;
@@ -249,6 +323,7 @@
 
     @media (max-width: 768px) {
         .oga-supporters { padding: 1.6rem 1rem 1.3rem; }
+        .sup-groups { gap: 1rem; }
         .sup-row { gap: 0.7rem 1.1rem; }
         .sup-logo { height: 60px; }
         .oga-supporters .sup-logo img { max-width: 132px; }
@@ -259,37 +334,53 @@
     <script src="{% static 'core/oga_search.js' %}"></script>
     <script>
     /* The dropdown's behaviour is shared with the header bar's box
-       (core/static/core/oga_search.js). What stays here is the one thing only
-       this page can do: Enter with nothing selected filters the gene grid that
-       is already in the DOM, rather than sending anybody anywhere. */
+       (core/static/core/oga_search.js). All this page adds is where Enter goes
+       when the dropdown has nothing to pick.
+
+       **It used to filter the gene grid in the browser, and that was a second,
+       weaker copy of `?search=`.** Two things were wrong with it. It was
+       invisible: the grid begins ~1,200px below the search box, so on a 900px
+       screen nothing a reader could see moved. And it had become nearly
+       unreachable anyway — with a "Nominate <GENE>" row now offered on a miss,
+       the dropdown always has something to pick, so Enter goes to a gene or to
+       the nomination form and the client-side filter only ever fired in the
+       race window before the antibody lookup returned.
+
+       So Enter submits the search instead, exactly as the header bar's box
+       does. The server narrows the grid, and the answer — a count, or the
+       nomination panel — is rendered directly under the box where the reader
+       is looking. One implementation, one code path, and the two boxes on the
+       site behave identically, which is the whole reason the behaviour lives
+       in one file. */
     document.addEventListener('DOMContentLoaded', function () {
         var wrapper = document.querySelector('.search-bar-wrapper');
         var input = document.querySelector('.search-bar');
         if (!wrapper || !input) { return; }
 
-        var geneBoxes = [];
-        document.querySelectorAll('.gene-box').forEach(function (box) {
-            geneBoxes.push({
-                name: (box.getAttribute('data-name') || '').toLowerCase(),
-                aliases: (box.getAttribute('data-aliases') || '').toLowerCase(),
-                element: box
-            });
-        });
+        {% comment %}
+        **The box and this line must never disagree.** Coming back to a
+        `?search=` page with the browser's Back button, Chrome restores the
+        input from session history rather than from the rendered `value`, and
+        hands it back as the reader last left it — often empty. The line is
+        server-rendered, so it stays, and the page ends up claiming "We haven't
+        characterised Trpa1 yet" above a box that does not say Trpa1. Two
+        answers to one question on one screen, and the reader cannot tell which
+        is stale.
 
-        function filterGrid(query) {
-            var lowered = query.toLowerCase();
-            var hasResults = false;
-            geneBoxes.forEach(function (box) {
-                var match = box.name.indexOf(lowered) > -1
-                    || (box.aliases && box.aliases.indexOf(lowered) > -1);
-                box.element.style.display = match ? '' : 'none';
-                if (match) { hasResults = true; }
-            });
-            var message = document.getElementById('no-results-message');
-            if (message) {
-                message.style.display = (query && !hasResults) ? 'block' : 'none';
-            }
+        So the line is tied to the box: whenever the box stops naming the gene
+        the line is about — restored empty, or retyped — the line goes. It fires
+        on `pageshow` rather than `DOMContentLoaded` because a bfcache restore
+        does not run the latter, which is exactly the case this exists for.
+        {% endcomment %}
+        var answer = document.querySelector('.search-answer');
+        function syncAnswer() {
+            if (!answer) { return; }
+            var claims = answer.dataset.query || '';
+            if (input.value.trim() !== claims) { answer.remove(); answer = null; }
         }
+        window.addEventListener('pageshow', syncAnswer);
+        input.addEventListener('input', syncAnswer);
+        syncAnswer();
 
         OGASearch.create({
             input: input,
@@ -300,7 +391,10 @@
             itemClass: 'suggestion',
             hintClass: 'alias-hint',
             emptyClass: 'no-match',
-            onEnter: filterGrid
+            nominateUrl: wrapper.dataset.nominateUrl,
+            onEnter: function (query) {
+                window.location.search = '?search=' + encodeURIComponent(query);
+            }
         });
     });
     </script>
@@ -330,7 +424,8 @@
     <div class="search-bar-wrapper"
          data-genes-url="{% url 'gene_search_index' %}"
          data-antibodies-url="{% url 'antibody_search' %}"
-         data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}">
+         data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}"
+         data-nominate-url="{% url 'nominate_gene' %}">
         <form method="get" class="search-container" onsubmit="return false;">
             <input
                 class="search-bar"
@@ -344,6 +439,42 @@
         </form>
         <div id="oga-dropdown"></div>
     </div>
+
+    {% comment %}
+    **The answer to a search sits directly under the box, and outside it.**
+    Both halves used to be at the foot of the page under the gene grid —
+    measured 1,232px below the box on a 900px screen, so pressing Enter moved
+    nothing a reader could see. Putting them *inside* .search-bar-wrapper was
+    not the fix either: styles.css makes that a flex row, so they lined up
+    beside the search box instead of under it.
+
+    They carry their own class rather than .no-results, whose
+    `p:first-child { font-size: 2rem }` is styling for a page section and drew
+    a three-line headline under a search box.
+    {% endcomment %}
+    {% if search_query %}
+      <div class="search-answer" data-query="{{ search_query }}">
+        {% if no_results %}
+          <p>We haven&#39;t characterised <strong>{{ search_query }}</strong> yet —
+             <a href="{% url 'nominate_gene' %}?gene={{ search_query|urlencode }}&amp;from=search">nominate it</a></p>
+          <p class="search-answer-note">Requests are recorded and counted; they
+             help decide what the consortium runs next.</p>
+        {% else %}
+          {% comment %}
+          The matches are links, not a pointer at the grid below: that grid is
+          a full, unfiltered index for crawlers and for browsing, and telling
+          somebody to find their gene among 159 cards is not an answer. The
+          count is the whole set while the list is capped, so a long match says
+          how many it is not showing rather than quietly truncating.
+          {% endcomment %}
+          <p>{{ match_count }} gene{{ match_count|pluralize }}
+             match{{ match_count|pluralize:"es," }}
+             <strong>{{ search_query }}</strong>:
+             {% for gene in matches %}<a href="{% url 'antibody_table' gene %}">{{ gene }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if match_count > matches|length %}
+             and {{ match_count|add:"-12" }} more below{% endif %}</p>
+        {% endif %}
+      </div>
+    {% endif %}
 
     <!-- Educational Cards -->
     <section class="educational-section">
@@ -423,6 +554,18 @@
     <section class="oga-supporters" aria-labelledby="supporters-heading">
         <h2 id="supporters-heading">Supported by</h2>
 
+        {% comment %}
+        The three groups sit side by side on a wide screen and stack on a
+        narrow one. They stay three labelled groups either way, which is a
+        correctness constraint rather than a style: one "Supported by" over all
+        nine would say CiteAb and the SGC fund OGA.
+
+        Stacked at every width, each row spanned the full page to hold as few
+        as one logo — 515px of strip on a 1900px screen with the horizontal
+        space unused. Wrapping is what makes this safe: at a width where three
+        groups will not fit, flex puts them back exactly as they were.
+        {% endcomment %}
+        <div class="sup-groups">
         <div class="sup-group">
             <p class="sup-label">Led from</p>
             <div class="sup-row">
@@ -468,11 +611,13 @@
             </div>
         </div>
 
+        </div><!-- /.sup-groups -->
+
         <p class="sup-more"><a href="{% url 'partners' %}">All partners and funders &rarr;</a></p>
     </section>
 
     <section class="gene-list">
-        <h2>Genes Available</h2>
+        <h2 id="genes-available">Genes Available</h2>
         <div class="gene-list-container">
             {% for gene in genes %}
             <div class="gene-box" data-name="{{ gene.name }}" data-aliases="{{ gene.aliases|default:'' }}">
@@ -493,13 +638,18 @@
         </div>
     </section>
 
-    <!-- No Results Message -->
-    <div id="no-results-message" class="no-results" style="display: none;">
-        <p><strong>Not Available Yet</strong></p>
-        <p>Didn't find what you're looking for?</p>
-        <a href="{% url 'contact' %}" class="nominate-target-button">Nominate a Target</a>
-    </div>
+    {% comment %}
+    Drawn by the server when `?search=` matched nothing, and revealed by
+    filterGrid when typing in the box matches nothing. It was JS-only, so
+    landing on /?search=ZZZ — which is where the header search box sends
+    everything it cannot resolve — showed an empty grid and no message at all.
 
+    The gene is named in the heading and carried on the button, because the
+    old panel sent people to the contact form, which asks for the gene again
+    on a page that has never heard of it. The nomination form checks the
+    symbol against UniProt and records the request; the contact form emailed
+    it and nothing else.
+    {% endcomment %}
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">

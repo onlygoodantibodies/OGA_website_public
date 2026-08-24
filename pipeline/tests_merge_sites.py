@@ -22,7 +22,7 @@ from pipeline.tests_timeouts import DB, _member_client
 
 
 class MergeSitesTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")

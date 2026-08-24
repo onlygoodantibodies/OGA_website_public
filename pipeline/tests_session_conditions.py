@@ -34,7 +34,7 @@ FROM_SHEET = "antibody_incubation_time"
 
 
 class SessionConditionsTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         site = Site.objects.create(name="Leicester", short_code="LEI")

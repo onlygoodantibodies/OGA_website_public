@@ -44,7 +44,7 @@ class DownloadMatchesTheGridTests(TestCase):
     """The download reimplemented the retired search page's filters, so a board
     filtered to one gene handed you the whole dataset."""
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -89,7 +89,7 @@ class DownloadMatchesTheGridTests(TestCase):
 
 
 class UploadGoesThroughTheSamePreviewAndCommitTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
@@ -235,7 +235,7 @@ class TheRoundTripDoesNotRehomeAnotherSitesRowsTests(TestCase):
     would have been new — which is exactly why the file had to carry the column.
     """
 
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         self.leicester = Site.objects.using(DB).create(

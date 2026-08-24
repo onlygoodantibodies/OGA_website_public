@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% comment %}
+    Every page names itself in <title>, and this one names the gene when it has
+    one: arriving here from a failed search, the gene is the whole subject of
+    the page and a generic title makes a browser tab full of them identical.
+    {% endcomment %}
+    <title>{% if form.gene %}Nominate {{ form.gene }}{% else %}Nominate a gene{% endif %} - Only Good Antibodies</title>
+    <meta name="description" content="Ask the Only Good Antibodies consortium to characterise a human gene we have not covered yet.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+<style>
+.nom-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 60px 24px 48px; text-align: center;
+}
+/* Colour is stated on the heading itself, not left to the hero's `color`:
+   styles.css carries a global `h1` rule in the site's dark blue, which wins on
+   specificity and drew the title in navy on a navy band — present in the HTML,
+   readable by nothing. Same reason the headings below say `text-align: left`. */
+.nom-hero h1 { font-size: 2.1rem; margin: 0 0 12px; font-weight: 800; color: #fff; }
+.nom-hero p { max-width: 640px; margin: 0 auto; font-size: 1rem; line-height: 1.6;
+              color: #fff; opacity: .94; }
+.nom-wrap { max-width: 780px; margin: 28px auto 60px; padding: 0 20px; }
+.nom-card {
+  background: #fff; border: 1px solid #e3ebf7; border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(16,66,138,.08); padding: 28px 26px;
+}
+.nom-card h2 { font-size: 1.15rem; color: #10428a; margin: 0 0 6px; text-align: left; }
+.nom-card label { display: block; font-weight: 600; color: #10428a; margin: 18px 0 6px; font-size: .93rem; }
+.nom-card input[type=text], .nom-card input[type=email], .nom-card textarea {
+  width: 100%; box-sizing: border-box; padding: .6rem .8rem; font-family: inherit;
+  font-size: .95rem; border: 1px solid #d6e1f2; border-radius: 8px; background: #f9fbff; color: #10428a;
+}
+.nom-card input:focus, .nom-card textarea:focus { outline: none; border-color: #10428a; background: #fff; }
+.nom-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 18px; margin-top: 6px; }
+.nom-apps label { display: flex; align-items: baseline; gap: .5rem; font-weight: 400; color: #24405f; margin: 4px 0; }
+.nom-apps input { margin: 0; }
+.nom-other-label { font-size: .88rem !important; font-weight: 600; margin-top: 12px !important; }
+.nom-hint { font-size: .84rem; color: #64748b; line-height: 1.5; margin: 6px 0 0; }
+.nom-error { color: #9f1239; font-size: .86rem; font-weight: 600; margin: 6px 0 0; }
+.nom-note {
+  border-radius: 10px; padding: 14px 16px; margin: 0 0 18px; font-size: .92rem; line-height: 1.6;
+}
+.nom-note.ok      { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.nom-note.info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
+.nom-note.refuse  { background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; }
+.nom-note strong { display: block; margin-bottom: 4px; }
+.nom-submit {
+  margin-top: 24px; background: #10428a; color: #fff; border: 0; border-radius: 50px;
+  padding: .7rem 1.8rem; font-size: .98rem; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.nom-submit:hover { background: #0d2b5e; }
+.nom-expectations {
+  margin: 22px 0 0; padding: 18px 20px; background: #f7faff;
+  border: 1px solid #e3ebf7; border-radius: 12px; font-size: .9rem; color: #24405f; line-height: 1.65;
+}
+.nom-expectations h3 { margin: 0 0 8px; font-size: .95rem; color: #10428a; text-align: left; }
+.nom-expectations li { margin-bottom: 7px; }
+.nom-honey { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+</style>
+</head>
+<body>
+{% include 'core/header.html' %}
+
+<section class="nom-hero">
+  <h1>{% if form.gene %}Nominate {{ form.gene }}{% else %}Nominate a gene{% endif %}</h1>
+  <p>Tell us which human protein you need a trustworthy antibody for, and which
+     experiment you need it for. We use these requests to decide what the
+     consortium runs next.</p>
+</section>
+
+<div class="nom-wrap">
+  <div class="nom-card">
+
+    {% comment %}
+    The verdict from pipeline/services/gene_requests.py::check — drawn before
+    the form, because two of its answers are refusals and a reader who reads
+    the form first has filled it in before finding out.
+
+    Each branch says *why*, not just no: "we cannot do this" with no reason is
+    the kind of answer somebody argues with, and a modification request is a
+    method limit rather than a queue.
+    {% endcomment %}
+    {% if verdict %}
+      {% if verdict.status == 'modification' %}
+        <div class="nom-note refuse">
+          <strong>Post-translational modifications are out of scope</strong>
+          {{ verdict.message }}
+        </div>
+      {% elif verdict.status == 'not_human' %}
+        <div class="nom-note refuse">
+          <strong>We only characterise human proteins</strong>
+          {{ verdict.message }}
+        </div>
+      {% elif verdict.status == 'unknown' %}
+        <div class="nom-note refuse">
+          <strong>We could not find that protein</strong>
+          {{ verdict.message }}
+        </div>
+      {% elif verdict.status == 'in_pipeline' %}
+        <div class="nom-note info">
+          <strong>{{ verdict.gene }} is already on our list</strong>
+          {{ verdict.message }}
+        </div>
+      {% elif verdict.status == 'unchecked' %}
+        <div class="nom-note info">
+          <strong>UniProt is not answering</strong>
+          {{ verdict.message }}
+        </div>
+      {% elif verdict.status == 'ok' %}
+        <div class="nom-note ok">
+          <strong>{{ verdict.gene }}{% if verdict.protein_name %} — {{ verdict.protein_name }}{% endif %}</strong>
+          Confirmed as a human protein in UniProt{% if verdict.uniprot_id %} ({{ verdict.uniprot_id }}){% endif %}.
+          We have not characterised it yet.
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <h2>Your request</h2>
+    <p class="nom-hint">We check the symbol against UniProt when you send this,
+       so you will be told straight away if it is not a human protein.</p>
+
+    <form method="post" action="{% url 'nominate_gene' %}">
+      {% csrf_token %}
+      <input type="hidden" name="source" value="{{ source }}">
+
+      {% comment %}A field no person can see. Filled in = a bot.{% endcomment %}
+      <div class="nom-honey" aria-hidden="true">
+        <label for="website">Leave this empty</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <label for="gene">Gene symbol or UniProt accession</label>
+      <input type="text" id="gene" name="gene" value="{{ form.gene }}"
+             placeholder="e.g. SNCA, or P37840" autocomplete="off">
+      {% if errors.gene %}<p class="nom-error">{{ errors.gene }}</p>{% endif %}
+
+      <label>Which application do you need it for?</label>
+      {% comment %}
+      Six applications and a free-text box, where the site's own verdicts cover
+      four. What somebody needs is a wider question than what OGA tests — the
+      same distinction the antibody board draws between a supplier's claimed
+      applications and the verdict's — and a reader forced to pick the nearest
+      of four records a requirement that was never theirs.
+
+      The "Something else" box is always visible rather than revealed by its
+      tick: a control that appears only after another one is a control most
+      people never find, and typing in it selects the option anyway.
+      {% endcomment %}
+      <div class="nom-apps">
+        {% for code, label in application_choices %}
+          <label>
+            <input type="checkbox" name="applications" value="{{ code }}"
+                   {% if code in form.applications %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <label for="applications_other" class="nom-other-label">If something
+        else, which?</label>
+      <input type="text" id="applications_other" name="applications_other"
+             value="{{ form.applications_other }}"
+             placeholder="e.g. immunoprecipitation–mass spectrometry, ELISA, super-resolution">
+      <p class="nom-hint">An antibody that works on a blot often fails in cells,
+         so which application you need changes what we would have to run — and
+         it is part of how we prioritise.</p>
+      {% if errors.applications %}<p class="nom-error">{{ errors.applications }}</p>{% endif %}
+
+      <label for="email">Your email</label>
+      <input type="email" id="email" name="email" value="{{ form.email }}">
+      <p class="nom-hint">Used to come back to you about this gene, and nothing
+         else. See our <a href="{% url 'privacy_policy' %}">Privacy Policy</a>.</p>
+      {% if errors.email %}<p class="nom-error">{{ errors.email }}</p>{% endif %}
+
+      <label for="name">Your name <span style="font-weight:400;color:#64748b">(optional)</span></label>
+      <input type="text" id="name" name="name" value="{{ form.name }}">
+
+      <label for="organisation">Institution or company <span style="font-weight:400;color:#64748b">(optional)</span></label>
+      <input type="text" id="organisation" name="organisation" value="{{ form.organisation }}">
+
+      <label for="note">Why do you need it? <span style="font-weight:400;color:#64748b">(optional)</span></label>
+      <textarea id="note" name="note" rows="4"
+                placeholder="What you are working on, how many people in your field would use it, anything else that helps us judge.">{{ form.note }}</textarea>
+
+      {% comment %}
+      The funding question is asked here rather than left to "get in touch",
+      because this is the moment somebody is already telling us what they need.
+      Nothing turns a request into work except money, so the box that says
+      "I might have some" has to be on the form the request is made on.
+      {% endcomment %}
+      <label style="margin-top:22px">
+        <input type="checkbox" name="has_funding" {% if form.has_funding %}checked{% endif %}>
+        I may have a way to fund this work
+      </label>
+      <p class="nom-hint">A grant, a core budget, an industry partner, or a call
+         you are writing an application to. A funded target moves from a list to
+         a plan, so tell us even if it is only a possibility.</p>
+      <label for="funding_note">Funding details <span style="font-weight:400;color:#64748b">(optional)</span></label>
+      <textarea id="funding_note" name="funding_note" rows="3"
+                placeholder="Which scheme, roughly what scale, and by when.">{{ form.funding_note }}</textarea>
+
+      <button type="submit" class="nom-submit">Send nomination</button>
+    </form>
+
+    {% comment %}
+    Said before the press, not only after it. A request that raises an
+    expectation the consortium cannot meet costs more than one that was never
+    made — so what a nomination does and does not buy is on the form itself.
+    {% endcomment %}
+    <div class="nom-expectations">
+      <h3>What happens next</h3>
+      <ul>
+        <li><strong>Your request is recorded and counted.</strong> How many
+            people have asked for a gene, and which applications they need, is
+            one of the things we weigh when deciding what to run next.</li>
+        <li><strong>We cannot promise to take it on.</strong> Characterising one
+            gene properly means knockout cell lines, every commercial antibody
+            for it, and four applications' worth of bench work — so what gets
+            done is limited by funding and capacity, not by interest.</li>
+        <li><strong>If you have a funding route, tell us.</strong> That is the
+            thing most likely to turn a nomination into work — tick the box
+            above, or email
+            <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>.</li>
+        <li><strong>Modification-specific antibodies are out of scope.</strong>
+            Our verdicts rest on knockout controls, and a knockout removes the
+            whole protein — so it cannot show whether an antibody is specific
+            for a phosphorylated or otherwise modified form.</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-column">
+            <h4>Quick Links</h4>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'about' %}">About Us</a>
+            <a href="{% url 'publications' %}">Publications</a>
+            <a href="{% url 'news' %}">News</a>
+            <a href="{% url 'contact' %}">Contact</a>
+        </div>
+        <div class="footer-column">
+            <h4>Contact Us</h4>
+            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    </div>
+</footer>
+</body>
+</html>

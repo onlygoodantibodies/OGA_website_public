@@ -16,6 +16,7 @@ from django.test import TestCase
 
 class PublicHtmlIsCompressedTests(TestCase):
     """A page a crawler can reach must not go out uncompressed."""
+    databases = {"academy_db", "pipeline_db"}
 
     def test_a_public_page_is_compressed_for_a_client_that_asks(self):
         page = self.client.get('/privacy-policy/')
@@ -40,6 +41,7 @@ class PublicHtmlIsCompressedTests(TestCase):
 
 class RobotsTxtTests(TestCase):
     """Who is turned away, and — the half that would hurt — who is not."""
+    databases = {"academy_db", "pipeline_db"}
 
     def setUp(self):
         self.body = self.client.get('/robots.txt').content.decode()
@@ -88,7 +90,7 @@ class PublicCacheHeadersTests(TestCase):
     — which are refused. See OGA_website/cache_headers.py for the reasoning."""
 
     # Signing in reads the login, which lives in academy_db, not `default`.
-    databases = {'default', 'academy_db'}
+    databases = {'academy_db'}
 
     def test_an_anonymous_public_page_may_be_cached(self):
         cc = self.client.get('/champions/')['Cache-Control']
@@ -169,6 +171,7 @@ class RevalidationTests(TestCase):
     the page again. Django sets no ETag on its own, so before this there was
     nothing on the site that could answer that question.
     """
+    databases = {"academy_db", "pipeline_db"}
 
     def test_a_cache_that_already_has_the_page_is_told_so(self):
         first = self.client.get('/privacy-policy/')
@@ -204,7 +207,7 @@ class ExtensionSnapshotRevalidationTests(TestCase):
     so the bytes differed on every rebuild — hourly — on a dataset nobody had
     touched. Nothing on any screen would have said so.
     """
-    databases = {'default', 'pipeline_db', 'academy_db'}
+    databases = {'pipeline_db', 'academy_db'}
 
     def setUp(self):
         import datetime

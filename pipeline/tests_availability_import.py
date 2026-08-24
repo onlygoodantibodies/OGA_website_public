@@ -33,7 +33,7 @@ def _csv(tmp_path, rows):
 
 
 class AvailabilityImportTests(TestCase):
-    databases = {"default", "pipeline_db", "academy_db"}
+    databases = {"pipeline_db", "academy_db"}
 
     def setUp(self):
         import tempfile
