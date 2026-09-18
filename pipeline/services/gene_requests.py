@@ -34,8 +34,6 @@ from __future__ import annotations
 
 import re
 
-from django.core.cache import cache
-
 # The four the rest of the app uses, spelled exactly as
 # `PublicationImage.application_type` stores them — see services/review.py.
 APPLICATION_CODES = ['WB', 'IP', 'ICC-IF', 'FC']
@@ -77,8 +75,6 @@ UNCHECKED = 'unchecked'          # UniProt could not be reached
 
 #: Verdicts a request may be written under.
 RECORDABLE = {OK, IN_PIPELINE, UNCHECKED}
-
-_LOOKUP_CACHE_SECONDS = 24 * 3600
 
 # Species words somebody types when they mean a non-human orthologue. Matched as
 # whole words on the typed string, before any lookup: "mouse Snca" resolves
@@ -167,22 +163,18 @@ def application_labels(stored: str, other: str = '') -> list:
 
 
 def _lookup(text: str) -> dict:
-    """``uniprot.lookup``, cached by the string that was typed.
+    """``uniprot.lookup_interactive`` — the shared reader for a public lookup.
 
     A public page must not turn one visitor's keystrokes into one call each to
     somebody else's API, and the answer for a gene symbol does not change from
-    hour to hour. Cached on the *failure* too: an unreachable UniProt is
-    unreachable for everybody, and re-asking per visitor makes an outage worse.
+    hour to hour. That cache lived here and the selection tool had none, so the
+    tool took the site down on 2 Sep 2026 while this page was safe; the policy
+    is one reader now, and it carries a deadline and a thread cap as well as the
+    cache. Cached on the *failure* too: an unreachable UniProt is unreachable
+    for everybody, and re-asking per visitor makes an outage worse.
     """
-    key = f'gene_request_uniprot_v1:{(text or "").strip().lower()}'
-    answer = cache.get(key)
-    if answer is None:
-        from pipeline.services import uniprot
-        answer = uniprot.lookup(text)
-        # A failed lookup is held briefly, a real answer for a day: the point of
-        # the short window is that a transient outage clears without a deploy.
-        cache.set(key, answer, 120 if answer.get('unavailable') else _LOOKUP_CACHE_SECONDS)
-    return answer
+    from pipeline.services import uniprot
+    return uniprot.lookup_interactive(text)
 
 
 def check(text: str) -> dict:

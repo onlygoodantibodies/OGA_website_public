@@ -81,7 +81,7 @@ class TheRecommendationsPageTakesAGeneTests(TestCase):
         self.assertEqual(resp.context["requested_gene"], "")
         note = resp.context["gene_note"]
         self.assertIn("STMN2", note)
-        self.assertIn("no published validation figures", note)
+        self.assertIn("no published characterisation figures", note)
         self.assertIn("Publish figures", note)
 
     def test_a_gene_that_is_not_in_the_pipeline_says_that_instead(self):

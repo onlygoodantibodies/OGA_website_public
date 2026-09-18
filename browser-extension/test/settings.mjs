@@ -35,8 +35,30 @@ function check(name, fn) {
 const page = await ctx.newPage();
 await page.goto(`chrome-extension://${extId}/src/options.html`, { waitUntil: "domcontentloaded" });
 
+/* WAIT FOR THE PAGE TO HAVE FILLED ITS OWN CONTROLS.
+ *
+ * Every checkbox in `options.html` ships with no `checked` attribute, and
+ * `options.js::load` ticks them from `background.js::DEFAULT_SETTINGS` — over a
+ * `sendMessage` round trip to the service worker, well after DOMContentLoaded.
+ * `showGrey` defaults to **true**, so on a loaded runner this raced and LOST
+ * SILENTLY: `uncheck` ran while the box was still unticked, which is a no-op,
+ * `load` then ticked it, and Save honestly stored `showGrey: true`. Green here
+ * for as long as this machine won the race; red on CI (run 130, 12 Sep 2026)
+ * on a commit that added one binary file under `signed/` and could not have
+ * touched it.
+ *
+ * Waiting for the box to be TICKED is the precondition rather than a sleep:
+ * this test's premise is "turn off a setting that is on", and this is the
+ * assertion that it is on to begin with. `patterns` is not waited for — it
+ * defaults to FALSE, so there is nothing to wait for and `check` below is the
+ * thing that turns it on. */
+await page.waitForFunction(
+  () => document.getElementById("showGrey").checked, { timeout: 8000 });
+
 // A setting that needs no host permission at all: if this does not survive,
-// nothing else about the page matters.
+// nothing else about the page matters. Both directions are covered on purpose:
+// `showGrey` off against a true default, `patterns` on against a false one, so
+// neither assertion can pass on a save that never happened.
 await page.uncheck("#showGrey");
 await page.check("#patterns");
 await page.click("#save");
@@ -67,7 +89,13 @@ check("patterns was turned on and stayed on", () => {
 // Reload: what the page shows must be what was actually stored, not the
 // defaults and not what was typed.
 await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForTimeout(600);
+/* The same race on the way back, and `showGrey` cannot be the signal now: it
+ * was saved OFF and the markup has it off too, so unticked is
+ * indistinguishable from "load has not run yet" and a sleep would be asserting
+ * the markup. `patterns` was saved ON against a false default, so its tick is
+ * the one observable that only storage can have produced. */
+await page.waitForFunction(
+  () => document.getElementById("patterns").checked, { timeout: 8000 });
 const shown = await page.evaluate(() => ({
   showGrey: document.getElementById("showGrey").checked,
   patterns: document.getElementById("patterns").checked,

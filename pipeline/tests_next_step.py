@@ -191,10 +191,41 @@ class TheSequenceIsTheOrderTheWorkHappensInTests(TestCase):
         session = ExperimentSession.objects.using(DB).create(
             target_id=self.target.pk, procedure_type="WB", date="2026-08-01",
             site_id=self.site.pk, experimenter_id=member.pk)
+        # A row with nothing on it is a *planned* blot; "run" means a reading.
         WbResult.objects.using(DB).create(session_id=session.pk,
-                                          antibody_id=ab.pk)
+                                          antibody_id=ab.pk, signal="specific band")
         nxt = gene_progress.next_step(gene_progress.steps_for(self.target))
         self.assertEqual(nxt["key"], "ko_validated")
+
+    def test_a_planned_blot_with_no_readings_is_not_a_run_one(self):
+        """Run 19 planned a WB, wrote nothing, and the strip read "✓ WB ·
+        Next: KO confirmed" over a status card saying "Not started". One
+        reader for both now: a reading, never a row."""
+        from pipeline.models import (Antibody, CellLine, Company,
+                                     ExperimentSession, Member, WbResult)
+        from pipeline.services import gene_progress
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        CellLine.objects.using(DB).create(
+            name="U2OS", genotype="KO", target_id=self.target.pk,
+            site_id=self.site.pk)
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab1", site_id=self.site.pk)
+        session = ExperimentSession.objects.using(DB).create(
+            target_id=self.target.pk, procedure_type="WB", date="2026-08-01",
+            site_id=self.site.pk, experimenter_id=member.pk)
+        WbResult.objects.using(DB).create(session_id=session.pk, antibody_id=ab.pk)
+        steps = gene_progress.steps_for(self.target)
+        wb = [st for st in steps if st["key"] == "app_WB"][0]
+        self.assertFalse(wb["done"])
+        self.assertIn("no readings yet", wb["detail"])
+        self.assertIn("Leicester", wb["detail"])
+        nxt = gene_progress.next_step(steps)
+        self.assertEqual(nxt["key"], "app_WB")
+        self.assertIn("planned", nxt["hint"])
+        # And the headline does not call it testing under way either.
+        self.assertNotEqual(gene_progress.headline(steps)["label"], "Testing under way")
 
     def test_the_hint_says_the_blot_is_what_confirms_it(self):
         from pipeline.services import gene_progress

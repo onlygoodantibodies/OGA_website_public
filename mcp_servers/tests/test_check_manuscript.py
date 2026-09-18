@@ -350,7 +350,7 @@ def test_all_gene_entry_points_accept_protein_name_and_alias():
         assert portal.gene_detail(name)["found"] is True, f"target_report: {name}"
         assert portal.antibody_validation(gene=name)[0], f"antibody_validation: {name}"
         assert portal.search_antibodies(name)[0], f"search_antibodies: {name}"
-        assert portal.antibodies_by_recommendation("WB", gene=name)[0], name
+        assert portal.antibodies_by_support("WB", "supportive", name)[0], name
         assert [g["gene"] for g in portal.check_manuscript(
             reagents=[], genes=[name])["gene_hits"]] == ["SNCA"], name
 
@@ -726,3 +726,64 @@ def test_only_one_doi_family_is_cited_per_gene():
     assert dois == list(dict.fromkeys(dois))            # no duplicates
     if any("f1000" in d.lower() for d in dois):
         assert not any("zenodo" in d.lower() for d in dois), dois
+
+
+# ── alternatives for a reagent the data does NOT support ─────────────────────
+# The gap these close: alternatives were offered only to `not_in_dataset` entries,
+# so the reader still waiting on evidence got somewhere to go and the reader who
+# already HAS the evidence, against the reagent in their hands, got nowhere. On a
+# real paper (Iyer et al. 2018, PeerJ 6:e5815) that was sc-138763 used for western
+# blot — knockout-tested, not supportive for WB — reported with five WB-supported
+# C9orf72 antibodies on file and none of them named.
+
+def test_unsupported_reagent_is_offered_the_genes_alternatives():
+    """2642 is tested on a curated gene and supported for nothing; SNCA has one
+    that is supported for WB. That is the swap, and it must be offered."""
+    res = portal.check_manuscript(
+        reagents=[_ab("2642", "SNCA", applications=["WB"])])
+    hit = res["antibody_hits"]["not_recommended"][0]
+    assert hit["identifier"] == "2642"
+    assert hit["applications"]["WB"] == "not_recommended"
+    assert hit["alternatives_listed"] >= 1
+    assert "ab212184" in {a["antibody"]
+                          for a in res["characterised_alternatives"]["SNCA"]}
+
+
+def test_alternatives_for_an_unsupported_reagent_are_scoped_to_its_use():
+    """Scoped by the application the paper used, like every other verdict here."""
+    res = portal.check_manuscript(
+        reagents=[_ab("2642", "SNCA", applications=["WB"])])
+    hit = res["antibody_hits"]["not_recommended"][0]
+    assert hit["recommended_for_requested_applications"] >= 1
+    for alt in res["characterised_alternatives"]["SNCA"]:
+        assert "WB" in alt["recommended_for"]
+
+
+def test_a_supported_reagent_is_offered_no_alternatives():
+    """Only a reagent the data does not support for what the paper did earns this.
+    Offering a swap for an antibody that worked is noise, and reads as criticism."""
+    res = portal.check_manuscript(
+        reagents=[_ab("ab212184", "SNCA", applications=["WB"])])
+    assert res["characterised_alternatives"] == {}
+    assert res["counts"]["genes_with_alternatives"] == 0
+
+
+def test_a_verdict_in_an_application_the_paper_did_not_use_is_not_a_concern():
+    """SYT1's antibody is supported for IF and not for WB. A paper that only
+    stained with it is not a paper with a problem, so no swap is offered."""
+    res = portal.check_manuscript(
+        reagents=[_ab("NB120-1234", "SYT1", applications=["IF"])])
+    assert res["characterised_alternatives"] == {}
+
+
+def test_nothing_is_offered_as_an_alternative_to_itself():
+    """Direct on the builder: the exclusion has to hold even where a reagent is
+    unsupported for one application the paper used and supported for another."""
+    from pipeline.models import Antibody
+    good = Antibody.objects.using("pipeline_db").get(catalogue_number="ab212184")
+    rows, total, _ = portal._recommended_alternatives(good.target)
+    assert "ab212184" in {r["antibody"] for r in rows}
+    rows, total_ex, _ = portal._recommended_alternatives(
+        good.target, exclude_pks={good.pk})
+    assert "ab212184" not in {r["antibody"] for r in rows}
+    assert total_ex == total - 1

@@ -23,6 +23,7 @@ import re as _re
 from mcp_servers.common import manuscript  # identifier resolution, no Django
 from mcp_servers.common import briefing, sections  # what the caller knows and read
 from mcp_servers.common import citeab        # what the LITERATURE records
+from mcp_servers.common import confusions   # whose target it actually is
 
 _MISSING = object()
 from mcp_servers.common.controls_rubric import (CONTROL_CLASSES, CONTROLS_BINDS,
@@ -136,7 +137,8 @@ _IMG_APP = {v: k for k, v in _APP_IMG.items()}
 _APPS = ("WB", "IP", "IF", "FC")
 
 
-def _assessment(ab, image_types, gene_has_recommendations):
+def _assessment(ab, image_types, gene_has_recommendations,
+                axes_by_app=None):
     """Per-application verdict, from the SAME public signals the portal is built on:
     the curated ``*_recommended`` flag, whether a published figure exists for that
     application, and whether the GENE has been curated at all
@@ -176,8 +178,36 @@ def _assessment(ab, image_types, gene_has_recommendations):
             basis = ["published_figure", "gene_curated"]
         else:
             status, basis = "not_tested", []
-        entry = {"status": status, "tested": bool(basis),
+        # The clause after the result, on either side of it: a supportive
+        # western blot that is not selective, or a negative that did detect,
+        # enrich or give a selective signal. `core/recommendations.py` is the
+        # one reader — a model asked "is this antibody any good" is exactly the
+        # caller that should not be handed a bare yes/no when the bench
+        # recorded more.
+        support, clause, words, sentence = _wording_for(
+            ab, app, status, axes_by_app)
+        # `support` FIRST, because a model reads a dict in order and takes the
+        # first field that looks like the answer. It is the four-rung value the
+        # whole site prints; `status` below is the three-value legacy form,
+        # which cannot tell *Limited support* from *Not supportive* and so
+        # reports an antibody that did what the application is for as though it
+        # had shown nothing. Both ship: `status` is what the connector has
+        # always returned, and the reversal in a report is worse than the
+        # duplication.
+        entry = {"support": support or _SUPPORT_FALLBACK.get(status, status),
+                 "verdict": words,
+                 "verdict_sentence": sentence,
+                 "status": status, "tested": bool(basis),
                  "recommended": recommended, "tested_from": basis}
+        if clause:
+            entry["qualifier"] = clause
+        if not words:
+            # `_wording_for` degrades to "" when the site's module is not
+            # importable in this process. A key holding an empty string reads
+            # as "we looked and there is nothing", which is a different claim
+            # from "this build could not resolve the wording".
+            entry.pop("verdict")
+            entry.pop("verdict_sentence")
         if status != "not_tested":
             # Only claim a source for a verdict that was actually reached.
             entry["verdict_source"] = (
@@ -188,38 +218,155 @@ def _assessment(ab, image_types, gene_has_recommendations):
     return out
 
 
+#: What a rung degrades to when the site's module is not importable in this
+#: process, so `_wording_for` could not resolve one.
+#:
+#: **It takes the harsher of the two negatives, and that is not a judgement
+#: call** — it is exactly what `status` has always said on that path, so the
+#: degraded answer introduces no claim the connector was not already making.
+#: The middle rung cannot be reached here by construction: it exists only where
+#: the capability axes say the antibody did what the application is for, and
+#: those come from the same import that just failed. Saying `limited_support`
+#: without them would be a guess, and it would be the flattering one.
+_SUPPORT_FALLBACK = {"recommended": "supportive",
+                     "not_recommended": "not_supportive",
+                     "not_tested": "not_tested"}
+
+
+def _wording_for(ab, app, status, axes_by_app):
+    """``(support, qualifier, words, sentence)`` from the site's own definition.
+
+    The words are `core/recommendations.py`'s — *Supportive*, *Limited
+    support*, *Not supportive*, *Not tested* — because a model answering from
+    this connector is quoting a public page to somebody who may go and read it,
+    and two vocabularies for one result is the drift that module exists to stop.
+
+    ``support`` is that same rung as a controlled value, which is the half a
+    model can be told to switch on. It comes from ``describe`` rather than being
+    mapped from ``status`` here: the mapping is not one-to-one — a
+    ``not_recommended`` that tempers is *Limited support* and one that does not
+    is *Not supportive* — so deriving it locally would be a second reader for a
+    question that already has one, and the wrong answer would be the plausible
+    one.
+
+    Guarded: the MCP is a separate process with its own requirements, and a
+    Django import that is unavailable there must degrade to the bare controlled
+    value rather than take the tool down.
+    """
+    try:
+        from core.recommendations import (NOT_RECOMMENDED, NOT_TESTED,
+                                          RECOMMENDED, qualified, support,
+                                          words as words_for, cell_caption)
+    except Exception:
+        return "", "", "", ""
+
+    value = {"recommended": RECOMMENDED, "not_recommended": NOT_RECOMMENDED,
+             "not_tested": NOT_TESTED}.get(status, NOT_TESTED)
+    if value == NOT_TESTED:
+        rung = support(value)
+        return rung, "", words_for(value), words_for(value)
+
+    db_app = _APP_FIELD_TO_DB.get(app, app)
+    axes = (axes_by_app or {}).get(db_app)
+    if not axes:
+        rung = support(value)
+        return rung, "", words_for(value), words_for(value)
+
+    clause, tempers = qualified(db_app, value, axes)
+    rung = support(value, tempers)
+    return (rung, clause, words_for(value, tempers),
+            cell_caption(db_app, value, axes))
+
+
+#: This module keys immunofluorescence `IF`; the database says `ICC-IF`.
+_APP_FIELD_TO_DB = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC"}
+
+
 def _factual_summary(ab, assessment, dois):
     """A plain-fact sentence: what was tested, the verdict per application, and the
     consensus-protocol DOI it was assessed under. No adjectives, no marketing."""
     gene = ab.target.gene_name
     ident = ab.catalogue_number + (f" (RRID {ab.rrid})" if ab.rrid else "")
-    rec = [a for a in _APPS if assessment[a]["status"] == "recommended"]
-    notrec = [a for a in _APPS if assessment[a]["status"] == "not_recommended"]
-    nottested = [a for a in _APPS if assessment[a]["status"] == "not_tested"]
+    # Grouped by the FOUR rungs, not the three legacy statuses. Grouping on
+    # `status` put *Limited support* in the same clause as an outright negative
+    # — 491 of 1,833 negatives on live data — so the one sentence a model is
+    # most likely to quote verbatim was the one place the distinction was lost
+    # after being carried correctly everywhere else in the response.
+    def _of(rung):
+        return [a for a in _APPS if assessment[a].get("support") == rung]
+
+    supportive = _of("supportive")
+    limited = _of("limited_support")
+    notsup = _of("not_supportive")
+    nottested = _of("not_tested")
     parts = [f"{ident} against {gene} is in the dataset."]
-    if rec:
-        parts.append("Recommended for " + ", ".join(rec) + ".")
-    if notrec:
-        parts.append("Tested and not recommended for " + ", ".join(notrec) + ".")
+    # The site's frame, not the connector's own: OGA characterises antibodies
+    # and a gene page is headed "characterisation data", so the sentence
+    # describes evidence rather than issuing advice.
+    if supportive:
+        parts.append("Characterisation data supports "
+                     + ", ".join(supportive) + ".")
+    if limited:
+        parts.append("Limited support for " + ", ".join(limited)
+                     + " — tested, not supported overall, and the antibody was "
+                       "still seen to do what the application is for.")
+    if notsup:
+        parts.append("Tested; data not supportive for " + ", ".join(notsup) + ".")
     if nottested:
         parts.append("Not tested for " + ", ".join(nottested) + ".")
+    # What the bench recorded beyond the rung, where it says more: a supportive
+    # blot that is not selective, or a negative that did detect, enrich or give
+    # a selective signal. A model asked "is this any good" is exactly the caller
+    # that should not get a bare yes/no when there is more.
+    qualified = [f"{a} — {assessment[a]['qualifier']}"
+                 for a in _APPS if assessment[a].get("qualifier")]
+    if qualified:
+        parts.append("With qualifications: " + "; ".join(qualified) + ".")
     if dois:
         parts.append("Assessed with knockout controls under the consensus "
                      "protocol described in " + "; ".join(dois) + ".")
     return " ".join(parts)
 
 
-def _enrich(ab):
+def _axes_for(antibodies):
+    """The capability behind every verdict, for a whole list in one pass.
+
+    ``_enrich`` is called from four list comprehensions with a cap of 500, so a
+    per-antibody lookup here is 8 queries × 500 — the N+1 that shows up as a
+    slow tool rather than a wrong answer. Degrades to ``None`` if the site's
+    module is not importable in this process: the MCP is a separate service
+    with its own requirements, and a missing import must cost the qualifier,
+    not the tool.
+    """
+    ids = [ab.pk for ab in antibodies]
+    if not ids:
+        return {}
+    try:
+        from core.recommendations import capability_axes
+        return capability_axes(ids)
+    except Exception:
+        return {}
+
+
+def _enrich(ab, axes=None):
     """Serialise ``ab`` exactly as the public API does, then add the factual
     interpretation layer (per-application assessment + summary + provenance) and
-    the KO-controlled evidence + report DOIs behind it."""
+    the KO-controlled evidence + report DOIs behind it.
+
+    ``axes`` comes from ``_axes_for`` — resolved once for the whole list by the
+    caller, the same way the public API's feeds pass it down.
+    """
     A = _api()
     rec = A._target_has_recommendations(ab.target)
-    d = A._serialise_antibody(ab, rec, include_recs=True)
+    d = A._serialise_antibody(ab, rec, include_recs=True,
+                              axes={k: v for k, v in (axes or {}).items()
+                                    if k[0] == ab.pk} or None)
     reports = _reports(ab.target)
     dois = _report_dois(reports)
     image_types = {img.application_type for img in ab.publication_images.all()}
-    assessment = _assessment(ab, image_types, rec)
+    per_app = {app: (axes or {}).get((ab.pk, app))
+               for app in ("WB", "IP", "ICC-IF", "FC")}
+    assessment = _assessment(ab, image_types, rec, per_app)
     d["assessment"] = assessment
     d["summary"] = _factual_summary(ab, assessment, dois)
     d["provenance"] = {
@@ -339,10 +486,32 @@ def antibody_validation(rrid=None, catalogue=None, gene=None, cap=500):
         qs = qs.filter(target=t) if t else qs.none()
     if not (rrid or catalogue or gene):
         raise ValueError("Provide at least one of: rrid, catalogue, gene.")
-    out = [_enrich(ab) for ab in
-           qs.order_by("target__gene_name", "catalogue_number")[:cap + 1]]
+    rows = list(qs.order_by("target__gene_name", "catalogue_number")[:cap + 1])
+    axes = _axes_for(rows)
+    out = [_enrich(ab, axes) for ab in rows]
     truncated = len(out) > cap
     return out[:cap], truncated
+
+
+def confusion_lookup(rrid=None, catalogue=None, doi=None):
+    """The ``target_confusion`` block for a one-antibody lookup, or ``None``.
+
+    ``antibody_validation`` answers on an identifier alone and has no paper, so
+    its miss was the reply most at risk: "not in the dataset, and absence is not
+    a judgement about the antibody" about a reagent whose supplier says it does
+    not bind the protein the reader asked about. Here so the tool layer does not
+    have to know how the forms are expanded — the same
+    ``manuscript.resolution_variants`` order the dataset query used, or the two
+    lookups could disagree about the same printed string.
+    """
+    forms = []
+    for given in (catalogue, rrid):
+        if not given:
+            continue
+        for form in manuscript.resolution_variants(given):
+            if form not in forms:
+                forms.append(form)
+    return confusions.for_identifier(forms, doi=doi, doi_supplied=bool(doi))
 
 
 def gene_detail(gene):
@@ -359,8 +528,10 @@ def gene_detail(gene):
                                                                 "catalogue_number")
     rec = A._target_has_recommendations(target)
     antibodies, supplier_summary = [], {}
-    for ab in qs:
-        s = _enrich(ab)
+    rows = list(qs)
+    axes = _axes_for(rows)
+    for ab in rows:
+        s = _enrich(ab, axes)
         antibodies.append(s)
         supplier = s["metadata"].get("supplier") or "Unknown"
         ss = supplier_summary.setdefault(supplier, {"count": 0, "recommended": 0})
@@ -387,25 +558,65 @@ _APP_FIELD = {"WB": "wb_recommended", "IP": "ip_recommended",
               "FC": "fc_recommended"}
 
 
-def antibodies_by_recommendation(application, recommended=True, gene=None, cap=500):
-    field = _APP_FIELD.get((application or "").strip().upper())
-    if not field:
+#: The four rungs this connector can be asked for, and what each one is.
+SUPPORT_RUNGS = ("supportive", "limited_support", "not_supportive", "not_tested")
+
+
+def antibodies_by_support(application, support="supportive", gene=None, cap=500):
+    """Within one gene, the antibodies at one rung for one application.
+
+    **Filtered on the resolved rung, not on the recommendation flag.** It
+    replaced a boolean form (removed 14 Sep 2026) whose two negatives were one
+    answer: an antibody the bench saw detect its target and one that showed
+    nothing came back in the same list, and no caller could ask for either
+    alone.
+
+    The flag was also the wrong question in two smaller ways the rung gets
+    right. A ``False`` flag on an application with no published figure, or on
+    an uncurated gene, is ``not_tested`` rather than a negative — the old form
+    returned those among the failures. And an ICC-IF result whose measured
+    ratio falls below the floor is not supportive however the flag is set, the
+    same veto the gene pages apply.
+
+    The rung is not a column, so it cannot be a ``filter()`` — it is resolved
+    per antibody from the flag, the figures, the curated-gene gate and the
+    capability axes. So the gene's published antibodies are enriched and then
+    filtered, which is the same work ``target_report`` already does for the same
+    scope: a gene holds tens of antibodies, not thousands, and the axes are
+    resolved once for the batch.
+    """
+    app = (application or "").strip().upper()
+    if app not in _APP_FIELD:
         raise ValueError(
             f"Unknown application '{application}'. Use one of: "
             + ", ".join(sorted(set(_APP_FIELD))) + ".")
-    # A gene is REQUIRED — this tool answers "for gene X, which antibodies are
-    # (not) recommended for app Y?", not a whole-database list (which would let a
-    # caller tally recommendation rates by vendor). Whole-DB analytics is out of
-    # scope by policy.
+    rung = (support or "").strip().lower()
+    if rung not in SUPPORT_RUNGS:
+        raise ValueError(
+            f"Unknown support value '{support}'. Use one of: "
+            + ", ".join(SUPPORT_RUNGS) + ".")
+    # A gene is REQUIRED — this tool answers "for gene X, which antibodies sit
+    # at rung R for app Y?", not a whole-database list (which would let a
+    # caller tally pass rates by vendor). Whole-DB analytics is out of scope by
+    # policy.
     if not (gene or "").strip():
         raise ValueError(
-            "A 'gene' is required. This tool reports recommendations within a "
+            "A 'gene' is required. This tool reports results within a "
             "single gene; it does not return a whole-database list.")
     t = _resolve_target(gene)
-    qs = (_published_antibodies().filter(**{field: bool(recommended)}, target=t)
+    qs = (_published_antibodies().filter(target=t)
           if t else _published_antibodies().none())
-    out = [_enrich(ab) for ab in
-           qs.order_by("company__name", "catalogue_number")[:cap + 1]]
+    rows = list(qs.order_by("company__name", "catalogue_number"))
+    axes = _axes_for(rows)
+    # `_APPS` keys assessment by IF; the caller may have said ICC-IF.
+    key = "IF" if app == "ICC-IF" else app
+    out = []
+    for ab in rows:
+        enriched = _enrich(ab, axes)
+        if (enriched.get("assessment", {}).get(key, {}).get("support") == rung):
+            out.append(enriched)
+        if len(out) > cap:
+            break
     truncated = len(out) > cap
     return out[:cap], truncated
 
@@ -429,8 +640,9 @@ def search_antibodies(text, limit=50, cap=500):
     q |= Q(target=t) if t else Q(target__gene_name__iexact=text)
     qs = _typeset_tolerant(_published_antibodies()).filter(q)
     lim = min(limit, cap)
-    out = [_enrich(ab) for ab in
-           qs.order_by("target__gene_name", "catalogue_number")[:lim + 1]]
+    rows = list(qs.order_by("target__gene_name", "catalogue_number")[:lim + 1])
+    axes = _axes_for(rows)
+    out = [_enrich(ab, axes) for ab in rows]
     truncated = len(out) > lim
     return out[:lim], truncated
 
@@ -447,15 +659,25 @@ def search_antibodies(text, limit=50, cap=500):
 _MAN_NOTE = (
     "not_in_dataset means YCharOS has not independently characterised that "
     "antibody with knockout controls — it is untested, NOT unreliable; absence "
-    "is not a verdict on quality. Verdicts are PER APPLICATION (WB/IP/IF/FC): "
+    "is not a verdict on quality. THE ONE EXCEPTION is an entry carrying "
+    "`target_confusion`: that reagent is documented as an antibody to a "
+    "DIFFERENT protein from the one it shares a name with, so it is not an "
+    "absence at all and this sentence does not apply to it — read its own "
+    "`this_paper.note`, which differs per paper. "
+    "Verdicts are PER APPLICATION (WB/IP/IF/FC): "
     "never assume a result in one application transfers to another. "
-    "ALTERNATIVES: when a not_in_dataset entry carries `gene`, OGA has "
-    "characterised that target — say so, link `gene_page_url`, and name the "
+    "ALTERNATIVES: TWO kinds of entry carry `gene` and earn this — a "
+    "not_in_dataset one (untested, so the reader is waiting on evidence) AND a "
+    "TESTED one whose verdict is not supportive for an application the paper used "
+    "(the reader is not waiting on evidence, they have it and it is against the "
+    "reagent in their hands). The second is the sharper case and needs the pointer "
+    "MORE, not less: name the alternatives on both. Either way — say OGA has "
+    "characterised that target, link `gene_page_url`, and name the "
     "antibodies in `characterised_alternatives[gene]`, as a pointer, never as "
     "criticism of the reagent the paper used. `characterised_alternatives[gene]` "
     "is a SHORTLIST of `alternatives_listed`: when `alternatives_truncated` is true "
     "say \"N of M\" and send the reader to the gene page (or "
-    "antibodies_by_recommendation) for the rest — never present the shortlist as "
+    "antibodies_by_support) for the rest — never present the shortlist as "
     "the complete set. M is `recommended_for_requested_applications` when that "
     "field is present (the caller named an application, so that is what is "
     "available to them), and `recommended_alternatives` — the gene's total, any "
@@ -1003,12 +1225,12 @@ def _order_alternatives(rows, wanted):
     return out
 
 
-def _recommended_alternatives(target, wanted=None, cap=5):
+def _recommended_alternatives(target, wanted=None, cap=5, exclude_pks=()):
     """Compact rows for the antibodies OGA RECOMMENDS against ``target``.
 
     This is the answer to the question a reader actually has when their paper's
     antibody is untested: "so what should I have used?" It is per-GENE, and stays
-    within the per-gene scope policy — the same question ``antibodies_by_recommendation``
+    within the per-gene scope policy — the same question ``antibodies_by_support``
     answers. Kept deliberately small (no assessment blocks, no evidence, one image)
     because it can appear for many reagents at once.
 
@@ -1018,6 +1240,14 @@ def _recommended_alternatives(target, wanted=None, cap=5):
     is told to discard. Filtering also makes the empty case sayable — a gene that is
     characterised but has nothing recommended for the application in hand is a real
     finding, and ranking hid it behind FC-only rows sorted to the top.
+
+    ``exclude_pks`` drops antibodies the paper itself used and OGA does not support
+    for what it used them for. Nothing is an alternative to itself, and the case is
+    real rather than theoretical: a reagent declined for WB and recommended for IP,
+    in a paper that did both, is a concern on the WB and would otherwise be offered
+    as the swap for its own shortfall. A reagent the paper used that OGA DOES
+    support stays listed — it is a genuine pointer, and the reader can see it is
+    already in their hands.
 
     Returns ``(rows, total, matching)``:
       * ``total``   — every recommended antibody on the gene, whatever the
@@ -1033,6 +1263,8 @@ def _recommended_alternatives(target, wanted=None, cap=5):
           .filter(Q(wb_recommended=True) | Q(ip_recommended=True)
                   | Q(if_recommended=True) | Q(fc_recommended=True))
           .order_by("company__name", "catalogue_number"))
+    if exclude_pks:
+        qs = qs.exclude(pk__in=list(exclude_pks))
     rows = []
     for ab in qs:
         apps = [app for app in _APPS if getattr(ab, _APP_REC[app])]
@@ -1054,8 +1286,40 @@ def _recommended_alternatives(target, wanted=None, cap=5):
     return _order_alternatives(rows, wanted or set())[:cap], total, matching
 
 
-def _untested_gene_context(target, wanted=None):
-    """For a reagent the dataset does not hold: what IS known about its target.
+def _is_concern_hit(applications, apps):
+    """OGA tested it and did not support it FOR WHAT THE PAPER DID WITH IT.
+
+    The same question ``scan_controls``' ``_is_concern`` asks one layer up, and
+    deliberately the same answer: two readings of "is this a concern" is how a
+    reagent comes to be offered alternatives on one surface and not the other.
+    Scoped to the applications the caller named, because a verdict is per
+    application — an antibody the paper blotted with, declined for flow cytometry
+    and supported for WB, is not a concern about this paper. With no applications
+    named there is nothing to scope to, so any application counts; that is the
+    honest fallback and `coverage.limits` already says they were not supplied.
+    """
+    if apps:
+        return any(applications.get(a) == "not_recommended" for a in apps)
+    return any(v == "not_recommended" for v in applications.values())
+
+
+def _alternatives_context(target, wanted=None, exclude_pks=()):
+    """What OGA recommends against this gene — the "so what should I use?" answer.
+
+    Called for TWO kinds of reagent, and the distinction is the reader's, not this
+    function's:
+
+      * one the dataset does not hold at all — untested is not a verdict, and the
+        decision in front of the reader is whether a characterised alternative
+        exists for the same target;
+      * one the dataset DOES hold and does not support for what the paper used it
+        for. That reader has the sharper problem of the two: they are not waiting
+        on evidence, they have it, and it goes against the reagent in their hands.
+        Offering alternatives only to the first was the gap — the case that most
+        needs somewhere to go next was the one with nowhere.
+
+    Neither is a criticism of the reagent the paper used. It is a pointer to data
+    the reader can act on, and the caller is told to present it as one.
 
     ``target`` is an already-resolved public target. Returns the gene page plus the
     recommended antibodies — because an antibody being untested is NOT a verdict,
@@ -1071,7 +1335,8 @@ def _untested_gene_context(target, wanted=None):
     antibodies recommended for either.
     """
     A = _api()
-    alts, total, matching = _recommended_alternatives(target, wanted=wanted)
+    alts, total, matching = _recommended_alternatives(
+        target, wanted=wanted, exclude_pks=exclude_pks)
     return {
         "gene": target.gene_name,
         "gene_page_url": f"{A.BASE_URL}/antibodies/{target.gene_name}/",
@@ -1142,6 +1407,11 @@ def check_manuscript(reagents=None, genes=None, cap=200,
 
     grouped = {"recommended": [], "not_recommended": [], "not_tested": []}
     not_in_dataset = []
+    # Reagents whose DECLARED target is not the protein they share a name with.
+    # Collected as they are resolved so the reply-level note is served only when
+    # there is something for it to be about -- a standing note on every reply is
+    # one a caller learns to skip, and this one has to be read.
+    confusion_blocks = []
 
     # The caller's gene list is resolved FIRST so unresolved reagents can be joined
     # against it. It is the paper's own vocabulary, which makes it both the cheapest
@@ -1154,6 +1424,7 @@ def check_manuscript(reagents=None, genes=None, cap=200,
     resolved = {}      # target label (lower) -> (Target | None, matched_on)
     pending = []       # entries awaiting their gene's alternatives
     wanted_apps = {}   # gene name -> applications the paper used it for
+    concern_pks = {}   # gene name -> pks of the paper's own unsupported reagents
 
     # Resolve every candidate in a single query, then match case-insensitively.
     by_cat, by_rrid, by_cat_collapsed = {}, {}, {}
@@ -1206,10 +1477,27 @@ def check_manuscript(reagents=None, genes=None, cap=200,
                 if ab is not None:
                     break
         r = c["reagent"]
+        # Asked for EVERY reagent, resolved or not, and asked with the same
+        # expanded forms the dataset lookup used. Two reasons it is not confined
+        # to the unresolved branch: an antibody could in principle carry both a
+        # record and a notice (none of the listed codes does today), and a rule
+        # applied on one branch is a rule for one branch.
+        confusion = confusions.for_identifier(
+            [v for given in c["forms"] for v in manuscript.resolution_variants(given)],
+            doi=paper_doi, pmid=paper_pmid, title=paper_title, year=paper_year,
+            doi_supplied=bool(paper_doi or paper_pmid
+                              or (paper_title and paper_year)))
+        if confusion:
+            confusion_blocks.append(confusion)
         if ab is None:
             # Keep the caller's reading of an unresolved reagent — its target is the
             # only one there is, since the database has nothing to supply.
             entry = {"identifier": c["identifier"], "matched_as": c["kind"]}
+            if confusion:
+                # Placed BEFORE the target resolution below, so a reader of the
+                # entry meets the mismatch before the alternatives — and so the
+                # key is present even on an entry whose target did not resolve.
+                entry["target_confusion"] = confusion
             tgt = _clean(r.get("target"))
             if tgt:
                 entry["target"] = tgt
@@ -1255,8 +1543,13 @@ def check_manuscript(reagents=None, genes=None, cap=200,
         if ab.pk in seen:
             continue
         seen.add(ab.pk)
-        enriched = _enrich(ab)
+        enriched = _enrich(ab, _axes_for([ab]))
         hit = _manuscript_hit(c["identifier"], c["kind"], enriched)
+        if confusion:
+            # Unreachable on today's data and correct anyway: which protein an
+            # antibody is raised against comes before how well it detects it, so
+            # a verdict must never be served without the mismatch beside it.
+            hit["target_confusion"] = confusion
         if r.get("figures"):
             hit["reported_figures"] = list(r["figures"])
         # Guarded on the RRID being truthy: `_enrich` sets it to None for an
@@ -1267,6 +1560,15 @@ def check_manuscript(reagents=None, genes=None, cap=200,
                                         _normalise_apps, _out_of_scope_apps,
                                         _application_notes))
         grouped[_overall_bucket(enriched["assessment"])].append(hit)
+        # A reagent OGA tested and does NOT support for what the paper used it for
+        # gets the gene's alternatives too. It used to be untested reagents only,
+        # which offered the pointer to the reader still waiting on evidence and
+        # withheld it from the one who already has it and has it against them.
+        apps = _normalise_apps(r.get("applications"))
+        if ab.target_id and _is_concern_hit(hit["applications"], apps):
+            wanted_apps.setdefault(ab.target.gene_name, set()).update(apps)
+            concern_pks.setdefault(ab.target.gene_name, set()).add(ab.pk)
+            pending.append((hit, ab.target))
 
     # Alternatives are a property of the GENE, not of each reagent, so they are
     # built ONCE per gene here — after every reagent has been seen, so the shortlist
@@ -1275,8 +1577,9 @@ def check_manuscript(reagents=None, genes=None, cap=200,
     gene_context, alternatives = {}, {}
     for _entry, t in pending:
         if t.gene_name not in gene_context:
-            gene_context[t.gene_name] = _untested_gene_context(
-                t, wanted=wanted_apps.get(t.gene_name))
+            gene_context[t.gene_name] = _alternatives_context(
+                t, wanted=wanted_apps.get(t.gene_name),
+                exclude_pks=concern_pks.get(t.gene_name, ()))
     for gene, ctx in gene_context.items():
         if ctx["alternatives"]:
             alternatives[gene] = ctx["alternatives"]
@@ -1303,7 +1606,7 @@ def check_manuscript(reagents=None, genes=None, cap=200,
             universe = ctx["alternatives_matching"]
         entry["alternatives_truncated"] = len(ctx["alternatives"]) < universe
 
-    return {
+    reply = {
         "antibody_hits": grouped,
         "not_in_dataset": not_in_dataset,
         "characterised_alternatives": alternatives,
@@ -1325,6 +1628,27 @@ def check_manuscript(reagents=None, genes=None, cap=200,
         "truncated": reagents_truncated or genes_truncated,
         "note": _MAN_NOTE,
     }
+    # What the reviews record for THIS PAPER, by whichever way the caller named
+    # it. Served even when no reagent the caller sent carries a notice: a caller
+    # that passed the paper and a different antibody -- or no antibody at all --
+    # is still holding a paper somebody reviewed, and a reply that knows that and
+    # does not say it is the worse reply. `[]` is not evidence the paper is
+    # clean, and the note on each record says what it is.
+    #
+    # It asked on the DOI alone until 0.4.2, while this function had `paper_pmid`
+    # and `paper_title` in its own signature and was already handing all four to
+    # the citation layer -- so a caller who named a paper by PubMed id got the
+    # citation answer and silently no notice.
+    if paper_doi or paper_pmid or (paper_title and paper_year):
+        listed = confusions.for_paper(paper_doi, pmid=paper_pmid,
+                                      title=paper_title, year=paper_year)
+        if listed:
+            reply["paper_target_confusions"] = listed
+    note = confusions.reply_note(confusion_blocks)
+    if note:
+        reply["target_confusion_note"] = note
+        reply["counts"]["target_confusions"] = len(confusion_blocks)
+    return reply
 
 
 def _concise_verdict(applications):
@@ -1410,6 +1734,13 @@ _CONTROLS_NOTE = (
     "for them. Untested AND uncontrolled is the DEFAULT across the literature "
     "(~85%): state it once in that one line and move on. For the Image column use "
     "the direct media file(s) in row.image / row.images — NOT embed-card URLs. "
+    "If `focus.unsupported_with_characterised_alternatives` is non-empty, that is the "
+    "most actionable line in the reply: OGA tested the paper's antibody and the data "
+    "is NOT supportive for what the paper used it for, AND the same gene has "
+    "antibodies that are. Say both halves in one line per reagent — the verdict, then "
+    "the alternatives from `characterised_alternatives[row.gene]` with the gene_page "
+    "link — and keep it a pointer to data rather than a verdict on the paper. The "
+    "same \"N of M\" and `recommended_for` rules below apply to it. "
     "If `focus.untested_with_characterised_alternatives` is non-empty, say so in one "
     "line per reagent: the paper's antibody has not been independently tested, but "
     "OGA HAS characterised that target — link the row's gene_page and name the "
@@ -2393,6 +2724,13 @@ def _build_table(base, controls, reagents, apps_for=None, app_notes_for=None,
                               "url": e["image_url"]} for e in exps]
             row["image"] = row["images"][0]["url"] if row["images"] else None
             row["gene_page"] = hit.get("gene_page_url")
+            # Same reason `target_matched_via` travels: a field that reaches only
+            # `antibody_hits` is a field the rendered table never shows.
+            for key in ("target_is_characterised", "recommended_alternatives",
+                        "alternatives_listed", "alternatives_truncated",
+                        "recommended_for_requested_applications"):
+                if key in hit:
+                    row[key] = hit[key]
             # The peer-reviewed report DOI travels WITH the verdict. When a row says
             # an antibody was tested and not recommended, that can undercut a paper's
             # claim — so the reader must be able to reach the primary evidence from
@@ -2434,9 +2772,12 @@ def _build_table(base, controls, reagents, apps_for=None, app_notes_for=None,
             figs = hit.get("reported_figures") or figs_for.get(
                 hit["identifier"].lower(), [])
             key = hit["identifier"].lower()
-            table.append(_row(hit["identifier"], hit.get("gene"), figs, True, hit,
-                              apps_for.get(key), app_notes_for.get(key),
-                              unscoped_apps=unscoped_for.get(key)))
+            row = _row(hit["identifier"], hit.get("gene"), figs, True, hit,
+                       apps_for.get(key), app_notes_for.get(key),
+                       unscoped_apps=unscoped_for.get(key))
+            if hit.get("target_confusion"):
+                row["target_confusion"] = hit["target_confusion"]
+            table.append(row)
     # 2. the caller's reagents the dataset does not know (untested). An untested
     #    reagent still gets its gene page when the TARGET is characterised — that
     #    is the reader with a decision to make, and the link is the point.
@@ -2447,6 +2788,12 @@ def _build_table(base, controls, reagents, apps_for=None, app_notes_for=None,
                    reagent_apps=apps_for.get(key),
                    app_notes=app_notes_for.get(key),
                    unscoped_apps=unscoped_for.get(key))
+        if entry.get("target_confusion"):
+            # The table is the only part of this reply the caller is told to
+            # render as-is, so a notice that reached only `not_in_dataset` would
+            # be a notice nobody sees -- the same reason `target_matched_via`
+            # travels onto the row below.
+            row["target_confusion"] = entry["target_confusion"]
         if entry.get("gene_page_url"):
             row["gene"] = entry.get("gene")
             row["gene_page"] = entry["gene_page_url"]
@@ -2585,9 +2932,18 @@ def scan_controls(reagents=None, controls=None, genes=None, cap=200,
         # point of v9: a genetic control that is present but whose linkage the text
         # does not establish is a real, common and REPORTABLE state. Dropping it into
         # `others` would be the old false "no" wearing a new name.
+        #
+        # `target_confusion` earns one for the third time in the same shape, and
+        # this one is the sharpest: without it a documented target mismatch --
+        # the most reportable thing this server can say about a reagent -- was
+        # reduced to `{antibody, target}` and filed under `others`, whose own
+        # description reads "untested is NOT a verdict on quality". The sentence
+        # the notice exists to carve an exception out of, printed over the row it
+        # was carved out for.
         return (r["control_status"] not in _NO_CLAIM_STATUSES
                 or r["oga_tested"] == "yes"
                 or r.get("other_controls")
+                or r.get("target_confusion")
                 or (r.get("target_is_characterised") and r.get("recommended_alternatives")))
 
     table = [r for r in all_rows if _matters(r)]
@@ -2645,10 +3001,22 @@ def scan_controls(reagents=None, controls=None, genes=None, cap=200,
     swappable = [r for r in all_rows
                  if r["oga_tested"] == "no" and r.get("target_is_characterised")
                  and r.get("alternatives_listed")]
+    # The same offer for the sharper case: OGA tested this one and does not support
+    # it for what the paper did with it, AND there is something on the gene that is
+    # supported for that use. `antibodies_of_concern` already names the problem;
+    # this is the half that says what to do about it, and it was missing — the
+    # reader with a verdict against their reagent got the finding and no exit.
+    # Keyed on `alternatives_listed` rather than on the gene total, for the reason
+    # `swappable` is: a row whose shortlist is empty would be an instruction to
+    # cite something that is not there. That case is still reported — it keeps its
+    # `recommended_for_requested_applications: 0`, which says exactly that OGA has
+    # worked on this gene and supports nothing for the application in hand.
+    concern_alts = [r for r in concerns if r.get("alternatives_listed")]
     focus = {
         "figures_with_controls": sig_figs,          # {figure: [{type, class}]}
         "antibodies_of_concern": concerns,          # OGA-tested, not recommended
         "untested_with_characterised_alternatives": swappable,
+        "unsupported_with_characterised_alternatives": concern_alts,
         "controls_demonstrated": demonstrated,      # …and where to check them
         "controls_present_unlinked": unlinked,      # the honest third state
         # Named in the Methods, placed by no figure — used, and nobody can say
@@ -2691,6 +3059,15 @@ def scan_controls(reagents=None, controls=None, genes=None, cap=200,
         "not_in_dataset": base["not_in_dataset"],
         "gene_hits": base["gene_hits"],
         "characterised_alternatives": base.get("characterised_alternatives", {}),
+        # Carried through from `check_manuscript`, which resolved every reagent
+        # this reply is about. A controls assessment is exactly where a reagent
+        # raised against another protein matters most: a paper can show a perfect
+        # knockout control for a protein its antibody does not bind, and the
+        # rubric has no way to see that.
+        **({"target_confusion_note": base["target_confusion_note"]}
+           if base.get("target_confusion_note") else {}),
+        **({"paper_target_confusions": base["paper_target_confusions"]}
+           if base.get("paper_target_confusions") else {}),
         "controls": norm_controls,
         "counts": counts,
         # The rubric ships INLINE with the data it applies to, and is now the ONLY

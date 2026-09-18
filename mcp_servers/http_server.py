@@ -23,6 +23,11 @@ Two auth modes, chosen by environment:
 Either way the tier connects with its least-privilege DB role from ``roles.sql``;
 suspending the one Render service takes it offline (the kill-switch).
 
+Every tier is built through ``_build_tier``, which attaches the usage reporter
+(``common/usage.py``) — one line per tool call to the website, so what this
+service served survives the seven days Render keeps its log. Off unless
+``MCP_USAGE_URL`` + ``MCP_USAGE_TOKEN`` are set.
+
 Local run:  MCP_READONLY_TOKEN=dev python -m mcp_servers.http_server
 Render:     start command ``python -m mcp_servers.http_server`` (binds $PORT)
 """
@@ -101,6 +106,21 @@ def _transport_security():
     return TransportSecuritySettings(allowed_hosts=hosts, allowed_origins=origins)
 
 
+def _build_tier(module_path, **kwargs):
+    """Build one tier's FastMCP server, counted.
+
+    Both modes come through here so the usage hook cannot be attached in one and
+    forgotten in the other — and so a second tier is counted by being in
+    ``TIER_DEFS``, not by somebody remembering. ``usage.instrument`` is a no-op
+    unless ``MCP_USAGE_URL`` + ``MCP_USAGE_TOKEN`` are set, so a local run is
+    unchanged.
+    """
+    from mcp_servers.common import usage
+
+    mcp = importlib.import_module(module_path).build_server(**kwargs)
+    return usage.instrument(mcp)
+
+
 # ---------------------------------------------------------------------------
 # Bearer mode (local / Claude Code) — a tier is on when its token is set.
 # ---------------------------------------------------------------------------
@@ -112,7 +132,7 @@ def _build_bearer_app() -> Starlette:
         token = (os.environ.get(tok_env) or "").strip()
         if not token:
             continue
-        mcp = importlib.import_module(module_path).build_server(transport_security=sec)
+        mcp = _build_tier(module_path, transport_security=sec)
         tiers.append((name, token, mcp))
 
     names = [n for n, _, _ in tiers]
@@ -210,8 +230,8 @@ def _build_oauth_app() -> Starlette:
         required = [scope] if scope else []
         resource_url = f"{base}/{name}/mcp"
         settings, verifier = build_auth(resource_url, required)
-        mcp = importlib.import_module(module_path).build_server(
-            auth_settings=settings, token_verifier=verifier,
+        mcp = _build_tier(
+            module_path, auth_settings=settings, token_verifier=verifier,
             http_path=f"/{name}/mcp", transport_security=sec)
         tiers.append((name, mcp, mcp.streamable_http_app()))
 

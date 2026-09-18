@@ -1,0 +1,59 @@
+{
+  "id": "perk-for-p-erk",
+  "papers_only": true,
+  "declared_target": {
+    "gene": "EIF2AK3",
+    "protein": "PERK",
+    "full_name": "protein kinase R-like endoplasmic reticulum kinase"
+  },
+  "mistaken_for": {
+    "gene": "MAPK1/MAPK3",
+    "protein": "phosphorylated ERK1/2",
+    "full_name": "phosphorylated extracellular signal-regulated kinase 1/2"
+  },
+  "short": "This is an antibody to PERK (EIF2AK3), the endoplasmic reticulum kinase that coordinates the unfolded protein response. It is not an antibody to phosphorylated ERK1/2, the growth-signalling kinases written p-ERK or pERK. The two are unrelated proteins whose abbreviations differ by a hyphen, and they run at different sizes: PERK at about 125 kDa, ERK1/2 as the familiar double band near 42 and 44 kDa.",
+  "explanation": "PERK is an abbreviation for protein kinase R-like endoplasmic reticulum kinase, also called EIF2AK3 — a membrane-bound kinase in the endoplasmic reticulum that helps coordinate the unfolded protein response. ERK is an abbreviation for extracellular signal-regulated kinase, a pair of unrelated cytoplasmic kinases (ERK1/MAPK3 and ERK2/MAPK1) in growth, division and survival signalling; phosphorylated ERK is conventionally written p-ERK or pERK. So PERK and p-ERK name two entirely different proteins and differ in print by one hyphen. An antibody to one is not expected to detect the other, and a molecular weight is often the only thing in a published figure that betrays which was used: PERK runs near 125 kDa where ERK1/2 gives a double band near 42 and 44 kDa.",
+  "papers_file": "perk_for_p_erk_papers.csv",
+  "papers_source": "The list was compiled by searching indexed full texts for each product code; the published spreadsheet is linked from the article. Only the DOI, the product code and the reviewer's verdict are carried here. Four of the papers the review names carry a PubMed id and no DOI \u2014 they are e-Century titles (Am J Transl Res, Am J Cancer Res), which register no DOI with Crossref at all \u2014 so they are keyed on the PubMed id instead. That reaches them on PubMed, PMC and Europe PMC; a title and year would also reach them on the publisher's own page, and the review's listing gives no full title to key on.",
+  "source": {
+    "title": "PERK vs p-ERK: Another Antibody Confusion!",
+    "author": "Sholto David",
+    "publication": "Sholto's Substack",
+    "url": "https://sholto.substack.com/p/perk-vs-p-erk-another-antibody-confusion",
+    "date": "2026-08-25"
+  },
+  "antibodies": [
+    { "identifier": "ab65142", "supplier": "Abcam" },
+    { "identifier": "ab192591", "supplier": "Abcam" },
+    { "identifier": "ab229912", "supplier": "Abcam" },
+    { "identifier": "ab79483", "supplier": "Abcam" },
+    { "identifier": "ab217322", "supplier": "Abcam" },
+    {
+      "identifier": "#3192",
+      "supplier": "Cell Signaling Technology",
+      "supplier_required": true,
+      "supplier_cues": ["cell signaling", "cell signalling", "cst"]
+    },
+    {
+      "identifier": "#3179",
+      "supplier": "Cell Signaling Technology",
+      "supplier_required": true,
+      "supplier_cues": ["cell signaling", "cell signalling", "cst"]
+    },
+    {
+      "identifier": "#5683",
+      "supplier": "Cell Signaling Technology",
+      "supplier_required": true,
+      "supplier_cues": ["cell signaling", "cell signalling", "cst"]
+    },
+    { "identifier": "sc-377400", "supplier": "Santa Cruz Biotechnology" },
+    { "identifier": "20582-1-AP", "supplier": "Proteintech" },
+    { "identifier": "24390-1-AP", "supplier": "Proteintech" },
+    { "identifier": "GTX129275", "supplier": "GeneTex" },
+    { "identifier": "AP0886", "supplier": "ABclonal" },
+    { "identifier": "PA5-99447", "supplier": "Thermo Fisher Scientific" },
+    { "identifier": "PA5-40294", "supplier": "Thermo Fisher Scientific" },
+    { "identifier": "MA5-15705", "supplier": "Thermo Fisher Scientific" },
+    { "identifier": "A18196", "supplier": "ABclonal" }
+  ]
+}

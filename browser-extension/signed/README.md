@@ -15,4 +15,8 @@ one, and Firefox refuses to install it. `unzip -l <file> | grep META-INF` before
 committing.
 
 These files are Mozilla-signed artefacts, not source. The source that produced
-them is the repo itself; the zip is built by `/extension/download/`.
+them is the repo itself; the zip that gets uploaded for signing is built by
+`core/extension_index.py::build_zip_bytes` and downloaded from the **Release
+row at the foot of the pipeline hub** — see `../README.md`'s Distribution
+section for the full order, including the part that bites: deploy the site
+first, because the packager reads the live database at the moment you press it.

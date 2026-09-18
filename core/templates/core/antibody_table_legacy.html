@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1024, initial-scale=0.4, maximum-scale=1, user-scalable=no">
-  <title>{{ gene.name }} antibody characterisation — knockout-validated results for {{ antibody_data|length }} antibodies | Only Good Antibodies</title>
-  <meta name="description" content="Knockout-validated characterisation data for {{ antibody_data|length }} {{ gene.name }}{% if gene.aliases %} (also known as {{ gene.aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  <title>{{ gene.name }} antibody characterisation — knockout-controlled results for {{ antibody_data|length }} antibodies | Only Good Antibodies</title>
+  <meta name="description" content="Knockout-controlled characterisation data for {{ antibody_data|length }} {{ gene.name }}{% if gene.aliases %} (also known as {{ gene.aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
 </head>
@@ -230,7 +230,7 @@ body {
 
 <!-- GENE INTRO LINE -->
 <p style="text-align: center; color: #555; font-size: 0.95rem; margin: 1rem auto 0; max-width: 800px; padding: 0 1rem;">
-  Knockout-validated characterisation data for {{ antibody_data|length }} {{ gene.name }} antibodies across WB, IP, ICC-IF and FC.{% if gene.aliases %} Also known as: {{ gene.aliases }}.{% endif %}
+  Knockout-controlled characterisation data for {{ antibody_data|length }} {{ gene.name }} antibodies across WB, IP, ICC-IF and FC.{% if gene.aliases %} Also known as: {{ gene.aliases }}.{% endif %}
 </p>
 
   <!-- FILTERS -->
@@ -513,47 +513,7 @@ body {
     </script>
 
     <!-- Footer -->
-<footer class="antibody-footer">
-    <div class="footer-container">
-        <!-- Quick Links Column -->
-        <div class="footer-column">
-            <h4>Quick Links</h4>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'about' %}">About Us</a>
-            <a href="{% url 'publications' %}">Publications</a>
-            
-            <a href="{% url 'news' %}">News</a>
-            <a href="{% url 'contact' %}">Contact</a>
-        </div>
-
-        <!-- Contact Information Column -->
-    <div class="footer-column">
-        <h4>Contact Us</h4>
-        <p style="color: white;">Email: <a href="mailto:onlygoodantibodies@gmail.com" style="color: white; text-decoration: none;">onlygoodantibodies@gmail.com</a></p>
-        <p style="color: white;">LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" style="color: white; text-decoration: none;">Follow us on LinkedIn</a></p>
-        <p style="color: white;">BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" style="color: white; text-decoration: none;">Follow us on BlueSky</a></p>
-    </div>
-
-
-        <!-- Social Media Column -->
-        <div class="footer-column">
-            <h4>Follow Us</h4>
-            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-            </a>
-            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-                <img src="{% static 'core/bluesky.png' %}" alt="LinkedIn" class="social-icon">
-            </a>
-            <!-- Add other social media icons here -->
-        </div>
-    </div>
-
-    <!-- Bottom Footer with Copyright and Back to Top -->
-    <div class="footer-bottom">
-        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
-    </div>
-</footer>
+{% include 'core/footer.html' with footer_class="antibody-footer" %}
 <script src="{% static 'core/script.js' %}"></script>
 </body>
 </html>

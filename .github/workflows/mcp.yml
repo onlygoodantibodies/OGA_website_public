@@ -7,31 +7,18 @@
 name: mcp servers
 
 on:
-  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
-  # The month's GitHub Actions minutes are spent, so every automatic run was
-  # failing before a single test executed -- a red tick on `beta` that says
-  # nothing about the code and trains everyone to ignore red ticks.
-  #
-  # The automatic triggers below are commented out, NOT deleted, so restoring
-  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
-  # left on, so the Actions tab can still run this by hand.
-  #
-  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
-  # is off is a suite nobody runs, and it looks exactly like a suite that
-  # passes.
-  # ───────────────────────────────────────────────────────────────────────
-#   push:
-#     paths:
-#       - 'mcp_servers/**'
-#       - 'core/**'
-#       - 'pipeline/models.py'
-#       - '.github/workflows/mcp.yml'
-#   pull_request:
-#     paths:
-#       - 'mcp_servers/**'
-#       - 'core/**'
-#       - 'pipeline/models.py'
-#       - '.github/workflows/mcp.yml'
+  push:
+    paths:
+      - 'mcp_servers/**'
+      - 'core/**'
+      - 'pipeline/models.py'
+      - '.github/workflows/mcp.yml'
+  pull_request:
+    paths:
+      - 'mcp_servers/**'
+      - 'core/**'
+      - 'pipeline/models.py'
+      - '.github/workflows/mcp.yml'
   workflow_dispatch:
 
 # One run per branch. Pushing a series of commits used to leave every superseded

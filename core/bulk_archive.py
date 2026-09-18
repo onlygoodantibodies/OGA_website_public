@@ -680,16 +680,37 @@ Contents
 --------
   figures/      Every published figure in the public dataset, one file each.
   manifest.csv  One row per figure: the filename in here, the gene, the
-                catalogue number, the RRID, the supplier, and what OGA
-                recommends. Join it to the files on the `filename` column.
+                catalogue number, the RRID, the supplier, and what the
+                characterisation data shows. Join it to the files on the
+                `filename` column.
 
-What a recommendation means
----------------------------
+What the characterisation data shows
+------------------------------------
 {scope}
 
-  recommended     {recommended}
-  not_recommended {not_recommended}
-  not_tested      {not_tested}
+Three columns say it, and they are one answer in three forms.
+
+`oga_support` is the value to switch on: `supportive`, `limited_support`,
+`not_supportive` or `not_tested`. One value per rung.
+
+`oga_display` is the wording used on the OGA site for that value, and it has the
+same four rungs:
+
+{rungs}
+
+`oga_qualifier` says what was seen, where the bench judged it -- for example
+"detects the target, but is not selective". It is empty where nobody judged
+that axis, and it qualifies a supportive result as readily as a negative one.
+
+{limited_note}
+
+`oga_recommendation` is the older enum -- `recommended`, `not_recommended` or
+`not_tested`. It is unchanged and will stay that way, so anything switching on
+it keeps working. What it cannot say is which of the two negatives a row is:
+`limited_support` and `not_supportive` both appear there as `not_recommended`,
+and the first is one the bench saw do what the application is for. That is what
+`oga_support` is for, and it is the last column rather than the third so that
+existing column positions do not move.
 
 Staying up to date
 ------------------

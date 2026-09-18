@@ -66,7 +66,7 @@ DB = "pipeline_db"
 #: Said once on the envelope rather than on every row — a caveat on every row is
 #: a caveat nobody reads (``core/recommendations.py::SCOPE_NOTE``'s own rule).
 PRE_RELEASE_NOTE = (
-    "These figures are NOT published. They have been cropped from a validation "
+    "These figures are NOT published. They have been cropped from a characterisation "
     "experiment and are waiting for OGA's review meeting, and they may change or "
     "be withdrawn before release. You are seeing them because they are figures of "
     "your own reagents, ahead of publication, so that you can tell us about a "

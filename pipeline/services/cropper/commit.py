@@ -41,6 +41,7 @@ from PIL import Image
 from pipeline.models import Target, Antibody, PendingPublicationImage, PublicationImage
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import gene_symbol
+from pipeline.services import received as received_svc
 from pipeline.services import review as review_svc
 from pipeline.services import targets as target_svc
 from pipeline.services.cropper import db as cdb
@@ -325,9 +326,22 @@ def _apply_metadata(ab, m: dict, overwrite: bool = False):
         ab.clonality = clon
     if m.get("is_recombinant"):
         ab.is_recombinant = True
+    # In kind or purchased. Fill-only-unknown by default, the same bargain
+    # clonality strikes: a sparse paste must not reset what the Access import
+    # recorded, and `""` from the parser means the sheet did not say.
+    acq = (m.get("acquisition") or "").strip()
+    if acq and (overwrite or not ab.acquisition_method
+                or ab.acquisition_method == "unknown"):
+        ab.acquisition_method = acq
 
     for src, field in (("clone_id", "clone_id"), ("host", "host_species"),
                        ("supplier_url", "supplier_url"), ("lot", "lot_number"),
+                       # Free text with a strong convention (`IgG1`, `H, M, R`)
+                       # rather than an enum, so nothing validates them here —
+                       # the board offers what the column already holds and a
+                       # new spelling is legitimate. See services/vocabulary.py.
+                       ("isotype", "isotype"),
+                       ("species_reactivity", "species_reactivity"),
                        # A note written as the rows are created, rather than
                        # twenty-four second passes cell by cell afterwards.
                        ("comments", "comments")):
@@ -349,6 +363,20 @@ def _apply_metadata(ab, m: dict, overwrite: bool = False):
         value, _err = concentration_svc.parse(conc)
         if value is not None:
             ab.concentration = value
+
+    # When it arrived, and how much of that anybody knows. One reader for the
+    # pair (`services/received.py`), so `Aug 2026` is stored as August and
+    # printed as August rather than being promoted to the 1st — the day would
+    # be a value nobody wrote down, on a column that ends up in a methods
+    # section. Fill-only-blank like the rest; a cell this cannot read is left
+    # alone here and named by the preview (`bulk_antibodies._with_received_note`),
+    # which is the same arrangement concentration has above.
+    when_raw = (m.get("received") or "").strip()
+    if when_raw and (overwrite or ab.received_date is None):
+        when, precision, _err = received_svc.parse(when_raw)
+        if when is not None:
+            ab.received_date = when
+            ab.received_precision = precision
 
     # supplier's own validated applications from the table (e.g. "Wb, IF").
     # Additive only — set the flags the table lists, never force others False so a

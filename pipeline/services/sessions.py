@@ -42,6 +42,7 @@ from pipeline.models import (
     Antibody, CellLine, ExperimentSession, Member, Site, Target,
     WbResult, IpResult, IfResult, FcResult,
 )
+from pipeline.services import lab_numbers
 from pipeline.services.targets import resolve_target
 
 DB = "pipeline_db"
@@ -308,6 +309,16 @@ def apply(payload, member=None) -> dict:
         session.planned_date = _date.today()
         session.save(using=DB)
 
+        # **A number exists before the experiment.** An antibody logged on the
+        # board is created without one, so a bench can deal them out in one go
+        # and keep a protein's vials in one box (`services/renumber.py`).
+        # Planning is where that stops: this session's bench sheet prints
+        # `lab_numbers.sheet_number`, and a blank cell there is a tube nobody
+        # can identify. Issued in the order the session lists them, and named
+        # in the reply — a number the app gives a record is a thing the app did.
+        numbers_issued = lab_numbers.ensure_numbered(
+            [r["antibody"] for r in resolved["results"]], db=DB)
+
         for r in resolved["results"]:
             ab = r["antibody"]
             row = ResultModel(session=session, antibody_id=ab.pk, **r["fields"])
@@ -322,4 +333,5 @@ def apply(payload, member=None) -> dict:
         "mode": "apply", "ok": True, "session_id": session.pk,
         "procedure_type": proc, "created_results": created_results,
         "recommendation_changes": rec_changes,
+        "numbers_issued": numbers_issued,
     }

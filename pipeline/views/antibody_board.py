@@ -19,10 +19,14 @@ from pipeline.services import antibody_board as board
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import identity
 from pipeline.services import lab_numbers
+from pipeline.services import members as member_svc
 from pipeline.services import board_columns
 from pipeline.services import board_page
 from pipeline.services import next_step
+from pipeline.services import received as received_svc
+from pipeline.services import renumber as renumber_svc
 from pipeline.services import sites as site_svc
+from pipeline.services import storage as storage_svc
 from pipeline.views.imports import columns_and_example
 
 logger = logging.getLogger(__name__)
@@ -30,7 +34,7 @@ logger = logging.getLogger(__name__)
 DB = "pipeline_db"
 
 _FILTER_KEYS = ("q", "company", "site", "gene", "recommended", "clonality",
-                "application", "out_of_market")
+                "application", "out_of_market", "numbered")
 
 _TRUE = {"1", "true", "yes", "on"}
 
@@ -52,6 +56,7 @@ def _filters(request) -> dict:
 @require_GET
 def antibody_board(request):
     opts = board.filter_options()
+    member, _is_superuser = _asker(request)
     new_columns, new_example = columns_and_example("antibodies")
     return render(request, "pipeline/antibody_board.html", {
         # One gene's progress and its next step, when the board is
@@ -77,6 +82,16 @@ def antibody_board(request):
         # Excel template — so the table, the template and the parser agree.
         "new_columns": new_columns,
         "new_example": new_example,
+        # What each cell may hold — a `<select>` for a closed set, a `<datalist>`
+        # for a convention. Every cell on this board was a bare text box,
+        # including three the server then refused. See `board.cell_choices`.
+        "cell_choices": board.cell_choices(),
+        # **A number in a caveat with nothing to click is half a message.**
+        # Logging no longer mints an A-number, so "the ones I have not numbered
+        # yet" is a real and growing set — and a bench that cannot find it will
+        # discover the gap on a bench sheet with a blank `ab #` column. The
+        # count links to the filter that shows them.
+        "unnumbered": board.unnumbered_count(member),
     })
 
 
@@ -88,6 +103,86 @@ def antibody_board_rows(request):
                             locate=board_page.locate_param(request),
                             **_filters(request))
     return JsonResponse({"ok": True, **data})
+
+
+def _renumber_ids(request):
+    """The antibodies to renumber, in the order the board is showing them.
+
+    **The whole filtered set, not the drawn page** — the same rule a download
+    follows. `page` is board state, and a renumbering that silently covered
+    fifty of ninety rows would leave the rest holding numbers from the old
+    order, which is the one outcome worse than not doing it at all.
+
+    The order is the board's own (`_ordered`): gene, then supplier, then
+    catalogue. That is what makes "number them as shown" mean "group each
+    protein's antibodies together", which is the thing that was asked for.
+    """
+    return list(board._ordered(**_filters(request))
+                .values_list("pk", flat=True))
+
+
+def _asker(request):
+    """Who is asking — their `Member` row and whether they are a superuser.
+
+    `members.for_request` rather than a sixth private copy of the cross-database
+    username join: five views have written it out for themselves, and its own
+    docstring asks new callers to use it.
+    """
+    return (member_svc.for_request(request),
+            bool(getattr(request.user, "is_superuser", False)))
+
+
+def _renumber_start(request):
+    raw = (request.POST.get("start") or "").strip()
+    if not raw:
+        return None, ""
+    number, err = lab_numbers.parse(raw, kind=lab_numbers.ANTIBODY,
+                                    field="first number")
+    return number, err
+
+
+@pipeline_member_required
+@require_POST
+def antibody_renumber_plan(request):
+    """What renumbering the filtered set would do. Writes nothing."""
+    start, err = _renumber_start(request)
+    if err:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+    member, is_superuser = _asker(request)
+    return JsonResponse({"ok": True,
+                         **renumber_svc.plan(_renumber_ids(request), start=start,
+                                             member=member,
+                                             is_superuser=is_superuser)})
+
+
+@pipeline_member_required
+@require_POST
+def antibody_renumber_apply(request):
+    """Write the mapping the preview showed, in one transaction."""
+    start, err = _renumber_start(request)
+    if err:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+    try:
+        consented = int(request.POST.get("consented_count") or -1)
+    except ValueError:
+        consented = -1
+    try:
+        member, is_superuser = _asker(request)
+        result = renumber_svc.apply(
+            _renumber_ids(request), start=start, consented_count=consented,
+            # What the preview actually showed, not only how many rows it
+            # showed — see `renumber._stamp`.
+            stamp=(request.POST.get("stamp") or "").strip(),
+            member=member, is_superuser=is_superuser)
+    except renumber_svc.Refused as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    except Exception:
+        logger.exception("antibody renumbering failed")
+        return JsonResponse(
+            {"ok": False,
+             "error": "Could not renumber those — nothing has been changed."},
+            status=400)
+    return JsonResponse({"ok": True, **result})
 
 
 @pipeline_member_required
@@ -133,6 +228,71 @@ def antibody_board_patch(request):
                 if err:
                     return JsonResponse({"ok": False, "error": err}, status=400)
                 antibody.concentration = parsed
+        elif field == "clonality":
+            # A closed set, and a dropdown is only half of enforcing one — the
+            # picker narrows what a person can send, the writer decides what is
+            # stored. This cell fell through to the bare `setattr` below, so
+            # `mono` typed into it was saved verbatim and `clonality.label`
+            # then had a value its own vocabulary does not contain. The paste
+            # path has always checked (`commit._apply_metadata`); this was the
+            # one door that did not.
+            raw = value.strip().lower()
+            allowed = dict(Antibody.Clonality.choices)
+            if raw and raw not in allowed:
+                return JsonResponse(
+                    {"ok": False,
+                     "error": (f"'{value.strip()}' is not a clonality — it is one "
+                               f"of {', '.join(allowed)}. Whether it is a "
+                               f"recombinant is the separate tick beside it, "
+                               f"because the two are separate columns.")},
+                    status=400)
+            antibody.clonality = raw or Antibody.Clonality.UNKNOWN
+        elif field == "acquisition_method":
+            # The other closed set on this board, refused the same way and for
+            # the same reason: the picker narrows what a person can send, the
+            # writer decides what is stored.
+            raw = value.strip().lower().replace(" ", "_").replace("-", "_")
+            allowed = dict(Antibody.AcquisitionMethod.choices)
+            if raw and raw not in allowed:
+                return JsonResponse(
+                    {"ok": False,
+                     "error": (f"'{value.strip()}' is not an acquisition method "
+                               f"— it is one of {', '.join(allowed)}. "
+                               f"'in_kind' means the supplier contributed it; "
+                               f"'purchased' means the lab bought it.")},
+                    status=400)
+            antibody.acquisition_method = raw or Antibody.AcquisitionMethod.UNKNOWN
+        elif field in board.LOCATION_FIELDS:
+            # A freezer and a box are not columns on the antibody — they are an
+            # `InventoryLocation` row, and `services/storage.py` is the one
+            # place that writes one. It creates the row on the first value,
+            # deletes it when the last one is cleared, and refuses by name when
+            # the vial is recorded in two places or has no site to hang a
+            # freezer off. It writes, so there is nothing for `antibody.save()`
+            # below to do — but the save is harmless and keeps one exit path.
+            writer = (storage_svc.set_type if field == "storage"
+                      else storage_svc.set_field)
+            _loc, err = (writer(antibody, value)
+                         if field == "storage"
+                         else writer(antibody, field, value))
+            if err:
+                return JsonResponse({"ok": False, "error": err}, status=400)
+        elif field in board.DATE_FIELDS:
+            # As much of the date as anybody knows, and no more. `2026-08` is
+            # August and stays August; a slashed date whose two numbers could
+            # each be the month is refused rather than guessed, because a wrong
+            # arrival date is the quiet kind of wrong — nothing on any screen
+            # contradicts it and it turns up in a methods section years later.
+            raw = value.strip()
+            if not raw:
+                antibody.received_date = None
+                antibody.received_precision = received_svc.DAY
+            else:
+                when, precision, err = received_svc.parse(raw)
+                if err:
+                    return JsonResponse({"ok": False, "error": err}, status=400)
+                antibody.received_date = when
+                antibody.received_precision = precision
         elif field in board.NUMERIC_FIELDS & board.EDITABLE_FIELDS:
             # The lab's own A-number. Emptying the cell means "not written
             # down", so it clears the field rather than failing on int("");

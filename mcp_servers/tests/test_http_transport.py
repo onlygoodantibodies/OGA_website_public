@@ -113,7 +113,7 @@ def test_readonly_connector_is_database_only():
         names, text = asyncio.run(_roundtrip(
             f"{base}/readonly/mcp", "ro", "antibody_validation", {"catalogue": "ab212184"}))
         # data tools present
-        assert {"antibody_validation", "target_report", "antibodies_by_recommendation",
+        assert {"antibody_validation", "target_report", "antibodies_by_support",
                 "list_targets", "search_antibodies"} <= set(names)
         # education / tutor tools are gone
         assert not ({"learning_overview", "choosing_walkthrough", "get_module",

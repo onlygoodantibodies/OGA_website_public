@@ -141,9 +141,9 @@ class TheDocumentMatchesTheCodeTests(SimpleTestCase):
         Every other description is prose this file deliberately does not pin.
         It used to pin "not a negative result", the paragraph the owner cut on
         7 Aug 2026; what a consumer is owed is which protocols the result came
-        from, that performance is protocol and sample dependent, and that the
-        result neither validates nor invalidates another assay system. Asserted
-        against the constant, so the schema cannot drift from the pages.
+        from, and what it does and does not say about their own experiment.
+        Asserted against the constant, so the schema cannot drift from the
+        pages.
         """
         from core import recommendations as R
 
@@ -222,3 +222,32 @@ class TheReadmeAndTheSpecAgreeTests(SimpleTestCase):
             r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b',
             text)
         self.assertEqual(leaked, [], f'A real-looking key is in API.md: {leaked}')
+
+
+class TheWordVerdictStaysOutOfThePublishedSpecTests(SimpleTestCase):
+    """`verdict` was removed from the public contract on 7 Aug 2026.
+
+    The owner's reason: these are results from testing under the consensus
+    protocols, not settled judgements about a product. `core/tests_data_access.
+    py` keeps the word off the public pages and out of API.md — and this
+    document was covered by neither, though it is as public as both and is what
+    a generated client puts in front of a developer.
+
+    It has since come back twice through doors nobody was watching. On 12 Sep
+    `oga_display` was published as `describe()`'s own dict, which carries a
+    `verdict` key, so the word went out as a field name. On 14 Sep it was in
+    eight schema descriptions written the same day the rest of the vocabulary
+    was corrected. Both were silent: the JSON stays valid, every client keeps
+    working, and the only symptom is the API saying a word the site does not.
+
+    So the guard is the whole serialised document rather than a list of the
+    places it has appeared — a description reworded next year is exactly the
+    third door, and a check that enumerated the first two would not see it.
+
+    The one allowance is `verdicts`, the removed field, which the changelog
+    comment in `api_schema.py` names. That comment is source, not payload, and
+    this reads the payload.
+    """
+
+    def test_the_serialised_document_never_says_it(self):
+        self.assertNotIn('verdict', json.dumps(document()).lower())

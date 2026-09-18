@@ -58,7 +58,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 
 from pipeline.models import Antibody
-from pipeline.services import scicrunch
+from pipeline.services import scicrunch, targets
 from pipeline.rrid_utils import normalize_rrid, registry_url
 
 
@@ -157,7 +157,13 @@ class Command(BaseCommand):
                                   f"(high={stats['high']} review={stats['review']} "
                                   f"nomatch={stats['nomatch']})")
 
-            status, rrid, url, note = match_registry(ab.catalogue_number, company, gene, reg["records"])
+            # The other symbols this gene is known by, off our own Target row --
+            # no network. The registry names a gene by a synonym often enough
+            # that without these, ten PDPN antibodies from six vendors read as
+            # ten different antibodies. See match_registry.
+            aliases = targets.registry_names(ab.target) if ab.target_id else []
+            status, rrid, url, note = match_registry(
+                ab.catalogue_number, company, gene, reg["records"], aliases=aliases)
             if status == "high":
                 stats["high"] += 1
                 fields = ["rrid", "rrid_link"]

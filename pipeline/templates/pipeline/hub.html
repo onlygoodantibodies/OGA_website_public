@@ -127,10 +127,21 @@ the nav and the eyebrow say that now too.{% endcomment %}
     <a href="{% url 'extension' %}"
        class="text-sm font-semibold text-amber-900 hover:text-amber-700 border-b-2 border-amber-300 hover:border-amber-500">Browser extension</a>
     <span class="text-amber-700 text-xs sm:ml-auto">
-      Shows antibody validation while you read a paper. Team-only until it is on the stores.
+      Shows antibody characterisation while you read a paper. Team-only until it is on the stores.
     </span>
   </div>
   {% endif %}
+
+  {# ── The packaged extension, for a store submission ── #}
+  <div class="mb-10 border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <span class="text-sm font-bold text-gray-500">Release</span>
+    <a href="{% url 'extension_download' %}"
+       class="text-sm font-semibold text-gray-900 hover:text-ycharos-700 border-b-2 border-gray-300 hover:border-ycharos-500">Download the extension zip{% if extension_zip_version %} ({{ extension_zip_version }}){% endif %}</a>
+    <span class="text-gray-500 text-xs sm:ml-auto">
+      The artefact submitted to the Chrome Web Store and to AMO. Built around a
+      snapshot of the live database when you press it, so deploy first.
+    </span>
+  </div>
 
 </div>
 {% endblock %}

@@ -212,6 +212,73 @@ class UploadGoesThroughTheSamePreviewAndCommitTests(TestCase):
         line = CellLine.objects.using(DB).get(name="HAP1")
         self.assertIsNone(line.target_id)
 
+    def test_how_a_line_grows_survives_the_round_trip(self):
+        """Adherent or suspension — uOttawa's ask, 14 Sep 2026.
+
+        `CellLine.growth_properties` was filled on 411 rows by the Access
+        import, was in `EDITABLE_FIELDS` and in `row_for`, and appeared in no
+        column on any screen and no heading in any sheet. So the thing to pin is
+        the whole path rather than the column: a sheet that carries it writes
+        it, the board draws it back, and the download carries it out again.
+        """
+        f = _sheet([["name", "genotype", "growth properties"],
+                    ["HAP1", "WT", "adherent"]])
+        data = self.client.post("/pipeline/import/upload/cell-lines/",
+                                {"file": f}).json()
+        self.client.post("/pipeline/cell-lines/bulk/commit/",
+                         {"text": data["text"], "dry_run": False},
+                         content_type="application/json")
+        line = CellLine.objects.using(DB).get(name="HAP1")
+        self.assertEqual(line.growth_properties, "adherent")
+
+        # Drawn — the half that was missing. A value the board does not draw is
+        # one nobody can correct, and nobody knew was there.
+        rows = self.client.get("/pipeline/cell-lines/board/rows/").json()["rows"]
+        self.assertEqual([r["growth_properties"] for r in rows], ["adherent"])
+
+        # And out again, under the heading the parser reads back.
+        sheet = _read(self.client.get("/pipeline/cell-lines/export/").content)
+        self.assertIn("growth properties", sheet[0])
+        self.assertEqual(sheet[1][sheet[0].index("growth properties")], "adherent")
+
+    def test_the_species_column_round_trips_too(self):
+        """McGill's ask on the same thread as Growth, and the same dark field:
+        `CellLine.species` was in `EDITABLE_FIELDS` and in `row_for`, and in no
+        column and no sheet. 604 of the 616 live lines are Human, which is the
+        argument for drawing it — a reader who never sees the column cannot
+        spot the eight that are not."""
+        f = _sheet([["name", "genotype", "species"], ["N2a", "WT", "Mouse"]])
+        data = self.client.post("/pipeline/import/upload/cell-lines/",
+                                {"file": f}).json()
+        self.client.post("/pipeline/cell-lines/bulk/commit/",
+                         {"text": data["text"], "dry_run": False},
+                         content_type="application/json")
+        self.assertEqual(
+            CellLine.objects.using(DB).get(name="N2a").species, "Mouse")
+        rows = self.client.get("/pipeline/cell-lines/board/rows/").json()["rows"]
+        self.assertEqual([r["species"] for r in rows], ["Mouse"])
+        sheet = _read(self.client.get("/pipeline/cell-lines/export/").content)
+        self.assertEqual(sheet[1][sheet[0].index("species")], "Mouse")
+
+    def test_a_blank_growth_cell_never_clears_what_is_recorded(self):
+        """Fill-only-blank, on the column somebody will most often leave out:
+        every sheet anybody downloaded before today has no such column at all."""
+        f = _sheet([["name", "genotype", "growth properties"],
+                    ["HAP1", "WT", "suspension"]])
+        data = self.client.post("/pipeline/import/upload/cell-lines/",
+                                {"file": f}).json()
+        self.client.post("/pipeline/cell-lines/bulk/commit/",
+                         {"text": data["text"], "dry_run": False},
+                         content_type="application/json")
+        again = self.client.post("/pipeline/import/upload/cell-lines/",
+                                 {"file": _sheet([["name", "genotype"],
+                                                  ["HAP1", "WT"]])}).json()
+        self.client.post("/pipeline/cell-lines/bulk/commit/",
+                         {"text": again["text"], "dry_run": False},
+                         content_type="application/json")
+        line = CellLine.objects.using(DB).get(name="HAP1")
+        self.assertEqual(line.growth_properties, "suspension")
+
     def test_an_empty_file_is_refused_in_words(self):
         resp = self.client.post("/pipeline/import/upload/antibodies/",
                                 {"file": _sheet([])})

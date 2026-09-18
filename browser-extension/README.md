@@ -40,7 +40,7 @@ asserted wrongly.
 | green | Recommended in every assessed application that has a result |
 | red | Tested and not recommended in every assessed application that has a result |
 | split underline | Passes some assessed applications and fails others — 43% of the dataset. The card says which |
-| amber | This antibody is untested, but its target has been characterised, so validated alternatives exist |
+| amber | This antibody is untested, but its target has been characterised, so alternatives with supportive characterisation data exist |
 | grey | Nothing we hold applies: the target is not characterised, or the page names an application we have no result for |
 
 The colour is the **worst held result**, so a reagent with a failure anywhere is
@@ -379,32 +379,67 @@ signing, so the store listings are the only realistic route. The install page at
 `/extension/` links out to them and shows each as "in review" until
 `EXTENSION_CHROME_URL` / `EXTENSION_FIREFOX_URL` are set in the environment.
 
-**Deploying the website does not put anything in a store**, and submission is a
-separate, manual, one-time job. The two are ordered, though, because the zip
-should carry real data and only the server can produce it:
+**The zip download lives on the pipeline hub**, in the Release row at the foot
+of `/pipeline/start/`. It was removed outright on 31 Aug 2026, when the Chrome
+Web Store listing went live — the link then sat in the *hero* of `/extension/`,
+where a zip beside two store buttons invites a stranger to side-load — and
+restored on 3 Sep 2026 for the 0.3.3 submission. **It is not taken out again
+after a submission**, which the 31 Aug version of these steps called for: a
+release cannot be cut without it, and a row on a members-only hub is not the
+public offer that was worth removing.
 
-1. **Deploy the code with `EXTENSION_PAGE_PUBLIC` unset.** The install page sits
-   behind the pipeline login, linked from the pipeline hub; the public Tools hub
-   card stays hidden. Nothing is publicly reachable, so the deploy is safe to do
-   whenever.
-2. **The team installs from `/extension/download/`.** That endpoint packages the
-   extension on the fly with a snapshot built from the live database, so the zip
-   works on real papers immediately — no build step, no shell access. The page
-   carries the load-unpacked instructions.
-3. **Submit the same zip.** It is the store artefact as well as the team build —
-   there is deliberately only one way to package this, so what the team tests is
-   byte-for-byte what the stores receive. Chrome, Edge and Firefox all take it.
+**Not on `/extension/`, and that is not a preference.** It was put in that
+page's footer first and was invisible to the member it was for. `/extension/`
+is public, so `OGA_website/cache_headers.py` stamps an anonymous 200 with
+`s-maxage` and takes `Cookie` out of `Vary`; Cloudflare keeps one copy and
+serves it to everybody, so a member-conditional panel there is either never
+shown or shown to strangers. A cache purge does not fix it — what repopulates
+the edge is another anonymous copy. `/pipeline/` is in
+`NEVER_CACHED_PREFIXES`, so the hub renders per visitor.
+
+**`core/extension_index.py::build_zip_bytes` is the only packager**, tested by
+`core/tests_extension_package.py`. `core/tests_extension_scope.py::
+TheTeamCanStillReachTheBuildTests` pins the link three ways — a stranger and a
+signed-in non-member are not offered it, a pipeline member is — plus the route
+itself refusing an anonymous request, since every page-reading assertion would
+pass on a view that had lost its decorator.
+
+**Firefox is unaffected.** `/extension/firefox.xpi` serves the Mozilla-signed
+build and is how Firefox installs; it was never the zip.
+
+**Deploying the website does not put anything in a store**, and submission is a
+separate, manual job. The zip should carry real data and only the server can
+produce it, so a submission runs:
+
+1. **Bump `manifest.json` and `package.json`, and write the CHANGELOG entry.**
+   Both stores refuse a version they have already seen, and `build_zip_bytes`
+   names the artefact from the manifest — so the number moves here first. A bump
+   precedes a submission and never follows an approval; there is no way to
+   re-upload over a published version.
+2. **Deploy the site, and only then press Download the extension zip** on the
+   pipeline hub — the row names the version it will hand you, so a number a
+   store already has is visible before you spend the submission.
+
+   The order is the half that bites: the packager swaps the repository's 18-record dev fixture for
+   an index built from the **live database at the moment of the request**, so the
+   artefact cannot come from a checkout, a CI job or a web session — and
+   downloading before the deploy packages the *previous* code with nothing on the
+   page to say so.
+3. **Submit the same zip.** It is the store artefact as well as
+   the team build — there is deliberately only one way to package this, so what
+   the team tests is byte-for-byte what the stores receive. Chrome, Edge and
+   Firefox all take it.
 
    Packaging refuses outright if the manifest would be rejected or would
    misbehave: missing icons, an over-long description, no gecko id, or a broad
    host pattern like `*://*/*`. Those are all static properties, so a clean
    manifest stays clean; the check exists because one of them (the broad
    pattern) did ship once.
-4. **When the listings are approved**, set `EXTENSION_CHROME_URL`,
-   `EXTENSION_FIREFOX_URL` and `EXTENSION_PAGE_PUBLIC=True` in Render. The page
-   goes public and appears on the Tools hub, the store buttons replace the
-   download-and-side-load instructions, and the pipeline hub's preview row
-   disappears — no redeploy of code.
+
+`EXTENSION_CHROME_URL`, `EXTENSION_FIREFOX_URL` and `EXTENSION_PAGE_PUBLIC=True`
+are set in Render when a listing is approved. The page goes public and appears on
+the Tools hub, the store buttons draw, and the pipeline hub's preview row
+disappears — no redeploy of code.
 
 Until step 4 the only publicly reachable part is `/extension/index.json`, which
 is the same data the gene pages and the MCP server already publish.
@@ -515,6 +550,6 @@ and reported an identifier fix as missing that had shipped in 0.1.7.
 - **Abstract-only landing pages and supplementary material are out of reach.**
   Seven of the nine non-detections in the v0.1.6 benchmark were one of these:
   the reagent list is simply not in the DOM. Nothing the matcher can do.
-- Abcam's knockout validations are not merged into YCharOS verdicts: every
-  record carries `src` and `ind` (independent) so the card can attribute each
-  result to whoever generated it. Keep them separate.
+- Abcam's knockout-controlled characterisation data is not merged into YCharOS
+  verdicts: every record carries `src` and `ind` (independent) so the card can
+  attribute each result to whoever generated it. Keep them separate.

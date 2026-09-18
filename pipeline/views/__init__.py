@@ -32,6 +32,7 @@ from pipeline.views.attachments import *   # Raw files against a session
 from pipeline.views.deposit import *       # Deposit a gene's data to Zenodo
 from pipeline.views.data_io import *           # Whole-dataset download / upsert upload
 from pipeline.views.recommendations import *   # Visual gene-at-a-time recommendation manager
+from pipeline.views.outcomes import *          # Judge outcomes: detects / selective, per figure
 from pipeline.views.target_board import *      # Cross-site target board + portfolio
 from pipeline.views.session_board import *     # Sessions board (find + edit in place)
 from pipeline.views.antibody_board import *    # Antibodies board (find + edit in place)

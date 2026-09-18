@@ -117,8 +117,20 @@ def _oga_status(gene):
 
 
 def _uniprot(gene):
+    """The one outbound call on this endpoint, and the reason it is the cautious one.
+
+    This runs on every pause in somebody's typing, so it goes through
+    `uniprot.lookup_interactive`: cached, on a short deadline, and capped at a
+    couple of threads. Asking `lookup_gene` directly parked all four of the
+    site's threads on UniProt and got the instance restarted (2 Sep 2026 — see
+    the block comment in `pipeline/services/uniprot.py`).
+
+    `lookup` rather than `lookup_gene` underneath, so a pasted accession
+    resolves: somebody typed `P05622` into this box the same afternoon and was
+    told nothing was found about PDGFRB.
+    """
     from pipeline.services import uniprot
-    up = uniprot.lookup_gene(gene)
+    up = uniprot.lookup_interactive(gene)
     if not up.get("found"):
         return {"found": False, "error": up.get("error", "")}
     return {

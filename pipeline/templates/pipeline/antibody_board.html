@@ -27,9 +27,46 @@
     and put those rows back, with the same per-row preview as a paste.{% endcomment %}
     <a id="dl-btn" href="{% url 'pipeline:antibody_export' %}"
        class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Download these</a>
+    {% comment %}The blank sheet, on the page rather than only inside the two
+    pop-outs that render it.
+
+    `OGABoard.newEntry` and `uploadPanel` both carry the link, so it was
+    reachable — after you had already decided to open one of them. Somebody
+    looking at this board and wondering whether they can work in Excel could not
+    see that they can, which is the same gap the targets board's header and the
+    gene page's two panels already fixed.
+
+    A receipt because a plain `<a href>` is invisible — the browser writes the
+    file and the page does not move.{% endcomment %}
+    <a href="{% url 'pipeline:import_template' kind='antibodies' %}"
+       data-receipt="header-template-receipt"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+       title="An empty spreadsheet with the right columns and an example row — fill it in and bring it back with Upload a sheet">⬇ Blank template</a>
     <button type="button" id="upload-btn"
             class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Upload a sheet</button>
+    {% comment %}Assign or rearrange the A-numbers on the rows currently
+    filtered. Not a cell you retype: swapping two numbers one edit at a time is
+    impossible, because every intermediate state collides — so the unit is the
+    whole mapping, previewed and written together. See
+    services/renumber.py.{% endcomment %}
+    <button type="button" id="renumber-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Assign numbers</button>
   </div>
+  <p id="header-template-receipt" class="text-sm mt-2" role="status" aria-live="polite"></p>
+  {% comment %}A number in a caveat with nothing to click is half a message.
+  Adding an antibody no longer mints an A-number, so "not numbered yet" is a
+  normal and growing state — and a bench that cannot find those rows discovers
+  them on a printed bench sheet with a blank ab # column. Scoped to your own
+  site, because those are the numbers you may deal out.{% endcomment %}
+  {% if unnumbered %}
+    <p class="mt-2 text-sm text-gray-600">
+      <a href="?numbered=no" class="text-ycharos-700 underline font-semibold">{{ unnumbered }}
+        of your bench's antibodies {% if unnumbered == 1 %}has{% else %}have{% endif %} no A-number yet</a>
+      — deal them out with <b>Assign numbers</b> once a delivery is complete, so each
+      protein's vials sit together. Planning a session numbers anything still without one.
+    </p>
+  {% endif %}
+  <div id="renumber-panel"></div>
   <div id="upload-panel"></div>
   <div id="identity-panel"></div>
 
@@ -43,6 +80,7 @@
   sentence onto the page. That is precisely what shipped here, and what the
   second field test read off the screen above the Add button.{% endcomment %}
   {{ new_columns|json_script:"new-columns" }}
+  {{ cell_choices|json_script:"cell-choices" }}
   {{ new_example|json_script:"new-example" }}
   <div id="new-panel"></div>
 
@@ -120,6 +158,20 @@
         <option value="">Either</option>
         <option value="yes" {% if filters.recommended == 'yes' %}selected{% endif %}>Recommended</option>
         <option value="no" {% if filters.recommended == 'no' %}selected{% endif %}>Not recommended</option>
+      </select>
+    </label>
+    <label class="block">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Lab number</span>
+      {% comment %}The filter Assign numbers is used through: "the rows with no
+      A-number yet" is how a bench finds what it has just logged, and it has to
+      be a control on this form rather than only a URL value — board.js rebuilds
+      its query from the form, so a filter the form cannot carry is dropped by
+      the first rows fetch and the page looks filtered while the data is
+      not.{% endcomment %}
+      <select name="numbered" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">Any</option>
+        <option value="no" {% if filters.numbered == 'no' %}selected{% endif %}>No A-number yet</option>
+        <option value="yes" {% if filters.numbered == 'yes' %}selected{% endif %}>Has an A-number</option>
       </select>
     </label>
     <div class="flex items-end gap-3">
@@ -299,6 +351,13 @@
                 : tick(r, 'is_recombinant', r.is_recombinant, 'Recombinant',
                        'Recombinant', 'not recombinant')}</div>
         <div class="text-xs text-gray-400">${cell(r, 'clone_id', r.clone_id, {label: 'clone ID'})}</div>
+        ${/* Isotype rides here rather than taking a column of its own: it is the
+              same kind of fact as the clone id — a detail of what the antibody
+              *is* — and this board is already fifteen wide. 2,823 rows carry one
+              and until now no screen drew it, which is why uOttawa's own
+              spreadsheet had an Isotype column. */''}
+        <div class="text-xs text-gray-400">${cell(r, 'isotype', r.isotype,
+            {label: 'isotype', empty: 'add — e.g. IgG'})}</div>
       </td>
       <td class="px-3 py-2">${cell(r, 'host_species', r.host_species, {label: 'host species'})}</td>
       <td class="px-3 py-2 whitespace-nowrap">${
@@ -313,15 +372,93 @@
         SUPPLIER_APPS.map(a => tick(r, `supplier_validated_${a}`, r.supplier_validated[a],
                            a.toUpperCase(),
                            `supplier recommends for ${a.toUpperCase()}`)).join('')}</td>
+      ${/* Beside the supplier's other claim, not beside Host — this is what the
+            datasheet says the antibody cross-reacts with, and `H, M, R` is the
+            lab's own notation for it. In the database on 2,798 rows and drawn
+            nowhere until now. */''}
+      <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
+        cell(r, 'species_reactivity', r.species_reactivity,
+             {label: 'species reactivity the supplier claims',
+              empty: 'add — e.g. H, M, R'})}</td>
       <td class="px-3 py-2 text-gray-600">${cell(r, 'site', r.site, {empty: 'set site'})}</td>
+      ${/* Where the vial is. Both columns were in the database and on no
+            screen: 3,058 antibodies already carry an InventoryLocation with a
+            box, imported from Access years ago and unreadable since, which is
+            why uOttawa asked for a box field as though there were none.
+
+            A vial recorded in TWO places is the case that decides the shape.
+            134 of them are — a -20 working aliquot and a -80 backup — and a
+            single cell cannot say which you meant, so it is drawn read-only
+            with the reason **on the page**. A greyed control whose reason
+            lives on a `title` is one nobody hovering a phone ever reads. */''}
+      <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
+        r.locations > 1
+          ? `<span>${esc(r.storage)}</span>
+             <span class="block text-xs text-gray-400">in ${r.locations} places — edit in admin</span>`
+          : cell(r, 'storage', r.storage, {label: 'storage temperature',
+                                           empty: 'add — e.g. -20'})}</td>
+      <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
+        r.locations > 1
+          ? `<span>${esc(r.box)}</span>`
+          : cell(r, 'box', r.box, {label: 'freezer box', empty: 'add — e.g. 42'})}</td>
+      ${/* As much of the date as anybody knows. `data-value` carries the stored
+            spelling (`2026-08`) so an edit round-trips, while the cell shows
+            `Aug 2026` — one fact, one control, the arrangement the sessions
+            board's status pill uses. A month never becomes the 1st of it. */''}
+      <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
+        cell(r, 'received_date', r.received_date,
+             {display: r.received_label, label: 'date received',
+              empty: 'add — e.g. Aug 2026'})}</td>
+      ${/* In kind or purchased, beside the date it arrived. `showValue` rebuilds
+            the label from `cfg.cellChoices`, so the cell shows *In Kind* while
+            `data-value` carries `in_kind` — one fact, one control, and the grid
+            sends back the code the writer accepts. A closed set, so this is a
+            <select> and the writer refuses anything else. */''}
+      <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
+        cell(r, 'acquisition_method', r.acquisition_method,
+             {label: 'how this vial was acquired'})}</td>
       <td class="px-3 py-2 text-gray-500 max-w-xs">${cell(r, 'comments', r.comments)}</td>
     </tr>`;
   }
 
+  /* Assign or rearrange A-numbers. The implementation is `OGABoard.renumberPanel`
+     — a gene's own page mounts the same one, and a renumbering that behaved
+     differently depending on which page you opened it from is the shape of
+     defect this repo records most. All this supplies is how *this* page names
+     the rows it means: the filter form, so the panel covers exactly what the
+     grid is showing. */
+  const renumber = OGABoard.renumberPanel({
+    mount: document.getElementById('renumber-panel'),
+    csrf,
+    urls: {plan: "{% url 'pipeline:antibody_renumber_plan' %}",
+           apply: "{% url 'pipeline:antibody_renumber_apply' %}"},
+    query: () => OGABoard.formQuery(filtersForm),
+    scope: 'every row the filters above are showing',
+    onDone: () => board.load(),
+  });
+  document.getElementById('renumber-btn').addEventListener('click', renumber.open);
+
   const errors = banner('board-error', 'board-error-text', 'board-error-close');
 
+  /* What each cell may hold.
+   *
+   * `{% templatetag openblock %} comment %}` is NOT usable in here — an inline
+   * <script> is page text, so a Django comment leaves its prose behind as
+   * JavaScript once the tags are stripped, and BoardScriptsParseTests is what
+   * catches it. A JS comment is the form for this block.
+   *
+   * Three of these were closed sets drawn as bare text boxes: clonality is a
+   * four-value enum, site is refused unless it is one on file, storage is one
+   * of six temperatures. The grid offered a mistake and reported it after the
+   * save had gone out — the defect the sessions board's `status` cell had.
+   * The rest are conventions rather than enums, so they are datalists built
+   * from what the column already holds: a vocabulary nobody may add to stops
+   * describing the bench. Built server-side in `antibody_board.cell_choices`,
+   * because the values come from the rows. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
+
   const board = OGABoard.create({
-    grid, filtersForm, errors, csrf,
+    grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
     urls: {rows: rowsUrl, patch: patchUrl},
@@ -334,7 +471,8 @@
     // the Gene box can be cleared without pressing Apply, and the grid redraws
     // from the form after an add or a delete.
     afterLoad: () => OGABoard.geneGate(
-      filtersForm, document.getElementById('delete-gate')),
+      filtersForm, document.getElementById('delete-gate'),
+      OGABoard.GENE_GATE_ANTIBODIES),
   });
 
   // ── Add antibodies, in a pop-out on this page ─────────────────────────
@@ -346,6 +484,20 @@
     columns: JSON.parse(document.getElementById('new-columns').textContent),
     example: JSON.parse(document.getElementById('new-example').textContent),
     templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
+    /* The same vocabularies the grid cells offer, on the surface where rows are
+     * created — otherwise a column is a picker once the record exists and a
+     * blank box while you are typing it, which is the worse half. Keyed by
+     * column heading (see `imports.ANTIBODY_COLUMNS`), and still text inputs:
+     * `newEntry` serialises this grid to TSV through the same parser a paste
+     * uses, so the list removes the typo and not the door. */
+    suggestions: {
+      site: OGABoard.optionValues(cellChoices.site),
+      clonality: OGABoard.optionValues(cellChoices.clonality),
+      host: OGABoard.optionValues(cellChoices.host_species),
+      isotype: OGABoard.optionValues(cellChoices.isotype),
+      reactivity: OGABoard.optionValues(cellChoices.species_reactivity),
+      storage: OGABoard.optionValues(cellChoices.storage),
+    },
     urls: {
       preview: "{% url 'pipeline:bulk_antibodies_parse' %}",
       commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
@@ -374,14 +526,18 @@
           <input type="text" id="ne-default-gene" placeholder="e.g. SOD1"
                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
         </label>
-        <label class="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" id="ne-create-targets" class="rounded border-gray-300">
-          Add the gene as a new target if it isn't one yet
+        <label class="flex items-start gap-2 text-sm text-gray-700 max-w-md">
+          <input type="checkbox" id="ne-number-now" class="mt-1 rounded border-gray-300">
+          <span>Give these an <b>A-number now</b>
+            <span class="block text-xs text-gray-500">Off by default, so you can deal the
+            numbers out once a delivery is complete and keep each protein's vials in one
+            box. Tick it if your bench numbers a vial the day it arrives — anything still
+            without a number gets one when a session is planned.</span></span>
         </label>
       </div>`,
     extraValues: () => ({
       default_gene: document.getElementById('ne-default-gene').value.trim(),
-      create_targets: document.getElementById('ne-create-targets').checked,
+      number_now: document.getElementById('ne-number-now').checked,
     }),
     // bulk_antibodies_commit defaults to a dry run — a commit that doesn't say
     // so explicitly just previews again and creates nothing.
@@ -393,7 +549,7 @@
       return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
           <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
           <ul class="mt-1 text-gray-700 list-disc list-inside">
-            <li>${s.create || 0} new, ${s.update || 0} already known (will be updated)</li>
+            <li>${s.create || 0} new, ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}</li>
             ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
               sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
             ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
@@ -472,6 +628,23 @@
       preview: "{% url 'pipeline:import_upload' kind='antibodies' %}",
       commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
     },
+    /* The same question the Add panel asks, because it is the same write. A
+       tick on one surface and not the other is how one door comes to behave
+       differently from the door beside it — `extraFields` reaches the upload's
+       form data, `extraBody` the commit JSON, and both are needed or the
+       preview and the save disagree. */
+    extraHtml: `<label class="flex items-start gap-2 text-sm text-gray-700 mt-2 max-w-md">
+        <input type="checkbox" id="up-number-now" class="mt-1 rounded border-gray-300">
+        <span>Give new rows an <b>A-number now</b>
+          <span class="block text-xs text-gray-500">Off by default. Rows that already
+          carry a number in the <b>ab #</b> column keep it either way.</span></span>
+      </label>`,
+    extraFields: () => ({
+      number_now: document.getElementById('up-number-now').checked ? 'true' : 'false',
+    }),
+    extraBody: () => ({
+      number_now: document.getElementById('up-number-now').checked,
+    }),
     intro: `<b class="text-gray-900">Upload a sheet of antibodies.</b>
             Download these, edit them in Excel, and put them back. The columns are
             the ones the template uses, so a file that works in the Add grid works
@@ -564,6 +737,10 @@
     const b = e.target.closest('.delete-row');
     if (b) del.open(b.dataset.id);
   });
+
+  // The header's template link. `downloadReceipts` marks what it has
+  // wired and the panels wire their own, so this is safe to call here.
+  OGABoard.downloadReceipts();
 
   board.load();
 })();

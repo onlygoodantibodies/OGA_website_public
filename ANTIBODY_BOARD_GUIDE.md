@@ -21,6 +21,20 @@ it is saved. **Escape** cancels.
 If a save fails you get a red banner saying why, and **the cell goes back to what
 it held**. Nothing on screen ever shows a value the database does not have.
 
+**Some cells give you a list rather than a blank box**, and there are two kinds:
+
+- **A dropdown** where the field has a fixed set of answers — clonality, site
+  and storage. Anything else would be refused on save, so it is not offered.
+- **A type-ahead** where the field is a convention rather than a rule — host,
+  isotype and reactivity. It offers what the column already holds, so you can
+  pick the spelling everyone else is using, and you can still type something
+  new. A vocabulary nobody may add to stops describing the bench.
+
+The type-ahead lists are built from the database each time the page loads, and
+they fold case: if the column holds both `rabbit` and `Rabbit`, you are offered
+only the one already more used. Nothing is rewritten — picking from the list is
+just how the split stops getting wider.
+
 Site is matched **by name, exactly**. If the name is not recognised the save is
 refused and the banner says so, rather than quietly emptying the field.
 
@@ -125,6 +139,8 @@ page.
 - **Recommended for** narrows to antibodies we recommend for one application.
 - **OGA recommended** separates "we have a positive verdict" from "we do not" —
   useful for finding the gaps.
+- **Lab number** finds the rows with no A-number yet, or the ones that have one.
+  This is how you get back to a batch you have just logged.
 
 An edit can move a row out of the filter you are looking at. Filter for
 Leicester, change a row's site to McGill, and the row leaves the screen. It has
@@ -159,11 +175,138 @@ so if a sheet spans two benches you can see that before saving.
 
 ---
 
+## Isotype and reactivity
+
+**Isotype** sits under Clonality, with the clone ID — `IgG`, `IgG1`, `IgG2a` and
+so on. **Reactivity (supplier)** is its own column beside Supplier recommends,
+and that placement is the point: it is what the *datasheet* says the antibody
+cross-reacts with, not something OGA tested. The lab writes it as initials —
+`H, M, R` for human, mouse, rat.
+
+Both have been in the database since the Access import — about 2,800 antibodies
+carry each — and until now neither was on any screen or in any sheet. If you
+kept them in a spreadsheet of your own because the portal appeared not to have
+them, the columns will now upload.
+
+---
+
 ## Lot numbers are worth filling in
 
 An antibody that worked in one lot and failed in the next is one of the more
 common ways a published result stops reproducing. The lot column is the only
 place that gets recorded. If you know the lot on the tube, put it in.
+
+---
+
+## Where the vial is, and when it turned up
+
+**Storage**, **Box** and **Received** are the last three columns before Comments.
+They are editable in the grid and they are in the download and the upload, so a
+sheet can carry them either way.
+
+**Storage** is the freezer: `4C`, `-20`, `-80`, `LN2` or `RT`. It takes what
+people actually write — `(-20°C)`, `-20C`, `fridge` — and refuses anything it
+cannot place, listing what it takes.
+
+**Box** is free text. Whatever is written on the box: a number, a name, your own
+scheme. Set a storage temperature as well, or the record says which box with no
+freezer to look in — and the board will say so if you try to remove one and leave
+the other.
+
+**A vial can be recorded in two places** — a −20 °C working aliquot and a −80 °C
+backup is the ordinary reason. Both are shown, and those two cells are then
+read-only, because one cell cannot say which of the two you meant. Django admin
+edits them individually.
+
+**Received takes as much of the date as you actually know.** A full date
+(`2026-08-14`), a month (`Aug 2026`, `August 2026`, `2026-08`) or a year. A month
+stays a month: nothing turns it into the 1st, and the column prints `Aug 2026`.
+Download it and you get `2026-08` back, which is what makes the round trip safe.
+
+A slashed date whose two numbers could each be the month — `01/02/2026` — is
+**refused**, because it is 1 February to some of us and 2 January to others and
+nothing in the cell says which. Write it as `2026-02-01` or `1 Feb 2026`.
+
+---
+
+## In kind or purchased
+
+The **Acquisition** column, next to Received, says whether the supplier
+contributed the vial **in kind** or the lab **purchased** it — the distinction
+that matters when a top-cited antibody has to be bought to finish a study.
+
+It is a dropdown with three answers: *In Kind*, *Purchased* and *Unknown*.
+Anything else is refused, so the column stays countable.
+
+This was already recorded for effectively every antibody on file — it came
+across with the Access import years ago and had simply never been shown on a
+screen or carried in a sheet. So expect to find it mostly filled in already,
+and to be correcting it rather than starting from nothing.
+
+In the download and the template the column is called **acquisition** and holds
+`in_kind`, `purchased` or `unknown`. Typing *In Kind* is read the same way, so
+a sheet edited from what the board displays still comes back correctly.
+
+---
+
+## Assigning and rearranging A-numbers
+
+**Adding an antibody no longer gives it a number.** That is deliberate: the
+A-number decides which freezer box a vial goes in, and reagents for one protein
+arrive over weeks — numbering each one as it turns up scatters that protein
+across as many boxes as it had deliveries. So the number waits until you are
+ready to deal a set out.
+
+Two things follow. The board tells you how many of your bench's antibodies have
+no number yet, and the link takes you to them. And **planning a session gives a
+number to anything on it that still has none** — the bench sheet prints the
+`ab #` column, and a blank there is a tube nobody can identify.
+
+**If your bench numbers a vial the day it arrives, tick "Give these an A-number
+now"** on the Add panel, on a gene's own page, or on the Upload panel. That is
+the way it always worked, and it still works — the box is just off unless you
+ask for it.
+
+You can still type a number in the **ab #** column at any point, on the board or
+in a sheet. A number you typed always wins, tick or no tick.
+
+**Assign numbers** is the button beside Upload a sheet — and there is one on
+each gene's own page too, which does the same job for that gene's antibodies at
+your bench. It works on **every row
+the filters above are showing**, in the order they are shown — gene, then
+supplier, then catalogue — so numbering them as shown puts each protein's
+antibodies together. That is the point of it: if the number decides which box a
+vial goes in, numbering in order of arrival scatters one protein across five
+boxes.
+
+It is two presses. **Check these** writes nothing and draws every old → new pair,
+including the rows that would not move. **Change the numbers** then writes the
+whole set in one go.
+
+**Leave "First number" blank** to carry on from your bench's highest. **Type
+one** to re-deal a block you have already used — the numbers move together, so
+two vials are never both holding the same one at any point. That is why this is a
+panel and not the number cell: swapping A-1 and A-2 by retyping cells is
+impossible, because whichever you type first collides with the one still holding
+it.
+
+**Some rows keep the number they have, and the preview names each one.** An
+antibody with a reading recorded against it, a published figure, or a crop
+waiting for review has had its number leave the app — it is on a bench sheet or
+under a figure — and moving it could file a later reading against a different
+antibody. Their numbers are also kept out of the way, so nothing else lands on
+one.
+
+**The app cannot see your freezer.** Only do this while the numbers are not yet
+written on the tubes. Nothing in the portal knows whether they are.
+
+If a number you are aiming at is already held by an antibody that is *not* in the
+filter, the whole batch is refused and the message names the record holding it.
+Start higher, or widen the filter so that row moves too. Two sites at once is
+refused as well — McGill's A-1 and Leicester's A-1 are different antibodies.
+
+**Your own bench's antibodies**, unless you are a superuser — the same rule as
+deleting. These numbers are written on somebody's freezer boxes.
 
 ---
 

@@ -301,8 +301,15 @@ def target_detail(request, pk):
     # and one click settles it.
     ko_confirmed_count = sum(1 for cl in ko_lines if ko_validation.confirmed(cl))
     ko_disputed_count = sum(1 for cl in ko_lines if ko_validation.disagrees(cl))
+    # Which clone each knockout is, and how many clones of it are on file. Two
+    # rows here reading "A549" are two different single-cell knockouts of one
+    # gene in one background — often from different guides — and without the
+    # clone they read as one line listed twice. One batched query for the
+    # panel (`clone_counts`), not one per row.
+    clone_totals = cell_line_svc.clone_counts(ko_lines)
     for cl in ko_lines:
         cl.ko_badge = ko_validation.badge(cl)
+        cl.clone_note = cell_line_svc.clone_note(cl, total=clone_totals.get(cl.pk))
 
     # Where this gene has got to, derived from records rather than a status
     # field — see services/gene_progress.py.
@@ -410,18 +417,15 @@ def target_detail(request, pk):
         'reports': reports,
         'unpublished_reports': unpublished_reports,
         # The board's row for this gene, and the vocabularies its cells offer.
-        # A site is validated against the ones on file (`services/sites.py`
-        # refuses anything else by name), so that cell gets a closed list;
-        # funders and projects are created on demand by the same write path the
-        # board uses, so theirs are reminders rather than rules — the trade
-        # `newEntry`'s `suggestions` already makes.
+        # **The same function the targets board reads.** These lists were built
+        # here and nowhere else, so the four fields they cover were pickers on
+        # this page and bare text boxes on the board — one fact, two controls,
+        # through one patch endpoint. `target_board.cell_choices` — imported
+        # here as `board_svc` — carries the reasoning now: a site is refused
+        # unless it is one on file, and funders and projects are created on
+        # demand, so theirs are reminders rather than rules.
         'board_row': board_row,
-        'board_sites': [s.name for s in
-                        Site.objects.using(DB).filter(is_active=True).order_by('name')],
-        'board_agencies': list(GrantingAgency.objects.using(DB)
-                               .order_by('name').values_list('name', flat=True)),
-        'board_projects': list(Project.objects.using(DB)
-                               .order_by('name').values_list('name', flat=True)),
+        'cell_choices': board_svc.cell_choices(),
         'assignments': assignments,
         'procedure_summary': procedure_summary,
         # What Generate Report would actually put in the file. Asked of the
@@ -439,6 +443,15 @@ def target_detail(request, pk):
         'pending_rows': pending_rows,
         'pending_count': len(pending_rows),
         'pending_manifest': review_svc.manifest(pending_items),
+        # **Assign numbers needs a bench, not just a gene.** The panel renumbers
+        # whatever the query names, and `?gene=` alone spans every site holding
+        # that gene — which `renumber.plan` refuses, correctly, because McGill's
+        # A-1 and Leicester's A-1 are different antibodies. On the board you fix
+        # that with the site filter; this page has none, so it scopes to your own
+        # bench, which is the only one you may renumber anyway.
+        'my_site_id': getattr(_dash_member(request), 'site_id', '') or '',
+        'my_site_name': getattr(getattr(_dash_member(request), 'site', None),
+                                'name', '') or '',
     }
     return render(request, 'pipeline/target_detail.html', context)
 

@@ -269,6 +269,29 @@ class ImpactPageTests(TestCase):
         self.assertEqual(len(many), len(few),
                          "The query count grew with the number of rows.")
 
+    # --- the page draws what the sections return ------------------------
+
+    def test_the_page_draws_the_new_sections_with_rows_in_them(self):
+        """An empty page renders differently from a full one, and a chart is the
+        classic place that shows up: `widthratio` divides, `|last` walks the
+        list, and neither runs at all when the series is empty. The other tests
+        render this page with nothing in it."""
+        from django.utils import timezone
+
+        from core.models import McpUsageDay
+        from pipeline.models import GeneRequest
+
+        McpUsageDay.objects.create(date=timezone.localdate(),
+                                   tool="search_antibodies",
+                                   client="claude-ai", count=3)
+        GeneRequest.objects.create(typed_text="MAPT", gene_symbol="MAPT",
+                                   email="a@example.com")
+
+        response = self._user("root", True).get(reverse("pipeline:impact"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "search_antibodies")
+        self.assertContains(response, "MAPT")
+
     # --- one broken app must not take the page down --------------------
 
     def test_a_failing_section_is_named_rather_than_dropped(self):
@@ -300,3 +323,210 @@ class ImpactPageTests(TestCase):
             body.count(reverse("pipeline:impact")), 2,
             "Impact should appear in the desktop dropdown and the responsive "
             "menu, once each.")
+
+
+class McpSectionTests(TestCase):
+    """The MCP connector's numbers.
+
+    Two things can be quietly wrong. A **zero day dropped from the series**
+    turns "used twice in a month" into a chart that looks like steady use, since
+    a chart drawn only from the days something happened closes the gaps up. And
+    a **zero that means "nobody is counting"** drawn as a zero that means
+    "nobody called" is the failure this whole section exists to end — it is the
+    misreading the WorkOS user list produced on 31 Aug 2026.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def _rows(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from core.models import McpUsageDay
+
+        today = timezone.localdate()
+        McpUsageDay.objects.create(date=today, tool="search_antibodies",
+                                   client="claude-ai", count=3)
+        McpUsageDay.objects.create(date=today - timedelta(days=2),
+                                   tool="target_report", client="chatgpt",
+                                   count=1)
+
+    def test_a_quiet_day_is_a_zero_and_not_a_gap(self):
+        from pipeline.services import impact
+
+        self._rows()
+        series = impact.mcp_server()['series']
+        self.assertEqual(len(series), impact.RECENT_DAYS)
+        self.assertEqual(series[-1]['n'], 3)
+        self.assertEqual(series[-2]['n'], 0, "The quiet day was dropped.")
+        self.assertEqual(series[-3]['n'], 1)
+
+    def test_the_series_is_oldest_first(self):
+        """The chart draws it left to right; reversed, every trend reads
+        backwards and nothing on the page says so."""
+        from pipeline.services import impact
+
+        self._rows()
+        series = impact.mcp_server()['series']
+        self.assertLess(series[0]['date'], series[-1]['date'])
+
+    def test_the_totals_and_the_lists_agree(self):
+        from pipeline.services import impact
+
+        self._rows()
+        data = impact.mcp_server()
+        self.assertEqual(data['calls'], 4)
+        self.assertEqual(sum(r['calls'] for r in data['by_tool']), 4)
+        self.assertEqual(sum(r['calls'] for r in data['by_client']), 4)
+        self.assertEqual(data['days'], 2)
+
+    def test_the_page_says_when_nothing_is_being_counted(self):
+        """No token means no reporting, which means an empty table is not a fact
+        about usage. The page must say which of the two it is showing."""
+        from django.test import override_settings
+
+        from pipeline.services import impact
+
+        with override_settings(MCP_USAGE_TOKEN=''):
+            self.assertFalse(impact.mcp_server()['reporting'])
+        with override_settings(MCP_USAGE_TOKEN='set'):
+            self.assertTrue(impact.mcp_server()['reporting'])
+
+
+class GeneDemandSectionTests(TestCase):
+    """Requests and genes are two numbers, and the difference is the signal.
+
+    One gene asked for three times is three requests and one gene. Folding them
+    would throw away the repetition, which is the only reason these rows are
+    kept one-per-press in the first place.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def test_repeated_requests_for_one_gene_are_counted_both_ways(self):
+        from pipeline.models import GeneRequest
+        from pipeline.services import impact
+
+        for _ in range(3):
+            GeneRequest.objects.create(typed_text="MAPT", gene_symbol="MAPT",
+                                       email="a@example.com")
+        GeneRequest.objects.create(typed_text="SOD1", gene_symbol="SOD1",
+                                   email="b@example.com", has_funding=True)
+
+        data = impact.gene_demand()
+        self.assertEqual(data['requests'], 4)
+        self.assertEqual(data['genes'], 2)
+        self.assertEqual(data['with_funding'], 1)
+        self.assertEqual(data['top'][0]['count'], 3)
+
+    def test_the_current_month_is_marked_partial(self):
+        """A month one day old is short of days, not short of demand. Drawn
+        unlabelled beside complete months its bar reads as a collapse — which is
+        how it was read on 1 Sep 2026, when 27 August requests sat next to a
+        September that was a few hours old."""
+        from django.utils import timezone
+
+        from pipeline.models import GeneRequest
+        from pipeline.services import impact
+
+        GeneRequest.objects.create(typed_text="MAPT", gene_symbol="MAPT",
+                                   email="a@example.com")
+        series = impact.gene_demand()['series']
+        self.assertTrue(series[-1]['partial'])
+        self.assertEqual(series[-1]['month'],
+                         timezone.localdate().replace(day=1))
+        self.assertFalse(any(row['partial'] for row in series[:-1]))
+
+    def test_no_requests_draws_no_months(self):
+        """An empty series rather than a made-up one: with nothing recorded there
+        is no first month to count from."""
+        from pipeline.services import impact
+
+        self.assertEqual(impact.gene_demand()['series'], [])
+
+
+class InternalUsageIsExcludedButShownTests(TestCase):
+    """Our own testing must not inflate an impact figure — and must not vanish.
+
+    Two things can be silently wrong. The **keyless** API rows have no consumer
+    at all, and `exclude(consumer__is_internal=True)` drops them too, because
+    `NOT (consumer_id IN (…))` is NULL for a NULL id and SQL keeps only rows a
+    WHERE clause says TRUE about. That would delete a headline number while
+    looking like it only removed our keys. And an exclusion the page does not
+    print is a total nobody can check: the count that was held back has to be
+    on the screen beside the one it was held back from.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        from django.utils import timezone
+
+        from core.models import APIConsumer, ApiUsageDay, McpUsageDay
+        from pipeline.services import impact
+
+        today = timezone.localdate()
+        self.customer = APIConsumer.objects.create(
+            name="Real Supplier", consumer_type="manufacturer")
+        self.ours = APIConsumer.objects.create(
+            name="OGA test key", consumer_type="rrid", is_internal=True)
+
+        ApiUsageDay.objects.create(consumer=self.customer, date=today,
+                                   endpoint="antibodies_feed", count=5)
+        ApiUsageDay.objects.create(consumer=self.ours, date=today,
+                                   endpoint="antibodies_feed", count=90)
+        ApiUsageDay.objects.create(consumer=None, date=today,
+                                   endpoint="antibodies_feed", count=7)
+        ApiUsageDay.objects.create(consumer=self.customer, date=today,
+                                   endpoint=impact.PORTAL_CONNECT_ENDPOINT,
+                                   count=3)
+        ApiUsageDay.objects.create(consumer=self.ours, date=today,
+                                   endpoint=impact.PORTAL_CONNECT_ENDPOINT,
+                                   count=40)
+
+        McpUsageDay.objects.create(date=today, tool="list_targets",
+                                   client="claude-ai", count=2)
+        McpUsageDay.objects.create(date=today, tool="list_targets",
+                                   client="claude-code", internal=True,
+                                   count=30)
+
+    def test_a_keyless_request_survives_excluding_our_keys(self):
+        """The trap. This section totals every endpoint, so the customer's are
+        5 on the feed plus 3 portal connects, and 7 are keyless: 15. Our 130
+        are gone. If the keyless rows had been swept out with our keys this
+        would read 8, which looks like a plausible number and is not one."""
+        from pipeline.services import impact
+
+        data = impact.api_usage()
+        self.assertEqual(data['total_requests'], 15)
+        self.assertEqual(data['keyless_requests'], 7)
+        self.assertEqual(data['keyed_requests'], 8)
+
+    def test_the_api_says_what_it_held_back(self):
+        from pipeline.services import impact
+
+        data = impact.api_usage()
+        self.assertEqual(data['internal_requests'], 130)
+        self.assertEqual(data['internal_keys'], 1)
+        # And our key is not counted as an organisation reached.
+        self.assertEqual(data['organisations'], 1)
+
+    def test_the_portal_excludes_our_key_and_counts_it(self):
+        from pipeline.services import impact
+
+        data = impact.portal_sessions()
+        self.assertEqual(data['connects'], 3)
+        self.assertEqual(data['organisations'], 1)
+        self.assertEqual(data['internal_connects'], 40)
+        self.assertNotIn("OGA test key",
+                         [r['consumer__name'] for r in data['by_consumer']])
+
+    def test_the_mcp_excludes_our_calls_and_counts_them(self):
+        from pipeline.services import impact
+
+        data = impact.mcp_server()
+        self.assertEqual(data['calls'], 2)
+        self.assertEqual(data['internal_calls'], 30)
+        self.assertEqual(sum(r['calls'] for r in data['by_tool']), 2)
+        self.assertEqual(data['series'][-1]['n'], 2)

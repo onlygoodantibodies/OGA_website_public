@@ -11,7 +11,17 @@
       Sessions
     </a>
     <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Plan Experiment</h1>
-    <p class="text-sm text-gray-500 mt-1">Create a session, then add results from the session detail page.</p>
+    {% comment %}This said "then add results from the session detail page" — a
+    page retired on 31 Jul 2026 — and said nothing about antibodies, which this
+    form does not ask for. Run 19 planned a session here, opened its results,
+    read "add the antibodies to the session first", and had nowhere to do that.
+    Where they do get on is the bench sheet, so the page says so up front.{% endcomment %}
+    <p class="text-sm text-gray-500 mt-1">Plans the session — date, protocol, conditions
+      and cell lines. <span class="text-gray-700">Antibodies are not chosen here:</span>
+      the session's bench sheet lists every antibody on file for the gene, and uploading
+      the filled sheet records which ones you used, with their readings. To pick the
+      antibodies now, use <span class="font-semibold">+ Record a session</span> on the
+      sessions board instead.</p>
   </div>
 
   {# ── Validation errors ── #}
@@ -242,6 +252,9 @@
           ✓ Plan Session
         </button>
       </div>
+      <p class="mt-3 text-xs text-gray-500">Planning it opens the session on the sessions
+        board with no result rows yet. Download its bench sheet there — it lists the gene's
+        antibodies — fill in the ones you used, and upload it back.</p>
     </div>
 
   </form>

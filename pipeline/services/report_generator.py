@@ -543,12 +543,12 @@ def _readings_in(session) -> int:
     never a hand-written list — there are three of those already and this must
     not become a fourth.
     """
-    from pipeline.services.session_board import result_field_names
+    from pipeline.services.session_board import reading_fields
 
     accessor = _RESULT_ACCESSOR.get(session.procedure_type)
     if not accessor:
         return 0
-    fields = result_field_names(session.procedure_type)
+    fields = reading_fields(session.procedure_type)
     count = 0
     for row in getattr(session, accessor).all():
         for name in fields:

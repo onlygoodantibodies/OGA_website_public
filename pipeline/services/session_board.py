@@ -110,6 +110,22 @@ def result_field_names(procedure_type) -> list[str]:
 # `is_reading` is the single value test behind all of it, and
 # `reading_counts` is the same question asked of the database.
 
+# A note is not a measurement. The sessions board's Add panel carries a per-row
+# NOTES column that lands in the result row's `comments` at *planning* time, so
+# a session nobody had run drew "2 results — every row in this session has
+# something recorded" the moment it was created (run 19). Readings are the
+# result fields; a comment rides beside them and is still drawn, still
+# exported, still searched — it just does not make a row a reading.
+NOT_A_READING = frozenset({"comments"})
+
+
+def reading_fields(procedure_type) -> list[str]:
+    """The result columns a reading can be written in — `result_field_names`
+    minus the notes column. The one list `reading_q`, the workbook importer and
+    the report generator all ask."""
+    return [f for f in result_field_names(procedure_type) if f not in NOT_A_READING]
+
+
 def is_reading(value) -> bool:
     """Whether one result cell counts as something somebody wrote down.
 
@@ -121,7 +137,7 @@ def is_reading(value) -> bool:
     return bool(str(value).strip())
 
 
-def _reading_q(procedure_type) -> Q:
+def reading_q(procedure_type) -> Q:
     """"Any result field on this row carries a reading", as a queryset filter.
 
     Built from the same ``result_field_names`` list ``is_reading`` is applied
@@ -130,7 +146,7 @@ def _reading_q(procedure_type) -> Q:
     """
     model = RESULT_MODELS[procedure_type]
     q = Q()
-    for name in result_field_names(procedure_type):
+    for name in reading_fields(procedure_type):
         internal = model._meta.get_field(name).get_internal_type()
         if internal in ("DecimalField", "IntegerField", "FloatField",
                         "DateField", "DateTimeField"):
@@ -172,15 +188,14 @@ DUPLICATE_RESULT_FIELDS = {"WB": {"primary_ab_dilution": "dilution"}}
 # dilution it is without a second column to say it.
 RESULT_FIELD_LABELS = {"WB": {"dilution": "dilution (primary Ab)"}}
 
-# Result fields whose values repeat, so a cell can offer what is already on file
-# instead of leaving a scientist to invent a vocabulary. `rating` is the one that
-# matters: it is free text, nothing on any screen says whether it wants
-# `Specific`, a 1–5 or a sentence, and whatever is typed there is what a
-# generated Data Note prints. Loose, never strict — see `board.js::editorHtml`.
-SUGGESTED_RESULT_FIELDS = {"WB": ("rating",)}
-
-# Long enough to be the vocabulary, short enough that a dropdown is readable.
-_MAX_SUGGESTIONS = 25
+# Which result fields offer what is already on file is **derived**, not listed —
+# see `result_field_suggestions`. It was `{"WB": ("rating",)}`: one field of the
+# twelve on a western blot, and nothing at all for IP, IF and FC. The reasoning
+# behind that single entry was right and applies far more widely — `rating` is
+# free text, nothing on any screen says whether it wants `Specific`, a 1–5 or a
+# sentence, and whatever is typed there is what a generated Data Note prints. So
+# is `signal`. So is `lysis_buffer`. Loose, never strict — see
+# `board.js::editorHtml` and `services/vocabulary.py`.
 
 
 def _duplicates_shown(procedure_type, rows) -> dict:
@@ -219,25 +234,81 @@ def _duplicates_shown(procedure_type, rows) -> dict:
 
 
 def result_field_suggestions(procedure_type) -> dict:
-    """`{field: {"values": [...], "strict": False}}` — what a cell may offer.
+    """`{field: {"values": [...]}}` — what each result cell may offer.
 
     Read from the database rather than written down, because the vocabulary is
     whatever the consortium has actually been recording. Ordered by how often
-    each value has been used, so the common answer is the first one offered.
+    each value has been used, so the common answer is offered first.
+
+    **Which fields get a list is derived too, and that is the change worth
+    noting.** This used to read a hand-typed `SUGGESTED_RESULT_FIELDS` holding
+    exactly `{"WB": ("rating",)}` — so one field of the twelve on a western blot
+    was offered and IP, IF and FC result rows got nothing at all, on the surface
+    where a scientist types the method they followed. A list of "fields worth
+    offering" is a second place the truth lives and it goes stale the moment
+    somebody records a new kind of value; `vocabulary.offerable` asks every text
+    column instead and lets the cap answer.
+
+    Measured against live (1 Sep 2026) that sweep reaches twenty method fields
+    it used to miss, every one with a real vocabulary: `wb.signal` 3 distinct
+    over 1,927 rows — one of the two axes `AntibodyOutcome` reads, and suggested
+    nowhere until now — `ip.enrichment` 3 over 1,631, `if.specific_signal` 3
+    over 1,256, `ip.lysis_buffer` 5 over 1,544 (the field a generated Data Note
+    leaves as `[lysis buffer]` when nobody filled it in), `wb.ecl` 8 over 1,878,
+    `wb.gel` 17, `ip.bead_type` 17, `wb.secondary_ab` 20. `wb.dilution` has 76
+    and is correctly left as a plain box.
+
+    Never strict. Every one of these is a convention rather than an enum: a lab
+    that starts using a new buffer must be able to type it.
     """
+    from pipeline.services import vocabulary
+
     model = RESULT_MODELS.get(procedure_type)
     if model is None:
         return {}
-    out = {}
-    for field in SUGGESTED_RESULT_FIELDS.get(procedure_type, ()):
-        values = [row[field] for row in (
-            model.objects.using(DB).exclude(**{field: ""})
-            .exclude(**{f"{field}__isnull": True})
-            .values(field).annotate(n=Count("id"))
-            .order_by("-n", field)[:_MAX_SUGGESTIONS])]
-        if values:
-            out[field] = {"values": values, "strict": False}
-    return out
+    return vocabulary.offerable(model, skip=_RESULT_SKIP, db=DB)
+
+
+def cell_choices(site_id=None) -> dict:
+    """What each session cell may hold — see ``antibody_board.cell_choices``.
+
+    Three closed sets and two conventions, and the split is the same one
+    everywhere: a `<select>` where the writer refuses anything else, a
+    `<datalist>` where an unlisted value is legitimate.
+
+    **The cell-line boxes are the ones where a wrong value costs most**, and
+    they are still loose on purpose. A session controlled against the wrong line
+    is a silent bad reading, so the list matters — but `cell_lines.session_options`
+    is a *preference*, not a gate: another bench's line stays reachable after the
+    dash, and a C-number typed off a tube must keep working. Narrowing that to a
+    dropdown would take both away, which is the trade `newEntry`'s `suggestions`
+    already documents one surface over.
+
+    `fc_sub_protocol` has only two values on live and is **not** here: this
+    board draws no cell for it (it is in `EDITABLE_SESSION_FIELDS` and in no
+    column), and a picker for a cell nobody draws is dead configuration.
+    """
+    from pipeline.services import cell_lines as cell_lines_svc
+    from pipeline.services import members as members_svc
+    from pipeline.services import vocabulary
+
+    lines = lambda genotype: {"values": [
+        opt["value"] if isinstance(opt, dict) else opt
+        for opt in cell_lines_svc.picker_options(genotype=genotype,
+                                                 site_id=site_id)]}
+    return {
+        "status": {"strict": True, "values": status_choices()},
+        "site": vocabulary.sites(),
+        # Who ran it. `members.experimenters` is the one list — the step-by-step
+        # form's own queryset had a `select_related("user")` inner join that
+        # dropped any member with no login row, silently, and this board must
+        # not grow a second copy of that mistake.
+        "experimenter": {"strict": True, "values": sorted(
+            {(m.display_name or "").strip() for m in members_svc.experimenters()}
+            - {""})},
+        "cell_line_wt": lines("WT"),
+        "cell_line_ko": lines("KO"),
+    }
 
 
 def status_choices() -> list[dict]:
@@ -354,7 +425,7 @@ def reading_counts(session_ids) -> dict:
         return {}
     for procedure, model in RESULT_MODELS.items():
         for row in (model.objects.using(DB)
-                    .filter(Q(session_id__in=session_ids) & _reading_q(procedure))
+                    .filter(Q(session_id__in=session_ids) & reading_q(procedure))
                     .values("session_id").annotate(n=Count("id"))):
             out[row["session_id"]] += row["n"]
     return dict(out)

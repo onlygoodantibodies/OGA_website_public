@@ -23,9 +23,16 @@ mark.oga-hl:focus-visible {
   outline-offset: 1px;
 }
 
-mark.oga-green { color: #1c8f4b; background: rgba(28, 143, 75, 0.10); }
-mark.oga-red   { color: #c62f2f; background: rgba(198, 47, 47, 0.10); }
-mark.oga-amber { color: #d98217; background: rgba(217, 130, 23, 0.12); }
+/* Four colours and one meaning each, matching the gene page. Yellow used to be
+   this file's alternatives-offer colour; that is blue now, because "an
+   alternative exists" and "not supportive, but it did the thing" are different
+   claims and one hue cannot carry both. A yellow this light cannot be TEXT on
+   white, so the mark darkens it to the same #8a6100 the gene page captions
+   use and keeps the yellow in the wash behind it. */
+mark.oga-green  { color: #0b6b3a; background: rgba(15, 157, 88, 0.12); }
+mark.oga-yellow { color: #8a6100; background: rgba(244, 180, 0, 0.20); }
+mark.oga-red    { color: #a3231d; background: rgba(197, 34, 31, 0.10); }
+mark.oga-blue   { color: #1a5fa8; background: rgba(26, 115, 199, 0.12); }
 mark.oga-grey  { color: #8b98a5; background: transparent; box-shadow: inset 0 -1px 0 0 currentColor; }
 
 /* Passed one application, failed another: split underline rather than a
@@ -41,16 +48,18 @@ mark.oga-mixed {
 }
 
 /* Colour is never the only signal when this is on (options -> patterns). */
-mark.oga-patterned.oga-green { text-decoration: underline 2px solid #1c8f4b; }
-mark.oga-patterned.oga-red   { text-decoration: underline wavy 1.5px #c62f2f; }
-mark.oga-patterned.oga-amber { text-decoration: underline double 1px #d98217; }
+mark.oga-patterned.oga-green  { text-decoration: underline 2px solid #0f9d58; }
+mark.oga-patterned.oga-yellow { text-decoration: underline dashed 2px #b8860b; }
+mark.oga-patterned.oga-red    { text-decoration: underline wavy 1.5px #c5221f; }
+mark.oga-patterned.oga-blue   { text-decoration: underline double 1px #1a73c7; }
 mark.oga-patterned.oga-grey  { text-decoration: underline dotted 1px #8b98a5; }
 mark.oga-patterned.oga-mixed { text-decoration: underline dashed 1.5px #6a7480; }
 
 @media (prefers-color-scheme: dark) {
-  mark.oga-green { color: #63c98d; background: rgba(99, 201, 141, 0.14); }
-  mark.oga-red   { color: #ef8888; background: rgba(239, 136, 136, 0.14); }
-  mark.oga-amber { color: #e8a552; background: rgba(232, 165, 82, 0.16); }
+  mark.oga-green  { color: #63c98d; background: rgba(99, 201, 141, 0.14); }
+  mark.oga-yellow { color: #e8c65a; background: rgba(244, 180, 0, 0.18); }
+  mark.oga-red    { color: #ef8888; background: rgba(239, 136, 136, 0.14); }
+  mark.oga-blue   { color: #7fb6ee; background: rgba(127, 182, 238, 0.16); }
   mark.oga-grey  { color: #8b98a5; }
 }
 

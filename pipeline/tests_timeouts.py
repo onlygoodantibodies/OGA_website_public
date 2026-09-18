@@ -5,8 +5,13 @@ have gone slow before, and dev often cannot reach them at all. Three rules keep
 that from turning into a broken page or a half-written database, and each one is
 pinned here:
 
-  1. **The board never touches the network.** Reading, saving and exporting
-     targets must not depend on an external service being up.
+  1. **The board survives the network being down.** Reading, saving and
+     exporting targets make no outbound call at all. The two *previews* do —
+     the Add panel and the sheet upload both confirm a new gene against UniProt
+     before anything is created — and that is only safe because an unanswered
+     lookup degrades to ``unchecked``, a verdict that creates nothing and asks
+     to be run again. So the rule is not "never calls out"; it is that no call
+     can take a page down or half-write a batch.
   2. **A slow or dead API degrades, never raises.** A paste still lands; the
      record is created bare and enriched later.
   3. **No external call inside an open transaction.** A 10-second UniProt call
@@ -181,20 +186,51 @@ class BoardIsOfflineSafeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response["Content-Disposition"].endswith('.xlsx"'))
 
-    def test_upload_preview_and_commit_make_no_outbound_call(self):
+    def test_upload_preview_survives_an_outage_and_creates_nothing(self):
+        """The preview may call out; a dead UniProt must not break the page.
+
+        The honest half of rule 1. Every new gene comes back ``unchecked``,
+        which is a verdict rather than an error: the panel still renders, the
+        rows are named, and nothing is created from a symbol nobody confirmed.
+        """
         data = _carl_workbook([_row("MAPT")])
-        with no_network("previewing an upload"):
+        with network_raises(requests.exceptions.ConnectionError("no route to host")):
             preview = self.client.post("/pipeline/targets/board/upload/preview/",
                                        {"file": SimpleUploadedFile("c.xlsx", data),
                                         "default_site": "McGill"})
         self.assertEqual(preview.status_code, 200, preview.content[:200])
+        body = preview.json()
+        self.assertEqual(body["confirmed_genes"], [])
+        self.assertEqual(body["summary"]["genes_unchecked"], 1)
+        self.assertEqual(body["summary"]["new_targets"], 0,
+                         "an unchecked gene was still previewed as a creation")
 
+    def test_upload_commit_makes_no_outbound_call(self):
+        """The commit writes from what the preview resolved and never calls out.
+
+        This is the half that must stay absolute: `apply` runs inside one
+        transaction, so a call from here would hold a PostgreSQL connection open
+        for the length of a UniProt round trip.
+        """
+        data = _carl_workbook([_row("MAPT")])
+        with no_network("committing an upload"):
+            commit = self.client.post("/pipeline/targets/board/upload/commit/",
+                                      {"file": SimpleUploadedFile("c.xlsx", data),
+                                       "default_site": "McGill",
+                                       "confirmed_genes": ["MAPT"]})
+        self.assertEqual(commit.status_code, 200, commit.content[:200])
+        self.assertTrue(Target.objects.using(DB).filter(gene_name__iexact="MAPT").exists())
+
+    def test_commit_without_a_preview_creates_no_new_gene(self):
+        """A POST that skipped the check is not a way round the check."""
+        data = _carl_workbook([_row("ZZZZZZ")])
         with no_network("committing an upload"):
             commit = self.client.post("/pipeline/targets/board/upload/commit/",
                                       {"file": SimpleUploadedFile("c.xlsx", data),
                                        "default_site": "McGill"})
         self.assertEqual(commit.status_code, 200, commit.content[:200])
-        self.assertTrue(Target.objects.using(DB).filter(gene_name__iexact="MAPT").exists())
+        self.assertFalse(Target.objects.using(DB).filter(gene_name__iexact="ZZZZZZ").exists())
+        self.assertEqual(commit.json()["unconfirmed"], ["ZZZZZZ"])
 
 
 class SlowApiDegradesTests(TestCase):
@@ -273,9 +309,13 @@ class TimeoutIsSurvivableTests(TestCase):
         self.data = _carl_workbook([_row("SNCA"), _row("MAPT"), _row("SOD1")])
 
     def _commit(self):
+        # The confirmations the preview would have sent. Without them the commit
+        # correctly creates nothing, and this test would pass by testing nothing
+        # — a re-upload that writes no rows either time is trivially a no-op.
         return self.client.post("/pipeline/targets/board/upload/commit/",
                                 {"file": SimpleUploadedFile("c.xlsx", self.data),
-                                 "default_site": "McGill"})
+                                 "default_site": "McGill",
+                                 "confirmed_genes": ["SNCA", "MAPT", "SOD1"]})
 
     def test_a_failure_part_way_through_writes_nothing(self):
         from pipeline.services import target_list_io as tio

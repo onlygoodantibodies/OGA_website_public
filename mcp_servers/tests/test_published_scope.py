@@ -49,11 +49,16 @@ def test_unpublished_antibody_no_validation(gene):
 def test_unpublished_not_recommended_hidden():
     # MAPT's ab is not recommended for WB, but it is non-public -> never returned,
     # even on the per-gene "explain the non-recommendation" path.
-    rows, _ = portal.antibodies_by_recommendation("WB", recommended=False, gene="MAPT")
-    assert rows == []
-    # the public SNCA gene still surfaces its published not-recommended ab (2642).
-    rows, _ = portal.antibodies_by_recommendation("WB", recommended=False, gene="SNCA")
-    assert "2642" in {r["antibody_name"] for r in rows}
+    for rung in ("limited_support", "not_supportive"):
+        rows, _ = portal.antibodies_by_support("WB", rung, "MAPT")
+        assert rows == []
+    # the public SNCA gene still surfaces its published negative ab (2642),
+    # whichever of the two negative rungs it resolves to.
+    found = set()
+    for rung in ("limited_support", "not_supportive"):
+        rows, _ = portal.antibodies_by_support("WB", rung, "SNCA")
+        found |= {r["antibody_name"] for r in rows}
+    assert "2642" in found
 
 
 # ── internal columns never leave the database ───────────────────────────────
@@ -67,7 +72,8 @@ def test_unpublished_not_recommended_hidden():
 #: Everything ``core.api_views._serialise_antibody`` returns — the public contract.
 _PUBLIC_KEYS = {"antibody_name", "gene", "gene_has_recommendations", "gene_page_url",
                 "created_at", "metadata", "recommendations",
-                "oga_recommendations", "verdicts", "experiments", "embed_urls"}
+                "oga_recommendations", "oga_support", "oga_qualifiers",
+                "oga_display", "verdicts", "experiments", "embed_urls"}
 # `oga_recommendations` (see core/recommendations.py) is the three-valued form of
 # `recommendations`, derived from the same public flags plus whether a figure was
 # published: a bare False cannot say whether an antibody was tested and not
@@ -77,6 +83,25 @@ _PUBLIC_KEYS = {"antibody_name", "gene", "gene_has_recommendations", "gene_page_
 # rather than verdicts on a product. Both are public data, so both belong in this
 # set — and this test is what makes adding a key a decision rather than an
 # accident.
+# `oga_qualifiers` is the same call: `_serialise_antibody` has returned it since
+# the qualified pill shipped, so it is already on the public API and the portal's
+# own script reads it (`core/tests_portal_script.py`). It is derived from
+# `oga_recommendations` plus the public capability axes and holds a sentence per
+# application, never a session row. Naming it here is the decision this test asks
+# for; it went in without one, which is why the job was red. It shipped as
+# `oga_caveats` and was renamed the day after: the clause belongs on a supportive
+# verdict too, and "caveat" is the wrong word for "strongly selective".
+# `oga_display` is the same call once more: the site's own words, sentence and
+# colour for each verdict, all derived from `oga_recommendations` plus the
+# public capability axes and every one of them already printed on a public gene
+# page. It is additive — the four keys above are untouched — so a consumer
+# switching on the controlled values is unaffected.
+# `oga_support` is the same call once more, and the one that closes the gap the
+# three keys above left open: the four-rung result as a controlled value, so a
+# caller can switch on the middle rung instead of re-deriving it from
+# `oga_recommendations` plus a qualifier. Public by construction — it is exactly
+# what every gene page prints, and `core/api_views._serialise_antibody` returns
+# it on the open feed. Additive: nothing above it moved.
 #: What this connector adds on top, all derived from public fields only.
 _ADDED_KEYS = {"assessment", "summary", "provenance", "reports"}
 

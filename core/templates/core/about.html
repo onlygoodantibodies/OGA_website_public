@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% load static %}
     <title>About Us — Only Good Antibodies Community</title>
-    <meta name="description" content="Only Good Antibodies (OGA) is an open science platform combining a knockout-validated antibody database, free e-learning Academy, and Antibody Champions scheme — working with 26+ partners to improve research reproducibility.">
+    <meta name="description" content="Only Good Antibodies (OGA) is an open science platform combining a knockout-controlled antibody characterisation database, free e-learning Academy, and Antibody Champions scheme — working with 26+ partners to improve research reproducibility.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
@@ -240,6 +240,13 @@ html { scroll-behavior: smooth; }
   height: 120px;
   border-radius: 50%;
   object-fit: cover;
+  /* These are portrait headshots (0.75-0.86 wide) squeezed into a square, so
+     `cover` crops the height -- and centring that crop takes the top of the
+     head off the tallest one. Biasing the window upwards keeps every head
+     whole. 20% rather than 0%: hard to the top starts cutting chins on the
+     0.80-ratio photos, which is the same defect the other way up. Check a new
+     photo against this rather than assuming it fits. */
+  object-position: center 20%;
   border: 3px solid #e2e8f0;
   margin-bottom: 12px;
 }
@@ -329,14 +336,14 @@ html { scroll-behavior: smooth; }
   <div class="abt-section-inner">
     <div class="abt-label">Our Platform</div>
     <div class="abt-title">What we offer</div>
-    <div class="abt-desc">OGA brings together a searchable database of knockout-validated antibody characterisation data, a free e-learning Academy, an Antibody Champions scheme, and an evidence-based roadmap for stakeholder action. Everything is free and open access.</div>
+    <div class="abt-desc">OGA brings together a searchable database of knockout-controlled antibody characterisation data, a free e-learning Academy, an Antibody Champions scheme, and an evidence-based roadmap for stakeholder action. Everything is free and open access.</div>
 
     <div class="abt-platform-grid">
 
       <div class="abt-platform-card">
         <div class="abt-card-icon">🔍</div>
         <h3>Antibody Database</h3>
-        <p>Search knockout-validated characterisation data across western blot, immunoprecipitation, immunofluorescence, and flow cytometry. Compare antibodies from 14 manufacturers side by side, with application-specific recommendations. All data generated through our collaboration with YCharOS Inc.</p>
+        <p>Search knockout-controlled characterisation data across western blot, immunoprecipitation, immunofluorescence, and flow cytometry. Compare antibodies from 14 manufacturers side by side, with application-specific recommendations. All data generated through our collaboration with YCharOS Inc.</p>
       </div>
 
       <div class="abt-platform-card">
@@ -369,7 +376,7 @@ html { scroll-behavior: smooth; }
   <div class="abt-section-inner">
     <div class="abt-label">Open Science Partnership</div>
     <div class="abt-title">Our collaboration with YCharOS Inc.</div>
-    <div class="abt-desc" style="margin-bottom:0;">The OGA community and YCharOS Inc. work together to increase the availability and use of well-performing research antibodies, eliminate the use of inappropriate antibodies and the associated waste of animals for their production, and promote education and awareness about best practices in antibody use and validation. Our YCharOS collaborative lab has been running since 2021 and now spans four laboratories, characterising antibodies from 14 manufacturers using standardised knockout-validated protocols.</div>
+    <div class="abt-desc" style="margin-bottom:0;">The OGA community and YCharOS Inc. work together to increase the availability and use of well-performing research antibodies, eliminate the use of inappropriate antibodies and the associated waste of animals for their production, and promote education and awareness about best practices in antibody use and validation. Our YCharOS collaborative lab has been running since 2021 and now spans four laboratories, characterising antibodies from 14 manufacturers using standardised knockout-controlled protocols.</div>
   </div>
 </section>
 
@@ -387,7 +394,7 @@ html { scroll-behavior: smooth; }
 
       <div class="abt-project-card">
         <h3>Better Antibodies</h3>
-        <p>Identifying robust reagents to study key targets of interest, in collaboration with antibody manufacturers through YCharOS and the NC3Rs. Characterising antibodies across four applications with knockout-validated controls to build a trusted, open dataset.</p>
+        <p>Identifying robust reagents to study key targets of interest, in collaboration with antibody manufacturers through YCharOS and the NC3Rs. Characterising antibodies across four applications with knockout controls to build a trusted, open dataset.</p>
         <div class="abt-project-funder">Funded by NC3Rs</div>
         <br>
         <a href="https://nc3rs.org.uk/our-portfolio/characterisation-antibodies-and-affinity-reagents-promote-adoption-robust" target="_blank">Learn more →</a>
@@ -425,14 +432,26 @@ html { scroll-behavior: smooth; }
     <div class="abt-recognition-grid">
 
       <div class="abt-recognition-card">
-        <h3>Nature Feature</h3>
-        <p>Our work was featured in Nature Magazine, highlighting OGA's role in the international effort to improve antibody quality and research reproducibility.</p>
-        <a href="https://doi.org/10.1038/d41586-024-03590-0" target="_blank" rel="noopener noreferrer">Read more →</a>
+        <h3>Cited in Government Advice</h3>
+        <p>The Animals in Science Committee cited the Antibody Champions programme in its 2026 advice to Government on establishing an expert committee for alternatives to animal use.</p>
+        <a href="https://www.gov.uk/government/publications/establishing-the-alternative-methods-expert-committee" target="_blank" rel="noopener noreferrer">Read more →</a>
       </div>
 
       <div class="abt-recognition-card">
-        <h3>Dorothy Bishop Award</h3>
-        <p>Awarded for contributions to reproducible and open research culture — recognising the OGA community's collaborative approach to tackling the antibody crisis.</p>
+        <h3>NC3Rs Impact Report</h3>
+        <p>Featured as a case study in the NC3Rs' 2026 impact report on non-animal reagents — an estimated 96 animal-derived antibodies replaceable, and over £580,000 in follow-on funding.</p>
+        <a href="https://nc3rs.org.uk/sites/default/files/2026-08/NC3Rs_Non-animal%20reagents_Impact%20report%202026.pdf" target="_blank" rel="noopener noreferrer">Read more →</a>
+      </div>
+
+      <div class="abt-recognition-card">
+        <h3>Independent Expert Voice</h3>
+        <p>Nature, Science, Chemical &amp; Engineering News and The Scientist turned to OGA and YCharOS experts for their 2026 coverage of image-integrity concerns across antibody vendor catalogues.</p>
+        <a href="{% url 'news_publications' %}">Read more →</a>
+      </div>
+
+      <div class="abt-recognition-card">
+        <h3>Dorothy Bishop Prize</h3>
+        <p>Awarded to OGA co-lead <strong>Michael Biddle</strong> for open and reproducible research — recognising the community's collaborative approach to tackling the antibody crisis.</p>
         <a href="https://le.ac.uk/news/2025/april/dorothy-bishop-prize-researchers-leicester" target="_blank" rel="noopener noreferrer">Read more →</a>
       </div>
 
@@ -440,6 +459,12 @@ html { scroll-behavior: smooth; }
         <h3>UKRN Case Study</h3>
         <p>Published as an impact case study by the UK Reproducibility Network, demonstrating how OGA's collaboration with YCharOS supports better biomedical research using antibodies.</p>
         <a href="https://www.ukrn.org/2025/01/28/ukrn-case-study-supporting-improvements-to-biomedical-research-using-antibodies/" target="_blank" rel="noopener noreferrer">Read more →</a>
+      </div>
+
+      <div class="abt-recognition-card">
+        <h3>Nature Feature</h3>
+        <p>Our work was featured in Nature Magazine, highlighting OGA's role in the international effort to improve antibody quality and research reproducibility.</p>
+        <a href="https://doi.org/10.1038/d41586-024-03590-0" target="_blank" rel="noopener noreferrer">Read more →</a>
       </div>
 
     </div>
@@ -527,34 +552,7 @@ html { scroll-behavior: smooth; }
 
 
 <!-- Footer -->
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>Quick Links</h4>
-      <a href="{% url 'home' %}">Home</a>
-      <a href="{% url 'about' %}">About Us</a>
-      <a href="{% url 'publications' %}">Publications</a>
-      
-      <a href="{% url 'news' %}">News</a>
-      <a href="{% url 'contact' %}">Contact</a>
-    </div>
-    <div class="footer-column">
-      <h4>Contact Us</h4>
-      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-      <p><a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">LinkedIn</a></p>
-      <p><a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">BlueSky</a></p>
-    </div>
-    <div class="footer-column">
-      <h4>Follow Us</h4>
-      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-      </a>
-      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-      </a>
-    </div>
-  </div>
-</footer>
+{% include 'core/footer.html' %}
 
 </body>
 </html>

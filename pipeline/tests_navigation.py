@@ -14,6 +14,7 @@ to using evidence that already exists.
 """
 from __future__ import annotations
 
+import json
 import re
 
 from django.db import connections
@@ -454,10 +455,24 @@ class WhereThisGeneHasGotToTests(TestCase):
         _, steps = self._steps()
         self.assertTrue(steps["antibodies"]["done"])
 
-    def test_an_application_is_done_because_a_session_exists(self):
-        ExperimentSession.objects.using(DB).create(
+    def test_an_application_is_done_because_a_reading_exists(self):
+        """Was "because a session exists" until run 19 planned a WB, wrote
+        nothing on it, and read ✓ WB over a status card saying Not started.
+        A session with no readings is drawn as planned, undone."""
+        from pipeline.models import Antibody, Company, WbResult
+        session = ExperimentSession.objects.using(DB).create(
             target_id=self.target.pk, procedure_type="WB", date="2026-07-30",
             site_id=self.site.pk, experimenter_id=self.member.pk)
+        _, steps = self._steps()
+        self.assertFalse(steps["app_WB"]["done"])
+        self.assertEqual(steps["app_WB"]["detail"],
+                         "planned at Leicester — no readings yet")
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab1", site_id=self.site.pk)
+        WbResult.objects.using(DB).create(session_id=session.pk, antibody_id=ab.pk,
+                                          signal="specific band")
         _, steps = self._steps()
         self.assertTrue(steps["app_WB"]["done"])
         self.assertEqual(steps["app_WB"]["detail"], "Leicester")
@@ -1435,16 +1450,24 @@ class ASessionsBenchSheetIsWhereTheSessionIsTests(TestCase):
         self.assertIn("spreadsheet", resp["Content-Type"])
 
 
-class WorkArrivingOutOfOrderStillLandsSomewhereTests(TestCase):
+class AGeneIsAddedOnTheTargetsDoorsAndNowhereElseTests(TestCase):
     """A shipment turns up for a gene nobody added, or results are recorded
     before the target exists.
 
-    Every write path can mint the target inline, which is right. But it minted
-    one with no nomination — and a target's site lives on its nominations — so
-    the gene existed and belonged to nobody: absent from every site filter,
-    uncounted on Overview, and described by its own page as "not nominated by
-    any site yet". Feasibility has recorded the nomination since the first field
-    test; the four other routes into `resolve_or_create_target` had not.
+    **This class used to pin the opposite**, and the reversal is the owner's
+    (5 Sep 2026). Every write path could mint the target inline; the fix then
+    was to give the minted gene a nomination, so it belonged to somebody. What
+    that left standing was a gene created from an antibody column with **no
+    check on the symbol at all** — the antibody and cell-line previews never
+    asked UniProt anything — while the door built for the job confirms it. The
+    write also called `resolve_or_create_target` from inside the commit's
+    transaction, holding PostgreSQL open for a 10 s lookup per new gene on a
+    four-thread site, which is rule 3 of `tests_timeouts` broken on three paths.
+
+    So a target is added on the targets doors and nowhere else, and what these
+    four other doors owe the reader is a refusal that says where to go. The
+    out-of-order case is still answered — it is answered by the gene's own page
+    being a worklist, which is the last test here.
     """
 
     databases = {"pipeline_db", "academy_db"}
@@ -1458,43 +1481,71 @@ class WorkArrivingOutOfOrderStillLandsSomewhereTests(TestCase):
         self.member = Member.objects.using(DB).get(user_id=pu.pk)
         Company.objects.using(DB).create(name="abcam")
 
-    def test_a_gene_minted_by_an_antibody_paste_is_on_your_sites_list(self):
+    def test_an_antibody_paste_does_not_mint_the_gene(self):
         from pipeline.services import bulk_antibodies
         rows = bulk_antibodies.parse(
-            "gene\tcatalogue\tcompany\n"
-            "NEWGENE1\tAB-999\tabcam\n")
-        with mock.patch("pipeline.services.targets.uniprot.lookup_gene",
-                        return_value={"found": False}):
-            bulk_antibodies.apply(rows, True, member=self.member)
-        target = Target.objects.using(DB).get(gene_name__iexact="NEWGENE1")
-        nom = TargetNomination.objects.using(DB).filter(target_id=target.pk).first()
-        self.assertIsNotNone(nom, "the gene was created belonging to nobody")
-        self.assertEqual(nom.site_id, self.site.pk)
-        self.assertFalse(nom.funded, "unfunded is the honest starting state")
+            "gene\tcatalogue\tcompany\nNEWGENE1\tAB-999\tabcam\n")
+        item = bulk_antibodies.plan(rows, member=self.member)[0]
+        self.assertEqual(item["status"], "no-target")
+        self.assertIn("not in the pipeline yet", item["note"])
+        self.assertIn("target board", item["note"])
+        self.assertIn("/pipeline/targets/board/", item["add_target_url"])
+        bulk_antibodies.apply(rows, member=self.member)
+        self.assertFalse(
+            Target.objects.using(DB).filter(gene_name__iexact="NEWGENE1").exists())
 
-    def test_the_gene_page_then_names_the_site_rather_than_nobody(self):
-        from pipeline.services import bulk_antibodies
-        rows = bulk_antibodies.parse(
-            "gene\tcatalogue\tcompany\nNEWGENE2\tAB-998\tabcam\n")
-        with mock.patch("pipeline.services.targets.uniprot.lookup_gene",
-                        return_value={"found": False}):
-            bulk_antibodies.apply(rows, True, member=self.member)
-        target = Target.objects.using(DB).get(gene_name__iexact="NEWGENE2")
-        resp = self.client.get(f"/pipeline/target/{target.pk}/")
-        self.assertEqual(resp.context["nominated_sites"], ["Leicester"])
-        self.assertNotContains(resp, "not nominated by any site yet")
+    def test_a_cell_line_paste_does_not_either(self):
+        from pipeline.services import bulk_cell_lines
+        rows = bulk_cell_lines.parse(
+            "name\tgene\tgenotype\tparent\nHAP1\tNEWGENE2\tKO\tHAP1\n")
+        item = bulk_cell_lines.plan(rows, member=self.member)[0]
+        self.assertEqual(item["status"], "blocked")
+        self.assertIn("not in the pipeline yet", item["note"])
+        bulk_cell_lines.apply(rows, member=self.member)
+        self.assertFalse(
+            Target.objects.using(DB).filter(gene_name__iexact="NEWGENE2").exists())
+
+    def test_recording_a_session_refuses_by_name_rather_than_minting(self):
+        """The silent one: this panel had no tick and no preview naming the
+        target, so a mistyped gene became a permanent record with nothing on
+        screen saying so."""
+        resp = self.client.post(
+            "/pipeline/session/plan/commit/",
+            json.dumps({"gene": "NEWGENE3", "procedure_type": "WB",
+                        "rows": [{"antibody": "AB-1"}]}),
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertFalse(body["ok"])
+        self.assertIn("NEWGENE3", " ".join(body["errors"]))
+        self.assertIn("target board", " ".join(body["errors"]))
+        self.assertFalse(
+            Target.objects.using(DB).filter(gene_name__iexact="NEWGENE3").exists())
+
+    def test_no_door_but_the_targets_doors_creates_one(self):
+        """Read off the source, because the next inline creator would pass every
+        test above and still be a fifth door."""
+        from pathlib import Path
+        from django.conf import settings
+        base = Path(settings.BASE_DIR)
+        for rel in ("pipeline/services/bulk_antibodies.py",
+                    "pipeline/services/bulk_cell_lines.py",
+                    "pipeline/services/dataset.py",
+                    "pipeline/views/session_bulk.py"):
+            self.assertNotIn("resolve_or_create_target(", (base / rel).read_text(), rel)
 
     def test_the_progress_strip_links_to_whatever_is_still_missing(self):
-        """The answer to "can I do it in the wrong order" — every unfinished
-        step on a gene's page is a link to the board that finishes it, so the
-        page is a worklist rather than a report."""
+        """The out-of-order answer that survives: every unfinished step on a
+        gene's page is a link to the board that finishes it, so the page is a
+        worklist rather than a report. The gene is added first now, which is
+        the only part that changed."""
         from pipeline.services import bulk_antibodies
+        target = Target.objects.using(DB).create(gene_name="NEWGENE4")
+        TargetNomination.objects.using(DB).create(
+            target_id=target.pk, site_id=self.site.pk, funded=False)
         rows = bulk_antibodies.parse(
-            "gene\tcatalogue\tcompany\nNEWGENE3\tAB-997\tabcam\n")
-        with mock.patch("pipeline.services.targets.uniprot.lookup_gene",
-                        return_value={"found": False}):
-            bulk_antibodies.apply(rows, True, member=self.member)
-        target = Target.objects.using(DB).get(gene_name__iexact="NEWGENE3")
+            "gene\tcatalogue\tcompany\nNEWGENE4\tAB-997\tabcam\n")
+        bulk_antibodies.apply(rows, member=self.member)
         resp = self.client.get(f"/pipeline/target/{target.pk}/")
         steps = {s["key"]: s for s in resp.context["progress_steps"]}
         # Done out of order: antibodies before the knockout line.

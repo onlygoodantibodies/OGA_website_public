@@ -252,3 +252,21 @@ def test_a_clean_sheet_previews_and_saves_with_nothing_dropped(seeded):
     parsed = si.parse_template(_template_file({"WB": (_WB_HEADER, [_wb_row("12A8")])}))
     assert si.plan_import(parsed, uploader=seeded["member"])["counts"]["dropped"] == 0
     assert si.apply_import(parsed, uploader=seeded["member"])["skipped"] == []
+
+
+def test_recording_by_workbook_issues_the_a_numbers_planning_would(seeded):
+    """Run 19: planning STMN2 on the board gave its antibodies A-6 and A-7;
+    recording ELP3 by workbook gave nothing, at the same bench the same
+    afternoon. A number exists before the experiment through every door, and
+    the receipt names what was issued — a number the app gives a record is a
+    thing the app did."""
+    from pipeline.models import Antibody
+    from pipeline.services import session_import
+    Antibody.objects.using(DB).filter(target=seeded["target"]).update(site=seeded["site"])
+    f = _template_file({"WB": (_WB_HEADER, [_wb_row("12A8"), _wb_row("sc-101523")])})
+    res = session_import.apply_import(session_import.parse_template(f), uploader=seeded["member"])
+    assert res["ok"]
+    numbers = sorted(Antibody.objects.using(DB).filter(target=seeded["target"])
+                     .values_list("ab_number", flat=True))
+    assert numbers == [1, 2], numbers
+    assert [d["number"] for d in res["numbers_issued"]] == ["A-1", "A-2"]

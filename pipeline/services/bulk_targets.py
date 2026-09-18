@@ -49,6 +49,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from django.db import transaction
+from django.db.models.functions import Upper
 
 from pipeline.models import Site, Target, TargetNomination
 from pipeline.services import example_row
@@ -164,19 +165,28 @@ def parse(raw: str) -> list:
 
 
 def _existing_by_name(genes, db=DB) -> dict:
-    """`{UPPER_GENE: Target}` for the ones already on the list."""
+    """`{UPPER_GENE: Target}` for the ones already on the list.
+
+    Two queries whatever the list length. The second pass exists because gene
+    names are stored upper-case by every write path here and the Access import
+    was not so consistent — but it used to be **one query per unmatched gene**,
+    which is invisible on a paste (capped at `MAX_GENES`) and is not on a
+    spreadsheet: a workbook of 300 new symbols meant 300 round trips before
+    anything was looked up, on a remote database where that is the whole cost.
+    `Upper` over 585 target rows is a seq scan and cheaper than the second one
+    of those.
+    """
     if not genes:
         return {}
     rows = Target.objects.using(db).filter(gene_name__in=genes)
     found = {(t.gene_name or "").upper(): t for t in rows}
     missing = [g for g in genes if g not in found]
-    # A second pass only for what the indexed `__in` did not answer: gene names
-    # are stored upper-case by every write path here, but the Access import was
-    # not so consistent.
-    for gene in missing:
-        t = Target.objects.using(db).filter(gene_name__iexact=gene).first()
-        if t:
-            found[gene] = t
+    if missing:
+        wanted = {g.upper() for g in missing}
+        for t in (Target.objects.using(db)
+                  .annotate(_upper_gene=Upper("gene_name"))
+                  .filter(_upper_gene__in=wanted)):
+            found.setdefault((t.gene_name or "").upper(), t)
     return found
 
 
@@ -408,24 +418,28 @@ def site_for(site=None, member=None, db=DB):
     return site_id, getattr(found, "name", "") or ""
 
 
-def plan(genes, *, member=None, site=None, budget_seconds=LOOKUP_BUDGET_SECONDS,
-         db=DB) -> dict:
-    """Read-only preview. Never writes, and never spends longer than its budget.
+def confirm(genes, *, budget_seconds=LOOKUP_BUDGET_SECONDS, db=DB) -> dict:
+    """`{gene: row}` — may this gene be created, and under what name.
 
-    Every gene comes back with a verdict. `unchecked` means the deadline ran out
-    before its turn — ask again with just those and they will be answered.
+    The half of `plan` that decides whether a symbol is real, split out because
+    **two doors create targets from a typed gene and only one of them was
+    asking**. The paste box and the single-gene Add both come through `plan`;
+    the *spreadsheet* upload (`target_list_io`) went straight to a write, so a
+    typo on row 40 of a 590-row workbook became a permanent target with a
+    nomination hanging off it — the exact failure the docstring above says this
+    module exists to prevent, reached through the one door that did not use it.
 
-    ``site`` is whose list the press would add to; blank is the member's own.
+    Every verdict this returns is one `row_refusal` already writes a sentence
+    for, so the two doors cannot drift into two vocabularies. `ON_FILE` and
+    `SYNONYM` are confirmations: the gene resolves to a target that already
+    exists, which is the cheapest possible answer and costs no call at all.
+
+    The deadline is the whole latency story for a workbook. A file of Carl's
+    is almost entirely rows that already exist, so `_from_db` answers them and
+    the network sees nothing; only genuinely new symbols cost a lookup, and the
+    budget caps even that. What it does not reach comes back `UNCHECKED`, which
+    creates nothing and asks to be run again.
     """
-    genes = list(genes or [])
-    if len(genes) > MAX_GENES:
-        return {"ok": False,
-                "error": f"{len(genes)} genes pasted; {MAX_GENES} is the most in one go."}
-    try:
-        site_id, site_name = site_for(site, member=member, db=db)
-    except site_svc.UnknownSite as e:
-        return {"ok": False, "error": str(e)}
-
     rows, to_look_up = _from_db(genes, db=db)
     looked_up = _lookup(to_look_up, budget_seconds=budget_seconds)
 
@@ -472,6 +486,28 @@ def plan(genes, *, member=None, site=None, budget_seconds=LOOKUP_BUDGET_SECONDS,
                           mass_kda=data.get("mass_kda"),
                           synonyms=synonyms,
                           note=f"new — will be added as {canonical}")
+    return rows
+
+
+def plan(genes, *, member=None, site=None, budget_seconds=LOOKUP_BUDGET_SECONDS,
+         db=DB) -> dict:
+    """Read-only preview. Never writes, and never spends longer than its budget.
+
+    Every gene comes back with a verdict. `unchecked` means the deadline ran out
+    before its turn — ask again with just those and they will be answered.
+
+    ``site`` is whose list the press would add to; blank is the member's own.
+    """
+    genes = list(genes or [])
+    if len(genes) > MAX_GENES:
+        return {"ok": False,
+                "error": f"{len(genes)} genes pasted; {MAX_GENES} is the most in one go."}
+    try:
+        site_id, site_name = site_for(site, member=member, db=db)
+    except site_svc.UnknownSite as e:
+        return {"ok": False, "error": str(e)}
+
+    rows = confirm(genes, budget_seconds=budget_seconds, db=db)
 
     ordered = [rows[g] for g in genes]
 

@@ -2,7 +2,8 @@
 
 Trust level: LOW. Lets an assistant answer FACTUAL questions about a specific
 antibody or a specific gene ("is this paper's antibody in the dataset, and
-how did it do for WB?", "what's recommended for SNCA?"). It can only read.
+how did it do for WB?", "what does the data support for SNCA?"). It can only
+read.
 
 **Antibody data only.** This connector exposes the per-antibody / per-gene data
 tools below and nothing else. The interactive-education (tutor) tools once shared
@@ -14,7 +15,7 @@ the antibody DATABASE only. The tutor implementation is retained in
 **Scope by policy — no whole-database analytics.** The tools answer per-antibody
 and per-gene questions only. There is deliberately NO free-form SQL tool and NO
 cross-gene antibody list, so the server cannot be used to compare vendors by how
-often their antibodies are recommended across the database. Looking up a single
+often their antibodies are supported across the database. Looking up a single
 antibody (e.g. one cited in a paper) is fully supported; whole-DB benchmarking is
 not. ``check_manuscript`` only resolves the identifiers and genes that appear in
 the pasted text, so it is a convenience over the per-antibody lookups — not a way
@@ -24,8 +25,10 @@ to enumerate the database.
 interpretation layer. The structured tools serialise through the SAME code the
 public API uses (``core/api_views.py::_serialise_antibody`` etc., via
 ``common/portal.py``), then add a controlled-vocabulary, provenance-anchored
-verdict per application (recommended / not_recommended / not_tested) so a
-connected assistant reports facts, never inferences.
+result per application — supportive / limited_support / not_supportive /
+not_tested — so a connected assistant reports facts, never inferences. The
+three-value `status` is still carried beside it for callers written against it,
+and it cannot express the middle rung.
 
 The guarantee is at the DATABASE, not the prompt:
   * In production the owner runs ``roles.sql`` → a dedicated ``mcp_readonly``
@@ -80,8 +83,22 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
     # `instructions` nudges a connecting BYO client (claude.ai / ChatGPT / …) toward
     # the same natural, grounded behaviour as the hosted chat — one shared source.
     # Data-only: this connector exposes the antibody database, not the tutor.
+    #
+    # **`stateless_http` is what lets the service run on more than one instance.**
+    # FastMCP's streamable-HTTP transport otherwise keeps session state in the
+    # instance's own memory, keyed by `Mcp-Session-Id`, and Render load-balances
+    # without session affinity — so a second instance answers a client that
+    # initialised on the first with "session not found". That trades the rare
+    # outage a second instance is there to prevent for constant intermittent
+    # breakage for everybody, which is the worse of the two. It is safe here
+    # because every tool is a pure read of a fixed dataset and holds nothing
+    # between calls: there is no session state to lose. The cost is the optional
+    # GET SSE stream, which a stateless server does not offer and the spec lets
+    # a server decline. **So a tool must not start keeping state between calls** —
+    # doing so would work perfectly on one instance and fail on two.
     mcp = FastMCP("oga-pipeline-readonly",
-                  instructions=tutor_guidance.DATA_ONLY_INSTRUCTIONS, **kwargs)
+                  instructions=tutor_guidance.DATA_ONLY_INSTRUCTIONS,
+                  stateless_http=True, **kwargs)
 
     @mcp.tool(**_ro("Check a paper's antibodies against the OGA dataset"))
     def check_manuscript(reagents: List[dict], genes: Optional[List[str]] = None,
@@ -170,7 +187,7 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
                      not_in_dataset=c.get("not_in_dataset"), genes=c.get("genes"))
         return result
 
-    @mcp.tool(**_ro("Antibody validation lookup (one antibody)"))
+    @mcp.tool(**_ro("Antibody characterisation lookup (one antibody)"))
     def antibody_validation(rrid: Optional[str] = None, catalogue: Optional[str] = None,
                             gene: Optional[str] = None) -> dict:
         """Look up ONE antibody by RRID, catalogue number, or gene and report,
@@ -184,78 +201,133 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
         the dataset without calling a tool first; memory is not evidence.
 
         Each match is serialised exactly as the public data portal, plus:
-          * ``assessment``: per application (WB/IP/IF/FC) one of ``recommended``,
-            ``not_recommended`` (tested with KO controls, did not meet the bar), or
-            ``not_tested`` (no independent assessment — untested, NOT unreliable). Never
-            generalise one application's verdict to another;
-          * ``summary``: a plain-fact sentence with the verdict per application and
+          * ``assessment``: per application (WB/IP/IF/FC), ``support`` is one of
+            ``supportive``, ``limited_support`` (tested with KO controls, not
+            supported overall, and the antibody was still seen to do what the
+            application is for), ``not_supportive`` (tested, nothing on-target
+            seen), or ``not_tested`` (no independent assessment — untested, NOT
+            unreliable). Quote ``verdict`` / ``verdict_sentence`` for the words
+            a reader will find on the gene page. ``status`` beside it is the
+            older three-value form and reports both negatives as
+            ``not_recommended``, so read ``support``. Never generalise one
+            application's result to another;
+          * ``summary``: a plain-fact sentence with the result per application and
             the consensus-protocol DOI it was assessed under;
           * ``provenance``: RRID registry link + F1000/Zenodo report DOIs;
           * ``assessment[app].tested_from``: which public signals support the
-            verdict — the curated recommendation flag and/or a published figure.
+            result — the curated recommendation flag and/or a published figure.
             The pipeline's internal per-session lab records are NOT exposed: this
             connector carries what the live site and portal API carry.
 
         If the antibody is not present, returns ``in_dataset: false`` — state that
-        as a fact; absence is NOT evidence about the antibody's quality."""
+        as a fact; absence is NOT evidence about the antibody's quality. The ONE
+        exception is a reply carrying ``target_confusion``: that product is
+        documented as an antibody to a different protein from the one it shares a
+        name with, which is not an absence and must not be reported as one."""
         rows, truncated = portal.antibody_validation(
             rrid=rrid, catalogue=catalogue, gene=gene, cap=ROW_CAP)
         audit.record("A", "antibody_validation", rrid=rrid, catalogue=catalogue,
                      gene=gene, n=len(rows))
+        # Asked whether or not the lookup hit, so that a product which ever does
+        # enter the dataset is not served a verdict with the mismatch missing.
+        confusion = portal.confusion_lookup(rrid=rrid, catalogue=catalogue)
         if not rows:
+            # THE REPLY MOST AT RISK, and the reason this feature exists. The
+            # message below is exactly right for an untested antibody and was
+            # being served about reagents whose own manufacturer states they do
+            # not bind the protein the reader asked about — a documented problem
+            # handed over as an open question, on the one tool that answers about
+            # a single reagent with no paper around it to soften it.
+            if confusion:
+                return {
+                    "in_dataset": False, "count": 0, "antibodies": [],
+                    "target_confusion": confusion,
+                    "message": (
+                        "OGA has not characterised this antibody, but it is "
+                        f"documented as an antibody to {confusion['declared_target']}"
+                        f" and NOT to {confusion['commonly_bought_for']}, which is "
+                        "the protein it shares a name with. Do not report this as "
+                        "a plain absence: report the declared target, name and "
+                        "link the review in `documented_in`, and say that this is "
+                        "about which protein the reagent is raised against rather "
+                        "than how well it works."),
+                }
             return {"in_dataset": False, "count": 0, "antibodies": [],
                     "message": "This antibody is not in the dataset. Absence is "
                     "not a judgement about the antibody — it simply has not been "
                     "independently characterised."}
-        return {"in_dataset": True, "antibodies": rows, "count": len(rows),
-                "truncated": truncated}
+        reply = {"in_dataset": True, "antibodies": rows, "count": len(rows),
+                 "truncated": truncated}
+        if confusion:
+            reply["target_confusion"] = confusion
+        return reply
 
-    @mcp.tool(**_ro("Gene validation report"))
+    @mcp.tool(**_ro("Gene characterisation report"))
     def target_report(gene: str) -> dict:
-        """Full validation report for ONE gene (target), in the same shape as
+        """Full characterisation report for ONE gene (target), in the same shape as
         the public data portal: every published antibody with its per-application,
-        knockout-controlled verdict, a supplier summary, the gene page
+        knockout-controlled result, a supplier summary, the gene page
         URL, and the F1000/Zenodo report DOIs. Use this when a gene is named in a
         paper, manuscript, or methods section to state, factually, what the data
-        recommends and why. Do not claim a gene is absent from memory — call
-        ``list_targets`` or this tool first. Verdicts are per application; never
-        carry one application's result over to another."""
+        shows and why. Do not claim a gene is absent from memory — call
+        ``list_targets`` or this tool first. Results are per application; never
+        carry one application's result over to another.
+
+        Each row's ``assessment[app].support`` is one of ``supportive``,
+        ``limited_support``, ``not_supportive`` or ``not_tested``. Report the
+        middle rung as itself — it is tested, not supported overall, and the
+        antibody was still seen to do what the application is for — rather than
+        folding it into the negative."""
         result = portal.gene_detail(gene)
         audit.record("A", "target_report", gene=gene, found=result.get("found"))
         return result
 
-    @mcp.tool(**_ro("Recommended antibodies for a gene"))
-    def antibodies_by_recommendation(gene: str, application: str,
-                                     recommended: bool = True) -> dict:
-        """Within ONE gene, the antibodies recommended (or, with
-        ``recommended=False``, tested-but-not-recommended) for a given application.
+    @mcp.tool(**_ro("Antibodies at one support level for a gene"))
+    def antibodies_by_support(gene: str, application: str,
+                              support: str = "supportive") -> dict:
+        """Within ONE gene, the antibodies at one support level for one application.
+
         ``gene`` is REQUIRED (this is a per-gene question, not a whole-database
-        list). ``application`` is one of WB, IP, IF (a.k.a. ICC-IF), FC — verdicts
-        are per application, so never carry one application's result over to
-        another. Not-recommended hits come back with the supporting KO-controlled
-        their per-application verdict. Useful when a paper's methods use a reagent
-        for a specific application. Antibodies are serialised exactly as the public API, with the
-        factual assessment layer."""
-        rows, truncated = portal.antibodies_by_recommendation(
-            application, recommended, gene, cap=ROW_CAP)
-        audit.record("A", "antibodies_by_recommendation",
-                     application=application, recommended=recommended,
-                     gene=gene, n=len(rows))
-        return {"antibodies": rows, "count": len(rows),
-                "gene": gene, "application": application, "recommended": recommended,
+        list). ``application`` is one of WB, IP, IF (a.k.a. ICC-IF), FC —
+        results are per application, so never carry one application's result
+        over to another.
+
+        ``support`` is one of:
+          * ``supportive`` — the characterisation data supports this application;
+          * ``limited_support`` — tested, not supported overall, and the antibody
+            was still seen to do what the application is for (detect, enrich, or
+            give a selective signal). A real and common middle rung: on the live
+            dataset it is 491 of the 1,833 negative results;
+          * ``not_supportive`` — tested, and nothing on-target was seen;
+          * ``not_tested`` — nobody has run it. NOT a negative result.
+
+        Ask for one rung at a time. There is deliberately no boolean form: a
+        yes/no question cannot separate ``limited_support`` from
+        ``not_supportive``, and answering it would hand back an antibody the
+        bench watched work alongside one that showed nothing.
+
+        Antibodies are serialised exactly as the public API, with the factual
+        assessment layer."""
+        rows, truncated = portal.antibodies_by_support(
+            application, support, gene, cap=ROW_CAP)
+        audit.record("A", "antibodies_by_support", application=application,
+                     support=support, gene=gene, n=len(rows))
+        return {"antibodies": rows, "count": len(rows), "gene": gene,
+                "application": application, "support": support,
                 "truncated": truncated}
 
     @mcp.tool(**_ro("List characterised genes"))
     def list_targets(only_with_recommendations: bool = False,
                      limit: Optional[int] = None) -> dict:
         """List every gene (target) YCharOS has publicly characterised with
-        knockout-controlled antibody validation — i.e. the genes that have a public
+        knockout-controlled antibody characterisation — i.e. the genes that have a public
         gene page. Use it to check whether a gene named in a paper or manuscript is
         covered BEFORE saying anything about its presence — never assert a gene is
         absent from memory. Returns gene name + protein/UniProt identity only; it
         does NOT expose (or filter by) internal pipeline workflow status.
-        ``only_with_recommendations`` keeps genes with at least one recommended
-        antibody. ``limit`` caps the list — the full set is a few hundred genes and
+        ``only_with_recommendations`` keeps genes with at least one antibody
+        whose data is supportive for some application. (The parameter keeps its
+        older name so existing calls still work.) ``limit`` caps the list — the full set is a few hundred genes and
         is rarely all needed at once; ``count`` always reports the true total so a
         capped call is never mistaken for a short dataset."""
         rows = portal.list_targets(only_with_recommendations)

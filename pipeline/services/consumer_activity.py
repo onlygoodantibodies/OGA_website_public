@@ -89,6 +89,8 @@ ENDPOINT_ACTIVITY = {
     'pipeline_data': 'fetched pre-release data on their own reagents',
     'pipeline_image': 'fetched a pre-release figure',
     'gene_progress': 'checked how far their genes have got',
+    'not_supportive': 'reviewed their antibodies with no supportive result',
+    'not_supportive_csv': 'downloaded their not-supportive list as a spreadsheet',
     # `api_usage.endpoint_of` writes this literal when a request resolves to no
     # URL name. It has never been seen in the data; if it ever is, it is a fact
     # about the counter and not about the partner, and it says so.

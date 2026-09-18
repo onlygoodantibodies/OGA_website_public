@@ -28,6 +28,7 @@ from django.db import transaction
 
 from pipeline.models import (Target, Member, ExperimentSession,
                              WbResult, IpResult, IfResult, FcResult)
+from pipeline.services import lab_numbers
 from pipeline.services import session_template as tmpl
 from pipeline.services.cropper import db as cdb
 
@@ -171,7 +172,12 @@ def _has_result(row, proc) -> bool:
     invitation to write a reading on it, and an extra row becomes a result for an
     experiment nobody ran. A tab with nothing written on it is not a session.
     """
-    return any(_get_result(row, proc, col) != "" for col in _RESULT_COLS[proc])
+    # The notes column is not a reading — `session_board.NOT_A_READING` is the
+    # one list, so a tab carrying only a comment is not a session here and not
+    # a result on the board.
+    from pipeline.services.session_board import NOT_A_READING
+    return any(_get_result(row, proc, col) != "" for col in _RESULT_COLS[proc]
+               if col not in NOT_A_READING)
 
 
 def _condition_key(header):
@@ -522,7 +528,8 @@ def apply_import(parsed, uploader=None) -> dict:
         return {"ok": False, "error": "no member profile for the uploader; cannot set the experimenter."}
 
     out = {"ok": True, "sessions_created": 0, "sessions_updated": 0,
-           "results_created": 0, "results_updated": 0, "skipped": []}
+           "results_created": 0, "results_updated": 0, "skipped": [],
+           "numbers_issued": []}
 
     with transaction.atomic(using=DB):
         for g in _group(parsed):
@@ -614,6 +621,16 @@ def apply_import(parsed, uploader=None) -> dict:
             if plo is not None:
                 session.protein_loading_ug = plo
             session.save(using=DB)
+
+            # **A number exists before the experiment — through this door
+            # too.** `sessions.apply` issues an A-number to every antibody a
+            # planned session lists, because the bench sheet prints it; this
+            # path records the same experiment from a workbook and issued
+            # none, so the nineteenth field test planned STMN2 on the board and
+            # got A-6 and A-7, recorded ELP3 by workbook and got nothing, on
+            # the same afternoon at the same bench. Same backstop, same reply.
+            out["numbers_issued"] += lab_numbers.ensure_numbered(
+                [ab for _row, ab in resolved], db=DB)
 
             Model = _RESULT_MODEL[proc]
             decimals = _DECIMAL_RESULT.get(proc, set())

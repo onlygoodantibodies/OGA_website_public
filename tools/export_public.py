@@ -166,6 +166,22 @@ RULES: list[tuple[str, str, str]] = [
     ("pipeline/data/antibody_availability_2026_08.csv", SHIP,
      "Supplier availability verdicts quoted from public supplier pages."),
     ("pipeline/data/horizon_hap1_ko.csv", SHIP, "Horizon's public catalogue."),
+    ("pipeline/data/antibody_availability_2026_08_30.csv", SHIP,
+     "The 30 Aug recheck of supplier availability; same kind of file as the 11-12 Aug pass above."),
+    # The target-confusion notices and their paper lists are served to every
+    # extension install through /extension/index.json (core/target_confusions.py
+    # ::index_payload), so they are public by construction. Each CSV is a
+    # reviewer's per-paper verdict keyed on DOI; the JSON is the notice itself.
+    ("core/data/target_confusions/p16_ink4a.json", SHIP, "Published target-confusion notice."),
+    ("core/data/target_confusions/p16_ink4a_papers.csv", SHIP, "Its per-paper verdicts, served in the index."),
+    ("core/data/target_confusions/beta_galactosidase.json", SHIP, "Published target-confusion notice."),
+    ("core/data/target_confusions/beta_galactosidase_papers.csv", SHIP, "Its per-paper verdicts, served in the index."),
+    ("core/data/target_confusions/perk_for_p_erk.json", SHIP, "Published target-confusion notice."),
+    ("core/data/target_confusions/perk_for_p_erk_papers.csv", SHIP, "Its per-paper verdicts, served in the index."),
+    ("core/data/target_confusions/p_erk_for_perk.json", SHIP, "Published target-confusion notice."),
+    ("core/data/target_confusions/p_erk_for_perk_papers.csv", SHIP, "Its per-paper verdicts, served in the index."),
+    ("browser-extension/store/listing/banners.json", SHIP,
+     "The store listing's banner manifest: headline text and the frame, all of it public on the listing."),
     ("pipeline/services/tests/fixtures/*.xlsx", SHIP, "Test fixture workbooks."),
     ("mcp_servers/content/plan_schema.json", SHIP, "Content schema."),
     ("mcp_servers/content/quizzes.json", SHIP, "Academy quiz content."),

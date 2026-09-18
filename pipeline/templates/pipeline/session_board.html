@@ -71,6 +71,7 @@
   {{ new_columns|json_script:"new-columns" }}
   {{ new_example|json_script:"new-example" }}
   {{ statuses|json_script:"status-choices" }}
+  {{ cell_choices|json_script:"cell-choices" }}
   <div id="new-panel"></div>
 
   {% comment %}The cell lines the Plan a session panel's WT and KO boxes offer.
@@ -481,10 +482,16 @@ change rather than an oversight.{% endcomment %}
    * Result fields are added to this same object when a row is opened, because
    * which ones exist and what they have been set to depends on the procedure.
    * `board.js` reads it at edit time, not at creation. */
-  const cellChoices = {
-    status: {strict: true,
-             values: JSON.parse(document.getElementById('status-choices').textContent)},
-  };
+  /* Built server-side now (services/session_board.py::cell_choices) rather
+   * than assembled here: `site` and `experimenter` are closed sets the writer
+   * refuses outside of, and the two cell-line boxes stay loose on purpose —
+   * `cell_lines.session_options` is a preference, not a gate, so another
+   * bench's line and a C-number off a tube both keep working.
+   *
+   * Result fields are still merged into this same object when a row is opened,
+   * because which ones exist and what they hold depends on the procedure.
+   * `board.js` reads it at edit time, not at creation. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
 
   const board = OGABoard.create({
     // Cell editing is delegated, so the drawer has to be named or every cell in
@@ -504,7 +511,8 @@ change rather than an oversight.{% endcomment %}
     // the Gene box can be cleared without pressing Apply, and the grid redraws
     // from the form after an add or a delete.
     afterLoad: () => OGABoard.geneGate(
-      filtersForm, document.getElementById('delete-gate')),
+      filtersForm, document.getElementById('delete-gate'),
+      OGABoard.GENE_GATE_SESSIONS),
   });
 
   // ── Results, opened per row ──────────────────────────────────────────
@@ -667,8 +675,9 @@ change rather than an oversight.{% endcomment %}
                     ${benchSheetHtml(sessionId, data)}`;
     const cards = data.rows.length
       ? data.rows.map(r => resultCard(sessionId, r, data.columns)).join('')
-      : `<p class="text-gray-500">No results recorded for this session yet — fill
-         in the bench sheet below, or add the antibodies to the session first.</p>`;
+      : `<p class="text-gray-500">No result rows on this session yet. Its bench sheet
+         below lists every antibody on file for the gene as a picking list — fill in
+         the ones you used and upload it here, and the readings create the rows.</p>`;
     /* The drawer bounds the width now. This used to live in a
      * `td colspan="9"` inside a grid wide enough to scroll sideways, so it
      * inherited that width and the protocol's method paragraphs — the longest
@@ -789,6 +798,8 @@ change rather than an oversight.{% endcomment %}
     out.innerHTML = '<span class="text-gray-500">Recording…</span>';
 
     let d;
+    // Built by whichever branch runs, drawn after `openResults` below.
+    let receipt = '';
     if (staged.kind === 'workbook') {
       const file = drawerBody.querySelector(`.bench-file[data-session="${id}"]`).files[0];
       if (!file) { fail('Choose the filled-in workbook first.'); return; }
@@ -802,8 +813,9 @@ change rather than an oversight.{% endcomment %}
         {method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd}, fail);
       if (!d) return;
       if (d.ok === false) { fail(d.error || 'Nothing was recorded.'); return; }
-      out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
-        Recorded. ${d.results_created || 0} new result row(s), ${d.results_updated || 0} updated.
+      receipt = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
+        Recorded. ${d.results_created || 0} new result row(s), ${d.results_updated || 0} updated.${
+          OGABoard.saveNotes(d)}
         ${(d.skipped || []).length ? `<div class="mt-1 text-amber-900">${
           d.skipped.map(esc).join('<br>')}</div>` : ''}</div>`;
     } else {
@@ -819,14 +831,33 @@ change rather than an oversight.{% endcomment %}
       if (d.ok === false) { fail(d.error || 'Nothing was recorded.'); return; }
       const made = (d.created || []).length, changed = (d.updated || []).length;
       const conds = (d.conditions_stored || []).length;
-      out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
+      /* `saveNotes` here too. Recording a sheet is one of the three doors that
+       * issues an A-number, and this was the door that did not say so: the run-19
+       * fix reached the workbook receipt above and the gene page's panel, and
+       * missed this one, which is exactly the "seven call sites" failure the
+       * composed writer exists to prevent. Run 20 got A-8 and A-9 from this press
+       * and had to read them off the antibodies board afterwards. */
+      receipt = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
         Recorded. ${made} new result row(s), ${changed} updated.${
-          conds ? ` ${conds} session condition(s) stored.` : ''}
+          conds ? ` ${conds} session condition(s) stored.` : ''}${
+          OGABoard.saveNotes(d)}
         ${(d.unmatched || []).length ? `${d.unmatched.length} row(s) matched no antibody and were ignored.` : ''}</div>`;
     }
     commit.classList.add('hidden');
     benchRows.delete(id);
     await openResults(id);
+    /* **After the redraw, never before.** `openResults` replaces the whole
+     * drawer body, so a receipt written above is destroyed by the very call
+     * that draws the rows it is describing — the save wrote, announced itself
+     * to nobody, and run 20 could not quote it at all, reasonably filing it as
+     * its own driver's fault. Same reason `OGABoard.rowDeleted` posts its
+     * banner after its await. The element is re-queried because the one the
+     * handler started with is gone. */
+    const fresh = drawerBody.querySelector(`.bench-out[data-session="${id}"]`);
+    if (fresh && receipt) {
+      fresh.innerHTML = receipt;
+      OGABoard.bringIntoView(fresh);
+    }
   });
 
   /* Expand one session's results under its row. Separate from the click

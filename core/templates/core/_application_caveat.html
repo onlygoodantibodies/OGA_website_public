@@ -1,0 +1,26 @@
+{% comment %}
+What is true of ONE of the four applications, drawn where that application's
+result is.
+
+`application_scope_notes` is `core/recommendations.py::APPLICATION_SCOPE`,
+arriving from `core/context_processors.py` — the same arrangement, and for the
+same reason, as `_recommendation_caveat.html` beside it. The two are different
+claims and are deliberately separate files: that one says what the dataset
+covers and is owed once per page; this one qualifies a single column of it, and
+belongs with the table or the panel that draws that column.
+
+Each sentence names its own application, so the list needs no headings and no
+key. Today it holds one; a second needs nothing here.
+
+**Not drawn on the gene page** (11 Sep 2026). Every sentence ends "the gene page
+says which", which is a pointer, and on the gene page it points at itself — and
+that page already answers it under each tested cell, in `cell_caption`'s words.
+It draws `application_facts` instead: the half of the same sentences that is a
+fact about the application rather than a deferral. See
+`recommendations.APPLICATION_FACT`. One consumer left, and it is the right one:
+the extension page, which describes a card floating over somebody else's tab.
+
+No wrapper element, for the reason the other partial has none: these pages are
+standalone documents with their own stylesheets, so a class of ours would
+arrive unstyled. Each page wraps this in the notice box it already has.
+{% endcomment %}{% for note in application_scope_notes %}{{ note }} {% endfor %}

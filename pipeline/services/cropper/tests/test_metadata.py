@@ -167,3 +167,105 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ── the two things uOttawa's first spreadsheet found ─────────────────────────
+#
+# 44 antibodies, in the lab's own layout, uploaded as **0 rows** — and had they
+# been read, every concentration would have gone in a thousand times too low.
+# Both are pinned here because both are invisible from the screen: one shows as
+# an empty preview a person would read as "already applied", the other as a
+# number nothing on any page contradicts.
+
+def _sheet(header, *rows):
+    return "\n".join("\t".join(r) for r in ((header,) + rows))
+
+
+def test_catalogue_spelled_with_a_hash_is_still_a_catalogue():
+    # `catalogue #` was in no alias while `cat#` and `catalogue number` both
+    # were. `parse_table` drops every row with no catalogue, so one missing
+    # spelling read a full sheet as nothing at all.
+    rows = M.parse_table(
+        _sheet(("Gene Name", "Catalogue #", "Company", "Lot #"),
+               ("ADAM10", "ab124695", "Abcam", "1102604-18")),
+        header_led=True)
+    assert len(rows) == 1
+    assert rows[0]["catalogue"] == "ab124695" and rows[0]["lot"] == "1102604-18"
+
+
+def test_punctuation_on_a_heading_is_decoration():
+    # The general rule behind the fix above: `catalogue #` must not be the only
+    # spelling anybody ever thinks of again.
+    assert M.header_field("Cat.No.") == "catalogue"
+    assert M.header_field("Clone #") == "clone_id"
+    assert M.header_field("Conc.") == "concentration"
+    assert M.header_field("Box #") == "box"
+    # And a heading that names nothing still names nothing.
+    assert M.header_field("Ab request reference") == ""
+
+
+def test_a_heading_that_names_a_unit_means_its_cells_are_in_that_unit():
+    # The silent one. `Concentration (mg/mL)` over a bare `0.498` was stored as
+    # 0.498 µg/mL — the exact thousand-fold error services/concentration.py
+    # exists to prevent, arriving through the header instead of the cell.
+    rows = M.parse_table(
+        _sheet(("Gene Name", "Catalogue #", "Concentration (mg/mL)"),
+               ("ADAM10", "ab124695", "0.498")),
+        header_led=True)
+    assert rows[0]["concentration"] == "0.498 mg/ml"
+    assert rows[0]["concentration_unit_from"] == "heading"
+
+
+def test_a_unit_in_the_cell_beats_the_heading():
+    rows = M.parse_table(
+        _sheet(("Gene Name", "Catalogue #", "Concentration (mg/mL)"),
+               ("ADAM10", "ab124695", "500 ug/mL")),
+        header_led=True)
+    assert rows[0]["concentration"] == "500 ug/mL"
+    assert rows[0].get("concentration_unit_from", "") == ""
+
+
+def test_this_apps_own_export_stores_the_same_number():
+    # The heading rule must not rescale the round trip it was written to
+    # protect. This app's own sheet is headed `(ug/mL)`, which is the stored
+    # unit, so the cell gains the unit as text and the *value* is untouched —
+    # which is the half that matters, and the half a string comparison would
+    # have missed in the wrong direction.
+    from pipeline.services import concentration as C
+    rows = M.parse_table(
+        _sheet(("gene", "catalogue", "concentration (ug/mL)"),
+               ("ADAM10", "ab124695", "1000")),
+        header_led=True)
+    assert C.parse(rows[0]["concentration"])[0] == C.parse("1000")[0]
+
+
+def test_the_heading_unit_is_what_gets_stored():
+    # The end of the chain: mg/mL in the heading, bare digits in the cell, and
+    # the number that reaches the column is a thousand times the digits.
+    from pipeline.services import concentration as C
+    rows = M.parse_table(
+        _sheet(("Gene Name", "Catalogue #", "Concentration (mg/mL)"),
+               ("ADAM10", "ab124695", "0.498")),
+        header_led=True)
+    value, err = C.parse(rows[0]["concentration"])
+    assert err == "" and float(value) == 498.0
+
+
+def test_storage_box_and_received_are_read():
+    rows = M.parse_table(
+        _sheet(("Gene Name", "Catalogue #", "Storage", "Box #", "Date received"),
+               ("ADAM10", "ab124695", "(-20°C)", "42", "August 2026")),
+        header_led=True)
+    r = rows[0]
+    assert r["storage_type"] == "(-20°C)" and r["box"] == "42"
+    assert r["received"] == "August 2026"
+
+
+def test_a_wrapped_pdf_row_never_invents_a_freezer():
+    # The anchored walk reads published tables. A freezer box is not in one, and
+    # a guess about somebody's freezer is worse than a blank.
+    rows = M.parse_table(
+        "ab318262   Abcam   AB_2665480   Rabbit   Monoclonal\n"
+        "GTX637386   GeneTex   AB_2909876   Rabbit   Polyclonal")
+    assert all(r["box"] == "" and r["storage_type"] == "" and r["received"] == ""
+               for r in rows)

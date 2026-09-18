@@ -5,9 +5,13 @@ database. It connects with the role's own DSN and checks — using
 ``has_table_privilege`` (no data is written) plus one behavioural write attempt
 (rolled back) — that:
 
-  * readonly (Server A): can SELECT lab tables + the recommendation view, CANNOT
-    write, and CANNOT read ``auth_user`` at all; session is read-only with a
-    statement timeout.
+  * readonly (Server A): can SELECT exactly the tables in
+    ``mcp_servers/common/grants.py::ALLOWED`` and the recommendation view, CANNOT
+    read any other ``pipeline_*`` table, CANNOT write, and CANNOT read
+    ``auth_user`` at all; session is read-only with a statement timeout.
+
+The allow-list is not restated here. One list, read by this, by
+``manage.py apply_mcp_roles`` and by ``tests/test_grant_scope.py``.
 
 (The write servers B/C were retired, so there are no writer/admin roles to check.)
 
@@ -22,6 +26,18 @@ from __future__ import annotations
 import os
 import sys
 
+# Runnable either way: `python mcp_servers/preflight.py` puts mcp_servers/ on the
+# path, `python -m mcp_servers.preflight` puts the repo root there. Add the root
+# explicitly so the shared allow-list imports under both.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from mcp_servers.common import grants  # noqa: E402
+
+# The table the behavioural write is attempted against. Still hardcoded, and
+# that is fine: it proves the role cannot write, which is true of every table or
+# none. WHICH tables it may READ is grants.ALLOWED's question, not this one —
+# conflating the two is how this file came to check a single table and report a
+# healthy role while six of nine tools were down.
 LAB_TABLE = "pipeline_antibody"
 VIEW = "antibody_recommendations"
 
@@ -54,13 +70,13 @@ def check_readonly(dsn):
     conn = _connect(dsn)
     try:
         cur = conn.cursor()
-        _expect(results, "can SELECT lab tables", _priv(cur, LAB_TABLE, "SELECT"))
+        # Asked as the role itself, so has_table_privilege takes two arguments;
+        # apply_mcp_roles asks the same questions as the owner with three. That
+        # is the whole reason grants.audit takes `priv` as a parameter.
+        cur.execute(grants.LAB_TABLES_SQL)
+        present = [r[0] for r in cur.fetchall()]
+        results.extend(grants.audit(present, lambda t, p: _priv(cur, t, p)))
         _expect(results, "can SELECT recommendation view", _priv(cur, VIEW, "SELECT"))
-        _expect(results, "CANNOT INSERT lab tables", not _priv(cur, LAB_TABLE, "INSERT"))
-        _expect(results, "CANNOT UPDATE lab tables", not _priv(cur, LAB_TABLE, "UPDATE"))
-        _expect(results, "CANNOT DELETE lab tables", not _priv(cur, LAB_TABLE, "DELETE"))
-        _expect(results, "CANNOT read auth_user (emails/hashes)",
-                not _priv(cur, "auth_user", "SELECT"))
         ro = _scalar(cur, "SHOW default_transaction_read_only")
         _expect(results, "session default_transaction_read_only = on", ro == "on")
         timeout = _scalar(cur, "SHOW statement_timeout")

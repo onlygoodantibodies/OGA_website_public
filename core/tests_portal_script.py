@@ -124,6 +124,64 @@ class EveryButtonCallsSomethingThatExistsTests(SimpleTestCase):
             f"{missing}. The button renders and does nothing when pressed.")
 
 
+class ThePillsSayWhatTheDataShowsTests(SimpleTestCase):
+    """The portal draws a manufacturer their own results, so what it omits is
+    as much a decision as what it draws.
+
+    A pill is drawn where OGA recommends, and — since 29 Aug 2026 — where the
+    antibody did the thing its application is for and still did not meet the
+    bar. A plain negative deliberately draws nothing: that half is what stops a
+    supplier being shown a claim nobody ran the test for, and it is unchanged.
+    """
+
+    def test_the_figure_is_wired_to_the_field_that_feeds_it(self):
+        """A helper declared in one function and called from another is valid
+        syntax, parses clean, and only fails when the line runs — the defect
+        this file exists for. So this asserts `oga_display` is read inside the
+        function that builds the thumbnails, not merely that the string appears
+        somewhere in the file.
+
+        The portal presents results the way a public gene page does since
+        29 Aug 2026: the verdict is on the figure and its sentence, not on a row
+        of pills above them. A supplier comparing their row here with the page
+        it links to must meet one visual language.
+        """
+        source = TEMPLATE.read_text()
+        start = source.index("const thumbs = filteredExps.map(")
+        body = source[start:source.index("}).join('');", start)]
+        self.assertIn("oga_display", body,
+                      "the figure must read the field the server sends")
+        self.assertIn("d.sentence", body, "the figure must carry its sentence")
+        self.assertIn("exp-supportive", body)
+        self.assertIn("has-caveat", body)
+
+    def test_a_payload_without_the_new_key_still_draws(self):
+        """A cached response predates it, and every read is guarded."""
+        source = TEMPLATE.read_text()
+        start = source.index("const thumbs = filteredExps.map(")
+        body = source[start:source.index("}).join('');", start)]
+        self.assertIn("(ab.oga_display || {})", body)
+        self.assertIn("isRec", body, "no fallback to the boolean")
+
+    def test_the_supported_applications_line_is_not_a_second_copy(self):
+        """The heading comes from the gene page's own constant through
+        `json_script`, so the two surfaces cannot word it differently."""
+        source = TEMPLATE.read_text()
+        self.assertIn('json_script:"supports-label"', source)
+        self.assertIn("SUPPORTS_LABEL", source)
+        self.assertNotIn("Characterisation data supports", source)
+
+    def test_the_legend_names_every_state_the_page_can_draw(self):
+        """A pill with no legend entry is one a manufacturer has to guess at."""
+        source = TEMPLATE.read_text()
+        legend = source[source.index('id="result-legend"'):]
+        legend = legend[:legend.index("</div>")]
+        for cls in ("lg-swatch lg-supportive", "lg-swatch lg-supportive lg-tab",
+                    "lg-swatch"):
+            self.assertIn(cls, legend, cls)
+
+
+
 class ThePortalUsesNoDjangoCommentDelimitersTests(SimpleTestCase):
     """``{#`` does not span lines and ends at the first ``#}``.
 

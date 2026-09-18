@@ -11,37 +11,36 @@
 name: browser extension
 
 on:
-  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
-  # The month's GitHub Actions minutes are spent, so every automatic run was
-  # failing before a single test executed -- a red tick on `beta` that says
-  # nothing about the code and trains everyone to ignore red ticks.
-  #
-  # The automatic triggers below are commented out, NOT deleted, so restoring
-  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
-  # left on, so the Actions tab can still run this by hand.
-  #
-  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
-  # is off is a suite nobody runs, and it looks exactly like a suite that
-  # passes.
-  # ───────────────────────────────────────────────────────────────────────
-#   push:
-#     paths:
-#       - 'browser-extension/**'
-#       # The extension's title normaliser is pinned against the SAME vector file
-#       # the Django side reads, and that file lives in core/. Without this path a
-#       # change to the shared vectors would run the Python half and not the
-#       # JavaScript half -- which is the exact drift the vectors exist to catch.
-#       - 'core/data/title_normalisation_vectors.json'
-#       - '.github/workflows/browser-extension.yml'
-#   pull_request:
-#     paths:
-#       - 'browser-extension/**'
-#       # The extension's title normaliser is pinned against the SAME vector file
-#       # the Django side reads, and that file lives in core/. Without this path a
-#       # change to the shared vectors would run the Python half and not the
-#       # JavaScript half -- which is the exact drift the vectors exist to catch.
-#       - 'core/data/title_normalisation_vectors.json'
-#       - '.github/workflows/browser-extension.yml'
+  push:
+    paths:
+      - 'browser-extension/**'
+      # The extension's title normaliser is pinned against the SAME vector file
+      # the Django side reads, and that file lives in core/. Without this path a
+      # change to the shared vectors would run the Python half and not the
+      # JavaScript half -- which is the exact drift the vectors exist to catch.
+      - 'core/data/title_normalisation_vectors.json'
+      # Same argument, second artefact: the extension's declared-target notices
+      # are built from these files and its shipped fixture is pinned against the
+      # Python builder's output. Without this path a change to a list would run
+      # the Django half and not the JavaScript half, which is the drift the
+      # pairing test exists to catch.
+      - 'core/data/target_confusions/**'
+      - '.github/workflows/browser-extension.yml'
+  pull_request:
+    paths:
+      - 'browser-extension/**'
+      # The extension's title normaliser is pinned against the SAME vector file
+      # the Django side reads, and that file lives in core/. Without this path a
+      # change to the shared vectors would run the Python half and not the
+      # JavaScript half -- which is the exact drift the vectors exist to catch.
+      - 'core/data/title_normalisation_vectors.json'
+      # Same argument, second artefact: the extension's declared-target notices
+      # are built from these files and its shipped fixture is pinned against the
+      # Python builder's output. Without this path a change to a list would run
+      # the Django half and not the JavaScript half, which is the drift the
+      # pairing test exists to catch.
+      - 'core/data/target_confusions/**'
+      - '.github/workflows/browser-extension.yml'
   workflow_dispatch:
 
 # One run per branch. Pushing a series of commits used to leave every superseded
@@ -76,6 +75,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # No lockfile is committed, so the version string in package.json IS the
+      # pin -- and Playwright's version decides which Chromium gets downloaded.
+      # `^1.50.0` meant every run silently tested whatever browser was newest
+      # that day: this job went red on 31 Aug 2026 with no commit touching the
+      # extension, because it had moved from Chromium 141 to Chrome 151 on its
+      # own. A job that changes what it tests without anybody changing anything
+      # cannot be read either way -- green proves nothing and red blames the
+      # wrong commit. Exact-pinned so the browser moves when somebody decides it
+      # should.
       - run: npm install --no-package-lock
       # Chromium only: Playwright can load an extension in Chromium and nowhere
       # else, so Firefox has no automated coverage at all. See README.md.

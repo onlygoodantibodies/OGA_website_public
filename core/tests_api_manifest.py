@@ -35,7 +35,7 @@ import csv
 from datetime import timedelta
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -641,3 +641,108 @@ class TheGeneNarrowingTests(ManifestCase):
                                   format='csv').content.decode()
         self.assertIn('SNCA', csv_body)
         self.assertNotIn('MAPT', csv_body)
+
+
+class TheDisplayVocabularyTests(ManifestCase):
+    """`oga_display` beside `oga_recommendation`, never instead of it.
+
+    A bulk download is read by a person as often as by a parser, and until
+    12 Sep 2026 the only verdict in it was the enum — so every negative arrived
+    spelled `not_recommended`, including the better-than-a-quarter of them the
+    site itself draws as *Limited support*. That rung is the whole reason these
+    columns exist and it is the one that fails silently: if the capability axes
+    never reach `describe`, every negative reads `Not supportive`, the CSV is
+    well-formed, and nothing anywhere says the middle rung has gone missing.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from pipeline.models import AntibodyOutcome
+
+        # Curates SNCA: a gene with no recommendation at all reports
+        # `not_tested` for everything, which would hide what these assert.
+        cls.ab_pt_snca.wb_recommended = True
+        cls.ab_pt_snca.save(update_fields=['wb_recommended'])
+
+        # The Abcam antibody's WB: not recommended, and the bench recorded that
+        # it detected the target anyway. That pair is *Limited support*.
+        AntibodyOutcome.objects.create(
+            antibody=cls.ab_abcam, application_type='WB',
+            detects='yes', selective='no')
+
+    def _by_application(self, consumer=None):
+        body = self._manifest(consumer or self.consumer).json()
+        return {(row['catalogue_number'], row['application']): row
+                for row in body['files']}
+
+    def test_a_negative_the_bench_saw_do_the_job_reads_limited_support(self):
+        rows = self._by_application()
+        row = rows[('ab12345', 'WB')]
+
+        self.assertEqual(row['oga_recommendation'], R.NOT_RECOMMENDED)
+        self.assertEqual(row['oga_display'], R.LIMITED_WORDS)
+        self.assertEqual(row['oga_qualifier'], 'detects the target')
+
+    def test_the_enum_is_untouched_by_any_of_it(self):
+        """The controlled value is what a parser switches on, and it does not move."""
+        body = self._manifest(self.consumer).json()
+        self.assertTrue(body['files'])
+        for row in body['files']:
+            with self.subTest(row=row['filename']):
+                self.assertIn(row['oga_recommendation'],
+                              {R.RECOMMENDED, R.NOT_RECOMMENDED, R.NOT_TESTED})
+                self.assertIn(row['oga_display'],
+                              {R.CELL_WORDS[R.RECOMMENDED], R.LIMITED_WORDS,
+                               R.CELL_WORDS[R.NOT_RECOMMENDED],
+                               R.UNTESTED_WORDS})
+
+    def test_the_words_reach_the_csv_in_the_documented_columns(self):
+        """A parser reading by position gets what the header promises."""
+        response = self._manifest(self.consumer, format='csv')
+        rows = list(csv.DictReader(response.content.decode().splitlines()))
+
+        self.assertEqual(list(rows[0]), CSV_COLUMNS)
+        limited = [r for r in rows if r['oga_display'] == R.LIMITED_WORDS]
+        self.assertEqual(
+            [(r['catalogue_number'], r['application']) for r in limited],
+            [('ab12345', 'WB')])
+
+    def test_recording_an_outcome_breaks_the_etag(self):
+        """The third input to a verdict, and the one a flag flip cannot show.
+
+        Filling in a judgement moves a row from *Not supportive* to *Limited
+        support* without touching a file or a recommendation flag. A consumer
+        sitting on a 304 would go on publishing "not recommended" about a
+        product the dataset now qualifies.
+        """
+        from pipeline.models import AntibodyOutcome
+
+        before = self._etag()
+        AntibodyOutcome.objects.create(
+            antibody=self.ab_pt_mapt, application_type='ICC-IF',
+            selective='selective')
+
+        self.assertNotEqual(self._etag(), before)
+
+
+class TheReferenceHeaderTests(SimpleTestCase):
+    """`bin/check_api.py` holds the CSV header as a literal, and must agree.
+
+    It is a second copy of `CSV_COLUMNS` by design — it runs against the *live*
+    site, so deriving it from the code it is checking would make it agree by
+    construction and assert nothing. That is exactly why it drifts: a column
+    added here and not there fails only when somebody runs the script by hand,
+    against production, and reads the output.
+    """
+
+    def test_the_script_expects_the_columns_the_manifest_writes(self):
+        import re
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parent.parent / 'bin' / 'check_api.py'
+        text = source.read_text(encoding='utf-8')
+        block = re.search(r"expected = \(([^)]*)\)", text).group(1)
+        literal = ''.join(re.findall(r"'([^']*)'", block))
+
+        self.assertEqual(literal, ','.join(CSV_COLUMNS))

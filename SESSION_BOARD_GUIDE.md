@@ -72,6 +72,26 @@ retyping the label on the wrong thing.
 
 ---
 
+## Cells that offer what they will accept
+
+Some cells give you a list rather than a blank box, and there are two kinds:
+
+- **A dropdown** where the field has a fixed set of answers. Anything else would
+  be refused when you save, so it is not offered.
+- **A type-ahead** where the field is a convention rather than a rule. It offers
+  what the column already holds, so you can pick the spelling everyone else is
+  using — and you can still type something new, because a vocabulary nobody may
+  add to stops describing the bench.
+
+The type-ahead lists are built from the database each time the page loads, and
+they fold case: where a column holds both `rabbit` and `Rabbit` you are offered
+only the one already more used. Nothing is rewritten — picking from the list is
+just how the split stops getting wider. A column with hundreds of different
+values gets no list at all; that is free text, and a menu of hundreds is a
+scroll rather than a reminder.
+
+---
+
 ## Status
 
 | Status | Means |
@@ -178,7 +198,7 @@ what you asked to see.
 - **Deleting a single result row.** There is no surface for it. A whole session
   can be deleted, from its row, while the board is narrowed to one gene — and the
   panel lists everything that goes with it first.
-- **Figures.** Cropping validation images is the cropper's job — **Publish
+- **Figures.** Cropping characterisation images is the cropper's job — **Publish
   figures** in Browse. Cropping does not publish: the crops wait in the **Review
   queue**, and releasing them there is what puts them on the public website.
 

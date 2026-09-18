@@ -211,10 +211,30 @@
   <div class="mb-4">
     <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Pipeline workspace</p>
     <h1 class="text-2xl font-bold text-gray-900 mt-1">Set recommendations</h1>
-    <p class="text-gray-600 mt-1 max-w-2xl">Pick a gene, then click a validation image to mark that antibody
+    <p class="text-gray-600 mt-1 max-w-2xl">Pick a gene, then click a characterisation image to mark that antibody
       as recommended for that application. Every click saves instantly.
       Use the <span class="font-semibold text-gray-800">⤢</span> button on an image to enlarge it before
       you judge it — right-click still works too.</p>
+    {% comment %}
+      Where the change goes, and when.
+
+      "Every click saves instantly" is true and was the whole of what this page
+      said, which left the browser extension looking broken: on 28 Aug 2026 a
+      gene page said GTX112707 was recommended for WB while a hover card on the
+      same screen said it was not. Nothing was wrong — the extension's snapshot
+      is cached at the origin, cached again at Cloudflare, and refreshed by each
+      install once a day. The origin hour is gone now (the snapshot is dropped
+      on write, core/extension_index.py::invalidate_snapshot), and the other two
+      are real and cannot be removed from here, so the page says so rather than
+      leaving somebody to re-diagnose it.
+    {% endcomment %}
+    <p class="text-gray-600 mt-2 max-w-2xl text-sm">
+      Saved changes show on this site straight away. <span class="font-semibold text-gray-800">The
+      browser extension can take up to a day</span> — every install downloads the
+      dataset once daily — so a verdict you have just changed may differ there
+      until then. Readers can force it sooner with <span class="font-semibold
+      text-gray-800">Refresh data now</span> in the extension's settings.
+    </p>
     {% if gene_note %}
     {% comment %}A `?gene=` this page cannot open. Two cases that look the same
     from outside and are not — a gene that is not in the pipeline, and one that
@@ -281,7 +301,7 @@
   <div id="toast"></div>
 
   <div id="image-preview" class="rec-hidden" role="dialog" aria-modal="true" aria-label="Enlarged figure">
-    <img id="preview-img" src="" alt="Enlarged validation figure">
+    <img id="preview-img" src="" alt="Enlarged characterisation figure">
     <p id="preview-caption"></p>
   </div>
 

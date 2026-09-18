@@ -954,7 +954,7 @@ def test_empty_call_is_safe():
 # ── a damaging verdict must always point at the evidence ─────────────────────
 # If a row says an antibody was tested and NOT recommended, that can undercut a
 # claim in the paper being read. The reader has to be able to check it: the
-# validation figure, the peer-reviewed report, and the gene page must travel with
+# characterisation figure, the peer-reviewed report, and the gene page must travel with
 # the row, not sit in a nested array the caller was told not to render.
 
 def test_not_recommended_row_carries_image_report_doi_and_gene_page():
@@ -1201,3 +1201,43 @@ def test_an_unlinked_row_keeps_the_only_figures_it_has():
     assert row["control_status"] == "present_unlinked"
     assert row["control_figures"] == ["6a"]
     assert row["control_figures_unlinked"] == []
+
+
+# ── the swap for a reagent the data does not support ─────────────────────────
+
+def test_a_concern_carries_the_alternatives_on_its_row_and_in_focus():
+    """`antibodies_of_concern` named the problem and offered no way out of it.
+
+    The reader here is not waiting on evidence — they have it, and it is against
+    the reagent in their hands. That is the sharpest case in the reply and it was
+    the one with nowhere to go next: the pointer reached untested reagents only.
+    """
+    res = portal.scan_controls(reagents=[
+        {"identifier": "2642", "target": "SNCA", "role": "primary",
+         "applications": ["WB"], "figures": ["1a"]}])
+    assert [r["antibody"] for r in res["focus"]["antibodies_of_concern"]] == ["2642"]
+    swap = res["focus"]["unsupported_with_characterised_alternatives"]
+    assert [r["antibody"] for r in swap] == ["2642"]
+    # The table is the only part the caller renders as-is, so the fields have to be
+    # ON the row — not only in `antibody_hits`, where nothing would show them.
+    row = [r for r in res["table"] if r["antibody"] == "2642"][0]
+    assert row["alternatives_listed"] >= 1
+    assert row["gene_page"]
+    assert "ab212184" in {a["antibody"]
+                          for a in res["characterised_alternatives"]["SNCA"]}
+
+
+def test_a_supported_antibody_gets_no_swap_offered():
+    res = portal.scan_controls(reagents=[
+        {"identifier": "ab212184", "target": "SNCA", "role": "primary",
+         "applications": ["WB"]}])
+    assert res["focus"]["unsupported_with_characterised_alternatives"] == []
+    assert res["characterised_alternatives"] == {}
+
+
+def test_the_note_tells_the_caller_to_render_the_swap():
+    """A field computed and never drawn is the same bug as one never computed."""
+    res = portal.scan_controls(reagents=[
+        {"identifier": "2642", "target": "SNCA", "role": "primary",
+         "applications": ["WB"]}])
+    assert "unsupported_with_characterised_alternatives" in res["note"]

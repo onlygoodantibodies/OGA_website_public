@@ -245,6 +245,53 @@ class TheDownloadIsNamedForTheManifestTests(TestCase):
         self.assertNotIn('package.json', names)
         self.assertFalse([n for n in names if n.startswith('signed/')])
 
+    def test_nothing_ships_that_nobody_decided_to_ship(self):
+        """An allowlist, because the exclusion list in the packager fails open.
+
+        `exclude_names` names what must not ship, so a file added to
+        `browser-extension/` later ships by default and nothing anywhere says
+        so. That is not hypothetical: `CLAUDE.md` — this directory's internal
+        working notes, with measured accuracy figures and the release procedure
+        in it — was inside the 0.2.5 package, found only by reading the artefact
+        before submitting it. Everything worked. It would have gone to a store
+        reviewer and into every install.
+
+        So the *test* holds the allowlist and the packager keeps its exclusions:
+        adding a file the extension genuinely needs stays a one-line change,
+        with this failing to tell you to make it. Deliberately the opposite
+        trade-off to Render's ignored-paths filter, where failing open is what
+        makes it safe — the harm there is a backup that silently stops
+        deploying, and here it is publishing something nobody chose to publish.
+
+        `CHANGELOG.md` is allowed on purpose: it is the record of what changed,
+        it is not internal, and a reviewer or a curious user reading it is fine.
+        """
+        import io
+        import posixpath
+        import zipfile
+
+        from core.extension_index import build_zip_bytes
+
+        payload, _version = build_zip_bytes()
+        names = set(zipfile.ZipFile(io.BytesIO(payload)).namelist())
+
+        allowed_roots = {'src', 'icons', 'data'}
+        allowed_files = {'manifest.json', 'CHANGELOG.md'}
+
+        unexpected = []
+        for name in sorted(names):
+            head = name.split(posixpath.sep if posixpath.sep in name else '/')[0]
+            if '/' in name.replace('\\', '/'):
+                if head not in allowed_roots:
+                    unexpected.append(name)
+            elif name not in allowed_files:
+                unexpected.append(name)
+
+        self.assertEqual([], unexpected,
+                         'these are in the store package and nothing chose to '
+                         'put them there; add to exclude_names, or to '
+                         'allowed_files/allowed_roots if they belong')
+
 
 class AnUncuratedGeneIsNotAFailedTestTests(TestCase):
     """The extension badged products as failing tests nobody had run on them.

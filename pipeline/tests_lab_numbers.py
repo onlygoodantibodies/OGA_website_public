@@ -11,6 +11,9 @@ wording of a refusal. Those fail loudly the first time anybody looks.
 """
 from __future__ import annotations
 
+import json
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from pipeline.models import (Antibody, CellLine, CellLineVial, Company, Member,
@@ -123,26 +126,31 @@ class ATypedNumberWinsTests(TestCase):
         C-42 and the record something else entirely."""
         rows = bulk_cell_lines.parse(
             f"{self.HEADER}\nHAP1\tNA\tWT\t\tC-42\tLeicester")
-        bulk_cell_lines.apply(rows, create_targets=True, member=self.member)
+        bulk_cell_lines.apply(rows, member=self.member)
         line = CellLine.objects.using(DB).get(name="HAP1")
         self.assertEqual(line.c_number, 42)
 
     def test_a_pasted_a_number_is_what_the_antibody_gets(self):
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tab #\nSTMN2\tab1\tAbcam\tA-77")
-        bulk_antibodies.apply(rows, create_targets=True, member=self.member)
+        bulk_antibodies.apply(rows, member=self.member)
         ab = Antibody.objects.using(DB).get(catalogue_number="ab1")
         self.assertEqual(ab.ab_number, 77)
 
     def test_a_bare_number_in_the_ab_column_is_left_alone(self):
         """Every antibodies sheet downloaded before this printed the *record*
         id in that column. Reading one back as an A-number would relabel the row
-        with a number nobody typed, so only the `A` makes it a lab number."""
+        with a number nobody typed, so only the `A` makes it a lab number.
+
+        The row is created with **no** number at all — logging does not allocate
+        (2 Sep 2026). Before that it was issued the site's next, which is what
+        this asserted; the rule being pinned is unchanged, and it is that `914`
+        never becomes the antibody's number."""
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tab #\nSTMN2\tab2\tAbcam\t914")
-        bulk_antibodies.apply(rows, create_targets=True, member=self.member)
+        bulk_antibodies.apply(rows, member=self.member)
         ab = Antibody.objects.using(DB).get(catalogue_number="ab2")
-        self.assertEqual(ab.ab_number, 1, "issued, not read off a record id")
+        self.assertIsNone(ab.ab_number, "a record id was read as a lab number")
 
     def test_a_c_number_nobody_could_read_leaves_the_cell_empty(self):
         """The row is still written — an odd batch label is no reason to discard
@@ -151,7 +159,7 @@ class ATypedNumberWinsTests(TestCase):
         failure as `C-RUN11-01` becoming C-11, one door along."""
         rows = bulk_cell_lines.parse(
             f"{self.HEADER}\nHAP1\tNA\tWT\t\tC-RUN11-01\tLeicester")
-        out = bulk_cell_lines.apply(rows, create_targets=True, member=self.member)
+        out = bulk_cell_lines.apply(rows, member=self.member)
         self.assertEqual(len(out["created"]), 1)
         line = CellLine.objects.using(DB).get(name="HAP1")
         self.assertIsNone(line.c_number)
@@ -175,7 +183,7 @@ class OneNumberMeansOneRecordTests(TestCase):
         rows = bulk_cell_lines.parse(
             "name\tgene\tgenotype\tparent\tc number\tsite\n"
             "U2OS\tNA\tWT\t\tC-42\tLeicester")
-        out = bulk_cell_lines.apply(rows, create_targets=True, member=self.member)
+        out = bulk_cell_lines.apply(rows, member=self.member)
         self.assertEqual(out["created"], [])
         self.assertFalse(CellLine.objects.using(DB).filter(name="U2OS").exists())
 
@@ -226,29 +234,76 @@ class TheAppSaysWhenItGivesOutANumberTests(TestCase):
         self.member = Member.objects.using(DB).first()
         self.target = Target.objects.using(DB).create(gene_name="STMN2")
 
-    def test_the_check_says_a_number_is_coming(self):
+    def test_the_check_says_no_number_is_coming(self):
+        """The same rule the other way round. Logging an antibody stopped
+        allocating on 2 Sep 2026, so what the reader must not find out later is
+        that the row has **no** A-number — a save that silently produced none
+        reads as a save that went wrong."""
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\nSTMN2\tab1\tAbcam")
-        items = bulk_antibodies.plan(rows, False, member=self.member)
-        self.assertEqual(bulk_antibodies.summarize(items)["will_be_numbered"], 1)
+        items = bulk_antibodies.plan(rows, member=self.member)
+        self.assertEqual(bulk_antibodies.summarize(items)["will_be_unnumbered"], 1)
 
-    def test_the_check_does_not_promise_one_for_a_row_that_typed_its_own(self):
+    def test_the_check_says_nothing_for_a_row_that_typed_its_own(self):
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tab #\nSTMN2\tab1\tAbcam\tA-77")
-        items = bulk_antibodies.plan(rows, False, member=self.member)
-        self.assertEqual(bulk_antibodies.summarize(items)["will_be_numbered"], 0)
+        items = bulk_antibodies.plan(rows, member=self.member)
+        self.assertEqual(bulk_antibodies.summarize(items)["will_be_unnumbered"], 0)
 
-    def test_the_save_names_the_numbers_it_gave_out(self):
+    def test_a_bench_that_numbers_on_receipt_can_still_say_so(self):
+        """McGill has numbered a vial the day it arrives for years, and the
+        default that suits uOttawa would take that away. The tick restores
+        exactly the old behaviour — including the save naming what it gave."""
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\nSTMN2\tab1\tAbcam")
-        out = bulk_antibodies.apply(rows, create_targets=True, member=self.member)
+        out = bulk_antibodies.apply(rows, member=self.member, number_now=True)
+        self.assertEqual(out["left_unnumbered"], 0)
         self.assertEqual([d["number"] for d in out["numbers_issued"]], ["A-1"])
-        self.assertEqual(out["numbers_issued"][0]["name"], "ab1")
+        self.assertEqual(
+            Antibody.objects.using(DB).get(catalogue_number="ab1").ab_number, 1)
+
+    def test_the_check_answers_the_question_the_tick_asks(self):
+        """A preview that says "no A-number" over a ticked box is worse than
+        saying nothing: it is the save contradicted before it happens."""
+        rows = bulk_antibodies.parse(
+            "gene\tcatalogue\tcompany\nSTMN2\tab1\tAbcam")
+        off = bulk_antibodies.summarize(
+            bulk_antibodies.plan(rows, member=self.member))
+        on = bulk_antibodies.summarize(
+            bulk_antibodies.plan(rows, member=self.member,
+                                 number_now=True))
+        self.assertEqual((off["will_be_unnumbered"], off["will_be_numbered"]),
+                         (1, 0))
+        self.assertEqual((on["will_be_unnumbered"], on["will_be_numbered"]),
+                         (0, 1))
+
+    def test_a_typed_number_wins_whether_the_tick_is_on_or_off(self):
+        for number_now in (False, True):
+            with self.subTest(number_now=number_now):
+                Antibody.objects.using(DB).all().delete()
+                rows = bulk_antibodies.parse(
+                    "gene\tcatalogue\tcompany\tab #\nSTMN2\tabX\tAbcam\tA-77")
+                out = bulk_antibodies.apply(rows, member=self.member,
+                                            number_now=number_now)
+                self.assertEqual(
+                    Antibody.objects.using(DB).get(catalogue_number="abX").ab_number,
+                    77)
+                # Not news either way: they wrote it.
+                self.assertEqual(out["numbers_issued"], [])
+
+    def test_the_save_counts_what_it_left_unnumbered(self):
+        rows = bulk_antibodies.parse(
+            "gene\tcatalogue\tcompany\nSTMN2\tab1\tAbcam")
+        out = bulk_antibodies.apply(rows, member=self.member)
+        self.assertEqual(out["left_unnumbered"], 1)
+        self.assertEqual(out["numbers_issued"], [])
+        self.assertIsNone(
+            Antibody.objects.using(DB).get(catalogue_number="ab1").ab_number)
 
     def test_a_cell_line_save_says_so_too(self):
         rows = bulk_cell_lines.parse(
             "name\tgene\tgenotype\tsite\nHAP1\tNA\tWT\tLeicester")
-        out = bulk_cell_lines.apply(rows, create_targets=True, member=self.member)
+        out = bulk_cell_lines.apply(rows, member=self.member)
         self.assertEqual([d["number"] for d in out["numbers_issued"]], ["C-1"])
 
     def test_a_number_the_reader_typed_is_not_reported_as_given_out(self):
@@ -256,7 +311,7 @@ class TheAppSaysWhenItGivesOutANumberTests(TestCase):
         invented."""
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tab #\nSTMN2\tab1\tAbcam\tA-77")
-        out = bulk_antibodies.apply(rows, create_targets=True, member=self.member)
+        out = bulk_antibodies.apply(rows, member=self.member)
         self.assertEqual(out["numbers_issued"], [])
 
 
@@ -280,7 +335,7 @@ class TheSupplierClaimIsWiderThanOGAsVerdictTests(TestCase):
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tsupplier recommendations\n"
             "STMN2\tab1\tAbcam\tWB, IHC")
-        bulk_antibodies.apply(rows, create_targets=True, member=self.member)
+        bulk_antibodies.apply(rows, member=self.member)
         ab = Antibody.objects.using(DB).get(catalogue_number="ab1")
         self.assertTrue(ab.supplier_validated_wb)
         self.assertTrue(ab.supplier_validated_ihc)
@@ -307,7 +362,7 @@ class TheSupplierClaimIsWiderThanOGAsVerdictTests(TestCase):
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tsupplier recommendations\n"
             "STMN2\tab3\tAbcam\tWB, dot blot")
-        items = bulk_antibodies.plan(rows, False, member=self.member)
+        items = bulk_antibodies.plan(rows, member=self.member)
         self.assertIn("stored as WB", items[0]["note"])
 
 
@@ -425,3 +480,214 @@ class TheSheetsAgreeAboutWhatANumberIsTests(TestCase):
         self.assertEqual(lab_numbers.read_reference("A-1"), ("number", 1))
         self.assertEqual(lab_numbers.read_reference(str(old.pk)),
                          ("record", old.pk))
+
+
+class ANumberExistsBeforeTheExperimentTests(TestCase):
+    """Logging an antibody stopped allocating on 2 Sep 2026, and this is where
+    that freedom ends.
+
+    A bench sheet prints ``lab_numbers.sheet_number`` in its ``ab #`` column,
+    and a blank cell there is a tube nobody at the bench can identify — the same
+    defect that column had when it printed a *record* id. Planning is the moment
+    the sheet gets printed, so it is the backstop: anything still without a
+    number gets one, and the reply names them, because a number the app gives a
+    record is a thing the app did.
+    """
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        self.member = Member.objects.using(DB).first()
+        self.target = Target.objects.using(DB).create(gene_name="STMN2")
+
+    def _antibody(self, catalogue, *, number=None):
+        ab = Antibody(target=self.target, catalogue_number=catalogue,
+                      site_id=self.site.pk, ab_number=number)
+        if number is None:
+            lab_numbers.withhold(ab)
+        ab.save(using=DB)
+        return ab
+
+    def _plan(self, antibodies):
+        from pipeline.services import sessions
+        return sessions.apply({
+            "procedure_type": "WB",
+            "target_id": self.target.pk,
+            "experimenter_id": self.member.pk,
+            "site_id": self.site.pk,
+            "date": "2026-09-01",
+            "results": [{"antibody": a.pk} for a in antibodies],
+        }, member=self.member)
+
+    def test_planning_a_session_numbers_what_it_will_print(self):
+        first, second = self._antibody("ab-a"), self._antibody("ab-b")
+        out = self._plan([first, second])
+        self.assertTrue(out["ok"], out)
+        first.refresh_from_db(using=DB)
+        second.refresh_from_db(using=DB)
+        self.assertEqual([first.ab_number, second.ab_number], [1, 2])
+        self.assertEqual([d["number"] for d in out["numbers_issued"]],
+                         ["A-1", "A-2"])
+
+    def test_an_antibody_that_already_has_one_keeps_it_and_is_not_announced(self):
+        """It is not news: the number was already on the box."""
+        kept = self._antibody("ab-kept", number=9)
+        out = self._plan([kept])
+        kept.refresh_from_db(using=DB)
+        self.assertEqual(kept.ab_number, 9)
+        self.assertEqual(out["numbers_issued"], [])
+
+
+class EveryDoorToTheSameWriteAsksTheSameQuestionTests(TestCase):
+    """**Four** surfaces create antibodies, and "number them on receipt" has to
+    reach all four or it is an option on some of them.
+
+    The first pass of this counted three and shipped, because the fourth — a
+    sheet uploaded from a *gene's own page* — mounts the same `uploadPanel` from
+    a different template and is easy to forget. It was found by being asked
+    whether the change held on the gene page as well as the board, which is the
+    question these tests exist to answer without anyone having to ask.
+
+    That is the failure this repo records more often than any other — a rule
+    that lands in one paste box and not the other, and the door that was missed
+    is silent about it. The Add panel, the gene page's own Add panel and the
+    Upload panel all post to `bulk_antibodies`, so the tick is asserted at the
+    endpoint each one actually calls rather than by reading the templates.
+    """
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        self.member = Member.objects.using(DB).first()
+        Target.objects.using(DB).create(gene_name="STMN2")
+
+    TSV = "gene\tcatalogue\tcompany\nSTMN2\tab1\tAbcam"
+
+    def _commit(self, **extra):
+        Antibody.objects.using(DB).all().delete()
+        r = self.client.post(
+            "/pipeline/antibodies/bulk/commit/",
+            data=json.dumps({"text": self.TSV, "dry_run": False, **extra}),
+            content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        return Antibody.objects.using(DB).get(catalogue_number="ab1")
+
+    def test_the_commit_endpoint_honours_the_tick_both_ways(self):
+        self.assertIsNone(self._commit().ab_number)
+        self.assertEqual(self._commit(number_now=True).ab_number, 1)
+
+    def test_the_check_endpoint_honours_it_too(self):
+        """The Add panel and the gene page both preview through this one. A
+        check that ignored the tick would promise the opposite of the save."""
+        def summary(**extra):
+            r = self.client.post(
+                "/pipeline/antibodies/bulk/parse/",
+                data=json.dumps({"text": self.TSV, **extra}),
+                content_type="application/json")
+            self.assertEqual(r.status_code, 200, r.content)
+            return r.json()["summary"]
+
+        self.assertEqual(summary()["will_be_unnumbered"], 1)
+        self.assertEqual(summary(number_now=True)["will_be_numbered"], 1)
+
+    def test_the_upload_preview_honours_it(self):
+        """The third and fourth doors — the board's Upload panel and the one on
+        a gene's own page. Both post a *file* as form data rather than JSON, so
+        they read the flag from a different place and could silently disagree;
+        both reach this one endpoint, so this is where the question is asked."""
+        import io as _io
+
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Antibodies"
+        ws.append(["gene", "catalogue", "company"])
+        ws.append(["STMN2", "ab1", "Abcam"])
+        buf = _io.BytesIO()
+        wb.save(buf)
+
+        def summary(**extra):
+            buf.seek(0)
+            upload = SimpleUploadedFile(
+                "abs.xlsx", buf.read(),
+                content_type="application/vnd.openxmlformats-officedocument."
+                             "spreadsheetml.sheet")
+            r = self.client.post("/pipeline/import/upload/antibodies/",
+                                 {"file": upload, **extra})
+            self.assertEqual(r.status_code, 200, r.content)
+            return r.json()["summary"]
+
+        self.assertEqual(summary()["will_be_unnumbered"], 1)
+        self.assertEqual(summary(number_now="true")["will_be_numbered"], 1)
+
+
+class TheGenePageOffersTheSameChoiceAsTheBoardTests(TestCase):
+    """A gene's own page is a second front door to the same two writes.
+
+    It mounts its own Add antibodies panel and its own Upload a sheet panel,
+    from a different template, against the same endpoints. A tick that reached
+    the board and not this page would be an option that exists or not depending
+    on which link you clicked to get there — and nothing on either page would
+    say so.
+
+    Asserted on the rendered page rather than by reading the file, because what
+    matters is that the control is *drawn* where a person will look for it.
+    """
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        self.target = Target.objects.using(DB).create(gene_name="STMN2")
+
+    def test_both_of_the_gene_pages_antibody_panels_offer_the_tick(self):
+        html = self.client.get(
+            f"/pipeline/target/{self.target.pk}/").content.decode()
+        self.assertIn('id="ab-number-now"', html,
+                      "the gene page's Add antibodies panel has no tick")
+        self.assertIn('id="ab-upload-number-now"', html,
+                      "the gene page's Upload a sheet panel has no tick")
+
+    def test_the_gene_page_offers_assign_numbers_too(self):
+        """The board and a gene's page are two front doors to the same job, and
+        grouping one protein's antibodies is the thing a gene page is *for*."""
+        html = self.client.get(
+            f"/pipeline/target/{self.target.pk}/").content.decode()
+        self.assertIn('id="renumber-btn"', html)
+        self.assertIn('id="renumber-panel"', html)
+        self.assertIn("OGABoard.renumberPanel(", html)
+
+    def test_the_gene_page_scopes_the_renumbering_to_one_bench(self):
+        """`?gene=` alone spans every site holding that gene, which
+        `renumber.plan` refuses — correctly, since McGill's A-1 and Leicester's
+        A-1 are different antibodies. The board fixes that with its site filter;
+        this page has none, so it must send the site itself or the button would
+        refuse on any gene two benches hold."""
+        html = self.client.get(
+            f"/pipeline/target/{self.target.pk}/").content.decode()
+        panel = html.split("OGABoard.renumberPanel(", 1)[1].split("});", 1)[0]
+        self.assertIn("gene:", panel)
+        self.assertIn(f'site: "{self.site.pk}"', panel)
+
+    def test_no_panel_traded_the_pages_gene_for_the_tick(self):
+        """`extraValues`/`extraFields` are **replaced** by Object.assign, not
+        merged, so a panel that adds `number_now` and forgets `default_gene`
+        silently stops sending the gene — and every row on this page depends on
+        it, because the instruction is to leave the gene column blank.
+
+        Read off the object literals themselves rather than counting strings: a
+        count says nothing about which panel lost it.
+        """
+        from pathlib import Path
+        text = Path("pipeline/templates/pipeline/target_detail.html").read_text()
+        blocks = [b.split("})")[0] for b in text.split("=> ({")[1:]]
+        carrying = [b for b in blocks if "number_now" in b]
+        self.assertTrue(carrying, "no panel sends number_now at all")
+        for block in carrying:
+            self.assertIn("default_gene", block,
+                          "a panel sends number_now but not this page's gene")

@@ -46,7 +46,7 @@ function test(name, fn) {
 
 const LEVEL = {
   "oga-green": "green", "oga-red": "red", "oga-mixed": "mixed",
-  "oga-amber": "amber", "oga-grey": "grey",
+  "oga-blue": "blue", "oga-grey": "grey",
 };
 
 /**
@@ -343,12 +343,12 @@ test("grey never claims there is no data when the record holds a verdict", () =>
   assert.equal(grey.level, "grey");
   assert.ok(!/no independent data/i.test(grey.label),
     `grey label still claims no data: "${grey.label}"`);
-  assert.match(grey.label, /not recommended for/i);
+  assert.match(grey.label, /not supportive for/i);
 });
 
 test("the four assessed applications are never confused with IHC", () => {
   const grey = found(scans.get("sage.html"), "ab254166");
-  assert.ok(!/recommended for IHC/i.test(grey.label),
+  assert.ok(!/(supportive|supports|recommended) for IHC/i.test(grey.label),
     `IHC must never carry a verdict: "${grey.label}"`);
 });
 
@@ -445,9 +445,9 @@ test("a link that wraps an identifier is not a reference marker", () => {
       `the identifier was lost: ${JSON.stringify(marks)}`));
 });
 
-/* -------------------------------------------------- amber shows its working */
+/* -------------------------------------------------- blue shows its working */
 //
-// Amber is the only verdict read out of the page rather than looked up, and it
+// Blue is the only verdict read out of the page rather than looked up, and it
 // was 26% of every mark the benchmark saw. If a reagent list picks up its
 // neighbour's target, the card names the wrong protein confidently — while
 // pointing the reader at other suppliers' products. These assert the card
@@ -464,7 +464,7 @@ const stated = await scanHtml(article(
 
 test("an inferred target is quoted back, not just asserted", () => {
   const hit = found(nearby, "AB_9999999");
-  assert.equal(hit.level, "amber");
+  assert.equal(hit.level, "blue");
   assert.match(hit.label, /TDP-43/, "the phrase that produced the gene is not shown");
   assert.match(hit.label, /TARDBP/, "the gene it resolved to is not shown");
 });
@@ -475,30 +475,30 @@ test("the proximity attribution still says which name it took", () => {
 
 test("a stated attribution is worded as stated, not as closest", () => {
   const hit = found(stated, "A2164");
-  assert.equal(hit.level, "amber");
+  assert.equal(hit.level, "blue");
   assert.doesNotMatch(hit.label, /closest target name/i);
   assert.match(hit.label, /TARDBP/);
 });
 
-test("amber never asserts the target without saying where it came from", () => {
+test("blue never asserts the target without saying where it came from", () => {
   // The old label — "tested alternatives against SQSTM1 exist" — stated the
   // target as flatly as green states a verdict that came from a hash lookup.
   for (const marks of [nearby, stated, scans.get("sciencedirect.html")]) {
-    for (const m of mentions(marks).filter((m) => m.level === "amber")) {
-      assert.match(m.label, /taken from/i, `amber label makes a bare claim: "${m.label}"`);
+    for (const m of mentions(marks).filter((m) => m.level === "blue")) {
+      assert.match(m.label, /taken from/i, `blue label makes a bare claim: "${m.label}"`);
     }
   }
 });
 
-test("amber shows its working without warning about it", () => {
-  // A mark-level audit found 0 of 45 amber marks with a wrong gene, and 43 of
+test("blue shows its working without warning about it", () => {
+  // A mark-level audit found 0 of 45 blue marks with a wrong gene, and 43 of
   // 45 taking the target from an explicit anti-X phrase inside the marked
   // span. Telling a reader to double-check a signal that reliable teaches them
   // to discount it, so the provenance is stated and the claim is made outright.
   for (const marks of [nearby, stated, scans.get("sciencedirect.html")]) {
-    for (const m of mentions(marks).filter((m) => m.level === "amber")) {
+    for (const m of mentions(marks).filter((m) => m.level === "blue")) {
       assert.doesNotMatch(m.label, /check it matches|not necessarily|if the target is right/i,
-        `amber label warns rather than informs: "${m.label}"`);
+        `blue label warns rather than informs: "${m.label}"`);
     }
   }
 });
@@ -506,7 +506,7 @@ test("amber shows its working without warning about it", () => {
 test("the load-bearing dataset caveat survives", () => {
   // Correct, and not what this change was about. Surfacing the attribution
   // must not have quietly cost the clause that was already right.
-  for (const m of mentions(nearby).filter((m) => m.level === "amber")) {
+  for (const m of mentions(nearby).filter((m) => m.level === "blue")) {
     assert.match(m.label, /absence is not a verdict on quality/i);
   }
 });
@@ -514,20 +514,20 @@ test("the load-bearing dataset caveat survives", () => {
 test("the claim is not watered down to \"may have alternatives\"", () => {
   // Hedging costs usefulness and removes no error; visibility is what makes a
   // wrong inference self-correcting.
-  for (const m of mentions(nearby).filter((m) => m.level === "amber")) {
+  for (const m of mentions(nearby).filter((m) => m.level === "blue")) {
     assert.doesNotMatch(m.label, /\bmay have\b|\bmight have\b|\bpossibly\b/i);
     assert.match(m.label, /has knockout-controlled antibodies you can use/i);
   }
 });
 
-test("amber leads with what is available, not with what is absent", () => {
-  // Amber's whole reason for existing is that characterised antibodies exist for
+test("blue leads with what is available, not with what is absent", () => {
+  // Blue's whole reason for existing is that characterised antibodies exist for
   // the target; the absence is the precondition, not the message. Leading with
   // "not in the dataset" made a mark whose value is the alternative read as a
   // verdict on a reagent — and on OGA's own gene pages, where "10 APP
   // antibodies" is descriptive text and no product at all, as an accusation
   // about an antibody that does not exist.
-  for (const m of mentions(nearby).filter((m) => m.level === "amber")) {
+  for (const m of mentions(nearby).filter((m) => m.level === "blue")) {
     const available = m.label.search(/has knockout-controlled antibodies/i);
     const absent = m.label.search(/not in the dataset/i);
     assert.ok(available > -1, m.label);
@@ -646,7 +646,7 @@ test("the nearest cue wins, not the first one in the window", () => {
 //
 // Hedging the reliable signal too is the failure mode this avoids: it teaches a
 // reader to discount the caution, and then it is worth nothing where it counts.
-// Same reasoning that kept cautionary language OFF the amber card, where the
+// Same reasoning that kept cautionary language OFF the blue card, where the
 // audit found 45 of 45 attributions right.
 
 const cautionCases = [

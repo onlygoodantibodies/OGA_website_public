@@ -23,10 +23,15 @@ def _row(rrid=""):
 def test_lookup_fills_blank_rrid(seeded, monkeypatch):
     from pipeline.services import bulk_antibodies, scicrunch
     from pipeline.models import Antibody
+    # Signature must match the real one, aliases included: the caller swallows
+    # exceptions so a stale stub would silently report "no RRID found" rather
+    # than failing -- which is how this test earned its keep.
     monkeypatch.setattr(scicrunch, "resolve_rrid",
-                        lambda cat, comp, gene: ("AB_302669", "https://abcam.com/ab1907", "confirmed by gene+vendor"))
+                        lambda cat, comp, gene, aliases=(): (
+                            "AB_302669", "https://abcam.com/ab1907",
+                            "confirmed by gene+vendor"))
 
-    out = bulk_antibodies.apply([_row()], create_targets=False, lookup_rrids=True)
+    out = bulk_antibodies.apply([_row()], lookup_rrids=True)
     assert out["rrids_filled"] == 1
     ab = Antibody.objects.using(DB).get(catalogue_number="ab1907")
     assert ab.rrid == "AB_302669"
@@ -44,7 +49,7 @@ def test_lookup_off_by_default(seeded, monkeypatch):
         return ("AB_1", "", "")
     monkeypatch.setattr(scicrunch, "resolve_rrid", _spy)
 
-    bulk_antibodies.apply([_row()], create_targets=False)   # lookup_rrids defaults False
+    bulk_antibodies.apply([_row()])   # lookup_rrids defaults False
     assert called["n"] == 0
     assert Antibody.objects.using(DB).get(catalogue_number="ab1907").rrid == ""
 
@@ -59,7 +64,7 @@ def test_user_supplied_rrid_not_overwritten_by_lookup(seeded, monkeypatch):
         return ("AB_999", "", "")
     monkeypatch.setattr(scicrunch, "resolve_rrid", _spy)
 
-    bulk_antibodies.apply([_row(rrid="AB_302669")], create_targets=False, lookup_rrids=True)
+    bulk_antibodies.apply([_row(rrid="AB_302669")], lookup_rrids=True)
     assert called["n"] == 0   # rrid already present → no lookup
     assert Antibody.objects.using(DB).get(catalogue_number="ab1907").rrid == "AB_302669"
 
@@ -69,6 +74,6 @@ def test_lookup_miss_leaves_blank(seeded, monkeypatch):
     from pipeline.models import Antibody
     monkeypatch.setattr(scicrunch, "resolve_rrid", lambda cat, comp, gene: (None, "", "no registry record"))
 
-    out = bulk_antibodies.apply([_row()], create_targets=False, lookup_rrids=True)
+    out = bulk_antibodies.apply([_row()], lookup_rrids=True)
     assert out["rrids_filled"] == 0
     assert Antibody.objects.using(DB).get(catalogue_number="ab1907").rrid == ""

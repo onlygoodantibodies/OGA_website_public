@@ -420,3 +420,23 @@ def test_a_session_workbook_is_recognised_as_one(bench):
     # …and the same file is refused against a different session.
     refusal = _workbook_is_this_session(parsed, bench["other"])
     assert f"#{bench['session'].pk}" in refusal
+
+
+def test_a_reading_on_the_sheet_numbers_the_tube_it_was_taken_from(bench):
+    """A session planned by the step-by-step form has no result rows; its bench
+    sheet lists the gene's vials as a picking list, and the filled sheet is how
+    an antibody gets onto it. That is a reading written against a tube, so the
+    tube gets its A-number — the same backstop the board's Add panel and the
+    workbook path hold."""
+    from pipeline.models import Antibody
+    from pipeline.services import bench_results
+    Antibody.objects.using(DB).filter(pk=bench["ab"].pk).update(site=bench["site"])
+    wb = _sheet(bench["session"])
+    ws = wb.worksheets[0]
+    i, header = _header_row(ws)
+    ws.cell(row=i + 1, column=header.index("Signal") + 1, value="band in WT, absent in KO")
+    parsed = bench_results.parse(_upload(wb), "WB")
+    res = bench_results.apply(bench["session"], parsed)
+    assert res["ok"], res
+    assert Antibody.objects.using(DB).get(pk=bench["ab"].pk).ab_number == 1
+    assert [d["number"] for d in res["numbers_issued"]] == ["A-1"]

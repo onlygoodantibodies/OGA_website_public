@@ -90,6 +90,12 @@
                                 "Across every gene" it was the one entry the
                                 heading was wrong about.{% endcomment %}
                                 <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Set recommendations</a>
+                                {% comment %}Judge outcomes is a per-gene
+                                surface for the same reason and reads `?gene=`
+                                the same way — it is Set recommendations at a
+                                finer grain, so it belongs next to it and in
+                                this group.{% endcomment %}
+                                <a href="{% url 'pipeline:outcomes' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Judge outcomes</a>
                                 <hr class="border-gray-100 my-1">
                                 {% comment %}None of these three carry `?gene=`,
                                 and that is not an oversight: the Portfolio
@@ -227,6 +233,7 @@
                 <a href="{% url 'pipeline:cell_line_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Cell lines</a>
                 <a href="{% url 'pipeline:session_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Sessions</a>
                 <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Set recommendations</a>
+                <a href="{% url 'pipeline:outcomes' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Judge outcomes</a>
                 {% comment %}The same destinations as the desktop dropdown, in
                 the same order, and carrying `?gene=` on the same ones. Two
                 lists in the DOM is how a phone lost the gene where a laptop

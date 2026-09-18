@@ -1,6 +1,6 @@
 "use strict";
 
-const FIELDS = ["enabled", "showAmber", "showGrey", "patterns", "allSites", "vendorSites"];
+const FIELDS = ["enabled", "showBlue", "showGrey", "patterns", "allSites", "vendorSites"];
 
 /**
  * Supplier catalogue pages. Kept behind an explicit opt-in: showing a verdict
@@ -93,7 +93,7 @@ async function load() {
   const { indexFetchedAt } = await chrome.storage.local.get("indexFetchedAt");
   if (indexFetchedAt) {
     document.getElementById("stamp").textContent =
-      "Validation data last refreshed " + new Date(indexFetchedAt).toLocaleString();
+      "Characterisation data last refreshed " + new Date(indexFetchedAt).toLocaleString();
   }
 }
 
@@ -169,7 +169,7 @@ document.getElementById("refresh").addEventListener("click", async () => {
   const { indexFetchedAt } = await chrome.storage.local.get("indexFetchedAt");
   if (indexFetchedAt) {
     document.getElementById("stamp").textContent =
-      "Validation data last refreshed " + new Date(indexFetchedAt).toLocaleString();
+      "Characterisation data last refreshed " + new Date(indexFetchedAt).toLocaleString();
   }
 });
 

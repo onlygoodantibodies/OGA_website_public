@@ -1,5 +1,5 @@
 from django.urls import path
-from . import api_manifest, api_pipeline, api_views
+from . import api_manifest, api_not_supportive, api_pipeline, api_views
 
 app_name = 'api'
 
@@ -28,4 +28,14 @@ urlpatterns = [
     # resolving each documented path literally.
     path('v1/pipeline-image/', api_pipeline.pipeline_image, name='pipeline_image'),
     path('v1/gene-progress/', api_pipeline.gene_progress, name='gene_progress'),
+
+    # The review list: every antibody in scope whose every tested application
+    # came back without support, as rows and as a spreadsheet. Published data,
+    # assembled — see
+    # core/api_not_supportive.py for why a key with no supplier scope is
+    # answered here and refused by /v1/pipeline-data/ next door.
+    path('v1/not-supportive/', api_not_supportive.not_supportive,
+         name='not_supportive'),
+    path('v1/not-supportive/csv/', api_not_supportive.not_supportive_csv,
+         name='not_supportive_csv'),
 ]

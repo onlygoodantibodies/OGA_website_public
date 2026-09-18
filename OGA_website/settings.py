@@ -504,6 +504,13 @@ ZENODO_API_TOKEN = os.environ.get('ZENODO_API_TOKEN', '')
 ZENODO_BASE_URL = os.environ.get('ZENODO_BASE_URL', 'https://zenodo.org')
 ZENODO_COMMUNITY = os.environ.get('ZENODO_COMMUNITY', 'ycharos')
 
+# The shared token the hosted MCP service uses to report its tool calls to
+# `/internal/mcp-usage/` (`core/mcp_usage.py`). It must be set on BOTH Render
+# services — the site, which checks it, and `OGA_MCP`, which sends it — and the
+# endpoint 404s while it is unset, so an unconfigured deployment has no write
+# path rather than an open one.
+MCP_USAGE_TOKEN = os.environ.get('MCP_USAGE_TOKEN', '')
+
 # Static files are served under a content hash, so a deploy cannot be shadowed
 # by a copy a browser or an edge cache is already holding — the failure that
 # left the gene page's Delete button drawn and dead on 5 Aug 2026. The default

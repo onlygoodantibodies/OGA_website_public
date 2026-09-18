@@ -57,8 +57,12 @@ def bulk_antibodies_parse(request):
         rows = bulk.parse(d.get("text", ""), d.get("default_gene", ""))
     # Same member as apply gets: a row resolves to a vial, and site is half of
     # what makes a vial that vial, so a preview without it would disagree.
-    items = bulk.plan(rows, create_targets=bool(d.get("create_targets")),
-                      member=_member(request))
+    items = bulk.plan(rows,
+                      member=_member(request),
+                      # The Add panel's "give them A-numbers now" tick. The
+                      # check must answer the question the tick asks, or the
+                      # preview contradicts the save.
+                      number_now=bool(d.get("number_now")))
     return JsonResponse({"items": items, "summary": bulk.summarize(items)})
 
 
@@ -72,15 +76,17 @@ def bulk_antibodies_commit(request):
     rows = d.get("rows")
     if rows is None:
         rows = bulk.parse(d.get("text", ""), d.get("default_gene", ""))
-    create_targets = bool(d.get("create_targets"))
+    number_now = bool(d.get("number_now"))
 
     try:
         if d.get("dry_run", True):
-            items = bulk.plan(rows, create_targets, member=_member(request))
+            items = bulk.plan(rows, member=_member(request),
+                              number_now=number_now)
             return JsonResponse({"dry_run": True, "summary": bulk.summarize(items)})
 
-        result = bulk.apply(rows, create_targets, member=_member(request),
-                            overwrite=bool(d.get("overwrite")))
+        result = bulk.apply(rows, member=_member(request),
+                            overwrite=bool(d.get("overwrite")),
+                            number_now=number_now)
     except Exception as exc:
         return _refusal("antibodies", exc)
     # The board, filtered to the row just written — the antibody edit page it
@@ -110,7 +116,7 @@ def bulk_cell_lines_parse(request):
     if rows is None:
         rows = bulkcl.parse(d.get("text", ""), d.get("default_gene", ""),
                             d.get("default_genotype", ""))
-    items = bulkcl.plan(rows, create_targets=bool(d.get("create_targets")),
+    items = bulkcl.plan(rows,
                         member=_member(request))
     return JsonResponse({"items": items, "summary": bulkcl.summarize(items)})
 
@@ -126,14 +132,13 @@ def bulk_cell_lines_commit(request):
     if rows is None:
         rows = bulkcl.parse(d.get("text", ""), d.get("default_gene", ""),
                             d.get("default_genotype", ""))
-    create_targets = bool(d.get("create_targets"))
 
     try:
         if d.get("dry_run", True):
-            items = bulkcl.plan(rows, create_targets, member=_member(request))
+            items = bulkcl.plan(rows, member=_member(request))
             return JsonResponse({"dry_run": True, "summary": bulkcl.summarize(items)})
 
-        result = bulkcl.apply(rows, create_targets, member=_member(request),
+        result = bulkcl.apply(rows, member=_member(request),
                               overwrite=bool(d.get("overwrite")))
     except Exception as exc:
         return _refusal("cell lines", exc)

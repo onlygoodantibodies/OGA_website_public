@@ -175,7 +175,9 @@ def main():
         header = body.split(b'\n')[0].decode().strip()
         expected = ('url,filename,gene,catalogue_number,rrid,supplier,'
                     'application,application_display,oga_recommendation,'
-                    'product_link,discontinued,gene_page_url,image_id,added_at')
+                    'oga_display,oga_qualifier,'
+                    'product_link,discontinued,gene_page_url,image_id,added_at,'
+                    'oga_support')
         if header == expected:
             out.add(PASS, 'CSV header matches the reference')
         else:

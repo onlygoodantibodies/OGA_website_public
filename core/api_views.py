@@ -65,7 +65,9 @@ from pipeline.public import (public_targets, published_antibodies,
 from pipeline.services import clonality as clonality_svc
 
 from .recommendations import (SCOPE_NOTE, curated_gene_ids,
-                              recommendations_for)
+                              recommendations_for, capability_axes,
+                              describe_all as _describe_all,
+                              verdict as _verdict)
 
 
 RATE_LIMIT_SECONDS = 3600  # 1 hour
@@ -386,7 +388,8 @@ def _get_report_link(target):
 # JSON shape matches the pre-Phase-3 output exactly.
 # ─────────────────────────────────────────────────────────
 
-def _serialise_antibody(antibody, gene_rec_status, include_recs=True):
+def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
+                        axes=None):
     """
     Build the JSON representation of a pipeline antibody.
 
@@ -405,7 +408,10 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True):
     stripping recommendations is a coherent thing for a future caller to want.
     It is just not an entitlement tier.
 
-    Two keys carry the recommendation and they answer different questions:
+    Three keys carry the verdict and they answer different questions. They are
+    layers, not rivals: each was added because the one before it could not say
+    something, and **none of them is ever removed**, because 269 of this API's
+    357 all-time requests are keyless and a keyless caller cannot be told.
 
     ``recommendations``
         The raw booleans, unchanged since this API was written, because the
@@ -417,6 +423,20 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True):
         product failed testing nobody ran on it. Named for *whose* recommendation
         it is, because this codebase already distinguishes OGA's from the
         supplier's claims and the two are drawn side by side.
+    ``oga_support``
+        Four-valued — ``supportive``/``limited_support``/``not_supportive``/
+        ``not_tested`` — and **the one to switch on**. It is the vocabulary
+        every OGA page has printed since 29 Aug 2026, published rather than
+        only drawn. ``not_recommended`` collapses two findings that the people
+        reading this API most need apart: an antibody that showed nothing, and
+        one that did the thing the application is for and fell short on the
+        rest. On live data that is 491 of 1,833 negatives, and the six
+        organisations holding keys are the manufacturers whose products they
+        are.
+
+    ``oga_display`` carries the whole of what a surface needs to *state* a
+    verdict (the words, the clause, the composed sentence, the colour) and
+    ``oga_qualifiers`` the clause alone. Both are keyed by application.
 
     A third key, ``verdicts``, was a deprecated alias of the second and was
     dropped on 7 Aug 2026. It was the wrong word — these are recommendations
@@ -469,6 +489,28 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True):
         },
         'recommendations': {},
         'oga_recommendations': {},
+        # The rung as a controlled value, one per application — the field to
+        # switch on. Four values where `oga_recommendations` has three, because
+        # `not_recommended` cannot say whether the antibody showed nothing at
+        # all or did the thing the application is for and fell short on the
+        # rest: 491 of the 1,833 negatives on live data. Additive, like every
+        # key below it — 269 of this API's 357 all-time requests are keyless
+        # and unidentifiable, so a field that MOVES is a silent mis-bucketing
+        # on somebody's dashboard with nobody to tell.
+        'oga_support': {},
+        # Beside the verdicts, never inside them: a consumer switching on the
+        # three values keeps working, and one that wants the nuance reads this.
+        # The clause after the verdict, on either side of it. Renamed from
+        # `oga_caveats` the day after it shipped: it carries the qualifier on a
+        # supportive result too, and 36% of supportive western blots have one.
+        'oga_qualifiers': {},
+        # The whole of what a surface needs to *state* a verdict: the words, the
+        # clause, the composed sentence and the colour. Additive, and that is
+        # the design — `recommendations`, `oga_recommendations`, `verdicts` and
+        # `oga_qualifiers` are all unchanged, so a consumer switching on the
+        # three controlled values goes on working and one that wants the site's
+        # own language and colours reads this instead of reinventing them.
+        'oga_display': {},
         'experiments': experiments,
         'embed_urls': None,
     }
@@ -482,6 +524,31 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True):
         }
         result['oga_recommendations'] = recommendations_for(
             antibody, tested_applications, bool(gene_rec_status))
+        # `axes` is resolved in bulk by the feeds and passed in, the same way
+        # `gene_rec_status` is — resolving it here would be an N+1 that only
+        # shows up as a slow feed, which is what `TheFeedsDoNotQueryPerGeneTests`
+        # exists to catch. A caller serialising a single antibody may omit it.
+        if axes is None:
+            axes = capability_axes([antibody.pk])
+        described = _describe_all(antibody, tested_applications,
+                                  bool(gene_rec_status), axes)
+        result['oga_support'] = {
+            app: d['support'] for app, d in described.items()}
+        result['oga_qualifiers'] = {
+            app: d['qualifier'] for app, d in described.items() if d['qualifier']}
+        # `describe()`'s own dict minus `verdict`, and the omission is the
+        # point. That key is the legacy value, which this response already
+        # carries as `oga_recommendations` — and **"verdict" is the word the
+        # owner removed from the public contract on 7 Aug 2026** (these are
+        # results from testing under consensus protocols, not settled
+        # judgements about a product). `core/tests_data_access.py` keeps it off
+        # the public pages and out of API.md; it reached the wire on 12 Sep
+        # when this key was set to `described` wholesale, undocumented, where
+        # no test was looking. Dropped rather than documented: it is two days
+        # old, was never in the spec, and duplicates a field one line above.
+        result['oga_display'] = {
+            app: {key: value for key, value in d.items() if key != 'verdict'}
+            for app, d in described.items()}
 
     # Embed card URLs
     if antibody.rrid:
@@ -622,9 +689,12 @@ def antibodies_feed(request):
     # was ~159 extra queries on the live set rather than 1,645, and still 159
     # more than it needs.
     curated = curated_gene_ids({ab.target_id for ab in rows})
+    # Same reason, one level down: the capability behind each negative, for the
+    # whole page at once.
+    feed_axes = capability_axes([ab.pk for ab in rows])
 
     results = [
-        _serialise_antibody(ab, ab.target_id in curated)
+        _serialise_antibody(ab, ab.target_id in curated, axes=feed_axes)
         for ab in rows
     ]
 

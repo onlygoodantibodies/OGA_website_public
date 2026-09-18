@@ -10,8 +10,8 @@
   two are read with none of that beside them — in a search result, in a link
   preview — and they must not move when a reader ticks a filter box.
   {% endcomment %}
-  <title>{{ gene_name }} antibody characterisation — knockout-validated results for {{ published_total }} antibodies | Only Good Antibodies</title>
-  <meta name="description" content="Knockout-validated characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  <title>{{ gene_name }} antibody characterisation — knockout-controlled results for {{ published_total }} antibodies | Only Good Antibodies</title>
+  <meta name="description" content="Knockout-controlled characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
   {% comment %}
@@ -69,6 +69,47 @@ body {
 }
 
 .cellline-note a {
+  color: #10428a;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* --- What the results below are, above the table they are about --- */
+/* Owner, 11 Sep 2026: "small and excessive". It was drawn as `.beta-test-notice`
+   — a full-width bar meant for the one-line "Antibody order is random" — with
+   inline styles taking it down to 0.85rem in #555, so the page's most-qualified
+   claim was set smaller and fainter than anything around it. A caveat nobody
+   can comfortably read is the same failure as a caveat nobody is shown.
+   Same card as `.cellline-note` beside it, in grey rather than blue: this one
+   qualifies the table rather than pointing at something, so it should read
+   quietly and legibly rather than compete with the callout above it. Left
+   aligned, because centred prose of more than a line is harder to read back. */
+.scope-notice {
+  max-width: 800px;
+  margin: 20px auto 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 18px;
+  text-align: left;
+}
+
+.scope-notice p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.scope-notice p + p { margin-top: 0.5rem; }
+
+/* The emphasised clause is not a link, and at 0.95rem bold it was close enough
+   to the link blue beside it to read as one. Near-black keeps it emphasis: the
+   two links carry both the blue AND an underline, so nothing in this box is
+   distinguished by colour alone. */
+.scope-notice strong { color: #0f172a; }
+
+.scope-notice a {
   color: #10428a;
   font-weight: 600;
   text-decoration: underline;
@@ -264,13 +305,89 @@ body {
   .filter-group { min-width: 160px; }
 }
 
-/* --- Recommended-application highlight --- */
-/* Applied by JS once the recommendations AJAX resolves: the experiment cell
-   whose application is recommended for this antibody gets a green wash. */
-.experiment-box.recommended {
+/* --- What the characterisation data shows --- */
+/* Two visual dimensions, not one ladder of four colours.
+   **The verdict sets the colour** — green supportive, red not supportive, plain
+   for untested — and **amber is the qualifier**, a modifier that means the same
+   thing wherever it appears: there is nuance here.
+   That is what fixed red and amber reading as the same weight. They were
+   competing on one axis, so red had to be muted to stop 1,300 cells drowning
+   the page, which put it right next to the amber. Doing different jobs, red can
+   be a proper red and amber is unmistakably a note rather than a verdict. */
+/* **Green only, and that is a decision about the reader's job** (owner, 29 Aug
+   2026). Two audiences read the same verdicts for opposite reasons: somebody on
+   this page is CHOOSING an antibody and wants the usable ones to jump out,
+   while somebody reading a paper in the browser extension is not choosing at
+   all — they need the full signal about one reagent another author already
+   picked. Painting all four states here made a gene page a wall of red and
+   yellow with the greens lost in it.
+
+   So the page colours the thing you are scanning for and lets words carry the
+   rest. That is safe only because every tested cell already says which rung it
+   is on, in its caption — an untested cell has no caption at all, so "tested
+   and not supportive" and "nobody has run this" stay apart, which is the one
+   distinction this dataset must never blur. The classes stay on the element
+   either way, so any surface that wants the full palette still has it. */
+.experiment-box.supportive {
   background: #eafaf0;
-  box-shadow: inset 0 0 0 2px #12a150;
+  box-shadow: inset 0 0 0 2px #0f9d58;
   border-radius: 8px;
+}
+/* A supportive verdict the data fell short of. It keeps its green — the
+   antibody IS supported for the application — and says so with a small tab
+   rather than a repaint, so a reader scanning for green still finds it and
+   still sees there is a caveat to read. */
+.experiment-box.supportive.has-caveat { position: relative; }
+.experiment-box.supportive.has-caveat::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 18px;
+  width: 34px;
+  height: 7px;
+  background: #f4b400;
+  border-radius: 0 0 3px 3px;
+}
+
+/* Every tested cell carries a caption, so a reader never has to know what a
+   colour means — and one who cannot see colour reads the same page. It is
+   doing more work than that now: on this page it is the ONLY thing telling
+   `Limited support` from `Not supportive`. */
+.experiment-caveat.supportive { color: #0b6b3a; font-weight: 600; }
+/* A caption UNDER the box, never inside it. `.experiment-box` is a fixed-height
+   flex row, so a paragraph in there becomes a sibling column of the image: the
+   blot is squeezed to half width and the sentence wraps to one word a line.
+   Matched to the box's own max-width so it captions the figure rather than
+   widening the column. */
+.experiment-caveat {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #555;
+  /* `td` carries no padding, so these margins are the only thing between the
+     caption, the box above it and the next card. At 6px a two-line caption
+     touched both. */
+  margin: 11px auto 14px;
+  /* NARROWER than the cell it sits in, which is the whole point: at the cell's
+     own width two neighbouring captions left about 4px between them, and four
+     columns of wrapped sentences read as one run of text. The inset is relative
+     because the cell is — `max-width: 240px` on the box is a cap the layout
+     rarely reaches, so a fixed caption width fixed the gutter at one viewport
+     and nowhere else. The box keeps its size; only the words move in. */
+  width: calc(100% - 30px);
+  max-width: 206px;
+  /* Two lines' worth, always. The rungs are sentences now — "Limited support —
+     enriches the target, but not significantly" wraps where "Supportive" does
+     not — so without this the cells in one row end at different heights and
+     the column rhythm breaks wherever a caption happens to be long. Reserving
+     the space costs nothing on the short ones and keeps every card the same
+     shape. */
+  min-height: 2.8em;
+  text-align: left;
+}
+@media (max-width: 768px) {
+  /* Narrow enough that these sentences wrap several times; the reserved
+     height goes up with them rather than clipping. */
+  .experiment-caveat { max-width: 120px; font-size: 0.65rem; min-height: 4em; }
 }
 
 /* --- Click-to-zoom images --- */
@@ -419,7 +536,7 @@ body {
   number is where a grammar slip costs most — it makes a careful reader distrust
   the number.
   {% endcomment %}
-  Knockout-validated characterisation data for {{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:"y,ies" }} across WB, IP, ICC-IF and FC.{% if aliases %} Also known as: {{ aliases }}.{% endif %}
+  Knockout-controlled characterisation data for {{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:"y,ies" }} across WB, IP, ICC-IF and FC.{% if aliases %} Also known as: {{ aliases }}.{% endif %}
 </p>
 
 {% comment %}
@@ -488,7 +605,11 @@ that could disagree.
 
       <!-- Application filter: NO name attribute — handled entirely by JS -->
       <div class="filter-group">
-        <label for="application">Recommended Application*</label>
+        {% comment %}The filter is about finding supportive characterisation
+        data, not about a recommendation — the same frame as the cells and the
+        summary line, and the one the page is headed with. The values are
+        unchanged, so a bookmarked filter keeps working.{% endcomment %}
+        <label for="application">Characterisation data supports*</label>
         <select id="application" class="form-select">
           <option value="">----</option>
           <option value="wb">Western Blot</option>
@@ -540,14 +661,38 @@ that could disagree.
   until 12 Aug 2026 — "reflect observed selectivity under these specific
   experimental conditions only" — which said roughly what `SCOPE_NOTE` says on
   the portal, the extension page and /data-access/, in different words, on the
-  surface most readers arrive at first. The manufacturer-endorsement sentence is
-  this page's own and stays: it is about the supplier's datasheet rather than
-  about what OGA tested, and it is only owed where a supplier's product is named
-  beside a verdict.
+  surface most readers arrive at first.
+
+  **Cut to three sentences and made legible on 11 Sep 2026, on the owner's
+  instruction: "small and excessive".** It was set at 0.85rem in #555 — smaller
+  and fainter than anything else on the page — and ran to five sentences, three
+  of which were `_application_caveat.html` telling a reader on the gene page
+  that "the gene page says which". They are correct on the extension's card,
+  which floats over somebody else's tab, and circular here; worse, this page
+  already answers them under every tested cell, in `cell_caption`'s own words.
+  So the deferring half is dropped and `application_facts` keeps the half that
+  is a real fact about an application (see `recommendations.APPLICATION_FACT`).
+
+  The manufacturer sentence is this page's own — it is only owed where a
+  supplier's product is named beside a verdict — and it is now stated forwards.
+  It read "appearance on this database does not imply manufacturer endorsement
+  … always consult the manufacturer's datasheet", which is a disclaimer about
+  somebody else's document; the fact underneath it is that OGA characterises an
+  antibody independently, in applications the datasheet need not recommend, and
+  that is the more useful half as well as the one that explains why a verdict
+  here can differ from a supplier's claim.
   {% endcomment %}
-  <div class="beta-test-notice" style="text-align: center; padding: 10px 20px; font-size: 0.85rem; color: #555;">
-    Appearance on this database does not imply manufacturer endorsement for all applications — always consult the manufacturer's datasheet for their recommended applications.
-    {% include 'core/_recommendation_caveat.html' %}
+  <div class="scope-notice">
+    {% comment %}
+    "Applications including ones the manufacturer may not recommend", never
+    "all four applications": an antibody is tested in the applications somebody
+    ran, and this same page draws "No data available" wherever nobody did. The
+    sentence a reader takes from a notice above the table has to be true of the
+    table.
+    {% endcomment %}
+    <p>Every antibody here is characterised independently of its manufacturer, in applications including ones the datasheet may not recommend.</p>
+    <p>{% include 'core/_recommendation_caveat.html' %}</p>
+    {% if application_facts %}<p>{% for fact in application_facts %}{{ fact }} {% endfor %}</p>{% endif %}
   </div>
 
   {% comment %}
@@ -665,7 +810,7 @@ that could disagree.
 
         {% if antibody.recommended_apps %}
         <div class="rec-slot">
-            <p><strong>Recommended Applications:</strong>
+            <p><strong>{{ supported_applications_label }}</strong>
                <span class="applications-list">{{ antibody.recommended_apps|join:", " }}</span></p>
         </div>
         {% endif %}
@@ -677,46 +822,50 @@ that could disagree.
 
                             <!-- WB Experiment -->
                             <td>
-                                <div class="experiment-box{% if antibody.experiments.WB and antibody.recommended.WB %} recommended{% endif %}" data-app="wb">
+                                <div class="experiment-box {{ antibody.states.WB }}{% if antibody.tabs.WB %} has-caveat{% endif %}" data-app="wb">
                                     {% if antibody.experiments.WB %}
                                         <img src="{{ antibody.experiments.WB }}" alt="WB Image" class="zoomable">
                                     {% else %}
                                         <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
                                     {% endif %}
                                 </div>
+                                {% if antibody.caveats.WB %}<p class="experiment-caveat {{ antibody.states.WB }}">{{ antibody.caveats.WB }}</p>{% endif %}
                             </td>
 
                             <!-- IP Experiment -->
                             <td>
-                                <div class="experiment-box{% if antibody.experiments.IP and antibody.recommended.IP %} recommended{% endif %}" data-app="ip">
+                                <div class="experiment-box {{ antibody.states.IP }}{% if antibody.tabs.IP %} has-caveat{% endif %}" data-app="ip">
                                     {% if antibody.experiments.IP %}
                                         <img src="{{ antibody.experiments.IP }}" alt="IP Image" class="zoomable">
                                     {% else %}
                                         <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
                                     {% endif %}
                                 </div>
+                                {% if antibody.caveats.IP %}<p class="experiment-caveat {{ antibody.states.IP }}">{{ antibody.caveats.IP }}</p>{% endif %}
                             </td>
 
                             <!-- ICC-IF Experiment -->
                             <td>
-                                <div class="experiment-box{% if antibody.experiments.ICC_IF and antibody.recommended.ICC_IF %} recommended{% endif %}" data-app="icc_if">
+                                <div class="experiment-box {{ antibody.states.ICC_IF }}{% if antibody.tabs.ICC_IF %} has-caveat{% endif %}" data-app="icc_if">
                                     {% if antibody.experiments.ICC_IF %}
                                         <img src="{{ antibody.experiments.ICC_IF }}" alt="ICC-IF Image" class="zoomable">
                                     {% else %}
                                         <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
                                     {% endif %}
                                 </div>
+                                {% if antibody.caveats.ICC_IF %}<p class="experiment-caveat {{ antibody.states.ICC_IF }}">{{ antibody.caveats.ICC_IF }}</p>{% endif %}
                             </td>
 
                             <!-- FC Experiment -->
                             <td>
-                                <div class="experiment-box{% if antibody.experiments.FC and antibody.recommended.FC %} recommended{% endif %}" data-app="fc">
+                                <div class="experiment-box {{ antibody.states.FC }}{% if antibody.tabs.FC %} has-caveat{% endif %}" data-app="fc">
                                     {% if antibody.experiments.FC %}
                                         <img src="{{ antibody.experiments.FC }}" alt="FC Image" class="zoomable">
                                     {% else %}
                                         <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
                                     {% endif %}
                                 </div>
+                                {% if antibody.caveats.FC %}<p class="experiment-caveat {{ antibody.states.FC }}">{{ antibody.caveats.FC }}</p>{% endif %}
                             </td>
                         </tr>
                     </tbody>
@@ -806,47 +955,7 @@ that could disagree.
     </script>
 
     <!-- Footer -->
-<footer class="antibody-footer">
-    <div class="footer-container">
-        <!-- Quick Links Column -->
-        <div class="footer-column">
-            <h4>Quick Links</h4>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'about' %}">About Us</a>
-            <a href="{% url 'publications' %}">Publications</a>
-            
-            <a href="{% url 'news' %}">News</a>
-            <a href="{% url 'contact' %}">Contact</a>
-        </div>
-
-        <!-- Contact Information Column -->
-    <div class="footer-column">
-        <h4>Contact Us</h4>
-        <p style="color: white;">Email: <a href="mailto:onlygoodantibodies@gmail.com" style="color: white; text-decoration: none;">onlygoodantibodies@gmail.com</a></p>
-        <p style="color: white;">LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" style="color: white; text-decoration: none;">Follow us on LinkedIn</a></p>
-        <p style="color: white;">BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" style="color: white; text-decoration: none;">Follow us on BlueSky</a></p>
-    </div>
-
-
-        <!-- Social Media Column -->
-        <div class="footer-column">
-            <h4>Follow Us</h4>
-            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-            </a>
-            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-                <img src="{% static 'core/bluesky.png' %}" alt="LinkedIn" class="social-icon">
-            </a>
-            <!-- Add other social media icons here -->
-        </div>
-    </div>
-
-    <!-- Bottom Footer with Copyright and Back to Top -->
-    <div class="footer-bottom">
-        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
-    </div>
-</footer>
+{% include 'core/footer.html' with footer_class="antibody-footer" %}
 <script src="{% static 'core/script.js' %}"></script>
 {% if focus_id %}
 <script>

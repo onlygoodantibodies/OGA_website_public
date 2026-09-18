@@ -15,6 +15,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     HRFlowable, Image, ListFlowable, ListItem, Paragraph, SimpleDocTemplate,
     Spacer, Table, TableStyle,
@@ -117,7 +118,15 @@ def render_plan_pdf(rec, request):
     logo_path = os.path.join(settings.STATIC_ROOT, "core", "logo.png")
     if os.path.exists(logo_path):
         try:
-            img = Image(logo_path, width=2.0 * cm, height=2.0 * cm)
+            # The logo is a wide wordmark (1280x720), and this asked for a 2cm
+            # square -- so it went into the plan squashed to 56% of its width,
+            # which is what a reader sees first on a document they may send to
+            # a funder. The height is what the layout cares about; the width
+            # follows the file's own proportions, so replacing logo.png (a
+            # navy version is wanted) cannot reintroduce the distortion.
+            iw, ih = ImageReader(logo_path).getSize()
+            height = 1.6 * cm
+            img = Image(logo_path, width=height * iw / ih, height=height)
             img.hAlign = "CENTER"
             story.append(img)
         except Exception:

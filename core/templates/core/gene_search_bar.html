@@ -25,18 +25,31 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
       <span aria-hidden="true">&#8592;</span> All genes
     </a>
 
-    <div class="oga-genesearch"
+    {% comment %}
+    The box is named, not just placeholdered. The team review asked for this on
+    every page the bar appears on, which is every page but the home page — so
+    the label goes here, in the one file that draws the bar, rather than on the
+    pages that noticed it missing.
+
+    The words match the home page's own heading ("the OGA antibody database"),
+    because a reader who meets the box twice under two names has no way to know
+    it is one box searching one thing.
+    {% endcomment %}
+    <div class="oga-genesearch-field">
+      <label class="oga-genesearch-label" for="oga-genesearch-input">Search the OGA antibody database</label>
+      <div class="oga-genesearch"
          data-genes-url="{% url 'gene_search_index' %}"
          data-antibodies-url="{% url 'antibody_search' %}"
          data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}"
          data-nominate-url="{% url 'nominate_gene' %}"
          data-home-url="{% url 'home' %}">
       <input type="text"
+             id="oga-genesearch-input"
              class="oga-genesearch-input"
              placeholder="Search gene, catalogue no. or RRID&hellip;"
-             aria-label="Search by gene, alias, catalogue number or RRID"
              autocomplete="off">
       <div class="oga-genesearch-list" role="listbox" aria-label="Search suggestions"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -74,9 +87,22 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
   border-color: #10428a;
   text-decoration: none;
 }
-.oga-genesearch {
+.oga-genesearch-field {
   flex: 0 1 340px;
   min-width: 200px;
+}
+.oga-genesearch-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a6180;
+}
+.oga-genesearch {
+  min-width: 0;
 }
 .oga-genesearch-input {
   width: 100%;
@@ -142,7 +168,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
     padding: 0.5rem 1rem;
     gap: 0.6rem;
   }
-  .oga-genesearch { flex: 1 1 100%; }
+  .oga-genesearch-field { flex: 1 1 100%; }
 }
 </style>
 

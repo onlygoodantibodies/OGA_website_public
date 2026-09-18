@@ -232,11 +232,43 @@ class SessionBoardTests(TestCase):
         self.assertFalse(choices["rating"]["strict"],
                          "a vocabulary nobody may add to stops describing the bench")
 
-    def test_a_procedure_with_no_recorded_ratings_offers_nothing(self):
-        """An empty datalist is a dropdown arrow that does nothing."""
-        data = self.client.get(
-            f"/pipeline/sessions/board/results/?session_id={self.session.pk}").json()
-        self.assertEqual(data["field_choices"], {})
+    def test_every_result_field_with_a_vocabulary_offers_it(self):
+        """`signal` is the one that matters and it was offered nowhere.
+
+        It is one of the two axes `AntibodyOutcome` reads and holds 3 distinct
+        values over 1,927 rows on live, and the suggestion list named `rating`
+        alone — so the field a public verdict is derived from was a bare text
+        box while the field beside it had a list.
+        """
+        WbResult.objects.create(session=self.session, antibody=self.antibody,
+                                signal="specific band", rating="Recommended",
+                                ecl="Clarity", gel="4-20%")
+        choices = self.client.get(
+            f"/pipeline/sessions/board/results/?session_id={self.session.pk}"
+        ).json()["field_choices"]
+        for field in ("signal", "rating", "ecl", "gel"):
+            self.assertIn(field, choices, f"{field} offers nothing")
+
+    def test_a_field_with_nothing_recorded_in_it_offers_nothing(self):
+        """An empty datalist is a dropdown arrow that does nothing.
+
+        The sweep is over every text column now rather than a hand-typed
+        `{"WB": ("rating",)}` — one field of twelve on a western blot, and
+        nothing at all for IP, IF and FC — so what is pinned here is the *rule*
+        rather than one field's absence: a column with values offers them, a
+        column with none is left as a plain box.
+        """
+        WbResult.objects.create(session=self.session, antibody=self.antibody,
+                                signal="clean band")
+        choices = self.client.get(
+            f"/pipeline/sessions/board/results/?session_id={self.session.pk}"
+        ).json()["field_choices"]
+        self.assertEqual(choices["signal"]["values"], ["clean band"])
+        self.assertNotIn("rating", choices,
+                         "a field nobody has recorded offered a list anyway")
+        self.assertNotIn("comments", choices,
+                         "comments is prose — a datalist of other people's "
+                         "sentences is not a vocabulary")
 
     # ── two columns, one measurement ───────────────────────────────────
 

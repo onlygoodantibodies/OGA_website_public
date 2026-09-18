@@ -134,9 +134,6 @@
     <div class="flex flex-wrap items-center gap-3 mt-4">
       <input id="file" type="file" accept=".json,.xlsx,.xlsm,.csv,.tsv,.txt"
              class="text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-ycharos-50 file:text-ycharos-700 hover:file:bg-ycharos-100">
-      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" id="createtargets" class="rounded border-gray-300"> Create missing genes as new targets
-      </label>
       <button id="preview" class="inline-flex items-center gap-2 bg-ycharos-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-ycharos-700 min-h-[40px]">Preview changes</button>
     </div>
 
@@ -539,7 +536,6 @@ $("commit").addEventListener("click", async () => {
   const fd = new FormData();
   fd.append("file", f);
   fd.append("apply_overwrites", $("ackoverwrite").checked ? "true" : "false");
-  fd.append("create_targets", $("createtargets").checked ? "true" : "false");
   try {
     const r = await fetch(COMMIT_URL, { method: "POST", headers: { "X-CSRFToken": CSRF }, body: fd });
     const res = await r.json();

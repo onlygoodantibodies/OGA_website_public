@@ -32,7 +32,8 @@ from pipeline.services import cell_lines as cell_line_svc
 from pipeline.services import example_row
 from pipeline.services import targets as target_svc
 from pipeline.services import cell_line_board
-from pipeline.views.imports import CELL_LINE_COLUMNS, CELL_LINE_EXAMPLE
+from pipeline.views.imports import (CELL_LINE_COLUMNS, CELL_LINE_EXAMPLE,
+                                    TEMPLATE_NOTES, template_columns_and_example)
 
 DB = "pipeline_db"
 
@@ -172,7 +173,7 @@ class AKnockoutRowNeverMatchesAWildTypeTests(TestCase):
 
     def test_a_knockout_of_an_unknown_gene_does_not_land_on_the_parental(self):
         rows = bulkcl.parse("name\tgene\tgenotype\nHAP1\tTRPA1\tKO")
-        item, = bulkcl.plan(rows, create_targets=False)
+        item, = bulkcl.plan(rows)
         self.assertEqual(item["status"], "blocked")
         self.assertNotIn("already on file", item["note"])
         self.assertIn("not in the pipeline", item["note"])
@@ -223,16 +224,21 @@ class TheNameIsTheLineTests(TestCase):
         example = dict(zip(CELL_LINE_COLUMNS, CELL_LINE_EXAMPLE))
         self.assertTrue(re.fullmatch(r"C-\d+", example["parent"]), example["parent"])
 
-    def test_the_paired_ko_column_says_who_it_is_for(self):
-        heading = next(c for c in CELL_LINE_COLUMNS if c.startswith("paired ko"))
-        self.assertIn("WT", heading)
-        # …and the example, being a knockout, leaves it blank.
-        self.assertEqual(dict(zip(CELL_LINE_COLUMNS, CELL_LINE_EXAMPLE))[heading], "")
+    def test_the_paired_ko_column_is_gone_and_does_not_parse(self):
+        """It wrote `CellLine.arrived_with_ko` and reached 2 live rows of 616,
+        both of them wrong — a Leicester wild type paired to a McGill knockout
+        of a different background, twice, because the partner was looked up by
+        C-number with no site filter and C-numbers are issued per site.
 
-    def test_both_spellings_of_the_heading_still_parse(self):
-        for heading in ("paired ko", "paired ko (WT rows)"):
+        Both spellings are gone from the parser on purpose. Leaving the aliases
+        would keep that write path alive for every sheet already downloaded, and
+        the whole reason the column went rather than being repaired is that no
+        correct row ever came out of it.
+        """
+        self.assertEqual([c for c in CELL_LINE_COLUMNS if "paired" in c], [])
+        for heading in ("paired ko", "paired ko (WT rows)", "ko c number"):
             rows = bulkcl.parse(f"name\tgenotype\t{heading}\nHAP1\tWT\t631")
-            self.assertEqual(rows[0]["pair_c"], "631", heading)
+            self.assertNotIn("pair_c", rows[0], heading)
 
 
 class TheExampleRowSaysItIsAnExampleTests(TestCase):
@@ -290,6 +296,114 @@ class TheExampleRowSaysItIsAnExampleTests(TestCase):
         self.assertEqual(upload.json()["items"], [])
 
 
+class TheSheetSaysWhatEachColumnWantsTests(TestCase):
+    """A column's convention, on the column, in the file people read.
+
+    uOttawa downloaded the cell-lines template five times and then emailed to
+    ask what column F means (14 Sep 2026). Nothing about the file could answer
+    it: the heading said `paired ko (WT rows)` and the `e.g.` row left that cell
+    blank, the board's grid had no such column, the board's download had no such
+    column, and the one sentence explaining it was inside the Add cell lines
+    pop-out, which is not open when you are in Excel. **That column has since
+    been removed** — the question was the right one and the answer on live was
+    two rows, both wrong — but the rule it taught is the reason this class
+    exists: a heading nobody can interpret is a column nobody can fill in.
+
+    So the sentence rides on the header cell as a comment, and these pin the two
+    halves that can rot silently: a note keyed on a column that no longer exists
+    (the note disappears, and the heading goes back to explaining nothing), and
+    the paired-KO note itself, which is the one somebody actually asked for.
+    """
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.create(name="Leicester", short_code="LEI")
+        for alias in ("academy_db", DB):
+            u = User(username="vera")
+            u.set_password("pw")
+            u.save(using=alias)
+        pu = User.objects.using(DB).get(username="vera")
+        Member.objects.create(user_id=pu.pk, site_id=self.site.pk,
+                              role="experimenter", is_active=True, display_name="Vera")
+        self.client = Client()
+        self.assertTrue(self.client.login(username="vera", password="pw"))
+
+    def _headers(self, kind):
+        """`{heading: comment text or ''}` from the real downloaded workbook."""
+        import openpyxl
+        resp = self.client.get(f"/pipeline/import/template/{kind}/")
+        self.assertEqual(resp.status_code, 200, kind)
+        ws = openpyxl.load_workbook(io.BytesIO(resp.content)).active
+        return {str(c.value): (c.comment.text if c.comment else "") for c in ws[1]}
+
+    def test_every_note_is_keyed_on_a_column_the_template_ships(self):
+        for kind, notes in TEMPLATE_NOTES.items():
+            with self.subTest(kind=kind):
+                columns, _ = template_columns_and_example(kind)
+                self.assertEqual([k for k in notes if k not in columns], [],
+                                 f"{kind}: a note for a column the sheet does "
+                                 f"not carry explains nothing")
+
+    def test_the_cell_line_headings_carry_their_notes_into_the_file(self):
+        headers = self._headers("cell-lines")
+        self.assertEqual(set(headers), set(CELL_LINE_COLUMNS))
+        missing = [h for h in CELL_LINE_COLUMNS if not headers[h].strip()]
+        self.assertEqual(missing, [],
+                         "a heading with no note reads as a column nobody "
+                         "thought worth explaining")
+
+    def test_the_parent_note_says_which_way_the_link_runs(self):
+        """`parent` is the column people reach for `paired ko` expecting, and it
+        is the one that survived — so it is the one that has to say whose row it
+        goes on and what goes in it."""
+        note = self._headers("cell-lines")["parent"]
+        self.assertIn("KO row", note)
+        self.assertIn("C-number", note)
+        self.assertIn("wild type", note.lower())
+
+    def test_a_sheet_still_carrying_the_column_is_named_rather_than_dropped(self):
+        """Everybody's existing cell-lines sheet still has the heading in it.
+
+        A removed column that goes quietly nowhere is the silent omission this
+        app refuses everywhere else, so the upload preview says the words. This
+        is also the first time the cell-lines sheet names an unread column at
+        all: `_ignored_note` computed that list for antibodies only, and said
+        nothing here — which nobody noticed while every heading still parsed.
+        """
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["name", "genotype", "paired ko (WT rows)"])
+        ws.append(["HAP1", "WT", "631"])
+        buf = io.BytesIO()
+        wb.save(buf)
+        resp = self.client.post(
+            "/pipeline/import/upload/cell-lines/",
+            {"file": SimpleUploadedFile("old.xlsx", buf.getvalue())})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        note = data.get("sheet_note", "")
+        self.assertIn("paired ko (WT rows)", note, note)
+        self.assertIn("Nothing was read from", note, note)
+        # And the row itself is still read — losing a column must not lose the
+        # record that carried it.
+        self.assertEqual([i["name"] for i in data["items"]], ["HAP1"])
+
+    def test_a_template_with_notes_still_uploads_as_nothing(self):
+        """A comment is not a value: the sheet must still read as an untouched
+        template, or every heading note would arrive as a row to create."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        resp = self.client.get("/pipeline/import/template/cell-lines/")
+        upload = self.client.post(
+            "/pipeline/import/upload/cell-lines/",
+            {"file": SimpleUploadedFile("cell_lines_template.xlsx", resp.content)})
+        self.assertEqual(upload.status_code, 200)
+        self.assertEqual(upload.json()["items"], [])
+
+
 class TheGridShowsTheExampleWithoutOfferingItTests(TestCase):
     """board.js draws it as a pinned header row, not as placeholder text."""
     databases = {"academy_db", "pipeline_db"}
@@ -341,29 +455,39 @@ class BothDoorsToAGeneTests(TestCase):
 
 
 class ARefusalNamesAControlThatExistsTests(TestCase):
-    """`tick "create targets"` named no control on any page."""
+    """`tick "create targets"` named no control on any page.
+
+    It was corrected to quote the Add panel's checkbox — and then run 20 read
+    the same sentence on the Upload panel, which never had one. Both boxes are
+    gone now (a target is added on the targets doors, owner 5 Sep 2026), so
+    there is one sentence, it names no control, and it points at the board that
+    the row's own `add_target_url` links to. The rule is unchanged; what it has
+    to be true of is a shorter message."""
 
     databases = {DB}
 
-    def test_the_cell_line_refusal_quotes_the_checkbox_label(self):
+    def test_the_cell_line_refusal_names_no_control_and_points_at_the_board(self):
         rows = bulkcl.parse("name\tgene\tgenotype\nHAP1\tTRPA1\tKO")
-        item, = bulkcl.plan(rows, create_targets=False)
+        item, = bulkcl.plan(rows)
         self.assertEqual(item["status"], "blocked")
-        self.assertIn("Add the gene as a new target", item["note"])
-        self.assertNotIn("create targets", item["note"])
+        self.assertIn("not in the pipeline yet", item["note"])
+        self.assertIn("target board", item["note"])
+        for gone in ("create targets", "tick"):
+            self.assertNotIn(gone, item["note"], item["note"])
 
     def test_it_offers_the_way_to_the_target_board(self):
         rows = bulkcl.parse("name\tgene\tgenotype\nHAP1\tTRPA1\tKO")
-        item, = bulkcl.plan(rows, create_targets=False)
+        item, = bulkcl.plan(rows)
         self.assertIn("gene=TRPA1", item["add_target_url"])
         self.assertIn("/targets/board/", item["add_target_url"])
 
     def test_the_antibody_refusal_says_the_same_thing(self):
         from pipeline.services import bulk_antibodies as bulkab
         rows = bulkab.parse("gene\tcatalogue\nTRPA1\tab12345")
-        item, = bulkab.plan(rows, create_targets=False)
+        item, = bulkab.plan(rows)
         self.assertEqual(item["status"], "no-target")
-        self.assertIn("Add the gene as a new target", item["note"])
+        self.assertIn("target board", item["note"])
+        self.assertNotIn("tick", item["note"], item["note"])
         self.assertIn("gene=TRPA1", item["add_target_url"])
 
     def test_both_previews_render_it_through_the_shared_file(self):

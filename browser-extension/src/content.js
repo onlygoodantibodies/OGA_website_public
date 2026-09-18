@@ -3,7 +3,7 @@
  * wraps each mention in a coloured <mark>.
  *
  * All of this is local. The only network traffic the extension ever makes is
- * the periodic index refresh in the service worker, plus validation images
+ * the periodic index refresh in the service worker, plus characterisation images
  * loaded from the portal when a card is actually opened.
  */
 (function () {
@@ -21,9 +21,29 @@
     "CODE", "PRE", "KBD", "SAMP", "SVG", "MATH", "HEAD", "TITLE",
   ]);
 
+  /**
+   * One class per level `resolveStatus` can return. A level missing from here
+   * paints NOTHING: `mark.className` becomes `oga-hl undefined`, so the mark
+   * has no colour, no underline and no pattern, while `levelEnabled` still
+   * returns true and the card behind it is perfectly correct. A signal that is
+   * drawn and invisible, which is the worst of the three outcomes.
+   *
+   * `yellow` was absent from 0.3.1 — the release that introduced the middle
+   * rung — until 12 Sep 2026. Every other surface had it: `content.css` paints
+   * `mark.oga-yellow` in both themes and gives it a dashed pattern, `card.js`
+   * has `.hd-yellow`, the popup has a yellow tile. Only the map that puts the
+   * class on the element did not, and 856 of the live index's 1,603 records
+   * carry a qualifier, so this was most of the rung.
+   *
+   * It survived because the bundled 18-record fixture carries no qualifier at
+   * all, so no local run could produce a yellow mark; CI produced one only
+   * because its network let the live index replace the fixture, and that
+   * arrived as one of three failures in a suite already red for another
+   * reason. `matcher.test.mjs` pins the pairing now.
+   */
   const LEVEL_CLASS = {
-    green: "oga-green", red: "oga-red", mixed: "oga-mixed",
-    amber: "oga-amber", grey: "oga-grey",
+    green: "oga-green", yellow: "oga-yellow", red: "oga-red",
+    mixed: "oga-mixed", blue: "oga-blue", grey: "oga-grey",
   };
 
   const hits = [];              // index -> hit, referenced by data-oga
@@ -425,9 +445,35 @@
     notifySummary(found);
   }
 
+  /**
+   * The screen-reader half of card.js::qualifierClause.
+   *
+   * Yellow's whole meaning is the clause — "not supportive" alone is the red
+   * label, and a reader hearing only that has been told the wrong thing. The
+   * two tables are duplicated because this file must say the same words as the
+   * card, and `core/tests_extension_scope.py` pins that both carry the codes
+   * the index ships.
+   */
+  const QUALIFIER_WORDS = {
+    ns: "detects the target, but is not selective",
+    sd: "detects the target",
+    se: "enriches the target, but not significantly",
+    si: "some selective signal",
+    sl: "selective",
+    xs: "strongly selective",
+  };
+
+  function yellowClause(status) {
+    const codes = (status.failed || [])
+      .map((a) => (status.qualifiers || {})[a])
+      .filter(Boolean);
+    const distinct = codes.filter((c, i) => codes.indexOf(c) === i);
+    return distinct.map((c) => QUALIFIER_WORDS[c]).filter(Boolean).join("; ");
+  }
+
   function levelEnabled(level) {
     if (level === "grey") return settings.showGrey !== false;
-    if (level === "amber") return settings.showAmber !== false;
+    if (level === "blue") return settings.showBlue !== false;
     return true;
   }
 
@@ -478,14 +524,38 @@
     const doubted = (status.uncertain || []).map((a) => SPOKEN_APP[a] || a);
     if (doubted.length) {
       const which = doubted.length === named.length
-        ? "that reading is" : `the ${doubted.join(" and ")} reading is`;
+        ? "that reading is" : `the ${M.listOf(doubted)} reading is`;
       // No anchor in an aria-label, but the route still has to be spoken — the
       // card's link is invisible to a reader who never opens it.
-      return `This page mentions ${named.join(" and ")}, but ${which} unreliable `
+      return `This page mentions ${M.listOf(named)}, but ${which} unreliable `
         + `— check what the paper used. More accurate matching is available via `
         + `the OGA AI connector.`;
     }
-    return `This page mentions ${named.join(" and ")}.`;
+    return `This page mentions ${M.listOf(named)}.`;
+  }
+
+  /**
+   * The screen-reader half of card.js's notice block, saying the same things in
+   * the same order: the paper, then which protein the reagent is for, then that
+   * this is not a performance verdict.
+   *
+   * The last clause is not padding. Red means two things now, and a listener who
+   * hears only "red" would take the commoner one -- so the label has to close
+   * the door the colour leaves open.
+   */
+  function confusionLabel(name, status) {
+    const c = status.confusion;
+    const mistaken = c.words.mistaken_protein;
+    const paper = c.verdict === "mistaken"
+      ? `This paper is on a published list of papers that used it as a ${mistaken} antibody.`
+      : c.verdict === "not_checked"
+        ? `This paper is on a published list of papers citing it; the review could `
+          + `not reach the full text, so which protein it was used for is not known.`
+        : `This paper may have used the wrong antibody.`;
+    return `${name}: antibody to ${c.words.declared}, not to ${mistaken}. ${paper} `
+      + `${c.words.short} Documented in ${c.words.source}. OGA has not tested this `
+      + `antibody; this is about which protein it is raised against, not how well `
+      + `it works.`;
   }
 
   function ariaLabel(hit) {
@@ -495,26 +565,35 @@
     const passed = (hit.status.passed || []).join(", ");
     const failed = (hit.status.failed || []).join(", ");
     const page = hit.record ? " " + pageClause(hit.status) : "";
+    // Before the switch: the level is `red` and the two things red means are
+    // read aloud differently.
+    if (hit.status.reason === "target-confusion" && hit.status.confusion) {
+      return confusionLabel(name, hit.status);
+    }
     switch (hit.status.level) {
-      case "green": return `${name}: recommended for ${passed}. Knockout-controlled data available.${page}`;
-      case "red": return `${name}: tested and not recommended for ${failed}.${page}`;
-      case "mixed": return `${name}: recommended for ${passed}, not recommended for ${failed}.${page}`;
-      case "amber": return amberLabel(name, hit);
+      // The same qualifier the card draws. Fixing the wording on one surface
+      // and not the other is how a reader gets two different answers about one
+      // row -- the reason verdictClause exists at all.
+      case "green": return `${name}: characterisation data supports ${passed} ${conditions()}. Knockout-controlled data available.${page}`;
+      case "yellow": return `${name}: limited support for ${failed} ${conditions()} — ${yellowClause(hit.status)}.${page}`;
+      case "red": return `${name}: tested, data not supportive for ${failed} ${conditions()}.${page}`;
+      case "mixed": return `${name}: supports ${passed}, not supportive for ${failed} ${conditions()}.${page}`;
+      case "blue": return blueLabel(name, hit);
       default: return greyLabel(name, hit.status);
     }
   }
 
   /**
-   * The screen-reader half of card.js::amberExplain, and it has to say the
+   * The screen-reader half of card.js::blueExplain, and it has to say the
    * same thing in the same register.
    *
    * The label used to assert the target with nothing to show for it — "tested
    * alternatives against SQSTM1 exist" — so naming the words it was read from
-   * is a real gain. What it must not do is warn: the audit found 0 of 45 amber
+   * is a real gain. What it must not do is warn: the audit found 0 of 45 blue
    * marks with a wrong gene, and a reader who hears "check it matches" on
    * every one learns to discount all of them.
    */
-  function amberLabel(name, hit) {
+  function blueLabel(name, hit) {
     const gene = hit.status.gene;
     const raw = hit.target && hit.target.raw;
 
@@ -541,6 +620,16 @@
    * the opposite of what we hold. A reader who only ever hears this label got
    * no other chance to learn it.
    */
+  /**
+   * The words binding a verdict to what produced it, from the index.
+   *
+   * `core/recommendations.py::CONDITIONS_QUALIFIER`, with the same fallback
+   * card.js carries, for an install whose cached index predates the key.
+   */
+  function conditions() {
+    return (index && index.conditionsQualifier) || "under the consensus protocols";
+  }
+
   function greyLabel(name, status) {
     const clause = M.verdictClause(status.record);
     if (!clause) return `${name}: no independent data. Untested, not a verdict on quality.`;
@@ -549,7 +638,7 @@
     const lead = used
       ? `not tested in ${used}, the application this page uses it for`
       : `not assessed for the application this page uses it for`;
-    return `${name}: ${lead}; tested and ${clause}.`;
+    return `${name}: ${lead}; tested and ${clause} ${conditions()}.`;
   }
 
   /* ------------------------------------------------------------ interaction */
@@ -599,22 +688,81 @@
   }
 
   function notifySummary(found) {
-    const counts = { green: 0, red: 0, mixed: 0, amber: 0, grey: 0 };
+    const counts = { green: 0, red: 0, mixed: 0, blue: 0, grey: 0 };
     for (const h of found) counts[h.status.level] = (counts[h.status.level] || 0) + 1;
+    /* How many of the red ones are NOT a test result.
+     *
+     * The red tile's own face reads "not supportive", and a declared-target
+     * notice is level red — so a paper citing `ab9361` and nothing else drew
+     * `1 NOT SUPPORTIVE` on a page where OGA has tested nothing at all. Seen on
+     * oncotarget 17778, 12 Sep 2026. The tile's tooltip names both meanings of
+     * red, and a tooltip is not the label: a count is a claim about the page.
+     *
+     * Counted rather than split into a seventh tile, which is the owner's
+     * decision about the colour (one red, the card's first line separates the
+     * two) and it holds for the tally as well. The panel says the number out
+     * loud underneath instead. */
+    const notices = found.filter(
+      (h) => h.status.reason === "target-confusion").length;
 
     lastSummary = {
       counts,
+      notices,
       total: found.length,
-      concerns: found
-        .filter((h) => h.status.level === "red" || h.status.level === "mixed")
-        .map((h) => ({
-          name: h.record ? h.record.n : h.matched,
-          gene: h.record ? h.record.g : (h.status.gene || null),
-          failed: h.status.failed || [],
-        })),
+      /* WORTH A LOOK is a list of REAGENTS, where the tiles above it are a count
+         of MARKS, and the two are different questions. A supplier catalogue
+         names one product in every row, so the unfiltered map listed `MA1-510`
+         six times under a tile reading 7 — a count and the list it totals
+         disagreeing on one screen, which reads as the panel being broken.
+         Deduplicated on the reagent, first mark wins.
+
+         It also has to say WHICH of the things red means. A declared-target
+         notice is level `red` and carries no failed applications, so it came
+         out as a bare "not recommended" — a performance claim about a reagent
+         OGA has never tested, in the one place on this panel that makes a
+         claim in words. `kind` is what the popup branches on.
+
+         And a `mixed` entry needs both halves. The card's own headline is
+         "Supports IP — not supportive for WB", and a list that prints only the
+         failures turns a split verdict into a blanket negative. */
+      concerns: (() => {
+        const seen = new Set();
+        const out = [];
+        for (const h of found) {
+          const confusion = h.status.reason === "target-confusion";
+          if (!confusion && h.status.level !== "red"
+              && h.status.level !== "mixed") continue;
+          const name = h.record ? h.record.n : h.matched;
+          const gene = h.record ? h.record.g : (h.status.gene || null);
+          const key = `${name}|${gene || ""}|${confusion ? "c" : "v"}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const entry = { name, gene, failed: h.status.failed || [],
+                          passed: h.status.passed || [] };
+          if (confusion) {
+            entry.kind = "wrong-target";
+            // The protein it IS raised against, so the line can name it. The
+            // popup says nothing about performance on these.
+            entry.declared = h.status.confusion.words.declared;
+            entry.mistakenFor = h.status.confusion.words.mistaken_protein;
+            entry.gene = null;
+          }
+          out.push(entry);
+        }
+        return out;
+      })(),
       doi: pageDoi(),
       url: location.href,
       indexGenerated: index ? index.generated : null,
+      // Sent up so the popup can carry the same caveat as the card without a
+      // second copy of the wording (core/recommendations.py::SCOPE_SHORT).
+      scope: index ? index.scopeShort : null,
+      // BOTH halves, because the popup has no verdict to bind the qualifier to.
+      // `SCOPE_SHORT` stopped naming the consensus protocols on 3 Sep 2026 --
+      // the card now says that inside each verdict -- and this panel draws
+      // counts rather than verdicts, so without this key the popup would be the
+      // one surface that dropped the fact entirely, silently.
+      conditions: conditions(),
     };
 
     try {
@@ -732,6 +880,12 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // Read ONCE. It was computed twice -- for the message and again to confirm the
+  // answer -- and the declared-target notices need a third reading, of the DOI.
+  // Three calls parsing the same <meta> tags is how two of them come to disagree
+  // after somebody widens the list of tags one of them reads.
+  const pageKeys = P ? P.pageKeys(document) : null;
+
   chrome.runtime.sendMessage({
     type: "oga:get-index",
     // Computed here because only the content script can see the page, and
@@ -739,16 +893,39 @@
     // here and deliberately not in the worker. What crosses this boundary is
     // three resolved keys out and at most one paper's record back, never the
     // table.
-    keys: P ? P.pageKeys(document) : null,
+    keys: pageKeys,
   }, (resp) => {
     if (chrome.runtime.lastError || !resp || !resp.index) return;
     index = M.prepareIndex(resp.index);
+    // The caveat travels with the data (core/recommendations.py::SCOPE_SHORT),
+    // so the card is told once here rather than being handed it per hit.
+    if (Card.setScope) Card.setScope(index);
     settings = resp.settings || { enabled: true };
     // A response with no `paper` key is an older worker, which is "could not be
     // checked" and NOT "this paper is not in the record".
     paper = P
-      ? P.confirmPaper(resp.paper, P.pageKeys(document))
+      ? P.confirmPaper(resp.paper, pageKeys)
       : { status: "unavailable", reason: "no-paper-module" };
+    // THE THREE WAYS THIS PAGE NAMES ITSELF, carried alongside the citation
+    // answer because the declared-target lists are keyed in the index itself and
+    // not in the citation table -- so the lookup needs no worker round trip and
+    // no second copy of the paper rules.
+    //
+    // It was the DOI alone until 0.4.2, which is exactly as far as a publisher's
+    // own page gets you and no further: four of the PERK papers are e-Century
+    // titles that register no DOI with Crossref at all, so a paper the reviewer
+    // HAD established was reachable by nothing. The PMID is free on PubMed, PMC
+    // and Europe PMC; the title key is what works on the publisher's page, which
+    // is where a reader usually is and which rarely declares a PMID.
+    //
+    // All four fields, absent where the page declares nothing, and a notice with
+    // no paper match falls back to its product half exactly as before.
+    if (paper && pageKeys) {
+      paper.pageDoi = pageKeys.doi || null;
+      paper.pagePmid = pageKeys.pmid || null;
+      paper.pageTitleKey = pageKeys.titleKey || null;
+      paper.pageYear = pageKeys.year || null;
+    }
     if (!settings.enabled) return;
     scheduleScan(document.body);
     watch();

@@ -119,42 +119,42 @@ test("flow cytometry was never tested for this antibody -> grey", () => {
   assert.equal(hit.status.reason, "app-not-tested");
 });
 
-// --- amber and grey --------------------------------------------------------
+// --- blue and grey --------------------------------------------------------
 
-test("unknown antibody against a target we have data for -> amber", () => {
+test("unknown antibody against a target we have data for -> blue", () => {
   const text = "Western blotting used an anti-TDP-43 antibody (Fictional Bio, cat# ZZ9999).";
   const hits = M.findMentions(text, index);
-  const hit = hits.find((h) => h.status.level === "amber");
-  assert.ok(hit, `expected an amber hit, got: ${hits.map((h) => h.status.level).join(", ")}`);
+  const hit = hits.find((h) => h.status.level === "blue");
+  assert.ok(hit, `expected an blue hit, got: ${hits.map((h) => h.status.level).join(", ")}`);
   assert.equal(hit.status.gene, "TARDBP");
 });
 
 test("target that is not in the dataset at all -> grey", () => {
   const text = "Western blotting used an anti-Flotillin-1 antibody (cat# QQ1234).";
   const hits = M.findMentions(text, index);
-  assert.ok(!hits.some((h) => ["green", "red", "amber"].includes(h.status.level)),
+  assert.ok(!hits.some((h) => ["green", "red", "blue"].includes(h.status.level)),
     `expected nothing but grey, got: ${hits.map((h) => h.status.level).join(", ")}`);
 });
 
-test("a reagent named twice is highlighted once, not amber beside a real verdict", () => {
+test("a reagent named twice is highlighted once, not blue beside a real verdict", () => {
   const text = "Membranes were probed with anti-TDP-43 antibody (Abcam ab109535, RRID:AB_10859634).";
   const hits = M.findMentions(text, index);
   assert.ok(!hits.some((h) => h.via === "target"),
     `the target phrase belongs to the catalogue number beside it: ${hits.map((h) => h.matched).join(", ")}`);
-  // What matters is that no amber sits next to a looked-up verdict for the
+  // What matters is that no blue sits next to a looked-up verdict for the
   // same reagent, and that the marks agree with each other. Which verdict it
   // is belongs to the tests above; pinning "green" here is what let this test
   // keep passing while green was wrong.
-  assert.ok(!hits.some((h) => h.status.level === "amber"), "amber beside a real verdict");
+  assert.ok(!hits.some((h) => h.status.level === "blue"), "blue beside a real verdict");
   assert.equal(new Set(hits.map((h) => h.status.level)).size, 1, "the two marks disagree");
 });
 
-test("a second, untested reagent against the same target keeps its amber", () => {
+test("a second, untested reagent against the same target keeps its blue", () => {
   const text = "Immunofluorescence used ab109535 (Abcam) at 1:200 on a confocal microscope. "
     + "An additional anti-TDP-43 antibody (Fictional Biosciences, cat# ZZ9999) was used for comparison.";
   const hits = M.findMentions(text, index);
-  assert.ok(hits.some((h) => h.status.level === "amber"),
-    `expected the second reagent to stay amber: ${hits.map((h) => h.status.level).join(", ")}`);
+  assert.ok(hits.some((h) => h.status.level === "blue"),
+    `expected the second reagent to stay blue: ${hits.map((h) => h.status.level).join(", ")}`);
 });
 
 test("a heading in the next section does not govern this section's reagents", () => {
@@ -219,8 +219,8 @@ test("a target is never read out of a neighbouring table row", () => {
   const hits = M.findMentions(table, index);
   assert.ok(!hits.some((h) => h.matched.includes("AB_2801131")),
     `the mCherry row must not be marked: ${hits.map((h) => h.matched).join(", ")}`);
-  assert.ok(hits.some((h) => h.status.level === "amber" && h.status.gene === "SQSTM1"),
-    "the p62 row should still be amber");
+  assert.ok(hits.some((h) => h.status.level === "blue" && h.status.gene === "SQSTM1"),
+    "the p62 row should still be blue");
 });
 
 test("reagents we hold no data on are not marked at all", () => {
@@ -242,9 +242,9 @@ test("grey is kept where it is informative", () => {
 test("a spelled-out target name resolves to its gene", () => {
   const text = "primary antibodies against amyloid precursor protein (APP, ab101492, 1:100, Abcam) overnight";
   const hits = M.findMentions(text, index);
-  const amber = hits.find((h) => h.status.level === "amber");
-  assert.ok(amber, `expected amber for APP: ${hits.map((h) => h.status.level).join(", ")}`);
-  assert.equal(amber.status.gene, "APP");
+  const blue = hits.find((h) => h.status.level === "blue");
+  assert.ok(blue, `expected blue for APP: ${hits.map((h) => h.status.level).join(", ")}`);
+  assert.equal(blue.status.gene, "APP");
 });
 
 // --- application cues ------------------------------------------------------
@@ -364,11 +364,11 @@ test("a reagent that is not an antibody gets no inferred mark", () => {
   const idx = M.prepareIndex({ ...raw, genes: [...raw.genes, "MMP7"] });
   const enzyme = "Heparitinase I, II, III, chondroitinase ABC, and MMP7 (cat no. M4565) were purchased from Sigma-Aldrich (St. Louis, MO).";
   assert.ok(!M.findMentions(enzyme, idx).some((h) => h.via === "gene-adjacent"),
-    "an enzyme should not be ambered as an antibody");
+    "an enzyme should not be blueed as an antibody");
 
   const antibody = "Antibodies against MMP7 (cat no. M4565) were purchased from Sigma-Aldrich.";
   const hit = M.findMentions(antibody, idx).find((h) => h.via === "gene-adjacent");
-  assert.ok(hit && hit.status.level === "amber", "the same shape, but an antibody, still ambers");
+  assert.ok(hit && hit.status.level === "blue", "the same shape, but an antibody, still blues");
 });
 
 test("a clone is only trusted with antibody wording nearby", () => {
@@ -377,15 +377,15 @@ test("a clone is only trusted with antibody wording nearby", () => {
   assert.deepEqual(M.findMentions(text, index), []);
 });
 
-test("the clone does not also draw an amber for its own target", () => {
+test("the clone does not also draw an blue for its own target", () => {
   const text = "Western blotting using anti-TDP-43 (pan) (EPR5810) antibody.";
   const levels = M.findMentions(text, index).map((h) => h.status.level);
-  assert.ok(!levels.includes("amber"), `one reagent, one mark: got ${levels.join(", ")}`);
+  assert.ok(!levels.includes("blue"), `one reagent, one mark: got ${levels.join(", ")}`);
 });
 
 // --- a target named against an unheld catalogue number ---------------------
 
-test("a target named immediately before an unknown catalogue number goes amber", () => {
+test("a target named immediately before an unknown catalogue number goes blue", () => {
   // The shape almost every methods section uses, and the one that produced
   // nothing at all before: the paper states the attribution, so there is no
   // guessing involved.
@@ -393,7 +393,7 @@ test("a target named immediately before an unknown catalogue number goes amber",
   const hits = M.findMentions(text, index);
   assert.equal(hits.length, 1, `expected one mark, got ${hits.map((h) => h.matched).join(", ")}`);
   assert.equal(hits[0].matched, "A2164");
-  assert.equal(hits[0].status.level, "amber");
+  assert.equal(hits[0].status.level, "blue");
   assert.equal(hits[0].status.gene, "APP");
 });
 
@@ -404,8 +404,8 @@ test("the spacing and prefixes real papers use are all covered", () => {
     "anti-APP (Abcam, cat# A2164) was used at 1:1000",
   ]) {
     const hits = M.findMentions(text, index);
-    const amber = hits.filter((h) => h.status.level === "amber" && h.status.gene === "APP");
-    assert.equal(amber.length, 1, `expected exactly one APP amber in: ${text}`);
+    const blue = hits.filter((h) => h.status.level === "blue" && h.status.gene === "APP");
+    assert.equal(blue.length, 1, `expected exactly one APP blue in: ${text}`);
   }
 });
 
@@ -422,13 +422,13 @@ test("a parenthesised number that is not a catalogue number stays unmarked", () 
   }
 });
 
-test("a known catalogue number keeps its real verdict rather than going amber", () => {
+test("a known catalogue number keeps its real verdict rather than going blue", () => {
   const text = "Antibodies against TARDBP (Abcam, cat# ab109535) were used for western blotting.";
   const hits = M.findMentions(text, index);
   const hit = hits.find((h) => h.matched.toLowerCase() === "ab109535");
   assert.ok(hit, "the known catalogue number should still be found");
   assert.ok(hit.record, "it should carry its record, not be inferred");
-  assert.notEqual(hit.status.level, "amber");
+  assert.notEqual(hit.status.level, "blue");
 });
 
 // --- the no-application path, all four shapes ------------------------------
@@ -446,6 +446,58 @@ test("a known catalogue number keeps its real verdict rather than going amber", 
 // every assessed application, so failedAll-only always returned red.
 
 const noApp = (record) => M.resolveStatus(record, [], null, index);
+
+// --- yellow: not supportive, and yet it did the thing ------------------------
+//
+// "Detected the target and did not meet the bar" and "showed nothing" are
+// different findings, and a reader deciding whether to try a reagent needs them
+// apart. On live data that is 491 of the 1,833 negatives the index publishes.
+//
+// The mark is ONE colour for a whole reagent while the card lists each
+// application, so yellow has to mean "nothing here showed nothing" — a single
+// unqualified failure keeps it red. That conservative direction is the thing to
+// pin: getting it wrong paints a reagent that failed outright as one worth a
+// try.
+
+test("every failed application qualified -> yellow, not red", () => {
+  const status = noApp({ g: "GBA1", a: { WB: 1, IP: 1, IF: 0, FC: 0 },
+                         q: { WB: "sd", IP: "se" } });
+  assert.equal(status.level, "yellow");
+});
+
+test("one failure that showed nothing keeps the mark red", () => {
+  const status = noApp({ g: "GBA1", a: { WB: 1, IP: 1, IF: 0, FC: 0 },
+                         q: { WB: "sd" } });
+  assert.equal(status.level, "red", "a reagent that showed nothing must not read as yellow");
+});
+
+test("no qualifiers at all is red, exactly as before", () => {
+  assert.equal(noApp({ g: "GBA1", a: { WB: 1, IP: 0, IF: 0, FC: 0 } }).level, "red");
+});
+
+test("a record built before the key existed still resolves", () => {
+  // The index ships `q` sparsely and an older cached copy has none at all.
+  const status = noApp({ g: "GBA1", a: { WB: 1, IP: 0, IF: 0, FC: 0 } });
+  assert.equal(status.level, "red");
+  assert.deepEqual(status.qualifiers, {});
+});
+
+test("a supportive verdict is never repainted by its qualifier", () => {
+  // `ns` is the tab on a green cell, not a colour of its own: the antibody IS
+  // supported for the application.
+  const status = noApp({ g: "GBA1", a: { WB: 2, IP: 0, IF: 0, FC: 0 },
+                         q: { WB: "ns" } });
+  assert.equal(status.level, "green");
+});
+
+test("a looked-up application narrows to yellow the same way", () => {
+  const record = { g: "GBA1", a: { WB: 1, IP: 2, IF: 0, FC: 0 }, q: { WB: "sd" } };
+  // `via: "paper"` is what makes it a LOOKUP rather than a proximity guess, and
+  // only a lookup may narrow the verdict to one application.
+  const status = M.resolveStatus(
+    record, ["WB"], null, index, { via: "paper", applications: ["WB"] });
+  assert.equal(status.level, "yellow", "the citation layer must carry the distinction too");
+});
 
 test("no application stated, passes some and fails others -> mixed, not green", () => {
   // ab109535: WB recommended, IP and IF not recommended. The exact shape that
@@ -564,9 +616,9 @@ test("no mark anywhere contains a full stop followed by a space", () => {
   }
 });
 
-// --- amber has to show its working -----------------------------------------
+// --- blue has to show its working -----------------------------------------
 //
-// Amber is the only verdict the extension infers rather than looks up, and it
+// Blue is the only verdict the extension infers rather than looks up, and it
 // was 62 of the 239 marks drawn across the benchmark. The card quotes the text
 // that produced the gene, so these pin the two things that quote depends on:
 // which words resolved, and how they came to be attached to this identifier.
@@ -584,7 +636,7 @@ test("targetVia says how the target was attributed, which `via` does not", () =>
   // Nearest resolvable name in the block — the one that can be wrong.
   const nearby = hitFor("Anti-TDP-43 antibody was used (RRID:AB_9999999) for western blotting.", "AB_9999999");
   assert.equal(nearby.targetVia, "nearby");
-  assert.equal(nearby.status.level, "amber");
+  assert.equal(nearby.status.level, "blue");
 });
 
 test("target.raw is the phrase that resolved, not the whole capture", () => {
@@ -592,7 +644,7 @@ test("target.raw is the phrase that resolved, not the whole capture", () => {
   // trailing prose. Quoting that back at a reader would print
   // "TDP-43 antibody overnight" and make a correct inference look broken.
   const hit = hitFor("Antibodies against TDP-43 overnight at 4C were used (RRID:AB_9999999).", "AB_9999999");
-  assert.equal(hit.status.level, "amber");
+  assert.equal(hit.status.level, "blue");
   assert.ok(!/overnight/i.test(hit.target.raw), `raw carried trailing prose: "${hit.target.raw}"`);
 });
 
@@ -600,20 +652,20 @@ test("the quoted phrase is what the page wrote, and the gene is what it resolved
   // The alias case is the whole reason for showing the reader both: the page
   // says TDP-43, the dataset says TARDBP, and the reader has to see the step.
   const hit = hitFor("An additional anti-TDP-43 antibody (Vendor, cat# QQ7781) was used for western blotting.", "anti-TDP-43");
-  assert.equal(hit.status.level, "amber");
+  assert.equal(hit.status.level, "blue");
   assert.equal(hit.target.raw, "TDP-43");
   assert.equal(hit.status.gene, "TARDBP");
 });
 
-test("a target attributed from the record is never amber", () => {
+test("a target attributed from the record is never blue", () => {
   // targetVia "record" means the dataset told us; there is nothing to check
-  // and nothing to quote. Amber must never reach the card with that.
+  // and nothing to quote. Blue must never reach the card with that.
   for (const text of [
     "Western blotting used ab109535 (Abcam) antibody.",
     "Blots were probed with GTX630196 (GeneTex) overnight.",
   ]) {
     for (const hit of M.findMentions(text, index)) {
-      if (hit.targetVia === "record") assert.notEqual(hit.status.level, "amber", text);
+      if (hit.targetVia === "record") assert.notEqual(hit.status.level, "blue", text);
     }
   }
 });
@@ -638,17 +690,17 @@ test("a record's verdicts are read from the record, not from the page's applicat
   assert.deepEqual(passed, ["WB"]);
   assert.deepEqual(failed, ["IP", "IF"]);
   assert.equal(M.verdictClause(status.record),
-    "recommended for WB, not recommended for IP, IF");
+    "supports WB, not supportive for IP, IF");
 });
 
 test("the three record shapes each produce a clause", () => {
   const only = (a) => ({ a });
   assert.equal(M.verdictClause(only({ WB: 1, IP: 0, IF: 1, FC: 0 })),
-    "not recommended for WB, IF", "failures only — the benchmark's own case");
+    "not supportive for WB, IF", "failures only — the benchmark's own case");
   assert.equal(M.verdictClause(only({ WB: 2, IP: 0, IF: 0, FC: 0 })),
-    "recommended for WB", "passes only");
+    "supports WB", "passes only");
   assert.equal(M.verdictClause(only({ WB: 2, IP: 1, IF: 0, FC: 0 })),
-    "recommended for WB, not recommended for IP", "both");
+    "supports WB, not supportive for IP", "both");
 });
 
 test("a record with no verdict anywhere keeps the untested wording", () => {
@@ -897,6 +949,49 @@ test("the matcher exposes no control detection", () => {
   // analysis moved to the OGA MCP server, where a cue can be linked to the
   // antibody it belongs to. Re-adding it would resurrect the false reassurance.
   assert.equal(M.findControlSignals, undefined);
+});
+
+// --- every level this can return has to be paintable -----------------------
+
+test("every level resolveStatus returns has a class in content.js", () => {
+  // The pairing that was missing. `content.js::LEVEL_CLASS` is the only thing
+  // that paints a mark, so a level absent from it produces
+  // `class="oga-hl undefined"` — no colour, no underline, no pattern, while the
+  // card behind it stays perfectly correct. Drawn and invisible.
+  //
+  // `yellow` was in that state from 0.3.1, the release that introduced the
+  // middle rung, until 12 Sep 2026. Nothing could catch it: the bundled
+  // 18-record fixture carries no qualifier, so no local run produces a yellow
+  // mark at all, and the CSS, the card and the popup all had their half.
+  //
+  // Both sides are derived. The levels come from driving the matcher over
+  // shaped records; the table is read out of the source. Asserting a string
+  // appears in a file would pass on a `LEVEL_CLASS` that names the level and
+  // paints the wrong thing, and would not notice a level added later.
+  const src = fs.readFileSync(path.join(root, "src/content.js"), "utf8");
+  const m = src.match(/const LEVEL_CLASS = \{([\s\S]*?)\};/);
+  assert.ok(m, "LEVEL_CLASS is not where this test looks for it");
+  const table = new Function(`return {${m[1]}}`)();
+
+  const rec = (a, q) => ({ n: "X", g: "GENE", s: "S", a, q });
+  const ALL = { WB: 0, IP: 0, IF: 0, FC: 0 };
+  const levels = new Set([
+    // supportive, unsupportive, both, and the middle rung a qualifier earns
+    M.resolveStatus(rec({ ...ALL, WB: 2 }), [], null, index).level,
+    M.resolveStatus(rec({ ...ALL, WB: 1 }), [], null, index).level,
+    M.resolveStatus(rec({ ...ALL, WB: 2, IP: 1 }), [], null, index).level,
+    M.resolveStatus(rec({ ...ALL, WB: 1 }, { WB: "ns" }), [], null, index).level,
+    // no record: the target is characterised, or nothing is held at all
+    M.resolveStatus(null, [], { gene: [...index.geneSet][0] }, index).level,
+    M.resolveStatus(null, [], { gene: "NOTAGENE" }, index).level,
+  ]);
+
+  assert.ok(levels.has("yellow"),
+    "a qualified negative should reach the middle rung; if this changed, the "
+    + "list below is no longer testing what it thinks");
+  const unpaintable = [...levels].filter((l) => !table[l]);
+  assert.deepEqual(unpaintable, [],
+    `content.js::LEVEL_CLASS paints no class for: ${unpaintable.join(", ")}`);
 });
 
 // --- report ----------------------------------------------------------------

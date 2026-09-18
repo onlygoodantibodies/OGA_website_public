@@ -15,10 +15,15 @@
 -- environment (MCP_READONLY_DATABASE_URL). Rotate any password that ever lands
 -- in a shell history or a file.
 --
--- The grants are scoped to an ALLOW-LIST of the lab tables (every `pipeline_*`
--- table) plus the read-only recommendation view. Django's auth tables — which
--- hold pipeline members' emails and password hashes — are DELIBERATELY EXCLUDED
--- from the read-only role. auth_user is never granted to mcp_readonly.
+-- The table grants are an ALLOW-LIST of the NINE tables the connector actually
+-- reads, defined in ONE place: mcp_servers/common/grants.py. They are applied by
+-- `manage.py apply_mcp_roles`, not by this file — see section 1.
+--
+-- Until 30 Aug 2026 this file granted every `pipeline_*` table: 39 of them, to
+-- answer questions that need 9. Among the 30 it did not need were
+-- pipeline_member and pipeline_manufacturercontact, the latter holding real
+-- people's names and email addresses at supplier companies. Django's auth tables
+-- — pipeline members' emails and password hashes — were and remain excluded.
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -39,21 +44,23 @@ ALTER ROLE mcp_readonly SET statement_timeout = '15s';
 GRANT USAGE ON SCHEMA public TO mcp_readonly;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1. Server A — mcp_readonly: SELECT on every lab (pipeline_*) table ONLY.
---    Explicitly NOT auth_user / django_* / socialaccount_* / account_*.
+-- 1. Server A — mcp_readonly: NO table grants in this file.
+--
+--    The allow-list lives in mcp_servers/common/grants.py and is applied by
+--    `manage.py apply_mcp_roles` immediately after this file runs. It is not
+--    duplicated here: two lists of which tables are public is how they come to
+--    disagree, and the Python one is the copy the preflight and the CI test can
+--    read.
+--
+--    So this file REVOKES instead. Running roles.sql on its own leaves the role
+--    able to read nothing, which is the safe direction to fail in — and it is
+--    what makes re-running genuinely narrow a role that was granted more
+--    earlier. A grant-only script cannot take anything away, and every role this
+--    has run against was previously granted all 39 lab tables.
 -- ─────────────────────────────────────────────────────────────────────────────
-DO $$
-DECLARE r RECORD;
-BEGIN
-    FOR r IN
-        SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND tablename LIKE 'pipeline\_%'
-    LOOP
-        EXECUTE format('GRANT SELECT ON public.%I TO mcp_readonly;', r.tablename);
-    END LOOP;
-END $$;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM mcp_readonly;
 
--- ─────────────────────────────────────────────────────────────────────────────
+-- ────────────────────────────────────────────────────────────────────────────
 -- 2. auth_user stays dark for the read-only role — member emails + password
 --    hashes are never granted to mcp_readonly.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -104,15 +111,23 @@ GRANT SELECT ON antibody_recommendations TO mcp_readonly;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;   -- drop the implicit PUBLIC grants
 REVOKE CREATE ON SCHEMA public FROM mcp_readonly;        -- no DDL via this role
 
--- PUBLIC-DATA SCOPING for Server A is now automated — run it AFTER this file:
+-- PUBLIC-DATA SCOPING. The connector serves only what the public site serves.
+-- That is enforced in the ORM by portal.py's _published_antibodies() /
+-- _public_targets(), pinned end-to-end by mcp_servers/tests/test_published_scope.py
+-- (an unpublished gene answers `found: false`). The table allow-list above is the
+-- second, independent half: it decides which tables the role may read at all.
 --
---     python manage.py apply_mcp_published
+-- Row-level views (a `mcp_pub_*` per table, so the role could not read an
+-- unpublished ROW either) were considered on 30 Aug 2026 and NOT built. They
+-- need the ORM pointed at views and a view kept in sync with every future
+-- migration, and the drift between this role and the schema is the failure that
+-- has actually happened here — twice in one week. The ORM boundary holds the
+-- rows; this file holds the tables.
 --
--- That creates the mcp_pub_* views (published antibodies/targets only — those
--- with a publication image — and public columns only), then REVOKEs the base
--- pipeline_* tables from mcp_readonly and GRANTs it the views instead. After it,
--- the read-only role physically cannot read an unpublished row (so even Server
--- A's raw analytics_sql is contained). The boundary is defined in one place:
--- mcp_servers/common/published.py. Re-run apply_mcp_published if you ever re-run
--- this file (which re-grants the base tables to mcp_readonly).
+-- An earlier version of this note told the operator to run
+-- `manage.py apply_mcp_published`, from a module `mcp_servers/common/published.py`.
+-- NEITHER HAS EVER EXISTED IN THIS REPO. Read as an instruction it sends you
+-- looking for a command that is not there; read as a description it claims a
+-- containment that was never in place. Removed rather than implemented, per the
+-- decision above.
 -- =============================================================================

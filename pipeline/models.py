@@ -23,12 +23,17 @@ Access → PostgreSQL mapping notes are in field-level comments.
 
 import re
 
+from django.utils import timezone
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 
 from pipeline.storages import attachment_storage
+# Stdlib-only, no Django and no import back into models — see the module
+# docstring. It owns `received_precision`'s choices so the column and its
+# one reader cannot drift apart.
+from pipeline.services import received as received_svc
 
 
 # =============================================================================
@@ -562,6 +567,12 @@ class CellLine(models.Model):
         help_text="For KO lines, the WT parent cell line"
     )
     parental_line_name = models.CharField(max_length=255, blank=True)
+    # **No writer since 14 Sep 2026.** The `paired ko (WT rows)` sheet column
+    # that filled this was removed: on live it had reached 2 rows of 616 and
+    # both were wrong, because it resolved the partner C-number with no site
+    # filter and C-numbers are issued per site. The column is gone, the field is
+    # not — dropping a live column is a migration a rollback cannot un-apply.
+    # Before wiring anything to this again, read DECISIONS.md, 14 Sep 2026.
     arrived_with_ko = models.ForeignKey(
         'self', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='arrived_with_wt',
@@ -822,6 +833,27 @@ class Antibody(models.Model):
     )
     received_date = models.DateField(null=True, blank=True)
 
+    #: How much of ``received_date`` anybody actually knows.
+    #:
+    #: A ``DateField`` cannot say *"August 2026"*, and that is what uOttawa's
+    #: records say — an order confirmation carries a month where a packing slip
+    #: carries a day. The date is stored at the **start** of the period known
+    #: (``2026-08-01`` for August 2026) and this column says how much of it to
+    #: print, so no screen publishes a day nobody wrote down.
+    #:
+    #: ``services/received.py`` is the one reader for the pair — the parsing,
+    #: the printed label and the spelling a sheet round-trips — and it owns this
+    #: list, so the column and its reader cannot drift.
+    #:
+    #: ``day`` is the default and is true of every row that predates it: all
+    #: 2,841 antibodies carrying a ``received_date`` on live came from the
+    #: Access import with real dates, 31 distinct days of the month between them
+    #: (read 1 Sep 2026). So there is nothing to backfill.
+    received_precision = models.CharField(
+        max_length=10, choices=received_svc.CHOICES, default=received_svc.DAY,
+        help_text="Whether received_date is known to the day, the month or "
+                  "only the year.")
+
     in_kind_value = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -858,6 +890,21 @@ class Antibody(models.Model):
     if_recommended = models.BooleanField(default=False, help_text="Recommended for Immunofluorescence")
     fc_recommended = models.BooleanField(default=False, help_text="Recommended for Flow Cytometry")
 
+    #: When any of the four above last changed.
+    #:
+    #: **They changed with no trace at all until 29 Aug 2026.** These four
+    #: booleans are the public verdict on a named commercial product — the gene
+    #: page, the API, the MCP and the extension all read them — and nothing
+    #: recorded when one moved. Not even ``updated_at``: ``rec_toggle`` saves
+    #: with ``update_fields=[flag]``, and with ``update_fields`` set an
+    #: ``auto_now`` column is computed and then never written, so the newest
+    #: ``Antibody.updated_at`` on live was eight days older than a day's worth
+    #: of curation. Asked "when was this recommendation last set", the database
+    #: had no answer for any row.
+    recommendations_set_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When any OGA recommendation for this antibody last changed.")
+
     class Meta:
         verbose_name_plural = 'Antibodies'
         ordering = ['target', 'company', 'catalogue_number']
@@ -867,6 +914,57 @@ class Antibody(models.Model):
                 name='unique_antibody_per_site_lot'
             ),
         ]
+
+    #: The four the stamp above watches.
+    RECOMMENDATION_FIELDS = ('wb_recommended', 'ip_recommended',
+                             'if_recommended', 'fc_recommended')
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        """Remember the flags as loaded, so ``save`` can tell what moved.
+
+        A snapshot rather than a re-read: stamping the date needs to know
+        whether a flag actually changed, and asking the database again would
+        put a query on every antibody save in the app.
+        """
+        obj = super().from_db(db, field_names, values)
+        obj._recommendation_snapshot = {
+            f: getattr(obj, f) for f in cls.RECOMMENDATION_FIELDS
+            if f in field_names}
+        return obj
+
+    def save(self, *args, **kwargs):
+        """Stamp ``recommendations_set_at`` when a recommendation moves.
+
+        **Here rather than in the six places that write these flags** —
+        `rec_toggle`, `review.release`, `review.withdraw`, the cropper's commit,
+        the session recorder and the dataset upload — for the reason
+        ``lab_numbers`` issues a number on ``pre_save`` rather than in each of
+        its eight write paths: the seventh caller is the one that forgets.
+
+        The ``update_fields`` handling is the half that would fail silently. A
+        caller passing ``update_fields=['if_recommended']`` writes only that
+        column, so a date set here would be computed and dropped — which is
+        exactly how ``updated_at`` came to be eight days stale while a day of
+        curation went through it.
+        """
+        snapshot = getattr(self, '_recommendation_snapshot', None)
+        if snapshot is None:
+            # Never loaded from the database: a new row, stamped only if it is
+            # created already carrying a recommendation.
+            moved = any(getattr(self, f) for f in self.RECOMMENDATION_FIELDS)
+        else:
+            moved = any(getattr(self, f) != was for f, was in snapshot.items())
+        if moved:
+            self.recommendations_set_at = timezone.now()
+            fields = kwargs.get('update_fields')
+            if fields is not None:
+                kwargs['update_fields'] = list(
+                    set(fields) | {'recommendations_set_at'})
+        super().save(*args, **kwargs)
+        if moved:
+            self._recommendation_snapshot = {
+                f: getattr(self, f) for f in self.RECOMMENDATION_FIELDS}
 
     def __str__(self):
         return f"{self.catalogue_number} ({self.company})" if self.company else self.catalogue_number
@@ -1553,7 +1651,7 @@ class IpResult(models.Model):
     # IP-WB detection step
     detection_ab = models.CharField(
         max_length=255, blank=True,
-        help_text="KO-validated antibody used for WB detection step"
+        help_text="KO-controlled antibody used for WB detection step"
     )
     detection_ab_dilution = models.CharField(max_length=255, blank=True)
     secondary_ab = models.CharField(max_length=255, blank=True)
@@ -1918,6 +2016,128 @@ class PendingPublicationImage(models.Model):
     def __str__(self):
         return (f"{self.antibody.catalogue_number} — "
                 f"{self.get_application_type_display()} ({self.get_status_display()})")
+
+
+
+class AntibodyOutcome(models.Model):
+    """What the figure showed, on the two axes a recommendation flattens into one.
+
+    ``Antibody.wb_recommended`` and its three siblings are a single boolean, and
+    the reviewers' complaint is that one bit cannot hold what the bench actually
+    recorded. It never could: the Access export has carried **two** independent
+    columns since the beginning, and ``import_access_data`` writes both —
+
+    * ``SpecificSignal`` → ``WbResult.signal`` — *does it detect the target?*
+    * ``SelectiveSignal`` → ``WbResult.rating`` — *is it selective?*
+
+    On the 1,584 antibodies with a published WB figure (28 Aug 2026) that pair
+    resolves to three real outcomes, not two: 501 detect **and** are selective,
+    343 do neither, and **558 detect the target but are not selective**. That
+    middle band is a third of the public dataset and the current boolean splits
+    it almost in half — 282 recommended against 276 not — so two antibodies with
+    identical recorded evidence get opposite public verdicts and no surface says
+    which axis moved. That is the thing to fix, and the data to fix it with is
+    already here.
+
+    So why a table at all, rather than reading ``WbResult``?
+
+    **Because a published figure is not always a recorded reading.** 129 of
+    those 1,584 antibodies have no ``WbResult`` row of any kind, and 98 more
+    have a row with one or both cells blank. There is no session to type the
+    judgement into, and inventing one would mark a procedure complete over work
+    nobody did — the defect ``session_board.is_reading`` exists to prevent.
+
+    **And because the unit is wrong.** A ``WbResult`` is one run on one day; the
+    public verdict is per *antibody per application*, which is exactly the key
+    ``PublicationImage`` carries. 213 published antibodies have two or more WB
+    result rows, and on 26 of them the runs disagree about ``signal``, 32 about
+    ``rating``. Something has to hold the answer for the antibody, and it is not
+    any one of the runs.
+
+    This table is therefore the **gap fill and the review judgement**, never a
+    second copy of what a session recorded. ``services/outcomes.py`` is the one
+    reader: it answers from the session rows where they say anything, from here
+    where they are silent, and reports a disagreement as a disagreement rather
+    than picking a side.
+
+    Nothing public reads it yet, by decision (owner, 28 Aug 2026): the current
+    recommendation booleans stay in play until the browser extension's next
+    version, the MCP and the public pages are built and approved to carry the
+    nuance. Adding it here first is what makes that work possible without a
+    flag day.
+    """
+
+    class Verdict(models.TextChoices):
+        """Every value any axis may hold. **Which of them a given axis may hold
+        is `services/outcomes.py::AXIS_VALUES`**, not this list.
+
+        Western blot and immunoprecipitation answer yes/no; immunofluorescence
+        grades its one axis on the three measured bands instead, because there
+        the answer is a WT/KO ratio and "yes" would throw away how strongly.
+        Both vocabularies live in one column rather than two, so nothing has to
+        ask which column holds this antibody's answer — the two-readers-per-fact
+        trap this file keeps relearning.
+        """
+        YES = 'yes', 'Yes'
+        NO = 'no', 'No'
+        UNCLEAR = 'unclear', 'Could not tell'
+        # ICC-IF, matching `outcomes.band_for`'s cut-offs exactly. A person
+        # grades by eye where no ratio was recorded (owner, 28 Aug 2026); the
+        # words are the same either way, so a reader cannot tell a measured
+        # band from a judged one by its wording — `source` on the axis says
+        # which, and the card prints the ratio when there is one.
+        NO_SELECTIVE_SIGNAL = 'no_selective_signal', 'No selective signal'
+        SELECTIVE = 'selective', 'Selective'
+        STRONGLY_SELECTIVE = 'strongly_selective', 'Strongly selective'
+
+    antibody = models.ForeignKey(
+        Antibody, on_delete=models.CASCADE, related_name='outcomes'
+    )
+    # The same four values `PublicationImage` uses, exact casing — a judgement
+    # is about a figure, and `ICC-IF` there must not become `IF` here.
+    application_type = models.CharField(
+        max_length=10, choices=PublicationImage.ApplicationType.choices)
+
+    # Blank means "not judged", never "judged negative". The whole reason this
+    # table exists is that one value was answering two questions.
+    detects = models.CharField(
+        max_length=20, choices=Verdict.choices, blank=True,
+        help_text="Does it detect the target? (SpecificSignal)")
+    selective = models.CharField(
+        max_length=20, choices=Verdict.choices, blank=True,
+        help_text="Is it selective for the target? (SelectiveSignal)")
+    # IP's one axis. A column per axis rather than a `(axis, value)` row per
+    # judgement: `services/outcomes.py` reads them by name, and an application
+    # answers a fixed small set of questions.
+    enriches = models.CharField(
+        max_length=20, choices=Verdict.choices, blank=True,
+        help_text="Did it pull the target down? (IP Enrichment)")
+
+    note = models.TextField(
+        blank=True,
+        help_text="What the reviewer saw. Free text, beside the judgement.")
+
+    # Username rather than an FK, for the reason `PendingPublicationImage` gives:
+    # pipeline users live in two databases.
+    assessed_by = models.CharField(max_length=150, blank=True)
+    assessed_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Antibody outcome'
+        verbose_name_plural = 'Antibody outcomes'
+        ordering = ['antibody__target__gene_name', 'antibody__catalogue_number',
+                    'application_type']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['antibody', 'application_type'],
+                name='unique_outcome_per_antibody_app'
+            ),
+        ]
+
+    def __str__(self):
+        return (f"{self.antibody.catalogue_number} — {self.application_type}: "
+                f"detects={self.detects or '?'} selective={self.selective or '?'}")
 
 
 # =============================================================================

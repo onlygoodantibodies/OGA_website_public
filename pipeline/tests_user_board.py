@@ -328,6 +328,30 @@ class AddingSomeoneWritesAllThreeRecordsTests(TestCase):
             data=json.dumps({"text": f"{self.HEADER}\n{body}"}),
             content_type="application/json")
 
+    def test_a_role_may_be_typed_the_way_the_board_shows_it(self):
+        """One fact, one vocabulary — run 18 F3.
+
+        The grid's Role cell is a `<select>` showing *Experimenter*; the Add
+        panel is a text box serialised to TSV and offered `experimenter`. Same
+        five roles, two vocabularies, one page. The panel offers the readable
+        words now, so a paste carrying them has to land — and the stored value
+        is still the code.
+        """
+        resp = self._commit("newbie\tNew\tPerson\tn@example.com\tLeicester\t"
+                            "Experimenter\tNew Person")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        member = Member.objects.using(DB).get(
+            user_id=User.objects.using(DB).get(username="newbie").pk)
+        self.assertEqual(member.role, "experimenter")
+
+    def test_a_role_that_is_neither_spelling_is_refused_by_name(self):
+        resp = self._commit("nobody\tNo\tBody\tnb@example.com\tLeicester\t"
+                            "wizard\tNo Body")
+        self.assertFalse(
+            User.objects.using(DB).filter(username="nobody").exists(),
+            "a row with an unreadable role was created anyway")
+        self.assertIn("wizard", resp.content.decode())
+
     def _check(self, body):
         import json
         return self.client.post(

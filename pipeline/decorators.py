@@ -3,6 +3,36 @@ from django.shortcuts import redirect
 from django.http import HttpResponseForbidden, JsonResponse
 
 
+def is_pipeline_member(request):
+    """Whether this request's user holds active pipeline access.
+
+    The same two lookups ``pipeline_member_required`` makes, as a question a
+    template can be answered with rather than a gate. It exists for the public
+    ``/extension/`` page, which draws a team-only build link — the endpoint
+    behind it is still gated by the decorator, so this only decides whether the
+    control is *drawn*.
+
+    **Anonymous returns False without touching a database.** This is called from
+    a public page, so the common visitor is a crawler or a stranger and must not
+    cost two queries; the same reasoning as ``templates/404.html`` never asking
+    whether a visitor is a member.
+    """
+    if not request.user.is_authenticated:
+        return False
+    from pipeline.models import Member
+    from django.contrib.auth.models import User
+    try:
+        pipe_user = User.objects.using('pipeline_db').get(
+            username=request.user.username
+        )
+        Member.objects.using('pipeline_db').get(
+            user_id=pipe_user.pk, is_active=True
+        )
+    except (User.DoesNotExist, Member.DoesNotExist):
+        return False
+    return True
+
+
 def pipeline_member_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):

@@ -5,7 +5,7 @@ The build spec it was written against was retired on 16 Aug 2026 once the tool
 shipped; its standing constraints (AI-free, never modify original pixels, the
 object-key format) are in CLAUDE.md, and git history has the spec.
 
-The human-in-the-loop tool that turns composite validation figures into
+The human-in-the-loop tool that turns composite characterisation figures into
 per-antibody crops and writes Target / Antibody / PublicationImage records.
 NO AI: deterministic cropping + classical Tesseract OCR only.
 

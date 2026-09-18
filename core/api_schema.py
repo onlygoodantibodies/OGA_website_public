@@ -38,18 +38,64 @@ from .api_views import BASE_URL
 # removal signalled as a minor bump is the same class of error as a document
 # describing a field that is not there. Not to be confused with the `/v1/` in
 # the URL: that is the path, and it has not moved.
-API_VERSION = '2.0.0'
+#
+# 2.1.0 on 14 Sep 2026: `oga_support` added to the antibody and manifest rows,
+# and `oga_display` / `oga_qualifiers` documented on the antibody row, where
+# they had shipped undocumented since 12 Sep. A minor bump because every one of
+# those is **additive** — and additive is not a preference here. By 14 Sep 2026
+# six named organisations held keys and 269 of the API's 357 all-time requests
+# were keyless, which is a population that cannot be told, surveyed, or checked
+# up on afterwards. The 2.0.0 note above rests on "nothing outside OGA held a
+# key"; that sentence is no longer true, so the licence it granted is spent.
+API_VERSION = '2.1.0'
 
 _SERVER = f'{BASE_URL}/api/v1'
 
 
-def _recommendation_schema():
-    """The three-valued recommendation, meanings taken from the one reader."""
+def _support_schema():
+    """The four-valued result, meanings taken from the one reader.
+
+    The vocabulary every OGA page prints, as controlled values. Documented
+    before ``Recommendation`` below and marked as the one to switch on, because
+    a reader meeting both in a generated client picks the first one that looks
+    authoritative.
+    """
     return {
         'type': 'string',
+        'enum': list(R.SUPPORT_VALUES),
+        'description': (
+            'What the characterisation data shows for one application, in the '
+            'four rungs every OGA page prints. **This is the field to switch '
+            'on.**\n\n'
+            + '\n'.join(f'- `{value}` - {R.SUPPORT_MEANINGS[value]}'
+                        for value in R.SUPPORT_VALUES)
+            + '\n\nThe legacy `oga_recommendations` reports `'
+            + R.LEGACY_VERDICT_OF[R.LIMITED_SUPPORT] + '` for both `'
+            + R.LIMITED_SUPPORT + '` and `' + R.NOT_SUPPORTIVE
+            + '`, so a client switching on it files an antibody that did what '
+              'the application is for with one that showed nothing. On the '
+              'live dataset that is 491 of 1,833 negatives.\n\n'
+            + R.SCOPE_NOTE),
+        'example': R.LIMITED_SUPPORT,
+    }
+
+
+def _recommendation_schema():
+    """The three-valued recommendation, meanings taken from the one reader.
+
+    Legacy and permanent. Marked ``deprecated`` so a generated client says so,
+    and never removed: 269 of this API's 357 all-time requests are keyless, and
+    a keyless caller cannot be told, surveyed, or checked up on afterwards.
+    """
+    return {
+        'type': 'string',
+        'deprecated': True,
         'enum': [R.RECOMMENDED, R.NOT_RECOMMENDED, R.NOT_TESTED],
         'description': (
-            "OGA's recommendation for one application.\n\n"
+            "OGA's recommendation for one application. **Legacy — prefer "
+            "`oga_support`**, which has a value for each of the four rungs "
+            "this one collapses into three. Still emitted on every response "
+            "and not going anywhere.\n\n"
             + '\n'.join(f'- `{value}` - {R.MEANINGS[value]}'
                         for value in (R.RECOMMENDED, R.NOT_RECOMMENDED,
                                       R.NOT_TESTED))
@@ -105,13 +151,77 @@ def _recommendation_scope():
 def _schemas():
     applications = list(R.APPLICATIONS)
     return {
+        'Support': _support_schema(),
+
+        'OgaSupport': {
+            'type': 'object',
+            'description': (
+                'One result per application, in the four rungs the pages '
+                'print. The field to switch on.'),
+            'properties': {app: {'$ref': '#/components/schemas/Support'}
+                           for app in applications},
+        },
+
         'Recommendation': _recommendation_schema(),
 
         'OgaRecommendations': {
             'type': 'object',
-            'description': 'One recommendation per application.',
+            'deprecated': True,
+            'description': ('One recommendation per application. Legacy — see '
+                            '`OgaSupport`.'),
             'properties': {app: {'$ref': '#/components/schemas/Recommendation'}
                            for app in applications},
+        },
+
+        'OgaDisplay': {
+            'type': 'object',
+            'description': (
+                'Everything needed to STATE one result, per application: the '
+                'printed rung, the clause behind it, the two composed, and the '
+                'colour family the pages use. Drawn from the same reader as '
+                '`oga_support`, so a surface never assembles its own sentence.'),
+            'properties': {
+                app: {
+                    'type': 'object',
+                    'properties': {
+                        'support': {'$ref': '#/components/schemas/Support'},
+                        'words': {
+                            'type': 'string',
+                            'enum': [R.SUPPORT_WORDS[v]
+                                     for v in R.SUPPORT_VALUES],
+                            'description': 'The rung as printed.'},
+                        'qualifier': {
+                            'type': 'string',
+                            'description': (
+                                'What was seen, as a clause - e.g. "detects '
+                                'the target, but is not selective". Empty '
+                                'where that axis was not judged.')},
+                        'sentence': {
+                            'type': 'string',
+                            'description': 'The rung and the clause, composed.',
+                            'example': 'Limited support - detects the target'},
+                        'tone': {
+                            'type': 'string',
+                            'enum': [R.TONE_SUPPORTIVE, R.TONE_QUALIFIED,
+                                     R.TONE_NOT_SUPPORTIVE, R.TONE_UNTESTED],
+                            'description': 'The colour family the pages use.'},
+                        'tab': {
+                            'type': 'boolean',
+                            'description': (
+                                'A supportive result the data fell short of. '
+                                'The pages keep it green and mark it.')},
+                    },
+                } for app in applications
+            },
+        },
+
+        'OgaQualifiers': {
+            'type': 'object',
+            'description': (
+                'The clause behind the result, per application, for the '
+                'applications that have one. Absent keys are not a missing '
+                'result - they are an axis nobody judged.'),
+            'properties': {app: {'type': 'string'} for app in applications},
         },
 
         'Recommendations': {
@@ -120,7 +230,8 @@ def _schemas():
             'description': (
                 'The raw curated booleans, kept for existing integrations. '
                 '`false` cannot distinguish "assessed and not recommended" from '
-                '"never assessed" - use `oga_recommendations` instead.'),
+                '"never assessed", and cannot express `limited_support` either '
+                '- use `oga_support`.'),
             'properties': {app: {'type': 'boolean'} for app in applications},
         },
 
@@ -168,10 +279,22 @@ def _schemas():
                 'created_at': {'type': ['string', 'null'],
                                'format': 'date-time'},
                 'metadata': {'$ref': '#/components/schemas/AntibodyMetadata'},
+                # The four-rung result first, because it is the one to switch
+                # on and a reader takes the first field that looks like the
+                # answer. The two below it are legacy and say so.
+                'oga_support': {'$ref': '#/components/schemas/OgaSupport'},
                 'recommendations': {
                     '$ref': '#/components/schemas/Recommendations'},
                 'oga_recommendations': {
                     '$ref': '#/components/schemas/OgaRecommendations'},
+                # Shipped on this endpoint since 12 Sep 2026 and absent from
+                # this document until 14 Sep — the "response shapes" half of
+                # the drift this module's own docstring says it cannot catch
+                # from the code. A field a client receives and the spec does
+                # not mention is one nobody can be expected to use.
+                'oga_display': {'$ref': '#/components/schemas/OgaDisplay'},
+                'oga_qualifiers': {
+                    '$ref': '#/components/schemas/OgaQualifiers'},
                 'experiments': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/Experiment'}},
@@ -195,8 +318,27 @@ def _schemas():
                                             'de-duplicated if it collides.'},
                 'application': {'type': 'string', 'enum': applications},
                 'application_display': {'type': 'string'},
+                'oga_support': {'$ref': '#/components/schemas/Support'},
                 'oga_recommendation': {
                     '$ref': '#/components/schemas/Recommendation'},
+                'oga_display': {
+                    'type': 'string',
+                    # Read from the one reader rather than typed out: this
+                    # enum and the words a page prints must be the same list,
+                    # and a hand-kept copy is the one that survives a rewording
+                    # by going quietly wrong.
+                    'enum': [R.SUPPORT_WORDS[v] for v in R.SUPPORT_VALUES],
+                    'description': (
+                        "The same result in the words OGA's own pages print, "
+                        'one rung per `oga_support` value. Switch on '
+                        '`oga_support`; print this.')},
+                'oga_qualifier': {
+                    'type': 'string',
+                    'description': (
+                        'What was seen, as a clause — e.g. "detects the '
+                        'target, but is not selective". Empty where the axis '
+                        'behind it was not judged. It qualifies a supportive '
+                        'result as readily as a negative one.')},
                 'gene': {'type': 'string'},
                 'catalogue_number': {'type': 'string'},
                 'rrid': {'type': ['string', 'null']},
@@ -723,14 +865,14 @@ def _paths():
                 'operationId': 'getPipelineData',
                 'description': (
                     '**Unpublished data.** Figures of your own reagents that '
-                    'have been cropped from a validation experiment and are '
+                    'have been cropped from a characterisation experiment and are '
                     'waiting for OGA\'s review meeting. They may change or be '
                     'withdrawn before release.\n\nThe window exists so that a '
                     'wrong catalogue number, a withdrawn lot or a mistaken RRID '
                     'can be caught before the public page goes live. Do not '
                     'quote, publish or link these, and do not read '
                     '`provisional_recommendation` as an OGA recommendation — '
-                    'that verdict is not applied to the antibody until release.'
+                    'that result is not applied to the antibody until release.'
                     '\n\nRequires a key with a **supplier scope**. A key with no '
                     'supplier scope is refused with `403`: unscoped is not a '
                     'narrow scope, and this endpoint must never show one '
@@ -802,7 +944,7 @@ def document():
                 'Independently generated antibody characterisation from '
                 'YCharOS, to community consensus protocols.\n\n'
                 '### Before you display anything\n\n'
-                'Recommendations are **per application** - a pass in western '
+                'Results are **per application** - a pass in western '
                 'blot says nothing about immunofluorescence. ' + R.SCOPE_NOTE
                 + '\n\n'
                 '### Bulk download\n\n'

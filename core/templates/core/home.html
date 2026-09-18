@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% load static %}
     <title>Only Good Antibodies — Free Antibody Characterisation Database</title>
-    <meta name="description" content="A free, searchable database of knockout-validated antibody characterisation data covering {{ gene_count }} genes and {{ antibody_count }} antibodies. Includes a free e-learning Academy.">
+    <meta name="description" content="A free, searchable database of knockout-controlled antibody characterisation data covering {{ gene_count }} genes and {{ antibody_count }} antibodies. Includes a free e-learning Academy.">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Lora:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
@@ -16,7 +16,11 @@
         background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
         color: #fff;
         text-align: center;
-        padding: 72px 24px 56px;
+        /* Trimmed from 72/56 when the block went from four elements to two:
+           the same padding around a title and one line read as an empty band
+           and pushed the search box, which is what the page is for, further
+           down the first screen. */
+        padding: 48px 24px 40px;
         position: relative;
         overflow: hidden;
     }
@@ -52,24 +56,30 @@
         max-width: 680px;
         margin: 0 auto 0.8rem;
     }
-    .oga-intro .sub-tagline {
-        font-size: 0.95rem;
-        color: rgba(255,255,255,0.7) !important;
-        max-width: 560px;
-        margin: 0 auto 1rem;
-        line-height: 1.6;
+    /* The counts now sit on the search band, so the pill is drawn for a light
+       ground: it was white text on a translucent white fill, which reads as
+       nothing at all off the blue hero. Unscoped for the same reason — left as
+       `.oga-intro .stats-bar` the rule would simply have stopped applying, and
+       the counts would have drawn as three bare words. */
+    /* Centred by a flex parent, not by `margin: … auto`: styles.css carries
+       `body.home-page * { margin-left: 0; margin-right: 0 }`, which zeroes an
+       auto margin on every element on this page — measured, the pill sat hard
+       against the left edge at 390px while looking correct at 1280px. */
+    .stats-row {
+        display: flex;
+        justify-content: center;
+        margin-top: 0.9rem;
     }
-    .oga-intro .stats-bar {
-        display: inline-flex;
+    .stats-bar {
+        display: flex;
         gap: 2rem;
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.2);
+        background: #fff;
+        border: 1px solid #d7e0ea;
         border-radius: 50px;
         padding: 0.5rem 1.8rem;
         font-size: 0.9rem;
         font-weight: 600;
-        color: #fff !important;
-        margin-top: 1.5rem;
+        color: #10428a !important;
         flex-wrap: wrap;
         justify-content: center;
     }
@@ -95,9 +105,38 @@
     .search-answer strong { color: #10428a; font-weight: 700; }
     .search-answer a { color: #10428a; font-weight: 600; }
     .search-answer-note { color: #7a8ea6; font-size: 0.8rem !important; margin-top: 0.15rem !important; }
+    /* The database had no label of its own. The hero names the project and the
+       gene grid is a long scroll below, so the one box that searches 3,000
+       antibodies read as site chrome rather than as the thing the site is for.
+       Sized against .search-bar-wrapper so the heading and the input share a
+       column. */
+    .db-search-heading {
+        max-width: 540px;
+        margin: 2rem auto 0;
+        padding: 0 1rem;
+        text-align: center;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #10428a;
+    }
+    .db-search-sub {
+        max-width: 540px;
+        margin: 0.35rem auto 0;
+        padding: 0 1rem;
+        text-align: center;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #4a6180;
+    }
+    .db-search-sub a { color: #10428a; font-weight: 600; }
+    @media (max-width: 600px) {
+        .db-search-heading { font-size: 1.2rem; }
+    }
     .search-bar-wrapper {
         max-width: 540px;
-        margin: 1.8rem auto 0.5rem;
+        margin: 0.9rem auto 0.5rem;
         padding: 0 1rem;
         position: relative;
         background: none !important;
@@ -193,7 +232,7 @@
 
     /* ── Mobile fixes ── */
     @media (max-width: 600px) {
-        .oga-intro .stats-bar {
+        .stats-bar {
             gap: 1rem;
             font-size: 0.82rem;
             padding: 0.5rem 1.2rem;
@@ -205,12 +244,17 @@
     }
 
     /* ── Supporters strip ── */
-    /* White, not the page's #f4f4f4 and not a tint: five of these nine logo
+    /* White, not the page's #f4f4f4 and not a tint: five of these ten logo
        files carry their own opaque white background (NC3Rs, MJFF, MND-A,
-       YCharOS, CiteAb) while the other four are transparent. On any tinted
-       ground the first five draw as mismatched white cards and the rest do
-       not. White makes both kinds sit on the same surface; the rules above and
-       below are what separate the strip from the page. */
+       YCharOS, CiteAb) while four are transparent. On any tinted ground the
+       first five draw as mismatched white cards and the rest do not. White
+       makes both kinds sit on the same surface; the rules above and below are
+       what separate the strip from the page.
+
+       NIHR is the tenth and a third kind: an opaque *navy* tile. That is the
+       mark itself — the NIHR logo is white on navy and has no transparent
+       form — so it reads as a solid block rather than as a card, and white is
+       the ground that suits it too. */
     .oga-supporters {
         background-color: #ffffff;
         border-top: 1px solid #e3eaf5;
@@ -410,17 +454,39 @@
     <section class="oga-intro">
         <div class="oga-intro-inner">
         <h1>Only Good Antibodies</h1>
-        <p class="tagline">Making best practice in antibody choice and use feasible, easy and rewarding.</p>
-        <p class="sub-tagline">A free, searchable database of knockout-validated antibody characterisation data — helping researchers choose antibodies that work.</p>
+        <p class="tagline">A community and toolbox to make best practices in antibody choice and use feasible, easy and rewarding.</p>
+        </div>
+    </section>
+
+    <!-- Search Bar -->
+    {% comment %}
+    The heading is the label the team review asked for. Every other block on
+    this page announces itself and this one did not, so the box that searches
+    the database read as a site-wide search field.
+
+    It names the database rather than the action ("Search the OGA antibody
+    database", not "Search"), because the same words label the box in
+    core/gene_search_bar.html on every other page — one box, one name, so a
+    reader who meets it twice knows it is the same box.
+    {% endcomment %}
+    <h2 class="db-search-heading">Search the OGA antibody database</h2>
+    <p class="db-search-sub">Knockout-controlled characterisation data. Search by gene, catalogue number or RRID &mdash; or <a href="#genes-available">browse every gene</a>.</p>
+    {% comment %}
+    The counts are a fact about the database, so they sit with the box that
+    searches it and the grid that lists it. In the hero they sat three blocks
+    above either, under a sentence describing this block.
+
+    Above the input rather than below it: the search answer has to be the thing
+    directly under the box (see the comment beneath the wrapper), and a pill in
+    between would put a static figure where the reply to a press belongs.
+    {% endcomment %}
+    <div class="stats-row">
         <div class="stats-bar">
             <span>{{ gene_count }} genes</span>
             <span>{{ antibody_count }} antibodies</span>
             <span>{{ experiment_count }} tests</span>
         </div>
-        </div>
-    </section>
-
-    <!-- Search Bar -->
+    </div>
     <div class="search-bar-wrapper"
          data-genes-url="{% url 'gene_search_index' %}"
          data-antibodies-url="{% url 'antibody_search' %}"
@@ -506,7 +572,7 @@
         </div>
         <div class="edu-box">
             <h3>How to Use the Data</h3>
-            <p>Learn how to read knockout-validated characterisation data and make evidence-based purchasing decisions for western blot, IF, IP, and flow cytometry.</p>
+            <p>Learn how to read knockout-controlled characterisation data and make evidence-based purchasing decisions for western blot, IF, IP, and flow cytometry.</p>
             <a href="{% url 'using_the_data' %}" class="learn-more-button">Learn More</a>
         </div>
         <div class="edu-box">
@@ -534,7 +600,7 @@
 
     The three labels are the Partners page's own taxonomy (`partners.html`:
     YCharOS, Research Funding Agencies, Research Institutions and End Users,
-    Reagents Database Providers). One "Supported by" heading over all nine would
+    Reagents Database Providers). One "Supported by" heading over all ten would
     say CiteAb and the SGC fund OGA. Add a logo to the group that matches how
     partners.html files it, or the two pages start disagreeing about who is who.
 
@@ -550,15 +616,28 @@
     own copies in place would have silently redrawn that page too, so the strip
     has its own. Replace a logo here and on the Partners page, or the two
     disagree; trim the new one to its content first.
+
+    NIHR has no Partners copy — partners contribute something other than
+    funding, deliberately — and it is the case that paragraph is about. It
+    arrived as the 400x400 square tile, whose wordmark is 325x88 with 156px of
+    dead navy above and below it: in the fixed box that draws the wordmark at
+    about 18px tall beside logos filling all 82px. Cropped to 400x164, which is
+    NIHR's own landscape lockup. Replace it with the square tile and nothing
+    looks broken — it just draws small.
     {% endcomment %}
-    <section class="oga-supporters" aria-labelledby="supporters-heading">
-        <h2 id="supporters-heading">Supported by</h2>
+    {% comment %}
+    No visible "Supported by" heading: the team review asked for the three
+    group labels alone, and they already say what each group did. The section
+    keeps the name as aria-label so the landmark is still announced — dropping
+    the heading without it would leave a screen reader an unnamed region.
+    {% endcomment %}
+    <section class="oga-supporters" aria-label="Supported by">
 
         {% comment %}
         The three groups sit side by side on a wide screen and stack on a
         narrow one. They stay three labelled groups either way, which is a
         correctness constraint rather than a style: one "Supported by" over all
-        nine would say CiteAb and the SGC fund OGA.
+        ten would say CiteAb and the SGC fund OGA.
 
         Stacked at every width, each row spanned the full page to hold as few
         as one logo — 515px of strip on a 1900px screen with the horizontal
@@ -583,6 +662,9 @@
                 </a>
                 <a class="sup-logo" href="https://www.ukri.org/councils/bbsrc/" target="_blank" rel="noopener">
                     <img src="{% static 'core/supporters/bbsrc.png' %}" alt="Biotechnology and Biological Sciences Research Council">
+                </a>
+                <a class="sup-logo" href="https://www.nihr.ac.uk" target="_blank" rel="noopener">
+                    <img src="{% static 'core/supporters/nihr.png' %}" alt="National Institute for Health and Care Research">
                 </a>
                 <a class="sup-logo" href="https://nc3rs.org.uk" target="_blank" rel="noopener">
                     <img src="{% static 'core/supporters/nc3rs.png' %}" alt="NC3Rs">
@@ -617,7 +699,7 @@
     </section>
 
     <section class="gene-list">
-        <h2 id="genes-available">Genes Available</h2>
+        <h2 id="genes-available">Browse every gene in the database</h2>
         <div class="gene-list-container">
             {% for gene in genes %}
             <div class="gene-box" data-name="{{ gene.name }}" data-aliases="{{ gene.aliases|default:'' }}">
@@ -651,36 +733,6 @@
     it and nothing else.
     {% endcomment %}
     <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-column">
-                <h4>Quick Links</h4>
-                <a href="{% url 'home' %}" class="active">Home</a>
-                <a href="{% url 'about' %}">About Us</a>
-                <a href="{% url 'publications' %}">Publications</a>
-                <a href="{% url 'news' %}">News</a>
-                <a href="{% url 'contact' %}">Contact</a>
-            </div>
-            <div class="footer-column">
-                <h4>Contact Us</h4>
-                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-            </div>
-            <div class="footer-column">
-                <h4>Follow Us</h4>
-                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-                </a>
-                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-                </a>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-            <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">↑ Back to Top</button>
-        </div>
-    </footer>
+    {% include 'core/footer.html' %}
 </body>
 </html>

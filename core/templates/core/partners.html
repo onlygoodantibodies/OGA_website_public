@@ -230,8 +230,17 @@
   box-shadow: 0 6px 20px rgba(16,66,138,0.09);
   transform: translateY(-2px);
 }
+/* `min(210px, 100%)`, not a bare 210px. A `1fr` grid track is
+   `minmax(auto, 1fr)`, so a column will not shrink below its content's
+   min-content width — and a bare `max-width: 210px` made every card's
+   min-content about 242px with the padding. Four of those plus the gaps need
+   just over 1000px, so at 900px the fourth column ran past the section and was
+   clipped by `html { overflow-x: hidden }`, taking the last logo of each row
+   with it. Capping against the container as well lets a card shrink, so the
+   grid fits at any width and the deliberate 4/3/2-column choices below still
+   decide the layout rather than a breakpoint chosen to dodge an overflow. */
 .logo-card img {
-  max-width: 210px;
+  max-width: min(210px, 100%);
   max-height: 98px;
   object-fit: contain;
   flex-shrink: 0;
@@ -282,7 +291,7 @@
     <div class="partners-hero-inner">
         <div class="partners-hero-label">Community &amp; Collaboration</div>
         <h1>Our Partners</h1>
-        <p>The OGA community brings together antibody manufacturers, research funders, publishers, reagent databases, and research institutions. Partners contribute in several distinct ways, and the labels on each card below show exactly how. Some supply <strong>antibody reagents</strong> to our Leicester YCharOS laboratory; some lent their expertise to our <strong>Delphi consensus study</strong>; some <strong>fund</strong> the work or <strong>sponsor</strong> the Antibody Champions scheme; and some help <strong>disseminate</strong> validated data across the research ecosystem. We are grateful to all of them.</p>
+        <p>The OGA community brings together antibody manufacturers, research funders, publishers, reagent databases, and research institutions. Partners contribute in several distinct ways, and the labels on each card below show exactly how. Some supply <strong>antibody reagents</strong> to our Leicester YCharOS laboratory; some lent their expertise to our <strong>Delphi consensus study</strong>; some <strong>fund</strong> the work or <strong>sponsor</strong> the Antibody Champions scheme; and some help <strong>disseminate</strong> characterisation data across the research ecosystem. We are grateful to all of them.</p>
     </div>
 </section>
 
@@ -298,7 +307,7 @@
             <div class="legend-item"><span class="badge badge-delphi">Delphi</span> Expert participation in the consensus study</div>
             <div class="legend-item"><span class="badge badge-funding">Funding</span> Grants, studentships, or co-investment</div>
             <div class="legend-item"><span class="badge badge-champions">Champions</span> Supports the Antibody Champions scheme</div>
-            <div class="legend-item"><span class="badge badge-data">Data</span> Helps disseminate validated antibody data</div>
+            <div class="legend-item"><span class="badge badge-data">Data</span> Helps disseminate antibody characterisation data</div>
             <div class="legend-item"><span class="badge badge-host">Host</span> Hosts the OGA platform and team</div>
         </div>
     </div>
@@ -315,7 +324,7 @@
         <div class="ycharos-feature">
             <img src="{% static 'core/design7.png' %}" alt="YCharOS">
             <div class="ycharos-feature-text">
-                <p>YCharOS is an open-science antibody characterisation consortium that develops expert consensus protocols and tests reagents against knockout controls. Only Good Antibodies operates the consortium's UK characterisation laboratory at the University of Leicester, generating the knockout-validated data at the heart of the OGA database.</p>
+                <p>YCharOS is an open-science antibody characterisation consortium that develops expert consensus protocols and tests reagents against knockout controls. Only Good Antibodies operates the consortium's UK characterisation laboratory at the University of Leicester, generating the knockout-controlled characterisation data at the heart of the OGA database.</p>
                 <a href="https://ycharos.com" target="_blank" rel="noopener">Visit YCharOS →</a>
             </div>
         </div>
@@ -618,35 +627,7 @@
 
 <!-- Footer -->
 <div class="footer-wrapper">
-<footer class="footer">
-    <div class="footer-container">
-        <div class="footer-column">
-            <h4>Quick Links</h4>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'about' %}">About Us</a>
-            <a href="{% url 'roadmap' %}">Roadmap</a>
-            <a href="{% url 'publications' %}">Publications</a>
-            <a href="{% url 'news' %}">News</a>
-            <a href="{% url 'partners' %}" class="active">Partners</a>
-            <a href="{% url 'contact' %}">Contact</a>
-        </div>
-        <div class="footer-column">
-            <h4>Contact Us</h4>
-            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-            <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-            <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-        </div>
-        <div class="footer-column">
-            <h4>Follow Us</h4>
-            <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-                <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-            </a>
-            <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-                <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-            </a>
-        </div>
-    </div>
-</footer>
+{% include 'core/footer.html' %}
 </div>
 
 </body>

@@ -33,7 +33,9 @@ from django.db import transaction
 
 from pipeline.models import (GrantingAgency, Project, Report, Site, Target,
                              TargetNomination)
+from pipeline.services import bulk_targets
 from pipeline.services import doi as doi_svc
+from pipeline.services import example_row
 from pipeline.services import target_board
 
 DB = "pipeline_db"
@@ -333,6 +335,13 @@ def parse_workbook(f) -> dict:
                for k, c in mapping.items()}
         if not _clean(rec.get("gene")):
             continue
+        # **The `e.g.` row is a label, not a gene.** This was the one parser in
+        # the app that did not drop it, and the blank template's only data row
+        # *is* the example — so downloading the targets template and bringing it
+        # back read `e.g. SOD1` as a symbol to create. `example_row` is the one
+        # reader for the marker; every other parser already asks it.
+        if example_row.is_example([rec.get("gene")]):
+            continue
         rec["_row"] = n
         rows.append(rec)
 
@@ -416,8 +425,28 @@ class _Index:
             self.nominations.setdefault(target.pk, []).append(nomination)
 
 
-def plan(parsed: dict, *, default_site: str = "") -> dict:
-    """Read-only: what an upload would do, row by row, with conflicts surfaced."""
+def plan(parsed: dict, *, default_site: str = "", check_genes: bool = True,
+         budget_seconds: float = bulk_targets.LOOKUP_BUDGET_SECONDS) -> dict:
+    """Read-only: what an upload would do, row by row, with conflicts surfaced.
+
+    **The check owns the network; the commit owns the writes.** A gene this file
+    would *create* is confirmed against UniProt here — the same reader the paste
+    box and the single-gene Add already use (`bulk_targets.confirm`) — and
+    `confirmed_genes` carries the answer to `apply`, which makes no call of its
+    own. That is what keeps rule 3 in `tests_timeouts.py` true: no external call
+    inside `apply`'s open transaction, whatever the file contains.
+
+    **A workbook cannot make this slow**, which is the reason it is safe to put a
+    network call on a 590-row upload at all. Only rows that would create a target
+    are looked up; every gene already on the list is answered from the database
+    with no call. What the budget does not reach comes back `unchecked` — a
+    verdict that creates nothing and asks to be previewed again — so the worst
+    case is a second press, never a gateway timeout and never a half-written
+    batch.
+
+    ``check_genes=False`` skips the lookup and confirms nothing, which is how a
+    caller with no network (or a test) asks for the parse and the diff alone.
+    """
     if not parsed.get("ok"):
         return {"ok": False, "error": parsed.get("error"), "items": []}
 
@@ -472,6 +501,52 @@ def plan(parsed: dict, *, default_site: str = "") -> dict:
             "second_nomination_for": duplicate_of,
         })
 
+    # --- is each new gene real? ---------------------------------------------
+    #
+    # Only the rows that would *create* something. A gene already on the list is
+    # not in question and costs no call, which is why a file of Carl's — almost
+    # entirely updates — reaches the network barely at all.
+    new_genes = [i["gene"] for i in items if i["target_action"] == "create"]
+    verdicts = (bulk_targets.confirm(new_genes, budget_seconds=budget_seconds)
+                if (check_genes and new_genes) else {})
+    confirmed = set()
+    for item in items:
+        if item["target_action"] != "create":
+            # An existing target is its own confirmation, and saying nothing on
+            # those rows keeps the new column about the genes actually in doubt.
+            item["gene_status"] = ""
+            item["gene_note"] = ""
+            continue
+
+        row = verdicts.get(item["gene"])
+        if row is None:
+            # `check_genes=False`, or a gene `confirm` never answered for.
+            # Neither is a confirmation, and the row is marked refused with the
+            # rest: a preview that draws "create" over a write that refuses is
+            # the disagreement this whole module previews to avoid.
+            item["gene_status"] = bulk_targets.UNCHECKED
+            item["gene_note"] = ("not checked — press Preview again"
+                                 if check_genes else "genes were not checked")
+        elif row["status"] in (bulk_targets.CREATES, bulk_targets.ON_FILE,
+                               bulk_targets.SYNONYM):
+            item["gene_status"] = row["status"]
+            item["gene_note"] = row.get("note") or ""
+            confirmed.add(item["gene"])
+            continue
+        else:
+            # `row_refusal` writes the sentence, so the upload panel and the
+            # paste box refuse a bad symbol in the same words rather than
+            # growing a second vocabulary for one verdict.
+            item["gene_status"] = row["status"]
+            item["gene_note"] = (bulk_targets.row_refusal(row)
+                                 or row.get("note") or "")
+
+        # Nothing on an unconfirmed row is written, not just the target: the
+        # nomination, the report and every identity field hang off one.
+        item["target_action"] = "refused"
+        item["nomination_action"] = "none"
+        item["report_action"] = "none"
+
     return {
         "ok": True,
         "items": items,
@@ -483,7 +558,19 @@ def plan(parsed: dict, *, default_site: str = "") -> dict:
             "conflicts": sum(len(i["conflicts"]) for i in items),
             "repeat_genes": sum(1 for i in items if i["second_nomination_for"]),
             "sites": sorted({i["site"] for i in items if i["site"]}),
+            # Named apart, because they are three different asks of the reader:
+            # a confirmed gene needs nothing, an unknown one needs the spelling
+            # checked, and an unchecked one needs the button pressed again.
+            "genes_confirmed": len(confirmed),
+            "genes_unknown": sum(1 for i in items
+                                 if i.get("gene_status") == bulk_targets.NOT_FOUND),
+            "genes_unchecked": sum(1 for i in items
+                                   if i.get("gene_status") == bulk_targets.UNCHECKED),
         },
+        # What `apply` is allowed to create. The commit re-reads the file rather
+        # than the plan, so without this it would have to look the genes up again
+        # — inside the transaction, which is the one thing it must not do.
+        "confirmed_genes": sorted(confirmed),
         "columns_missing": [HEADERS[k] for k in parsed.get("columns_missing", [])],
     }
 
@@ -543,14 +630,31 @@ def _fill(obj, field, value, *, overwrite: bool) -> bool:
 
 
 def apply(parsed: dict, *, member=None, apply_overwrites: bool = False,
-          default_site: str = "", create_targets: bool = True) -> dict:
-    """Upsert the parsed rows. One transaction; nothing is ever deleted."""
+          default_site: str = "", create_targets: bool = True,
+          confirmed_genes=None) -> dict:
+    """Upsert the parsed rows. One transaction; nothing is ever deleted.
+
+    ``confirmed_genes`` is the set `plan` confirmed against UniProt, carried
+    across from the preview. **It is a gate, not a hint**: when it is given, a
+    gene that is not in it is not created, and the row is named in ``skipped``.
+    ``None`` means no check was run and the old behaviour stands, which is what
+    a management command or a test asking for a plain upsert gets — the *view*
+    always passes a list, so the door a person uses is always gated.
+
+    This is deliberately a value rather than a lookup. `apply` runs inside one
+    transaction and must not call out from there (rule 3 in
+    ``tests_timeouts.py``), so the confirmation has to arrive already made.
+    """
     if not parsed.get("ok"):
         return {"ok": False, "error": parsed.get("error")}
 
     out = {"ok": True, "targets_created": [], "targets_updated": 0,
            "nominations_created": 0, "nominations_updated": 0,
-           "reports_touched": 0, "skipped": [], "overwritten": 0}
+           "reports_touched": 0, "skipped": [], "overwritten": 0,
+           # Named apart from `skipped`, which means "you asked me not to create
+           # targets". This one means "this symbol was not confirmed", and a
+           # count with no list under it invents the noun.
+           "unconfirmed": []}
 
     index = _Index()
     with transaction.atomic(using=DB):
@@ -564,6 +668,13 @@ def apply(parsed: dict, *, member=None, apply_overwrites: bool = False,
             if target is None:
                 if not create_targets:
                     out["skipped"].append(gene)
+                    continue
+                if confirmed_genes is not None and gene not in confirmed_genes:
+                    # Refused at the preview and refused again here, because the
+                    # commit re-reads the file rather than the plan: a second
+                    # press with an edited sheet must not slip a gene past the
+                    # check the first press ran.
+                    out["unconfirmed"].append(gene)
                     continue
                 # Deliberately NOT enriched from UniProt here. A file this size
                 # would make one network call per new gene inside the request —

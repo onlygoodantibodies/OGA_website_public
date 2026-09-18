@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    {% load static %}
+    {% load static humanize %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browser Extension — Only Good Antibodies</title>
-    <meta name="description" content="A free browser extension that marks antibodies cited in a paper with their knockout-controlled validation status, for the application they were used in.">
+    <meta name="description" content="Most antibodies in the literature have never been tested against a knockout. This free browser extension marks the ones that have, on the paper you are reading, with the result for the application they were used in.">
     {% if not is_public %}<meta name="robots" content="noindex, nofollow">{% endif %}
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
@@ -19,25 +19,30 @@
 
 .bx-hero {
   background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
-  color: #fff; padding: 72px 24px 56px; text-align: center; position: relative; overflow: hidden;
+  color: #fff; padding: 40px 24px 34px; text-align: center; position: relative; overflow: hidden;
 }
 .bx-hero::before {
   content: ''; position: absolute; top: -40%; right: -15%; width: 500px; height: 500px;
   background: radial-gradient(circle, rgba(59,130,196,0.15) 0%, transparent 70%); border-radius: 50%;
 }
-.bx-hero-inner { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+.bx-hero-inner { max-width: 1040px; margin: 0 auto; position: relative; z-index: 1; }
 .bx-hero-label {
   display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
-  padding: 6px 18px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
-  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
+  padding: 4px 14px; border-radius: 100px; font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 14px; color: rgba(255,255,255,0.9);
 }
 .bx-hero h1 {
-  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
-  line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
+  font-family: 'Open Sans', sans-serif; font-size: clamp(1.7rem, 3.4vw, 2.35rem); font-weight: 800;
+  line-height: 1.18; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff !important;
 }
 .bx-hero p {
-  font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.85); max-width: 680px; margin: 0 auto 28px;
+  font-size: 1rem; line-height: 1.6; color: rgba(255,255,255,0.88); max-width: 860px; margin: 0 auto 14px;
 }
+.bx-hero p a { color: #fff; text-decoration: underline; }
+/* `styles.css` gives `strong` the site's dark blue, which on this gradient is
+   text nobody can read — and it was carrying the sentence the whole section is
+   about. Emphasis inside the hero is weight, not colour. */
+.bx-hero strong { color: #fff; }
 
 /* ── Install buttons ── */
 .bx-install { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
@@ -58,7 +63,7 @@
   border-color: rgba(255,255,255,0.28); cursor: default; font-weight: 600;
 }
 .bx-btn-wait:hover { transform: none; box-shadow: none; }
-.bx-hero-sub { font-size: .9rem; color: rgba(255,255,255,0.7); margin: 18px 0 0; }
+.bx-hero-sub { font-size: .88rem; line-height: 1.55; color: rgba(255,255,255,0.72); max-width: 760px; margin: 12px auto 0; }
 
 /* ── Main ── */
 .bx-main { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
@@ -78,11 +83,23 @@
 }
 .bx-key td { border-bottom: 1px solid #eef2f6; padding: 14px 14px 14px 0; vertical-align: top; line-height: 1.6; }
 .bx-key td:first-child { width: 11rem; white-space: nowrap; }
+/* The settings table reuses .bx-key, but its first column holds whole checkbox
+   labels rather than one word, so it has to wrap and needs more room. */
+.bx-key-settings td:first-child { width: 15rem; white-space: normal; }
 .bx-swatch { display: inline-block; font-weight: 700; font-size: .95rem; padding-bottom: 2px; }
-.bx-sw-green { color: #1c8f4b; box-shadow: inset 0 -2px 0 0 currentColor; }
-.bx-sw-red   { color: #c62f2f; box-shadow: inset 0 -2px 0 0 currentColor; }
-.bx-sw-amber { color: #d98217; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-green { color: #0b6b3a; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-red   { color: #a3231d; box-shadow: inset 0 -2px 0 0 currentColor; }
+.bx-sw-yellow { color: #8a6100; box-shadow: inset 0 -2px 0 0 #f4b400; }
+.bx-sw-blue  { color: #1a5fa8; box-shadow: inset 0 -2px 0 0 currentColor; }
 .bx-sw-grey  { color: #8b98a5; box-shadow: inset 0 -1px 0 0 currentColor; }
+/* Under a swatch whose meaning is not in the installable build yet. Small and
+   quiet: the row belongs in the key, and the reader still has to be able to
+   tell it from the five that describe what they already have. */
+.bx-key-soon {
+  display: inline-block; margin-top: 5px; font-size: .7rem; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: #10428a;
+  background: #dbe8f8; border-radius: 100px; padding: 3px 9px; white-space: nowrap;
+}
 .bx-sw-mixed {
   color: #334155;
   background-image: linear-gradient(90deg, #1c8f4b 0 50%, #c62f2f 50% 100%);
@@ -99,11 +116,38 @@
 .bx-limits { margin: 12px 0 0; padding-left: 20px; line-height: 1.7; }
 .bx-limits li { margin-bottom: 10px; }
 
+/* A fragment of an address inside a sentence. Not .bx-code, which is an
+   inline-block with its own padding — right for a URL on its own line, and
+   lumpy mid-paragraph. */
+.bx-tt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em; background: #f1f5f9; border-radius: 4px; padding: 1px 5px;
+  word-break: break-word;
+}
+
 .bx-code {
   display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: .9rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;
   padding: 8px 12px; word-break: break-all;
 }
+
+/* A policy snippet an IT team pastes somewhere. Multi-line, so it cannot be
+   .bx-code, which is a single inline-block. Scrolls rather than wrapping: a
+   wrapped JSON key looks like a different key. */
+.bx-pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .86rem; line-height: 1.6; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;
+  overflow-x: auto; margin: 10px 0 0; white-space: pre;
+}
+/* The note a reader sends on. Set apart so it is obvious where it starts and
+   stops — a block somebody selects by dragging needs edges. */
+.bx-note {
+  background: #f8fafc; border-left: 3px solid #0d2b5e; border-radius: 0 8px 8px 0;
+  padding: 18px 22px; margin: 14px 0 0; line-height: 1.7;
+}
+.bx-note p { margin: 0 0 10px; }
+.bx-note p:last-child { margin-bottom: 0; }
 
 .bx-cta { text-align: center; padding-top: 8px; }
 .bx-cta p { margin-bottom: 14px; }
@@ -123,6 +167,67 @@
 }
 .bx-caveat { color: #64748b; font-size: .92rem; margin-top: 10px !important; }
 
+/* ── Hero figure ── */
+/* The picture the page is selling: a marked catalogue number in a real methods
+   section, the card it opens, and the knockout blot the verdict rests on. It
+   was fifth in the 2-up grid below at about a third of life size, where it read
+   as a shape rather than as words (owner, 31 Aug 2026).
+
+   The file is cropped to those three things (`core/views.py::
+   HERO_SCREENSHOT_CROP`), which is what lets it be legible at a width the hero
+   can afford; Enlarge opens the whole 1280x800 capture, so nothing is lost.
+   Wider than this and the buttons above it go off the first screen, which is
+   the one thing the hero exists to keep. */
+.bx-hero-shot {
+  position: relative; max-width: 600px; margin: 28px auto 0;
+}
+.bx-hero-shot img {
+  display: block; width: 100%; height: auto; background: #fff;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.35);
+  box-shadow: 0 14px 40px rgba(3,14,35,.42); cursor: zoom-in;
+}
+.bx-hero-shot figcaption {
+  margin-top: 12px; font-size: .92rem; line-height: 1.6;
+  color: rgba(255,255,255,.8);
+}
+.bx-hero-shot figcaption strong { color: #fff; }
+
+/* ── The wrong-target block ── */
+/* The `bx-soon-*` names are from when this block was a promise ("coming in
+   0.4.0"). They are kept because renaming them touches the markup, the CSS and
+   the tests for no reader-visible gain — but the block describes something
+   live now, and the card in it is a real capture rather than the HTML mock
+   this stylesheet was first written for. */
+.bx-soon {
+  border: 1px solid #cddcf0; border-left: 4px solid #1a5fa8; border-radius: 10px;
+  background: #f6f9fd; padding: 20px 22px;
+}
+.bx-soon-tag {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: #10428a; background: #dbe8f8;
+  border-radius: 100px; padding: 4px 12px; margin-bottom: 12px;
+}
+.bx-soon h2 { margin-top: 0; }
+.bx-soon-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 26px;
+  align-items: start; margin-top: 18px;
+}
+@media (max-width: 760px) {
+  .bx-soon-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* The capture of the declared-target card. `position: relative` for the
+   Enlarge button, which is absolutely positioned inside it the way the grid's
+   figures are — one lightbox, one set of rules. The mock this replaced carried
+   twelve rules copying src/card.js's CARD_CSS; a real screenshot needs none of
+   them, and a copy of somebody else's stylesheet is the thing that goes stale. */
+.bx-soon-shot { margin: 0; position: relative; }
+.bx-soon-shot img {
+  display: block; width: 100%; height: auto; border-radius: 8px;
+  border: 1px solid #d3dbe4; box-shadow: 0 8px 26px rgba(16,32,48,.12);
+}
+.bx-soon-cap { font-size: .82rem; color: #4a5a70; margin: 10px 0 0; line-height: 1.55; }
+.bx-soon-after { margin-top: 26px; }
+
 /* ── Listing screenshots ── */
 /* Each image carries its own headline and sentence, drawn into the picture, so
    nothing is printed under it and `alt` says the same words for a reader who
@@ -130,11 +235,32 @@
 .bx-shots {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px;
 }
-.bx-shot { margin: 0; }
+/* Each figure is a 1280x800 screenshot drawn at roughly 400px, so the card
+   inside it is about a third of life size — legible as a shape, not as words.
+   Click to enlarge, with a magnifier saying so: a control that is merely
+   possible is a feature a reader concludes does not exist. */
+.bx-shot { margin: 0; position: relative; }
 .bx-shot img {
   display: block; width: 100%; height: auto; border-radius: 8px;
   border: 1px solid #dbe3ec; box-shadow: 0 2px 10px rgba(13,43,94,.08);
+  cursor: zoom-in;
 }
+/* A real button, so it is reachable by keyboard and announced. The image is
+   clickable too, but an <img> is not focusable and cannot be the only way in. */
+.bx-zoom {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+  font: inherit; font-size: .78rem; font-weight: 600;
+  color: #0d2b5e; background: rgba(255,255,255,.94);
+  border: 1px solid #dbe3ec; border-radius: 100px; padding: 5px 11px 5px 9px;
+  cursor: zoom-in; box-shadow: 0 1px 6px rgba(13,43,94,.16);
+}
+.bx-zoom:hover, .bx-zoom:focus-visible { background: #fff; border-color: #0d2b5e; }
+.bx-zoom svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.bx-shot figcaption {
+  margin-top: 10px; font-size: .92rem; line-height: 1.6; color: #475569;
+}
+.bx-shot figcaption strong { color: #0d2b5e; }
 @media (max-width: 700px) { .bx-shots { grid-template-columns: 1fr; } }
 
 /* Shown only while the page is unlisted, so a preview is never mistaken for live. */
@@ -181,9 +307,7 @@
 
 {% if is_public %}
 <div class="bx-early">
-  <strong>Early release.</strong> This is the first public version. Publisher pages vary a
-  lot and we cannot test them all in advance, so wrong colours, missed antibodies and marks
-  on ordinary text are all worth reporting —
+  <strong>Early release.</strong> This is the first public version —
   <a href="{% url 'contact' %}">tell us what you find</a>.
 </div>
 {% endif %}
@@ -192,12 +316,35 @@
 <section class="bx-hero">
   <div class="bx-hero-inner">
     <div class="bx-hero-label">Free browser extension</div>
-    <h1>See which antibodies in a paper have been tested</h1>
+    <h1>Independent characterisation data for the antibodies a paper relies on</h1>
     <p>
-      Marks every antibody cited on a page with what independent, knockout-controlled
-      testing found — for the application it was actually used in. Hover any mention
-      to see the data behind it.
+      Most antibodies in the literature have never been tested against a knockout.
+      This marks the ones that have: every mention on the page, coloured for how the
+      antibody performed in the application that paper used it for. Hover any one of
+      them to see the data behind it. Performance is assay- and sample-dependent, so
+      this is <strong>context, not a verdict on the paper</strong> — worth most where
+      a manuscript shows no context-specific validation of its own.
     </p>
+    {% comment %}
+      Both figures are derived — see `core/views.py::_extension_page`. The page
+      carried "more than 29,000 published papers" as prose, which is the kind of
+      number that is right on the day it is typed and quoted for a year after.
+      `experiment_count` is `pipeline/public.py::headline_counts`, the same
+      *tests* the home page leads with, so the two cannot answer differently.
+
+      Drawn only when there is something to draw: a deploy with an empty
+      database or no citation snapshot has no business printing a nought into a
+      sentence about scale.
+    {% endcomment %}
+    {% if experiment_count %}
+    <p>
+      {# One line on purpose: the claim is asserted as one string. #}
+      So far that is <strong>{{ experiment_count|intcomma }} application-level test results</strong>{% if citation_papers %}, on antibodies appearing in
+      {{ citation_papers|intcomma }} published papers — according to
+      <a href="https://www.citeab.com/" target="_blank" rel="noopener">CiteAb</a>,
+      current to {{ citeab_data_through }}{% endif %}.
+    </p>
+    {% endif %}
 
     {% if is_public %}
     <div class="bx-install">
@@ -226,17 +373,42 @@
       {% if signed_xpi %}
         <a class="bx-btn" href="{% url 'extension_firefox_xpi' %}">Install for Firefox</a>
       {% endif %}
-      <a class="bx-btn {% if signed_xpi %}bx-btn-alt{% endif %}" href="{% url 'extension_download' %}">Download for Chrome</a>
+      {% if chrome_url %}
+        <a class="bx-btn {% if signed_xpi %}bx-btn-alt{% endif %}" href="{{ chrome_url }}" target="_blank" rel="noopener">Add to Chrome</a>
+      {% endif %}
     </div>
     <p class="bx-hero-sub">
-      {% if signed_xpi %}
-        Firefox installs in one click and updates itself. Chrome needs a few manual steps
-        until the Web Store listing is approved — see below.
-      {% else %}
-        Contains a snapshot of the current database, so it works on real papers straight away.
-        Installing it takes four steps — see below.
-      {% endif %}
+      {% if signed_xpi %}Firefox installs in one click and updates itself. {% endif %}
+      {% if chrome_url %}Chrome, Edge and Brave install from the Web Store.
+      {% else %}The Web Store listing is not configured on this deploy, so there is no
+      Chrome install route from here.{% endif %}
     </p>
+    {% endif %}
+
+    {% comment %}
+      The figure the page is selling, drawn here rather than fifth in the grid
+      below — `core/views.py::_extension_hero` is the one place that decides
+      which of the five that is, and takes it out of the grid so the page does
+      not print the same picture twice.
+
+      `data-full` is the uncropped capture: the crop is what makes it readable
+      at this width, and Enlarge is where the rest of the page it sits on goes.
+      Same lightbox as the grid, so a reader learns one set of rules.
+    {% endcomment %}
+    {% if hero_shot %}
+    <figure class="bx-hero-shot">
+      <button type="button" class="bx-zoom"
+              data-full="{% static hero_shot.full %}"
+              aria-label="Enlarge: {{ hero_shot.title }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5"></circle>
+          <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
+        </svg>Enlarge</button>
+      <img src="{% static hero_shot.src %}" alt="{{ hero_shot.alt }}"
+           class="bx-zoomable" data-full="{% static hero_shot.full %}">
+      <figcaption><strong>{{ hero_shot.title }}</strong> {{ hero_shot.note }}</figcaption>
+    </figure>
     {% endif %}
   </div>
 </section>
@@ -244,30 +416,25 @@
 <div class="bx-main">
 
   {% if not is_public %}
-  <!-- ── Team install, before a store listing exists ── -->
+  <!-- ── Team install ── -->
   <div class="bx-block">
     <div class="bx-steps">
-      <h2>Installing it before it is on the stores</h2>
-      <p>
-        Chrome has blocked installing extensions from anywhere but the Web Store since 2018,
-        so until our listing is approved there is no one-click install. The route below works
-        today and takes about a minute.
-      </p>
+      <h2>Installing it</h2>
 
       <h3>Chrome, Edge or Brave</h3>
-      <ol>
-        <li>Download the zip above and unzip it. Keep the folder somewhere permanent:
-          the browser reads it from disk each time it starts, so deleting the folder
-          removes the extension.</li>
-        <li>Go to <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>
-          (top right).</li>
-        <li>Click <strong>Load unpacked</strong> and choose the unzipped folder.</li>
-        <li>Open any paper and look for coloured antibody names.</li>
-      </ol>
-      <p class="bx-caveat">
-        Chrome shows a "Disable developer mode extensions" prompt on each restart while it is
-        loaded this way. That goes away once we are on the Web Store.
+      {% if chrome_url %}
+      <p>
+        Install from <a href="{{ chrome_url }}" target="_blank" rel="noopener">the Web Store
+        listing</a> — the same one the public page links to. Chrome has blocked installing
+        extensions from anywhere else since 2018, so this is the only route.
       </p>
+      {% else %}
+      <p>
+        Chrome has blocked installing extensions from anywhere but the Web Store since 2018,
+        and no listing is configured on this deploy, so there is no install route for Chrome
+        from here.
+      </p>
+      {% endif %}
 
       <h3>Firefox</h3>
       {% if signed_xpi %}
@@ -283,14 +450,9 @@
         this link can install it, so feel free to pass it on.
       </p>
       {% else %}
-      <ol>
-        <li>Go to <code>about:debugging#/runtime/this-firefox</code>.</li>
-        <li><strong>Load Temporary Add-on</strong>, then pick <code>manifest.json</code>
-          inside the unzipped folder.</li>
-      </ol>
-      <p class="bx-caveat">
-        Firefox unloads temporary add-ons when it closes, so use this for a quick look
-        only.
+      <p>
+        No signed Firefox build is deployed, so there is no one-click install. Set
+        <code>EXTENSION_XPI_VERSION</code> to a version whose signed file is in the repo.
       </p>
       {% endif %}
 
@@ -305,24 +467,224 @@
   </div>
   {% endif %}
 
+  <!-- ── What it does ── -->
+  {% comment %}
+    The first block on the public page, and the one the page did not have: every
+    section below described a part of it (the settings, the colours, the
+    permission, the limits) and none of them said in one place what pressing
+    nothing at all gets you. Owner's copy, 12 Sep 2026.
+
+    The wrong-target sentence is one line with a link rather than a paragraph,
+    because the block below the colour key is where that is explained and a
+    second full account of it here would be the two-readers split in prose.
+  {% endcomment %}
+  <div class="bx-block">
+    <h2>What it does</h2>
+    <p>
+      Open a paper on a journal site, a preprint server or Europe PMC and every
+      antibody in the methods that YCharOS has characterised is underlined, right
+      there in the text. Hover it to see how it did in each application — western
+      blot, immunoprecipitation, immunofluorescence, flow cytometry — alongside the
+      wild-type-versus-knockout image, the clone, the RRID and a link to the
+      report.
+    </p>
+    <p>
+      Antibodies reported to recognise the wrong target are flagged too
+      (<a href="#wrong-target">what that means</a>).
+    </p>
+    <p>
+      Switch on <strong>Also run on supplier catalogue pages</strong> and you can see
+      while you shop whether an independently characterised antibody exists for your
+      target. A toolbar panel
+      adds up the whole page and lists alternatives. Any card can hand the paper to
+      your own AI assistant through the
+      <a href="{% url 'connect_your_ai' %}">OGA connector</a>, to work out which
+      application was used and whether the authors ran controls of their own.
+    </p>
+  </div>
+
   <!-- ── What it looks like ── -->
   {% if screenshots %}
   <div class="bx-block">
     <h2>What it looks like on a paper</h2>
     <p>
-      Four real methods sections, marked by the extension. Each mention is coloured for the
-      application that paper used it in, and the card behind it carries the knockout-controlled
-      image the verdict rests on.
+      More real papers, marked by the extension. Each mention is coloured for the application
+      that paper used it in; hovering one opens the card behind it, with the
+      knockout-controlled image the result rests on.
+    </p>
+    {% comment %}
+      Says what the pictures are BEFORE the reader meets a verdict in one of
+      them. Each image carries `core/views.py::LISTING_FRAME` beneath its own
+      headline, drawn into the banner and repeated in `alt` for the same reason
+      the headlines are — a wording change to one and not the other is invisible
+      to a sighted reader and is the whole of what a screen-reader user gets.
+    {% endcomment %}
+    <p>
+      A mark is a <strong>result</strong>, not advice: each one reports how that antibody
+      performed when it was tested against a genetic control under the
+      <a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">community
+      consensus protocols</a>, in the applications those protocols cover. Whether that
+      makes a reagent usable in your hands depends on your assay and your sample.
     </p>
     <div class="bx-shots">
+      {% comment %}
+        core/views.py::CARD_EXAMPLES. The words live here rather than inside the
+        picture, which is the difference between these and the store listing's
+        images: a caption is selectable, translatable, reaches a screen reader
+        and can be reworded without regenerating anything.
+
+        `alt` describes the picture and the caption says what it demonstrates —
+        an alt that repeats the caption reads it twice to somebody using a
+        screen reader.
+      {% endcomment %}
       {% for shot in screenshots %}
       <figure class="bx-shot">
-        <img src="{% static shot.src %}" alt="{{ shot.title }} — {{ shot.note }}" loading="lazy">
+        {% comment %}
+          The PLAIN capture, with the words as HTML underneath. The store's copy
+          of the same five has them drawn into a banner instead, because a
+          listing has nowhere to put a caption — one copy in
+          `core/views.py::LISTING_SCREENSHOTS`, two renderings.
+        {% endcomment %}
+        <button type="button" class="bx-zoom"
+                data-full="{% static shot.src %}"
+                aria-label="Enlarge: {{ shot.title }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
+          </svg>Enlarge</button>
+        <img src="{% static shot.src %}" alt="{{ shot.alt }}" loading="lazy" class="bx-zoomable">
+        <figcaption><strong>{{ shot.title }}</strong> {{ shot.note }}</figcaption>
       </figure>
       {% endfor %}
     </div>
   </div>
   {% endif %}
+
+  <!-- ── Settings ── -->
+  {% comment %}
+    Directly under the screenshots, because this is the question somebody has
+    the moment they have seen it work: what are the switches, and which ones
+    should be on.
+
+    The one that matters is "Run on any site", and the page has to make the case
+    for it rather than list it. On the v0.1.6 benchmark corpus eleven of the 34
+    publisher hostnames were NOT in the default match list, so on a default
+    install roughly one paper in three went unscanned — with no marks and
+    nothing on screen saying why, which reads as the extension not working.
+
+    A broad site permission is also the thing a careful reader is right to
+    hesitate over, so the answer to "what does it cost me" is stated in the same
+    breath rather than left to the privacy section further down. The two facts
+    belong together at the point of the decision.
+
+    The table is `.bx-key`, the same shape as the colour key above it, so the
+    page teaches one visual language rather than two.
+  {% endcomment %}
+  <div class="bx-block">
+    <h2>The settings, and which ones are worth turning on</h2>
+    <p>
+      Open them from the extension's own entry in your browser: in Chrome and Edge, the
+      puzzle-piece icon, then the three dots beside <em>Only Good Antibodies</em> and
+      <strong>Options</strong>; in Firefox, <strong>Add-ons</strong> then
+      <strong>Preferences</strong>. Nothing needs setting for it to work — these change
+      where it looks and how the marks are drawn.
+    </p>
+
+    {% comment %}
+      The first column is the checkbox label WORD FOR WORD, so somebody reading
+      this and then opening the settings is looking for the same string. A
+      paraphrase here is the "a message that sends you somewhere must send you
+      where the control is" failure, one step softer.
+    {% endcomment %}
+    <table class="bx-key bx-key-settings">
+      <thead>
+        <tr><th>Setting</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Run on any site</strong></td>
+          <td>
+            Lets it look at whatever page you are reading. <strong>Worth turning on</strong> —
+            the reason is below.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Also run on supplier catalogue pages</strong></td>
+          <td>
+            Marks antibodies on suppliers' own product pages, so you see the same results
+            while you are deciding what to buy rather than after it arrives. Off until you
+            ask for it, because it needs access to those sites.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Highlight antibodies</strong></td>
+          <td>The main switch. Turns the marks off without uninstalling anything.</td>
+        </tr>
+        <tr>
+          <td><strong>Show blue (tested alternatives exist)</strong></td>
+          <td>
+            Marks an antibody we have <em>not</em> tested whose target we have — so the card
+            can offer you characterised alternatives. Turn it off if you only want results
+            about the exact reagent named.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Show grey (application not assessed)</strong></td>
+          <td>
+            Marks an antibody that is in the dataset but has no result in the application
+            this paper used it for. A result in another application does not carry over, and
+            grey is how the extension says so instead of staying quiet.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Use line styles as well as colour</strong></td>
+          <td>
+            Solid, dashed, wavy, double and dotted underlines, so the verdict never
+            depends on telling green from red. The dashed one is
+            <em>limited support</em>, which carried no colour at all in releases up
+            to 0.3.3 &mdash; fixed in {{ confusion_release }}.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Refresh data now</strong></td>
+          <td>
+            The characterisation data updates itself once a day. This fetches it
+            immediately; the line underneath says when your copy was last refreshed.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+
+  <div class="bx-block">
+    <div class="bx-callout">
+      <h2>Why “run on any site” is worth granting</h2>
+      <p>
+        Without it, the extension only works on a fixed list of publisher addresses — and
+        a great deal of real reading never matches that list. Papers opened through your
+        institution's <strong>proxy</strong> arrive at a rewritten address
+        (<code class="bx-tt">nature.com</code> becomes something like
+        <code class="bx-tt">nature-com.ezproxy…</code>), which no list can anticipate.
+        <strong>Society journals</strong> and the long tail of smaller publishers are not
+        on it either.
+      </p>
+      <p>
+        None of those pages get marked, and — this is the part worth knowing — nothing on
+        screen tells you so. It looks exactly like a paper with no characterised
+        antibodies in it. When we measured this against a corpus of real papers,
+        <strong>eleven of the 34 publisher addresses were not on the default list</strong>.
+      </p>
+      <p>
+        <strong>Granting it costs you no privacy.</strong> The extension does not read
+        pages and send them anywhere — it holds the dataset and the matching rules inside
+        your own browser, so a broader permission means it can look at more of what is
+        already in front of you, and nothing more. Nothing about what you read leaves the
+        machine either way.
+      </p>
+    </div>
+  </div>
 
   <!-- ── Colour key ── -->
   <div class="bx-block">
@@ -331,8 +693,8 @@
       Results are given <strong>per application</strong>. An antibody that works on a
       Western blot may fail in immunofluorescence, so the extension reads the application
       from the surrounding text and colours the mention for <em>that</em> application.
-      Of the antibodies we have published against TDP-43, two thirds pass in one
-      application and fail in another.
+      Of the antibodies we have published against TDP-43, two thirds are supportive in
+      one application and not in another.
     </p>
 
     <table class="bx-key">
@@ -341,29 +703,277 @@
       </thead>
       <tbody>
         <tr>
-          <td><span class="bx-swatch bx-sw-green">Recommended</span></td>
-          <td>Tested with knockout controls and recommended for the application used here.</td>
+          <td><span class="bx-swatch bx-sw-green">Supportive</span></td>
+          <td>Tested with knockout controls under the consensus protocols, and the data supports the application used here.</td>
         </tr>
         <tr>
-          <td><span class="bx-swatch bx-sw-red">Not recommended</span></td>
-          <td>Tested with knockout controls and did not meet the bar for the application used here. Where the page doesn't say which application, this means it did not meet the bar in any application tested.</td>
+          <td><span class="bx-swatch bx-sw-yellow">Limited support</span></td>
+          <td>Not supportive overall, and the antibody was still seen to do something on-target — it detected, enriched, or gave a selective signal. Support is an overall judgement rather than a sum of the parts: an antibody can detect its target and still carry enough non-selective signal to be hard to use with confidence. There is no fixed threshold, and whether it is usable depends on what you need it for. The card says what was seen.</td>
+        </tr>
+        <tr>
+          <td><span class="bx-swatch bx-sw-red">Not supportive</span></td>
+          <td>Tested with knockout controls under the consensus protocols, and nothing on-target was seen in the application used here. Where the page doesn't say which application, this means the data was not supportive in any application tested. It is a result under one protocol in one cell line, not a judgement on the reagent everywhere.</td>
+        </tr>
+        {% comment %}
+          Red carries a SECOND fact, and this row is where a reader finds that
+          out. Owner's decision, 12 Sep 2026: two different problems, one
+          colour, because a reader only has to know that red means stop and
+          read the card — which leads with which of the two it is. A seventh
+          colour would have meant nothing to anybody on sight.
+
+          It is deliberately the only row on this table that is not about
+          characterisation data. Everything above rests on a knockout-controlled
+          result; this rests on a supplier's own datasheet and a published
+          review of the papers that cited the product. OGA has tested none of
+          the products on those lists.
+
+          The chip carried "from 0.4.0" while this was a promise. It is kept
+          rather than deleted because the availability is still not uniform —
+          Firefox has it and Chrome has not approved it yet — and a reader on
+          Chrome who is told the key without that would go looking for a mark
+          that cannot appear. It goes when both stores are on the same version.
+        {% endcomment %}
+        <tr>
+          <td><span class="bx-swatch bx-sw-red">Wrong target</span><br>
+            <span class="bx-key-soon">Firefox now &middot; Chrome in review</span></td>
+          <td>
+            <strong>Red also means the antibody is for a different protein from the
+            one it shares a name with.</strong> It is the one row here that is not a
+            characterisation result and not a verdict on the reagent &mdash; see
+            <a href="#wrong-target">below</a> for what it rests on. Stated in this
+            table because it is the one colour carrying two meanings, and the card
+            leads with which of the two it is.
+          </td>
         </tr>
         <tr>
           <td><span class="bx-swatch bx-sw-mixed">Split</span></td>
-          <td>Passes in some applications and fails in others. Either the paper used it for several applications with a different result in each, or it never said which application it used, so all four assessed are shown. The hover card says which, and lists the results.</td>
+          <td>Supportive in some of the applications tested and not in others. Either the paper used it for several applications with a different result in each, or it never said which application it used, so all four assessed are shown. The hover card says which, and lists the results.</td>
         </tr>
         <tr>
-          <td><span class="bx-swatch bx-sw-amber">Alternatives exist</span></td>
-          <td>This antibody has not been tested, but its target has. Validated alternatives are available.</td>
+          <td><span class="bx-swatch bx-sw-blue">Alternatives exist</span></td>
+          <td>No catalogue number was given, or the product is not in the dataset — but its target <em>has</em> been characterised, so you get the characterised alternatives instead. It is not a verdict on the antibody named: the card leads with the alternatives because that is the part you can act on.</td>
         </tr>
         <tr>
           <td><span class="bx-swatch bx-sw-grey">Application untested</span></td>
-          <td>In the dataset, but not tested in the application this page used it for. Antibodies we hold no data on are left unmarked.</td>
+          <td>In the dataset, but never tested this way — the page names an application this antibody has no result for. <strong>Untested is not failed</strong>, and a result in another application does not carry over. Antibodies we hold no data on at all are left unmarked.</td>
         </tr>
       </tbody>
     </table>
 
     <p>{% include 'core/_recommendation_caveat.html' %}</p>
+    {% comment %}
+      Its own paragraph, not appended to the one above: that sentence is about
+      the dataset and this one qualifies a single column of it. The hover card
+      draws the same sentence under the immunofluorescence panel, from the same
+      constant, shipped in index.json.
+    {% endcomment %}
+    <p>{% include 'core/_application_caveat.html' %}</p>
+  </div>
+
+  <!-- ── The antibody that is for a different protein ── -->
+  {% comment %}
+    Placed directly after the colour key, because that key's "Wrong target" row
+    is where a reader meets this and the row links here. A separate block rather
+    than more prose in that cell, for the reason the key exists: a table of
+    one-line meanings should stay a table of one-line meanings.
+
+    WAS A PROMISE, NOW A DESCRIPTION. It read "Coming in 0.4.0" until Firefox
+    was served a build that actually draws these marks, at which point the page
+    was promising a reader something they already had — which is the one thing
+    `core.W006` exists to catch, and it caught it on the deploy that served it.
+
+    The counts are drawn from `target_confusions.public_totals()` rather than
+    typed. The typed ones ("eleven product codes across the two reviews") were
+    wrong within three days of being written, and nothing on the page would
+    have said so.
+  {% endcomment %}
+  <div class="bx-block bx-soon" id="wrong-target">
+    <span class="bx-soon-tag">In Firefox now &middot; Chrome in review</span>
+    <h2>The antibody that is for a different protein</h2>
+    <p>
+      Some antibodies are sold against one protein and routinely bought for
+      another that shares its name. <code>ab51243</code> is an antibody to
+      <strong>ARPC5</strong>, also called p16-ARC, a subunit of the actin-related
+      protein 2/3 complex &mdash; and Abcam's own datasheet states there is no
+      observed cross-reactivity with <strong>p16-INK4a</strong>, the CDKN2A tumour
+      suppressor that &ldquo;p16&rdquo; almost always means in a senescence paper.
+      A published review found <strong>317 of 406</strong> papers citing that code
+      had used it as a p16-INK4a antibody, in Nature, Nature Medicine, Cancer Cell
+      and eLife among others. The same has happened to eight antibodies against
+      the <em>E. coli</em> LacZ &beta;-galactosidase, used as markers of
+      senescence-associated &beta;-galactosidase, which is the mammalian GLB1
+      enzyme.
+    </p>
+    <p>
+      {{ confusion_totals.codes }} product codes across
+      {{ confusion_totals.reviews }} published reviews draw a red mark whose card
+      names both proteins, says what the review found about <em>the paper you are
+      reading</em>, quotes the supplier, and links the review.
+    </p>
+    {% comment %}
+      The same collision can run both ways — a PERK antibody used for p-ERK and
+      a p-ERK antibody used for PERK — and that is two notices out of one
+      article, because a notice holds one declared target. So the reader-facing
+      unit is the REVIEW and `public_totals` counts distinct sources; counting
+      notices would say four and mean nothing to anybody.
+    {% endcomment %}
+    <p>
+      <strong>Whether an unlisted paper is marked at all depends on the
+      list.</strong> Where a product is mostly misused — 317 of the 406 for
+      <code>ab51243</code> — naming the code is enough, and the card says the
+      paper <em>may</em> have used it wrongly, with the tally behind it. Where it
+      is not, the list marks only the papers the review actually names:
+      <code>ab65142</code> is a perfectly good PERK antibody and nearly every
+      paper citing it used it correctly, so a caution on those would be a false
+      accusation. The two PERK lists are set that way and the two For Better
+      Science lists are not.
+    </p>
+
+    <div class="bx-soon-grid">
+      <div>
+        <p>
+          <strong>It is not a verdict on the antibody.</strong> OGA has
+          characterised none of these {{ confusion_totals.codes }} products, and
+          the card says so outright: no application results, no figure, nothing
+          about how well it works. What is documented is which protein it is
+          raised against.
+        </p>
+        <p>
+          <strong>A paper the review read and found correct gets no mark at
+          all.</strong> Seventeen of the 406 used <code>ab51243</code> properly,
+          for ARPC5, and a red mark on one of those would be an accusation against
+          a paper somebody had already checked. Seventy-two could not be reached
+          behind a paywall, and those say the use could not be established rather
+          than borrowing the majority's answer.
+        </p>
+        {% comment %}
+          THE LIMIT IS NAMED BECAUSE IT IS REAL, not because it is acceptable —
+          and this paragraph has already been rewritten once, which is the point
+          of keeping it. It first said every lookup keys on the DOI a page
+          declares, which was true and cost four papers: the owner established
+          that they are e-Century titles and that e-Century registers no DOI
+          with Crossref at all, so a paper the review HAD read was reachable by
+          nothing. 0.4.2 keys them by PubMed id as well.
+
+          What is left is honest and smaller: a PubMed id is free on PubMed, PMC
+          and Europe PMC and is rarely on a publisher's own page, which is where
+          a reader usually is. Title and year would close that, and the review's
+          listing gives no full title to key on.
+        {% endcomment %}
+        <p>
+          A paper is matched by whatever identifier its page declares &mdash; a
+          <abbr title="Digital Object Identifier">DOI</abbr>, a PubMed id, or its
+          title and year. A few journals register no DOI at all, so those papers
+          are listed by PubMed id, which reaches them on PubMed and Europe PMC
+          and not always on the publisher's own page.
+        </p>
+        <p>
+          The mark is drawn by code inside the extension, so it arrived with a new
+          version: <strong>Firefox has it</strong> and updates itself, and a
+          Chrome install draws nothing until the Web Store approves the version
+          sitting in its review queue. <strong>Changing the lists afterwards needs
+          no new version at all</strong> &mdash; a further review, a corrected
+          verdict or a supplier's name lands on every install at its next daily
+          refresh.
+        </p>
+      </div>
+
+      <div>
+        {% comment %}
+          The card on a real paper (oncotarget 17778), not a drawing of it.
+          `core/views.py::CONFUSION_SCREENSHOT` is the one place that names the
+          file, and the view passes nothing when it is not deployed — the block
+          around it stands on its own words, the same rule the listing grid
+          keeps.
+
+          It is deliberately NOT in that grid. The grid is what a reader can
+          install today; this is the one figure on the page showing a build the
+          stores have not approved, and the tag above it says so.
+
+          It replaces an HTML mock of the same card. The mock was the right call
+          while no capture existed — a screenshot of an uninstallable build,
+          drawn from the card's own stylesheet — and it stops being the right
+          call the moment a real one exists: a drawing is what the card *should*
+          look like, which is a claim nobody had checked.
+
+          Same lightbox as the grid, so a reader learns one set of rules.
+        {% endcomment %}
+        {% if confusion_shot %}
+        <figure class="bx-soon-shot">
+          <button type="button" class="bx-zoom"
+                  data-full="{% static confusion_shot.src %}"
+                  aria-label="Enlarge: the declared-target card on a real paper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.5"></circle>
+              <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
+            </svg>Enlarge</button>
+          <img src="{% static confusion_shot.src %}" alt="{{ confusion_shot.alt }}"
+               loading="lazy" class="bx-zoomable"
+               data-full="{% static confusion_shot.src %}">
+        </figure>
+        <p class="bx-soon-cap">
+          The card as it appears, on one of the papers the review lists. Both
+          links in it are live in the extension.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="bx-soon-after">
+      The reviews are
+      <a href="https://forbetterscience.com/2026/06/02/mind-over-antibody/"
+         target="_blank" rel="noopener">Mind over Antibody</a> and
+      <a href="https://forbetterscience.com/2026/07/21/do-bacteria-grow-old-as-we-do/"
+         target="_blank" rel="noopener">Do bacteria grow old as we do?</a> for
+      For Better Science, and
+      <a href="https://sholto.substack.com/p/perk-vs-p-erk-another-antibody-confusion"
+         target="_blank" rel="noopener">PERK vs p-ERK: Another Antibody
+      Confusion!</a> &mdash; all three by Sholto David. The last of those is
+      <strong>PERK</strong>, the endoplasmic reticulum kinase, against
+      <strong>p-ERK</strong>, phosphorylated ERK1/2: unrelated proteins whose
+      abbreviations differ by one hyphen, and 187 papers used a PERK antibody to
+      blot or stain for p-ERK. If you know of another naming collision of this
+      kind, <a href="{% url 'contact' %}">tell us</a> &mdash; adding one is a data
+      change rather than a new release.
+    </p>
+  </div>
+
+  <!-- ── Provenance ── -->
+  {% comment %}
+    Placed after the wrong-target block because it is the paragraph that tells
+    the two apart: everything above it rests on a knockout-controlled result and
+    that block rests on investigative reporting, and a reader who has just met
+    both needs to be told they do not come from the same place.
+
+    Owner's copy, 12 Sep 2026. The page explained provenance in four places (the
+    protocol link in the screenshots block, the scope caveat under the key, the
+    report links on each card, the API block at the foot) and nowhere in one.
+  {% endcomment %}
+  <div class="bx-block">
+    <h2>Where the data comes from</h2>
+    <p>
+      <a href="https://ycharos.com/" target="_blank" rel="noopener">YCharOS</a>, an
+      open-science consortium that tests antibodies against knockout cell lines to a
+      <a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">community
+      protocol</a> and publishes every result — negatives included — as a
+      peer-reviewed report with a DOI. <strong>No supplier claims, no citation
+      counts.</strong>
+    </p>
+    <p>
+      Wrong-target flags are separate, and are the one thing on the page that is not
+      a characterisation result: they come from investigative reporting at
+      <a href="https://forbetterscience.com/" target="_blank" rel="noopener">For
+      Better Science</a>, and each one links to the original post.
+    </p>
+    <p>
+      <strong>What the results mean.</strong> Everything is tested under the same
+      standard conditions, which is what makes it characterisation data rather than
+      a verdict — antibodies behave differently in different assays and samples. It
+      matters most when a paper shows no validation of its own. A paper with its own
+      knockout or knockdown may be perfectly fine using an antibody that struggled
+      in our hands.
+    </p>
   </div>
 
   <!-- ── Privacy ── -->
@@ -377,20 +987,160 @@
       </p>
       <p>
         The extension contacts this site for exactly two things: a once-a-day refresh of
-        the validation data, and loading a validation image when you open a card. Neither
+        the characterisation data, and loading a characterisation image when you open a card. Neither
         carries any information about what you are reading.
       </p>
+      <p>
+        <strong>No account, no analytics, and no server that knows what you read.</strong>
+      </p>
     </div>
+  </div>
+
+  <!-- ── Managed browsers ── -->
+  {% comment %}
+    Placed straight after the privacy callout on purpose: everything IT asks
+    about is what that block just answered, and this turns those answers into
+    something the reader can forward. Owner's request, 28 Aug 2026 — a blocked
+    install is the commonest reason a scientist who wants this cannot have it,
+    and it is somebody else's decision, so the page has to arm them for that
+    conversation rather than explain the button again.
+
+    Every identifier is derived (core/views.py::_extension_identity) — the
+    Chrome id off the store URL, the Firefox id and the site count out of the
+    shipped manifest. A typed count is wrong the first time a publisher is
+    added, and a typed id is wrong silently.
+  {% endcomment %}
+  <div class="bx-block">
+    <h2>If your institution blocks extensions</h2>
+    <p>
+      Many universities and institutes manage Chrome, Edge and Firefox centrally and
+      allow only approved extensions. If <strong>Add to Chrome</strong> does nothing, or
+      Firefox refuses the install, that is usually what has happened — and it is a
+      decision your IT team can reverse. They generally need three things: what it does,
+      what it can reach, and its identifier.
+    </p>
+
+    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+      A note you can send them</h3>
+    <div class="bx-note">
+      <p>I'd like to install a browser extension called <em>Only Good Antibodies —
+      characterisation</em>. It marks antibodies cited in a paper with what
+      independent, knockout-controlled testing found, which helps me avoid buying
+      reagents that have been shown not to work.</p>
+      <p>It stores its dataset locally and does all matching in the browser.
+      <strong>No page text, URL or reading history is sent anywhere</strong> — the
+      manifest declares no data collection. It contacts one domain,
+      onlygoodantibodies.co.uk, about twice a day to refresh that dataset and to load
+      an image when I open a card.</p>
+      <p>It asks for three permissions — storage, alarms and scripting — and by
+      default runs only on a published list of {{ site_count }} journal and preprint
+      domains. It has no access to tabs, cookies, browsing history or downloads.
+      Anything wider is optional and off unless I turn it on.</p>
+      <p>The details you'll need to allow it are at
+      https://onlygoodantibodies.co.uk/extension/.</p>
+    </div>
+
+    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+      What IT will ask for</h3>
+    <table class="bx-key">
+      <tbody>
+        <tr>
+          <td>Chrome / Edge ID</td>
+          <td>
+            {% if chrome_id %}<span class="bx-code">{{ chrome_id }}</span>
+            {% elif chrome_url %}The 32-character code at the end of
+              <a href="{{ chrome_url }}" target="_blank" rel="noopener">the Web Store listing</a>'s address.
+            {% else %}Published with the Web Store listing — <a href="{% url 'contact' %}">ask us</a> if you need it before then.
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>Firefox add-on ID</td>
+          <td><span class="bx-code">{{ gecko_id }}</span></td>
+        </tr>
+        <tr>
+          <td>Firefox install URL</td>
+          <td><span class="bx-code">https://onlygoodantibodies.co.uk{% url 'extension_firefox_xpi' %}</span>
+            <p class="bx-caveat">Mozilla-signed. Updates come from
+              <span class="bx-code">{{ update_url }}</span>.</p></td>
+        </tr>
+        <tr>
+          <td>Permissions</td>
+          <td><span class="bx-code">storage</span>, <span class="bx-code">alarms</span>,
+            <span class="bx-code">scripting</span> — and nothing else. No tabs, cookies,
+            history or downloads.</td>
+        </tr>
+        <tr>
+          <td>Sites it runs on</td>
+          <td>A named list of {{ site_count }} journal and preprint domains, in the manifest.
+            Supplier catalogue pages and “any site” are <em>optional</em> permissions, off
+            until the reader switches them on.</td>
+        </tr>
+        <tr>
+          <td>Data collected</td>
+          <td>None. The manifest declares no data collection, and matching happens entirely
+            in the browser.</td>
+        </tr>
+        <tr>
+          <td>Network access</td>
+          <td>One domain: <span class="bx-code">https://onlygoodantibodies.co.uk/*</span>.
+            A daily dataset refresh and an image when a card is opened.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+      The policy settings</h3>
+    <p>
+      For an administrator who already manages browsers. <strong>Allowing</strong> lets
+      people install it if they want to; <strong>force-installing</strong> deploys it to
+      everyone. Either is fine — nothing about the extension needs it to be mandatory.
+    </p>
+    <p><strong>Chrome and Edge</strong> — add the ID to <code>ExtensionInstallAllowlist</code>,
+      or to <code>ExtensionInstallForcelist</code> to deploy it:</p>
+    <pre class="bx-pre">ExtensionInstallAllowlist = [ "{% if chrome_id %}{{ chrome_id }}{% else %}&lt;extension ID&gt;{% endif %}" ]</pre>
+    <p><strong>Firefox</strong> — an <code>ExtensionSettings</code> entry. The extension is
+      distributed by us rather than through addons.mozilla.org, so the install URL is ours:</p>
+    <pre class="bx-pre">"ExtensionSettings": {
+  "{{ gecko_id }}": {
+    "installation_mode": "allowed",
+    "install_url": "https://onlygoodantibodies.co.uk{% url 'extension_firefox_xpi' %}"
+  }
+}</pre>
+    <p class="bx-caveat">
+      Use <code>force_installed</code> in place of <code>allowed</code> to deploy it to
+      everyone. Firefox needs <code>install_url</code> either way, because the add-on is
+      not listed on addons.mozilla.org.
+    </p>
+
+    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+      If the answer is no</h3>
+    <p>
+      Nothing here is only in the extension. Every verdict it shows is on the gene pages of
+      this site, in the <a href="{% url 'data_access' %}">public API</a>, and through the
+      <a href="{% url 'connect_your_ai' %}">MCP connector</a>, which needs no browser
+      extension at all. The extension saves you looking things up; it is not the only way
+      to get the answer.
+    </p>
   </div>
 
   <!-- ── Where it runs ── -->
   <div class="bx-block">
     <h2>Where it runs</h2>
     <p>
-      On journal and preprint sites — Nature, Science, Cell Press, ScienceDirect, Wiley,
-      Springer, PLOS, eLife, Frontiers, MDPI, OUP, bioRxiv, medRxiv, PubMed and PMC among
-      others. Supplier catalogue pages can be switched on in settings, so you see the same
-      results while choosing what to buy.
+      On {{ site_count }} publisher, preprint and repository sites, counted from the
+      list inside the extension itself — Nature, Science, Cell Press, ScienceDirect,
+      Wiley, Springer, PLOS, eLife, Frontiers, MDPI, OUP, bioRxiv, medRxiv, PubMed and
+      PMC among them — and on anything else you read once
+      <strong>Run on any site</strong> is on, which is the setting explained above.
+      {% comment %}
+        Both controls named the way the checkbox names itself, the same rule the
+        settings table keeps: a reader who comes here and then opens the options
+        is looking for the string they just read.
+      {% endcomment %}
+      A paper reached through your institution's proxy is covered by that same
+      setting; supplier catalogues have their own, <strong>Also run on supplier
+      catalogue pages</strong>.
     </p>
     <p>
       It reads the HTML full text of a page. A paper opened as a PDF is not annotated.
@@ -412,6 +1162,11 @@
         Which application a reagent was used for is inferred from the surrounding text.
         Where a page is ambiguous the extension falls back to a whole-antibody summary and
         says so on the card.
+      </li>
+      <li>
+        A paper that shows its own knockout or knockdown may be perfectly fine using an
+        antibody that struggled in our hands. The mark is about the reagent under one
+        protocol, not about the experiment in front of you.
       </li>
       <li>
         Every card links to the knockout-controlled images, the RRID and the published
@@ -461,7 +1216,85 @@
     <a href="{% url 'nominate_gene' %}" class="nominate-target-button">Nominate a gene</a>
   </div>
 
+
 </div><!-- /.bx-main -->
 
+{% if screenshots or hero_shot %}
+{% comment %}
+  The same lightbox the gene pages use, and deliberately the same behaviour —
+  backdrop or Escape closes, the close button is a real button — because a
+  reader who has enlarged a figure on one page of this site should not have to
+  learn a second set of rules on another.
+
+  What it adds is focus handling. On a gene page the zoom is opened by clicking
+  an image, so there is nowhere to send focus back to; here the trigger is a
+  button, and a dialog that opens without moving focus and closes without
+  returning it strands a keyboard user at the top of the document.
+{% endcomment %}
+<div class="bx-lightbox" id="bx-lightbox" role="dialog" aria-modal="true"
+     aria-label="Enlarged screenshot" hidden>
+  <button class="bx-lightbox-close" id="bx-lightbox-close" aria-label="Close">&times;</button>
+  <img id="bx-lightbox-img" src="" alt="">
+</div>
+<style>
+.bx-lightbox {
+  position: fixed; inset: 0; z-index: 10000;
+  align-items: center; justify-content: center;
+  background: rgba(10,20,40,.88); padding: 24px;
+}
+.bx-lightbox:not([hidden]) { display: flex; }
+.bx-lightbox img {
+  max-width: 94vw; max-height: 92vh; background: #fff;
+  border-radius: 10px; box-shadow: 0 12px 44px rgba(0,0,0,.55);
+}
+.bx-lightbox-close {
+  position: absolute; top: 12px; right: 20px; font-size: 2.4rem; line-height: 1;
+  color: #fff; background: none; border: 0; cursor: pointer; padding: 4px 10px;
+}
+</style>
+<script>
+(function () {
+  var box = document.getElementById('bx-lightbox');
+  var img = document.getElementById('bx-lightbox-img');
+  var closeBtn = document.getElementById('bx-lightbox-close');
+  var opener = null;
+
+  function open(src, alt, from) {
+    img.src = src;
+    img.alt = alt || '';
+    opener = from || null;
+    box.hidden = false;
+    closeBtn.focus();
+  }
+  function close() {
+    box.hidden = true;
+    img.src = '';
+    /* Back where they came from. Without it a keyboard user lands at the top of
+       the document and has to tab down through the whole page again. */
+    if (opener) { opener.focus(); opener = null; }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.bx-zoom') : null;
+    if (btn) {
+      var fig = btn.parentNode.querySelector('img');
+      open(btn.dataset.full, fig ? fig.alt : '', btn);
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains('bx-zoomable')) {
+      /* `data-full` where the drawn image is a crop, so clicking the picture
+         and pressing Enlarge open the same thing. The grid's images carry no
+         such attribute and open themselves, as before. */
+      var el = e.target;
+      open(el.dataset.full || el.currentSrc || el.src, el.alt, el);
+    }
+  });
+  box.addEventListener('click', function (e) { if (e.target !== img) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !box.hidden) close();
+  });
+})();
+</script>
+{% endif %}
 </body>
 </html>

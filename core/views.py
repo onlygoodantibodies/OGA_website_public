@@ -46,6 +46,7 @@ from .legacy_gene_ids import LEGACY_GENE_NAMES
 # The three-valued recommendation reader, the scope caveat and the licence —
 # one definition, shared with the API, the extension index and the MCP server.
 from . import recommendations as R
+from . import target_confusions
 
 
 # Browser-extension snapshot: rebuilt at most once an hour. The extension only
@@ -54,8 +55,10 @@ from . import recommendations as R
 # bytes. LocMem forgets on every deploy so it would never notice, but a shared
 # Redis cache (CACHE_URL) keeps its contents across one -- and the old value
 # handed to the new code is a dict where bytes are expected.
-EXTENSION_INDEX_CACHE_KEY = 'extension_index_v2'
-EXTENSION_INDEX_CACHE_SECONDS = 3600
+# Owned by core/extension_index.py, which also clears the key on a write. Kept
+# importable from here because that is where they have always been read from.
+from .extension_index import (                                  # noqa: E402
+    EXTENSION_INDEX_CACHE_KEY, EXTENSION_INDEX_CACHE_SECONDS)
 
 # The citation snapshot is a static file, not a database read, so it is cached for
 # a day rather than an hour -- and it is served SEPARATELY from index.json on
@@ -484,10 +487,19 @@ def roadmap_manufacturers(request):
 
 
 def portal(request):
+    """The supplier-facing view of their own reagents.
+
+    Presents results the way a public gene page does (owner, 29 Aug 2026): a
+    manufacturer comparing their row here with the page it links to must not
+    find two ways of saying one thing. The label comes from the same constant
+    the gene page uses rather than being typed into the template, which is the
+    whole of why they cannot drift.
+    """
     from .recommendations import CONSENSUS_PROTOCOL_URL
 
     return render(request, 'core/portal.html', {
         'consensus_protocol_url': CONSENSUS_PROTOCOL_URL,
+        'supported_applications_label': R.SUPPORTED_APPLICATIONS_LABEL,
     })
 
 
@@ -676,6 +688,9 @@ def antibody_table(request, gene_name):
     # not recommended" from "nobody has tested it" — see core/recommendations.py.
     # One query for the page, not one per antibody.
     gene_is_curated = _target_has_recommendations(target)
+    # The capability behind each negative, for the whole page in one pass —
+    # two queries per application, not two per antibody.
+    gene_axes = R.capability_axes([ab.pk for ab in antibodies])
 
     antibody_data = []
     for ab in antibodies:
@@ -711,12 +726,31 @@ def antibody_table(request, gene_name):
         # whose browser strips `Referer`. It stopped nobody — the same verdicts
         # are keyless on the MCP connector and in the extension index — while
         # costing every well-behaved reader.
-        verdicts = R.recommendations_for(ab, set(pub_images), gene_is_curated)
+        # One state and one caption per application, from the one definition.
+        # The verdict carries the ICC-IF veto (a ratio below the floor cannot be
+        # supportive) and the caption carries the qualifier on either side of
+        # it — 36% of supportive western blots are not selective, and until now
+        # they were drawn identically to the ones that are.
+        states, captions, tabs = {}, {}, {}
+        verdicts = {}
+        for app in R.APPLICATIONS:
+            key = _TEMPLATE_APP[app]
+            axes = gene_axes.get((ab.pk, app))
+            value, clause, tempers = R.verdict_with_qualifier(
+                ab, app, set(pub_images), gene_is_curated, axes)
+            verdicts[app] = value
+            # One colour per cell: the verdict and its qualifier together pick
+            # green, amber or red, so amber never sits inside a red border.
+            states[key] = R.tone(value, tempers)
+            captions[key] = R.cell_caption(app, value, axes)
+            # A supportive verdict the data fell short of keeps its green and
+            # carries a small yellow tab; on a negative the same fact is the
+            # cell's own colour.
+            tabs[key] = R.caveat_tab(value, tempers)
         recommended = {
             _TEMPLATE_APP[app]: verdicts[app] == R.RECOMMENDED
             for app in R.APPLICATIONS
         }
-
         antibody_data.append({
             "id": ab.id,
             "name": ab.catalogue_number,
@@ -724,6 +758,12 @@ def antibody_table(request, gene_name):
             "description": description,
             # Drawn in the four experiment cells, keyed as `experiments` is.
             "recommended": recommended,
+            # Same keys again: the colour family (which carries the qualifier
+            # on a negative), the yellow tab (which carries it on a supportive
+            # one), and the line that says it in words on either.
+            "states": states,
+            "tabs": tabs,
+            "caveats": captions,
             # The "Recommended Applications:" line, in R.APPLICATIONS order.
             "recommended_apps": [_APP_LABEL[app] for app in R.APPLICATIONS
                                  if verdicts[app] == R.RECOMMENDED],
@@ -813,6 +853,10 @@ def antibody_table(request, gene_name):
         "cell_line_link": target.cell_line_link,
         # Data
         "antibody_data": antibody_data,
+        # From `core/recommendations.py`, not spelled in the template: this
+        # heading and the captions in the cells under it are the same claim, and
+        # two copies on one screen is the drift that module exists to stop.
+        "supported_applications_label": R.SUPPORTED_APPLICATIONS_LABEL,
         # What is drawn: after the host/clonality/recombinant dropdowns and
         # after the discontinued tick. Right for everything on the page, because
         # the line stating how many are hidden sits directly under it.
@@ -985,54 +1029,291 @@ def tools_hub(request):
 # Browser extension
 # ─────────────────────────────────────────────────────────
 
-# The Chrome Web Store listing's own screenshots, shown on the install page so
-# a reader sees the thing working before installing it. Each PNG carries its
-# headline and sentence drawn into the image, which is why `alt` repeats them
-# and nothing is printed underneath: the words are in the picture already.
+# The five figures on `/extension/` and on the Chrome Web Store listing.
+#
+# THIS IS THE COPY. The images are captured by hand on a real publisher page
+# and rendered in two forms — plain for this site, banner-captioned for the
+# store — and the words below are what goes in both, plus the `alt` the page
+# serves. A wording change reaching one and not the other is invisible to a
+# sighted reader and is the whole of what a screen-reader user gets.
 #
 # They are listed here rather than in the template because the page must not
 # name a file that is not there. A missing static file falls back to its
 # unhashed name rather than raising (`OGA_website/storages.py`) — deliberately,
 # so an absent asset cannot 500 a page — and the cost of that trade is a broken
 # image on the page a stranger lands on. Same existence check as `signed_xpi`.
-EXTENSION_SCREENSHOTS = (
+#
+# On the framing (owner, 29 Aug 2026): this is independent characterisation
+# data about the REAGENTS A MANUSCRIPT RELIES ON, offered as context rather
+# than as a verdict on the paper, and worth most where the manuscript shows no
+# context-specific validation of its own. The four rungs — supportive, limited
+# support, not supportive, not tested — are what the pictures show.
+#: Said on every listing image, under a rule below the sentence. The frame the
+#: whole set is read through (owner, 29 Aug 2026): this is characterisation data
+#: about the REAGENTS A MANUSCRIPT RELIES ON, offered as context rather than as a
+#: verdict on the paper — and it is worth most where the manuscript shows no
+#: context-specific validation of its own.
+#:
+#: It is not `SCOPE_NOTE`, and the difference is deliberate. `SCOPE_NOTE` is the
+#: caveat that travels with the DATA, on gene pages and in the JSON-LD; this is
+#: the frame for a store listing, which has to say what the thing is for before
+#: it says what the data does not cover. Owner kept "protocol and sample
+#: dependent" in the first and wrote "assay- and sample-dependent" here.
+LISTING_FRAME = (
+    'Independent, knockout-controlled antibody characterisation data generated '
+    'to community consensus protocols. Antibody performance is assay- and '
+    'sample-dependent; this adds context, particularly where a manuscript '
+    'provides no context-specific validation of its own.'
+)
+
+#: The five listing figures: file, headline, sentence, and what the picture is.
+#:
+#: **One copy, two renderings.** `browser-extension/store/listing/` holds the
+#: same five with the headline, the sentence and `LISTING_FRAME` drawn into a
+#: banner, because a Chrome Web Store listing has nowhere to put a caption. The
+#: `.webp` named here is the *plain* capture, and `/extension/` prints the same
+#: words underneath it as HTML — selectable, translatable, reachable by a screen
+#: reader, and rewordable without regenerating an image.
+#:
+#: That split is what the seven card crops were introduced for in August and
+#: what this keeps. What it drops is the crops themselves: they showed the
+#: pre-0.3.2 vocabulary, and a screenshot ages the moment the thing it shows
+#: changes, with nothing on the page saying which version you are looking at.
+#:
+#: `alt` describes the PICTURE; the caption says what it demonstrates. They are
+#: different jobs, and an `alt` repeating the caption reads it twice to somebody
+#: using a screen reader.
+LISTING_SCREENSHOTS = (
     (
-        '01_recommended_IF_RAB8A.webp',
-        'Recommended — and the knockout image that proves it',
-        'Cell Signaling 6975 on a Europe PMC methods section: recommended for '
-        'WB, IP and IF, with the wild-type / RAB8A-knockout immunofluorescence '
-        'behind the verdict.',
+        '01_supportive_IF_RAB8A_6975.webp',
+        'Supportive data \u2014 and the image behind it',
+        'Cell Signaling 6975: the data supports western blot, '
+        'immunoprecipitation and immunofluorescence under the consensus '
+        'protocols, shown with the wild-type and RAB8A-knockout '
+        'immunofluorescence the result came from.',
+        'A hover card over the catalogue number 6975 in a methods section. All '
+        'three tested applications read supportive and flow cytometry reads not '
+        'tested, above an immunofluorescence image of wild-type and '
+        'RAB8A-knockout HeLa cells.',
     ),
     (
-        '02_recommended_WB_LRRK2.webp',
-        'Right antibody, right application',
-        'ab133474 is recommended for western blot — but not for IP or IF. The '
-        'extension reads which application the paper actually ran.',
+        '02_limited_support_ab237703.webp',
+        'The result is per application, not per antibody',
+        'ab237703 gives limited support by western blot \u2014 it detects the '
+        'target \u2014 and supportive results for immunoprecipitation and '
+        'immunofluorescence.',
+        'A hover card whose western blot tab reads limited support while '
+        'immunoprecipitation and immunofluorescence read supportive, above the '
+        'wild-type and knockout blot.',
     ),
     (
-        '03_not_recommended_RAB10.webp',
-        'Tested against a knockout. It failed.',
-        'ab104859 is not recommended for WB, IP or IF. Two antibodies in one '
-        'sentence are flagged before you order either.',
+        '03_not_supportive_A7131.webp',
+        'Data not supportive under the consensus protocols',
+        'A7131 was tested by western blot against a PINK1 knockout and gave no '
+        'selective signal \u2014 characterisation context this paper does not '
+        'provide for itself. The page does not say which application it was '
+        'used for, so every result is shown.',
+        'A hover card reading \u201cTested; data not supportive for WB\u201d '
+        'over a marked catalogue number in a methods section, above a blot in '
+        'which the wild-type and knockout lanes look the same.',
     ),
     (
-        '04_no_catalogue_number.webp',
-        'No catalogue number? Still useful.',
-        'When a paper names only the target, the extension points to the '
-        'antibodies that do have knockout-controlled data — and says plainly '
-        'that this one has not been tested.',
+        '05_page_summary_panel.webp',
+        'Every antibody on the page, added up',
+        'The toolbar panel counts the marks \u2014 two supportive, two limited '
+        'support, none not supportive, three with characterised alternatives '
+        '\u2014 and lists one line per reagent worth a look.',
+        'The extension panel counting the marks on one paper: two supportive, '
+        'two limited support, none not supportive, no split verdicts, three '
+        'with alternatives and none application-untested.',
+    ),
+    (
+        '06_no_catalogue_number_A2164.webp',
+        'Not tested? The alternatives are',
+        'A2164 is not in the dataset, so the card leads with what is: NR3C1 has '
+        'knockout-controlled antibodies to use instead, and the target was read '
+        'from the text beside the catalogue number.',
+        'A card over the catalogue number A2164 offering characterised NR3C1 '
+        'antibodies instead, and saying this exact antibody has not been '
+        'tested.',
     ),
 )
 
 
+#: The one figure that goes at the top of the page, and the crop it is drawn as.
+#:
+#: **This is the picture that sells the thing** (owner, 31 Aug 2026): a marked
+#: catalogue number in a real methods section, the card it opens, and the
+#: knockout blot the verdict rests on — the whole claim in one image. Buried
+#: fifth in a 2-up grid at a third of life size it was legible as a shape and
+#: not as words, which is the same complaint the grid's Enlarge button answers.
+#:
+#: Two renderings of one capture, for the same reason `LISTING_SCREENSHOTS`
+#: has two: the `_top` file is cropped to the card and the text it sits on, so
+#: it reads at the size a hero can afford; the full 1280x800 capture is what
+#: Enlarge opens, so nothing is lost, only deferred. The words come from the
+#: tuple entry, so the hero and the store listing cannot drift apart.
+#:
+#: It is still *in* `LISTING_SCREENSHOTS` — the store gets all five, and
+#: `_extension_screenshots` still checks all five are deployed. What changes is
+#: only where the page draws this one.
+#: The declared-target card on a real paper (oncotarget 17778, the Sholto David
+#: beta-galactosidase review). Drawn inside the Coming-in block and nowhere
+#: else — see `_extension_page`. Its `alt` is the whole of what a screen-reader
+#: user gets from it, so it carries the card's own two claims and the source.
+CONFUSION_SCREENSHOT = '04_identity_flag_lacZ_ab9361.webp'
+CONFUSION_SCREENSHOT_ALT = (
+    'A hover card over the catalogue number ab9361 in a methods section, '
+    'headed \u201cAntibody to lacZ (E. coli beta-galactosidase), not to '
+    'mammalian beta-galactosidase\u201d, saying this paper is on a published '
+    'list of papers that used it as a mammalian beta-galactosidase antibody, '
+    'and citing the review by Sholto David for For Better Science, 21 July '
+    '2026. No application results and no image: OGA has not tested it.'
+)
+
+HERO_SCREENSHOT = '03_not_supportive_A7131.webp'
+
+#: Falls back to the full capture when the crop is not deployed: a hero drawn
+#: from the uncropped file is small, not broken.
+HERO_SCREENSHOT_CROP = '03_not_supportive_A7131_top.webp'
+
+
+def _extension_identity():
+    """The facts an IT team needs to allow the extension through a policy.
+
+    A managed browser is allowed or blocked by *identifier*, so a page that
+    explains how to get approval and does not carry the identifiers sends the
+    reader back to us for the one thing they came for. All of it is derived
+    rather than typed:
+
+    - the **Chrome/Edge id** is the last path segment of the store URL, which is
+      what a Chrome extension id is. Derived so it cannot drift from the button
+      above it, and so no second environment variable has to be remembered on
+      the day a listing goes live. An id is 32 letters a-p; anything else means
+      the URL is not a store link and the page says to read the id off the
+      listing instead of printing a wrong one.
+    - the **Firefox id**, the **update URL** and the **site count** come from
+      the shipped manifest, which is the thing being installed. A count typed
+      here would be wrong the first time a publisher was added.
+
+    **The site count is domains, and `matches` is not that number.** Every site
+    is listed twice in the manifest -- `https://*.nature.com/*` and
+    `https://nature.com/*` -- so `len(matches)` was 196 where the list covers
+    **100** publisher domains, and the page said so twice, in the section an IT
+    team reads to decide whether to allow it. Derived and doubled is still the
+    wrong noun: the same count-versus-the-thing-it-counts shape as every other
+    one in CLAUDE.md, arrived at by deriving the wrong quantity rather than by
+    typing a number. Hosts are folded to their registrable domain as well, or
+    PubMed and PMC count as two sites and `onlinelibrary.wiley.com` is a
+    publisher Wiley does not already own a row for (106 hosts, 100 domains).
+    """
+    import json
+    import re
+
+    identity = {'chrome_id': '', 'gecko_id': '', 'update_url': '',
+                'site_count': 0}
+    chrome_url = getattr(settings, 'EXTENSION_CHROME_URL', '') or ''
+    tail = chrome_url.rstrip('/').rsplit('/', 1)[-1]
+    if re.fullmatch(r'[a-p]{32}', tail):
+        identity['chrome_id'] = tail
+
+    manifest_path = (Path(settings.BASE_DIR) / 'browser-extension'
+                     / 'manifest.json')
+    try:
+        with open(manifest_path, encoding='utf-8') as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        # The page is still worth drawing without them; every other line in the
+        # section stands on its own.
+        return identity
+
+    gecko = (manifest.get('browser_specific_settings', {})
+             .get('gecko', {}))
+    identity['gecko_id'] = gecko.get('id', '')
+    identity['update_url'] = gecko.get('update_url', '')
+    scripts = manifest.get('content_scripts') or [{}]
+    identity['site_count'] = len(
+        _manifest_domains(scripts[0].get('matches') or []))
+    return identity
+
+
+# Two-part public suffixes that appear in the manifest's own list. Not a
+# public-suffix library: the list is `browser-extension/manifest.json`, it is
+# read here, and `tests_extension_scope` walks it, so an entry this does not
+# know about is a test failure rather than a silently wrong number on a page.
+_TWO_PART_TLDS = ('co', 'ac', 'org', 'com', 'net', 'gov', 'edu', 'go', 'or')
+
+
+def _manifest_domains(matches):
+    """The publisher domains a list of match patterns covers.
+
+    `https://*.nature.com/*` and `https://nature.com/*` are one site, and
+    `pmc.ncbi.nlm.nih.gov`, `pubmed.ncbi.nlm.nih.gov` and `ncbi.nlm.nih.gov`
+    are one domain. Returns the set so a caller can count it or print it.
+    """
+    domains = set()
+    for pattern in matches:
+        if '://' not in pattern:
+            continue
+        host = pattern.split('://', 1)[1].split('/', 1)[0]
+        host = host.lstrip('*').lstrip('.')
+        if not host:
+            continue
+        parts = host.split('.')
+        if len(parts) >= 3 and parts[-2] in _TWO_PART_TLDS:
+            domains.add('.'.join(parts[-3:]))
+        else:
+            domains.add('.'.join(parts[-2:]))
+    return domains
+
+
 def _extension_screenshots():
-    """The listing screenshots whose files are actually deployed."""
+    """The listing screenshots whose files are actually deployed.
+
+    **These are the page's figures again, replacing the seven card crops on
+    29 Aug 2026** (owner). The crops were introduced in August precisely
+    because the listing set had gone stale — it showed wording that had just
+    been replaced — and the same argument now runs the other way: the listing
+    set is the current one, captured on 0.3.2 with the four rungs and the new
+    colours, and the crops are the stale pair.
+
+    It gives up the thing the crops were also for: **the words are in the
+    pixels here**, so they cannot be selected, translated or reworded without
+    regenerating an image. `alt` carries the headline and the sentence for that
+    reason — it is the whole of what a screen-reader user gets, and
+    `LISTING_SCREENSHOTS` is the one copy both are drawn from.
+    """
     here = Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'extension'
     return [
-        {'src': f'core/extension/{name}', 'title': title, 'note': note}
-        for name, title, note in EXTENSION_SCREENSHOTS
+        {'src': f'core/extension/{name}', 'title': title, 'note': note,
+         'alt': alt}
+        for name, title, note, alt in LISTING_SCREENSHOTS
         if (here / name).exists()
     ]
+
+
+def _extension_hero(shots):
+    """Pull the hero figure out of the grid, so it is drawn once.
+
+    Returns ``(hero, rest)``. The hero keeps the tuple's own title, note and
+    ``alt`` — one copy of the words — and gains ``full``, the uncropped capture
+    Enlarge opens. Drawing it in both places would be the same picture twice on
+    one page; leaving it in the grid as well is the failure this splits.
+
+    A missing crop falls back to the full capture, and a missing capture leaves
+    the grid exactly as it was: no hero rather than a broken image.
+    """
+    here = Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'extension'
+    hero = None
+    rest = []
+    for shot in shots:
+        if shot['src'].rsplit('/', 1)[-1] != HERO_SCREENSHOT:
+            rest.append(shot)
+            continue
+        hero = dict(shot, full=shot['src'])
+        if (here / HERO_SCREENSHOT_CROP).exists():
+            hero['src'] = f'core/extension/{HERO_SCREENSHOT_CROP}'
+    return hero, rest
 
 
 def _extension_page(request, is_public):
@@ -1052,15 +1333,83 @@ def _extension_page(request, is_public):
 
     from .recommendations import CONSENSUS_PROTOCOL_URL
 
+    # The two numbers the page leads with, both derived. Typed, they are the
+    # kind of figure that is right on the day it is written and quoted for a
+    # year afterwards -- the page already carried "more than 29,000 published
+    # papers" as prose. `headline_counts` is the one reader for what the site
+    # has published (the same `tests` the home page prints), and the citation
+    # snapshot counts its own papers. `citation_papers` is None when no
+    # snapshot is deployed, which the template draws rather than printing a
+    # nought into a sentence about scale.
+    from pipeline.public import headline_counts
+
+    from . import citations
+
+    snapshot = citations.summary() or {}
+    citation_papers = (snapshot.get('counts') or {}).get('papers') or None
+
+    # The listing set, not the card crops: see `_extension_screenshots`. One
+    # of the five is drawn at the top instead of in the grid; `_extension_hero`
+    # is the only place that decides which.
+    hero_shot, screenshots = _extension_hero(_extension_screenshots())
+
+    # The declared-target card, captured on a real paper. It is NOT in the
+    # listing grid and must not be: the grid is what a reader can install
+    # today, and this is the one figure on the page showing a build the stores
+    # have not approved. It sits inside the Coming-in block, which says so.
+    #
+    # Replaces an HTML mock of the same card. The mock was right while no
+    # capture existed — a screenshot of an uninstallable build, drawn from the
+    # card's own stylesheet — and a real one is better the moment there is one:
+    # the mock was a drawing of what the card *should* look like, which is a
+    # claim nobody had checked.
+    confusion_shot = None
+    _shot = (Path(settings.BASE_DIR) / 'core' / 'static' / 'core'
+             / 'extension' / CONFUSION_SCREENSHOT)
+    if _shot.exists():
+        confusion_shot = {
+            'src': f'core/extension/{CONFUSION_SCREENSHOT}',
+            'alt': CONFUSION_SCREENSHOT_ALT,
+        }
+
     return render(request, 'core/extension.html', {
         'chrome_url': getattr(settings, 'EXTENSION_CHROME_URL', ''),
-        'screenshots': _extension_screenshots(),
+        'hero_shot': hero_shot,
+        'screenshots': screenshots,
         'firefox_url': getattr(settings, 'EXTENSION_FIREFOX_URL', ''),
         'edge_url': getattr(settings, 'EXTENSION_EDGE_URL', ''),
         'is_public': is_public,
         'signed_xpi': signed_xpi,
         'xpi_version': xpi_version,
+        # The release that first draws a declared-target notice. Passed in rather
+        # than written into the template, so the page and `core.W006` — which
+        # warns once this version is actually being served and the page's
+        # "coming soon" has become false — read one constant.
+        'confusion_release': target_confusions.EXTENSION_RELEASE,
+        # Counted, never typed: the block below quotes how many product codes
+        # and how many reviews are on file, and both moved the week they were
+        # written. `public_totals` is the one reader.
+        'confusion_totals': target_confusions.public_totals(),
         'consensus_protocol_url': CONSENSUS_PROTOCOL_URL,
+        'confusion_shot': confusion_shot,
+        'citation_papers': citation_papers,
+        'citeab_data_through': (snapshot.get('source') or {}).get(
+            'citeab_data_through', ''),
+        **headline_counts(),
+        # NOTHING member-conditional belongs in this context, and the team's
+        # build link is the one that tried. `/extension/` is not in
+        # `cache_headers.NEVER_CACHED_PREFIXES`, so an anonymous 200 goes to the
+        # edge with `s-maxage` and `Cookie` stripped from `Vary` — Cloudflare
+        # then serves that one copy to everybody, and a signed-in member gets
+        # the stranger's page. A footer panel gated on membership was added on
+        # 3 Sep 2026 and was invisible to the member it was for, with a cache
+        # purge changing nothing.
+        #
+        # It also broke the argument `cache_headers` rests on: that no public
+        # template renders anything belonging to a person, so the worst a
+        # mis-served copy can do is show a wrong hyperlink. The download lives
+        # on the pipeline hub instead, which IS in that prefix list.
+        **_extension_identity(),
     })
 
 
@@ -1138,11 +1487,13 @@ def extension_download(request):
     """The packaged extension, for the team and for store submission.
 
     Always behind the pipeline login — this is a build artefact, not something
-    the public should be side-loading. Once the store listings exist, everyone
-    else installs from there.
+    the public should be side-loading. Everyone else installs from a store.
 
     The zip carries a snapshot built from the live database, so it works on real
-    papers immediately rather than shipping the small seed used by the tests.
+    papers immediately rather than shipping the 18-record seed the tests use.
+    **That is also why it cannot be produced from a checkout, a CI job or a web
+    session**: deploy first, then download from here, or the packaged snapshot is
+    the previous code's and nothing on the page says so.
     """
     from pipeline.decorators import pipeline_member_required
 
@@ -1340,6 +1691,8 @@ def embed_antibody_card(request):
         'desc': desc,
         'experiment_cards': experiment_cards,
         'applications': applications,
+        # Same heading as the gene page's, from the same constant.
+        'supported_applications_label': R.SUPPORTED_APPLICATIONS_LABEL,
         'gene_has_recommendations': gene_has_recommendations,
         'compact': compact,
         'report_link': report_link,
@@ -1491,6 +1844,14 @@ def nominate_gene(request):
                     'applications': GR.application_labels(
                         gene_request.applications,
                         gene_request.applications_other),
+                    # `recorded` is what the analytics event is gated on, and it
+                    # is set here and nowhere else: the honeypot above renders
+                    # this same page for a bot, and a conversion count that
+                    # includes them is worse than no count. `source` rides
+                    # along so the funnel splits by where they came in, the
+                    # same value that goes on the row.
+                    'recorded': True,
+                    'source': source,
                 })
             # A refusal: fall through and draw the verdict's own message.
 

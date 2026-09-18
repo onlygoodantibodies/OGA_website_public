@@ -228,7 +228,7 @@
             above, or email
             <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a>.</li>
         <li><strong>Modification-specific antibodies are out of scope.</strong>
-            Our verdicts rest on knockout controls, and a knockout removes the
+            Our results rest on knockout controls, and a knockout removes the
             whole protein — so it cannot show whether an antibody is specific
             for a phosphorylated or otherwise modified form.</li>
       </ul>
@@ -238,24 +238,8 @@
 </div>
 
 <!-- Footer -->
-<footer class="footer">
-    <div class="footer-container">
-        <div class="footer-column">
-            <h4>Quick Links</h4>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'about' %}">About Us</a>
-            <a href="{% url 'publications' %}">Publications</a>
-            <a href="{% url 'news' %}">News</a>
-            <a href="{% url 'contact' %}">Contact</a>
-        </div>
-        <div class="footer-column">
-            <h4>Contact Us</h4>
-            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    </div>
-</footer>
+{% include 'core/footer.html' %}
+
+{% include 'core/cookie_banner.html' %}
 </body>
 </html>

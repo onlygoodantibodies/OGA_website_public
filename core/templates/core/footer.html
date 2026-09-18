@@ -1,0 +1,55 @@
+{% load static %}
+{% comment %}
+The one site footer.
+
+It had been hand-copied into 28 templates in fourteen variants, so the two
+changes the team review asked for in August 2026 — LinkedIn and BlueSky belong
+under "Follow Us" rather than "Contact Us", and Quick Links has to carry the
+newer tabs — could not have been made true of every page anywhere else. A
+footer fixed in one template is a footer fixed on one page.
+
+Quick Links mirrors core/header.html, which is the site's own answer to the
+question "what pages are there". Add a page to one and add it to the other, or
+the footer starts quietly describing an older site.
+
+Pages that need the full-bleed variant ask for it by name:
+  {% include 'core/footer.html' with footer_class="footer-publications" %}
+{% endcomment %}
+{% with here=request.resolver_match.url_name %}
+<footer class="footer {{ footer_class }}">
+  <div class="footer-container">
+    <div class="footer-column">
+      <h4>Quick Links</h4>
+      <a href="{% url 'home' %}"{% if here == 'home' %} class="active"{% endif %}>Home</a>
+      <a href="{% url 'tools_hub' %}"{% if here == 'tools_hub' %} class="active"{% endif %}>Tools</a>
+      <a href="{% url 'about' %}"{% if here == 'about' %} class="active"{% endif %}>About Us</a>
+      <a href="{% url 'roadmap' %}"{% if here == 'roadmap' %} class="active"{% endif %}>Roadmap</a>
+      <a href="{% url 'champions' %}"{% if here == 'champions' %} class="active"{% endif %}>Champions</a>
+      <a href="{% url 'news_publications' %}"{% if here == 'news_publications' %} class="active"{% endif %}>News &amp; Publications</a>
+      <a href="{% url 'partners' %}"{% if here == 'partners' %} class="active"{% endif %}>Partners</a>
+      <a href="{% url 'contact' %}"{% if here == 'contact' %} class="active"{% endif %}>Contact</a>
+    </div>
+    <div class="footer-column">
+      <h4>Contact Us</h4>
+      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
+    </div>
+    <div class="footer-column">
+      <h4>Follow Us</h4>
+      {% comment %}
+      The icon carries an empty alt because the link's own text names it; a
+      filled alt would make a screen reader say "LinkedIn LinkedIn".
+      {% endcomment %}
+      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" rel="noopener">
+        <img src="{% static 'core/linkedin-logo.webp' %}" alt="" class="social-icon">LinkedIn
+      </a>
+      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" rel="noopener">
+        <img src="{% static 'core/bluesky.png' %}" alt="" class="social-icon">BlueSky
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">&uarr; Back to Top</button>
+  </div>
+</footer>
+{% endwith %}

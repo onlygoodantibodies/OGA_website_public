@@ -120,7 +120,6 @@
   position: absolute; top: 16px; right: 16px;
 }
 .th-badge-new { background: #dcfce7; color: #16a34a; }
-.th-badge-external { background: #f1f5f9; color: #64748b; }
 .th-badge-expanding { background: #fef3c7; color: #d97706; }
 .th-badge-early { background: #ede9fe; color: #6d28d9; }
 
@@ -178,7 +177,7 @@
   <div class="th-hero-inner">
     <span class="th-hero-label">Tools &amp; Resources</span>
     <h1>Tools for finding, planning, and documenting antibody validation</h1>
-    <p>Free tools for finding validated antibodies, planning proportionate validation, documenting your results, and learning best practice — built on consensus recommendations from 32 international experts.</p>
+    <p>Free tools for finding antibodies with supportive characterisation data, planning proportionate validation, documenting your results, and learning best practice — built on consensus recommendations from 32 international experts.</p>
   </div>
 </section>
 
@@ -190,12 +189,18 @@
 
   <!-- 1. OGA Database -->
   <div class="th-card th-card-database">
-    <span class="th-badge th-badge-external">External</span>
+    {% comment %}
+    No "External" badge: the database is this site. The badge was honest about
+    what the card did rather than about where it went — it linked to
+    onlygoodantibodies.co.uk absolutely and opened a new tab, so the card
+    behaved like an offsite link and was labelled as one. Both halves are
+    fixed here: {% url 'home' %} like every other card, and the same tab.
+    {% endcomment %}
     <div class="th-card-icon">🔬</div>
     <div class="th-card-label">Find antibodies</div>
     <h2>OGA Antibody Database</h2>
     <p>Search curated, independent characterisation data with knockout controls across Western blot, IP, IF, and flow cytometry. The starting point for any antibody selection.</p>
-    <a href="https://onlygoodantibodies.co.uk/" target="_blank" rel="noopener" class="th-card-link">
+    <a href="{% url 'home' %}" class="th-card-link">
       Search the database <span class="th-arrow">→</span>
     </a>
   </div>
@@ -273,7 +278,8 @@
     <h2>Check a paper's antibodies with your AI</h2>
     <p>Connect OGA to Claude, ChatGPT, or any MCP-capable assistant, then have it read a
        manuscript or preprint and flag which of the antibodies it cites are independently
-       knockout-validated — with per-application results, right inside your own chats.</p>
+       knockout-controlled — with per-application results, right inside your own chats. Ask,
+       and it also reports which specificity controls the paper shows for them.</p>
     <a href="{% url 'connect_your_ai' %}" class="th-card-link">
       Connect your AI <span class="th-arrow">→</span>
     </a>
@@ -346,6 +352,8 @@
 </div>
 
 </div><!-- /.th-main -->
+
+{% include 'core/footer.html' %}
 
 </body>
 </html>

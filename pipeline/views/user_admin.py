@@ -49,6 +49,11 @@ def user_board(request):
         "roles": opts["roles"],
         "new_columns": member_svc.COLUMNS,
         "new_example": member_svc.EXAMPLE,
+        # Both cells here are closed sets and both were bare text boxes, on the
+        # page that decides who can reach the pipeline at all. The Add panel had
+        # the same gap in a worse form: it listed the roles in prose beside a
+        # blank column, which is a limited set described rather than offered.
+        "cell_choices": member_svc.cell_choices(),
         # So the page can say "you cannot do that to yourself" before you try.
         "me": request.user.username,
     })

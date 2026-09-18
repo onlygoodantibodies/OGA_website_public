@@ -27,14 +27,34 @@
     and sessions boards, same per-row preview as a paste.{% endcomment %}
     <a id="dl-btn" href="{% url 'pipeline:cell_line_export' %}"
        class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Download these</a>
+    {% comment %}The blank sheet, on the page rather than only inside the two
+    pop-outs that render it.
+
+    `OGABoard.newEntry` and `uploadPanel` both carry the link, so it was
+    reachable — after you had already decided to open one of them. Somebody
+    looking at this board and wondering whether they can work in Excel could not
+    see that they can, which is the same gap the targets board's header and the
+    gene page's two panels already fixed. uOttawa found it from the other end:
+    they had the file, and asked what a column meant (14 Sep 2026) — a question
+    the sheet now answers on the column itself (`imports.TEMPLATE_NOTES`).
+
+    A receipt because a plain `<a href>` is invisible — the browser writes the
+    file and the page does not move.{% endcomment %}
+    <a href="{% url 'pipeline:import_template' kind='cell-lines' %}"
+       data-receipt="header-template-receipt"
+       class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+       title="An empty spreadsheet with the right columns and an example row — every heading carries a note saying what the column wants">⬇ Blank template</a>
     <button type="button" id="upload-btn"
             class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Upload a sheet</button>
   </div>
+  <p id="header-template-receipt" class="text-sm mt-2" role="status" aria-live="polite"></p>
   <div id="upload-panel"></div>
   <div id="identity-panel"></div>
 
   {# New entries, on the board rather than a page of their own #}
   {{ new_columns|json_script:"new-columns" }}
+  {{ cell_choices|json_script:"cell-choices" }}
+  {{ panel_choices|json_script:"panel-choices" }}
   {{ new_example|json_script:"new-example" }}
   <div id="new-panel"></div>
 
@@ -239,7 +259,7 @@
     them to a dead link. Name the button on this page instead.
   {% endcomment %}
   <p class="text-xs text-gray-400 mt-2">
-    Name, gene, genotype, parent and supplier aren't editable in the grid — they
+    Name, gene, genotype, clone, parent and supplier aren't editable in the grid — they
     are what the line <em>is</em>, and every session that used it still points at
     this row. <b>Click the line's name</b> to change them: it says what is
     attached before you type, and it matches a supplier against the ones already
@@ -315,7 +335,7 @@
         ${/* The name is part of what the line is, so clicking it opens the
               identity dialog rather than a read-only page. */''}
         <button type="button" class="identity text-left hover:text-ycharos-700 underline decoration-dotted"
-                data-id="${r.id}" title="Name, gene, genotype and parent — what this line is. Click to change them.">
+                data-id="${r.id}" title="Name, gene, genotype, clone and parent — what this line is. Click to change them.">
           ${esc(r.name) || '—'}</button>
         ${/* Quiet by design: a control that catches the eye is one
               somebody presses to find out what it does — and it is only
@@ -345,6 +365,25 @@
               : OGABoard.DASH)}</td>
       <td class="px-3 py-2">${r.genotype ? pill(r.genotype, GENOTYPE_TONE[r.genotype] || 'flat') : OGABoard.DASH}</td>
       <td class="px-3 py-2 text-gray-600 text-xs">${esc(r.parent) || OGABoard.DASH}</td>
+      ${/* The clone. Identity, not a cell: a gene and a background define the
+            knockout and the clone says which one, so retyping it here would
+            make the row a different single-cell line while its vials, readings
+            and sessions stayed attached. It opens the same dialog the name
+            does.
+
+            A knockout with siblings says how many, because a cell showing one
+            of several looks like an answer — and a knockout with siblings and
+            no clone recorded says *that*, which is the state the Access merge
+            left 26 of these rows in. A wild type has no clone at all and gets a
+            dash rather than an empty cell somebody would try to fill in. */''}
+      <td class="px-3 py-2 text-xs">${r.genotype === 'KO'
+        ? `<button type="button" class="identity text-left hover:text-ycharos-700 underline decoration-dotted"
+                   data-id="${r.id}"
+                   title="Which single-cell clone this knockout is${
+                     r.clone_total > 1 ? ` — one of ${r.clone_total} on file for this gene and background` : ''
+                   }. Click to change it.">${
+            esc(r.clone_note) || `<span class="text-gray-400 italic">no clone recorded</span>`}</button>`
+        : OGABoard.DASH}</td>
       ${/* The editable cell is the line's own number — the first batch's, which
             the Access-era importer bridged up onto the line. Every freeze-down
             batch is listed under it, because searching a *second* batch's
@@ -386,6 +425,22 @@
             {label: 'how the knockout was confirmed, or why it is not',
              empty: r.ko_validated ? 'how was it confirmed?' : 'why not? add a reason'})}</div>
       </td>
+      ${/* Adherent or suspension. Beside the medium because the two are one
+            question — how to culture this line — and first of the pair because
+            it is the half you need before you thaw a vial. uOttawa asked for
+            it for exactly that reason: a student looking a line up had nothing
+            on the screen telling them how it grows, though 411 rows have
+            carried the answer since the Access import. The empty text is a
+            prompt and not a value (`data-empty`), so a blank cell says what it
+            wants rather than reading as "neither". */''}
+      <td class="px-3 py-2 text-gray-600 text-xs">${cell(r, 'growth_properties', r.growth_properties,
+          {empty: 'adherent? suspension?'})}</td>
+      ${/* Human or mouse. 604 of 616 live rows are human, so this column is
+            almost always the same word — which is the argument for drawing it,
+            not against: a reader who never sees it cannot spot the eight that
+            are not. */''}
+      <td class="px-3 py-2 text-gray-600 text-xs">${cell(r, 'species', r.species,
+          {empty: 'add — e.g. Human'})}</td>
       <td class="px-3 py-2 text-gray-600 text-xs">${cell(r, 'medium', r.medium)}</td>
       <td class="px-3 py-2 text-xs whitespace-nowrap">
         <div>${cell(r, 'site', r.site, {empty: 'set site'})}</div>
@@ -398,8 +453,14 @@
 
   const errors = banner('board-error', 'board-error-text', 'board-error-close');
 
+  /* What each cell may hold — see services/cell_line_board.py::cell_choices.
+   * `site` is the only closed set: `sites.strict_id` refuses anything else,
+   * so a text box here could only ever offer a spelling nobody accepts. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
+  const panelChoices = JSON.parse(document.getElementById('panel-choices').textContent);
+
   const board = OGABoard.create({
-    grid, filtersForm, errors, csrf,
+    grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
     urls: {rows: rowsUrl, patch: patchUrl},
@@ -412,7 +473,8 @@
     // the Gene box can be cleared without pressing Apply, and the grid redraws
     // from the form after an add or a delete.
     afterLoad: () => OGABoard.geneGate(
-      filtersForm, document.getElementById('delete-gate')),
+      filtersForm, document.getElementById('delete-gate'),
+      OGABoard.GENE_GATE_CELL_LINES),
   });
 
   // ── Add cell lines, in a pop-out on this page ─────────────────────────
@@ -422,6 +484,17 @@
     columns: JSON.parse(document.getElementById('new-columns').textContent),
     example: JSON.parse(document.getElementById('new-example').textContent),
     templateUrl: "{% url 'pipeline:import_template' kind='cell-lines' %}",
+    /* Site and genotype are the two limited sets on this panel. `storage` here
+     * is the *location note* rather than a temperature column
+     * (`bulk_cell_lines.HEADER_ALIASES` maps it to `location`, and
+     * `_storage_type` reads the shelf back out of it), so the six temperatures
+     * are offered as the convention the sheet's own example already teaches —
+     * a reminder, not a narrowing. */
+    suggestions: {
+      site: OGABoard.optionValues(cellChoices.site),
+      genotype: panelChoices.genotype,
+      storage: panelChoices.storage,
+    },
     urls: {
       preview: "{% url 'pipeline:bulk_cell_lines_parse' %}",
       commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
@@ -468,9 +541,7 @@
               <b>C-number</b> (<span class="font-mono">C-48</span>) — most rows on
               file use the C-number. Its own
               <span class="font-mono">c number</span> column is this line's
-              freeze-down batch, and
-              <span class="font-mono">paired ko</span> is only for a WT that arrived
-              beside a knockout.</span>
+              freeze-down batch.</span>
             </span>`,
     extraHtml: `<div class="flex flex-wrap items-end gap-4">
         <label class="block max-w-xs">
@@ -486,15 +557,10 @@
             <option value="KO">KO</option>
           </select>
         </label>
-        <label class="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" id="ne-create-targets" class="rounded border-gray-300">
-          Add the gene as a new target if it isn't one yet
-        </label>
       </div>`,
     extraValues: () => ({
       default_gene: document.getElementById('ne-default-gene').value.trim(),
       default_genotype: document.getElementById('ne-default-genotype').value,
-      create_targets: document.getElementById('ne-create-targets').checked,
     }),
     buildBody: (text, extra, phase) => ({text, ...extra, dry_run: phase !== 'commit'}),
     renderPreview: d => {
@@ -503,7 +569,7 @@
       return `<div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
         <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
         <ul class="mt-1 text-gray-700 list-disc list-inside">
-          <li>${s.create || 0} new, ${s.update || 0} already known (will be updated)</li>
+          <li>${s.create || 0} new, ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}</li>
           ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
             sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
           ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
@@ -612,6 +678,8 @@
       {name: 'genotype', label: 'Genotype', options: ['WT', 'KO', 'other']},
       {name: 'gene', label: 'Gene',
        hint: 'A KO needs one. A WT parental line is recorded once with no gene — leave it blank.'},
+      {name: 'clone', label: 'Clone',
+       hint: 'Which single-cell clone this knockout is — often a different guide. The gene and the background say what was knocked out; this says which one. Blank if it was not recorded; only a KO has one.'},
       {name: 'parent', label: 'Parent line',
        hint: 'The wild type a knockout was made from. Must be a line already on file.'},
       {name: 'company', label: 'Supplier',
@@ -722,6 +790,10 @@
       btn.disabled = false;
     }
   });
+
+  // The header's template link. `downloadReceipts` marks what it has
+  // wired and the panels wire their own, so this is safe to call here.
+  OGABoard.downloadReceipts();
 
   board.load();
 })();

@@ -84,3 +84,7 @@ core/data/*.doi-cache.json
 *.sql
 data.json
 access_csvs/
+
+# Europe PMC annotation files and the Europe PMC answers they were built from
+# (core/europepmc_annotations.py). Regenerated per run; uploaded, never committed.
+europepmc_annotations/

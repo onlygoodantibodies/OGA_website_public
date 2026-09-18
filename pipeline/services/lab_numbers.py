@@ -382,3 +382,44 @@ def assign(instance, *, db: str = DB) -> int | None:
     number = next_number(kind, site_id, db=db)
     setattr(instance, k.attr, number)
     return number
+
+
+def ensure_numbered(records, *, db: str = DB) -> list[dict]:
+    """Give a number to each of these that has none. Returns what was issued.
+
+    **The backstop for "a number exists before the experiment".** Since 2 Sep
+    2026 an antibody logged on the board is created *without* one, so that a
+    bench receiving reagents over weeks can deal the numbers out in one go and
+    keep a protein's vials in one freezer box (``services/renumber.py``). That
+    freedom has to end somewhere, and it ends here: planning a session is the
+    moment a bench sheet gets printed, ``sheet_number`` prints the A-number on
+    it, and a blank cell there is a tube nobody can identify — the same defect
+    that column had when it printed a record id.
+
+    Ordered, and per site: two records at one bench take consecutive numbers,
+    because each is saved before the next asks for the highest. ``assign`` holds
+    every rule about *when* a number is issued at birth; this is the one place
+    that issues one to a record that already exists, and it still refuses a
+    record with no site and never overwrites a number already there.
+    """
+    issued = []
+    if is_suspended():
+        return issued
+    for obj in records:
+        kind = kind_of(obj)
+        if kind is None:
+            continue
+        k = spec(kind)
+        if getattr(obj, k.attr, None) is not None:
+            continue
+        site_id = getattr(obj, "site_id", None)
+        if not site_id:
+            continue
+        number = next_number(kind, site_id, db=db)
+        setattr(obj, k.attr, number)
+        # `update_fields` so nothing else on the row is rewritten — the same
+        # reason `renumber.apply` uses it.
+        obj.save(using=db, update_fields=[k.attr])
+        issued.append({"number": label(number, kind=kind),
+                       "name": holder_label(obj)})
+    return issued

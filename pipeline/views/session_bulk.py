@@ -121,17 +121,21 @@ def _header(d):
 @pipeline_member_required
 @require_POST
 def session_plan_commit(request):
-    """Create the session + one result row per antibody. Anything not yet in the
-    pipeline is created here: the target (if new), the WT/KO cell lines (if new),
-    and any new antibody catalogue numbers. Everything commits in one
-    transaction, so a bad header rolls the whole lot back — no orphans."""
+    """Create the session + one result row per antibody.
+
+    The WT/KO cell lines and any new antibody catalogue numbers are created
+    here; **the target is not** (owner, 5 Sep 2026) — it is resolved, and a gene
+    that is not in the pipeline is refused by name with the board to add it on.
+    This panel used to mint one silently, with no tick and nothing in the
+    preview naming it. Everything else commits in one transaction, so a bad
+    header rolls the whole lot back — no orphans."""
     try:
         d = json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return JsonResponse({"error": "invalid JSON"}, status=400)
     from django.db import transaction
     from django.urls import reverse
-    from pipeline.services.targets import resolve_or_create_target
+    from pipeline.services.targets import resolve_target
 
     member = _member(request)
     header = _header(d)
@@ -142,15 +146,21 @@ def session_plan_commit(request):
     if not rows:
         return JsonResponse({"ok": False, "errors": ["add at least one antibody"]})
 
+    # **A target is added on the targets doors and nowhere else** (owner, 5 Sep
+    # 2026). This panel created one silently — no tick, no preview naming it,
+    # and a 10 s UniProt call inside the transaction below — so recording a
+    # session against a mistyped gene minted that gene. It resolves now, and
+    # refuses by name, before anything is opened.
+    target = resolve_target(gene)
+    if target is None:
+        return JsonResponse({"ok": False, "errors": [
+            f"'{gene}' is not a gene in the pipeline yet. A session is recorded "
+            f"against a target that already exists — add it on the target board "
+            f"first, then come back."]})
+
     created = {"target": None, "antibodies": [], "cell_lines": []}
     try:
         with transaction.atomic(using=DB):
-            # Target — create it (UniProt-enriched) if it isn't in the pipeline yet.
-            target, t_created = resolve_or_create_target(gene, member=member)
-            if not target:
-                raise ValueError(f"could not resolve or create target '{gene}'")
-            if t_created:
-                created["target"] = target.gene_name
 
             # Cell lines — resolve existing by name, or create a minimal record.
             wt_cl, wt_new = bs.resolve_or_create_cell_line(

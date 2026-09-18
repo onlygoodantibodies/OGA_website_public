@@ -34,10 +34,11 @@ comment at the end of `build_server()` in `server_a_readonly.py`.
 
 ### Server A — read-only analytics
 Answers questions over the live data: *"recombinant antibodies for SNCA?"*,
-*"which antibodies are **not** recommended for WB, and why?"*, *"is this paper's
-antibody in the OGA dataset?"*. It can only ever read. Tools: `list_targets`,
-`target_report`, `antibodies_by_recommendation` (recommended **or not**, with the
-supporting evidence for non-recommendations), `antibody_validation` (look one up
+*"which antibodies is the data **not** supportive for in WB, and why?"*, *"is this
+paper's antibody in the OGA dataset?"*. It can only ever read. Tools:
+`list_targets`, `target_report`, `antibodies_by_support` (one rung at a time —
+supportive, limited support, not supportive or not tested — with the supporting
+evidence), `antibody_validation` (look one up
 by RRID / catalogue / gene → verdict per app + KO-controlled evidence +
 published-image apps + F1000/Zenodo report DOIs — the "how robust independently?"
 lookup), and `search_antibodies` (locate one antibody by catalogue/RRID/gene).
@@ -75,9 +76,9 @@ skill**.
 
 **No whole-database analytics — by policy.** The tools answer per-antibody and
 per-gene questions only. There is no free-form SQL tool and no cross-gene
-antibody list (`antibodies_by_recommendation` requires a gene; `search` never
+antibody list (`antibodies_by_support` requires a gene; `search` never
 matches by company), so the server cannot be used to compare vendors by how often
-their antibodies are recommended across the database.
+their antibodies are supported across the database.
 
 The real guarantee is the **`mcp_readonly` Postgres role**: `GRANT SELECT` on the
 lab tables only, `default_transaction_read_only = on`, a `statement_timeout`, and
@@ -192,10 +193,13 @@ Prove the servers work over the protocol, then connect them as tools.
    python mcp_servers/seed_scratch.py
    python mcp_servers/smoke_client.py
    ```
-   You should see the Server A connector respond with **7 tools** — the
+   You should see the Server A connector respond with **9 tools** — the
    per-antibody / per-gene data tools (`antibody_validation`, `target_report`,
-   `antibodies_by_recommendation`, `list_targets`, `search_antibodies`) plus
-   `check_manuscript` and `scan_controls`.
+   `antibodies_by_support`, `list_targets`, `search_antibodies`) plus
+   `check_manuscript`, `scan_controls`, `controls_rubric` and
+   `how_to_read_a_paper`. (It read **7** until 14 Sep 2026, which was already
+   two short before `antibodies_by_recommendation` was replaced — counted off
+   the registrations rather than carried forward.)
 
 2. **Register the servers with your client.** Copy `mcp.example.json`, replace
    `ABSOLUTE_REPO_PATH` with your checkout path, and drop it in:

@@ -38,12 +38,64 @@ from pipeline.models import (Antibody as PipelineAntibody, PublicationImage,
                              Report)
 from pipeline.public import public_gene_names
 
-from .recommendations import (NOT_RECOMMENDED as _R_NOT_RECOMMENDED,
+from . import target_confusions
+
+from .recommendations import (APPLICATION_SCOPE as _R_APPLICATION_SCOPE,
+                              CONDITIONS_QUALIFIER as _R_CONDITIONS,
+                              CONSENSUS_PROTOCOL_URL as _R_PROTOCOLS_URL,
+                              NOT_RECOMMENDED as _R_NOT_RECOMMENDED,
                               NOT_TESTED as _R_NOT_TESTED,
+                              capability_axes as _R_capability_axes,
+                              QUALIFIER_CODES as _R_QUALIFIER_CODES,
+                              LIMITED_SUPPORT_NOTE as _R_LIMITED_NOTE,
+                              qualifier_code as _R_qualifier_code,
+                              verdict as _R_verdict,
                               RECOMMENDED as _R_RECOMMENDED,
+                              SCOPE_NOTE as _R_SCOPE_NOTE,
+                              SCOPE_SHORT as _R_SCOPE_SHORT,
                               curated_gene_ids, recommendation)
 
 BASE_URL = 'https://onlygoodantibodies.co.uk'
+
+#: Where the built snapshot is cached, and for how long.
+#:
+#: Defined here rather than in ``core/views.py`` because this module owns the
+#: snapshot: the view reads the key, and ``invalidate_snapshot`` below clears
+#: it. Two modules holding the string is how one of them ends up clearing a key
+#: nobody serves.
+EXTENSION_INDEX_CACHE_KEY = 'extension_index_v2'
+EXTENSION_INDEX_CACHE_SECONDS = 3600
+
+
+def invalidate_snapshot():
+    """Drop the cached snapshot, so the next request rebuilds it.
+
+    **A recommendation nobody can see is not a recommendation.** Setting a flag
+    on ``/pipeline/recommendations/`` writes to PostgreSQL immediately and the
+    board redraws — but ``/extension/index.json`` went on serving the previous
+    bytes for up to an hour, with a Cloudflare edge hour behind that and a daily
+    refresh in each install behind that. Up to about 26 hours from the save to a
+    reader seeing it, and no screen anywhere said so: the board showed the new
+    verdict, the extension showed the old one, and the only way to tell which
+    was current was to know this number existed.
+
+    Found on 28 Aug 2026, on SERPINA1/GTX112707 — the gene page said recommended
+    for WB and a hover card on the same screen said not recommended.
+
+    Clearing on write removes the first hour entirely. **The other two remain**:
+    the response still carries ``max-age=3600`` so Cloudflare holds a copy (and
+    lowering that trades a real bandwidth bill for it — see the root CLAUDE.md
+    on what leaves the origin), and an install still refreshes daily. One hour
+    is a different thing from a day, which is the whole of what this buys.
+
+    Cheap by construction: the cache is per-process LocMem, so this is a dict
+    delete. The cost is a rebuild on the next request after any write, which is
+    why it is worth knowing it fires on **every** antibody save and not only on
+    the flags — see ``core/apps.py``.
+    """
+    from django.core.cache import cache
+
+    cache.delete(EXTENSION_INDEX_CACHE_KEY)
 
 # Recommendation codes, kept as small ints because this file is downloaded by every
 # install and re-downloaded on every refresh.
@@ -94,6 +146,43 @@ def _verdicts(antibody, tested_types, gene_is_curated):
                                   tested_types, gene_is_curated)]
         for app in APPLICATIONS
     }
+
+
+def _qualified(antibody, tested_types, gene_is_curated, axes_by_app):
+    """This antibody's qualifiers — ``{application: code}``, sparse.
+
+    A negative that *did* the thing its application is for is a different answer
+    from one that showed nothing, and a supportive verdict the data fell short
+    of is a different answer from a clean one. On live data that is 491 of the
+    1,833 negatives and 312 of the 879 supportive western blots.
+
+    **Carried beside the codes in ``a``, never inside them.** ``a`` stays the
+    same three small ints it has always been, because every install
+    re-downloads this file daily and would receive a fourth value long before a
+    build that knew what to do with it — Chrome updates an extension silently
+    within hours, but the data does not wait for the update at all. A build that
+    has never heard of ``q`` ignores it and behaves exactly as it does today.
+
+    **Codes rather than sentences.** This file is a megabyte before gzip and the
+    wording belongs on the client, next to the other strings it draws;
+    ``recommendations.QUALIFIER_CODES`` owns both, and a test pins that the
+    client's table carries the same codes. Two letters also keeps the *grade*
+    on a supportive immunofluorescence verdict, which a bare list of
+    applications could not: `xs` and `sl` say how strongly, and the client needs
+    that to tell "Supportive — strongly selective" from a shortfall.
+
+    It was a list of application keys until 29 Aug 2026, read by no shipped
+    build, so widening it costs nothing.
+    """
+    out = {}
+    for app in APPLICATIONS:
+        db_app = _KEY_TO_APPLICATION[app]
+        axes = axes_by_app.get(db_app)
+        value = _R_verdict(antibody, db_app, tested_types, gene_is_curated, axes)
+        code = _R_qualifier_code(db_app, value, axes)
+        if code:
+            out[app] = code
+    return out
 
 
 def _absolute(url):
@@ -194,6 +283,13 @@ def build_index(aliases=None):
         .exclude(target__gene_name='')
     )
 
+    # The capability behind each negative, for the whole snapshot in one pass —
+    # two queries per application, not two per antibody. This file walks every
+    # published antibody, so a per-row lookup here is the N+1 that would show up
+    # as a slow feed rather than as a wrong answer.
+    axes = _R_capability_axes(
+        list(queryset.values_list('pk', flat=True)))
+
     for antibody in queryset:
         gene = antibody.target.gene_name
         rrid = (antibody.rrid or '').strip()
@@ -237,6 +333,14 @@ def build_index(aliases=None):
             'src': 'YCharOS',
             'ind': True,
         }
+        # Sparse: omitted entirely when nothing is qualified, which is most
+        # records. A key present on every row would cost the whole install base
+        # bytes for a fact about a minority of them.
+        qualified = _qualified(
+            antibody, tested_types, antibody.target_id in curated_targets,
+            {app: axes.get((antibody.pk, app)) for app in _KEY_TO_APPLICATION.values()})
+        if qualified:
+            record['q'] = qualified
         if antibody.supplier_url:
             record['p'] = antibody.supplier_url
         if antibody.clonality:
@@ -279,10 +383,67 @@ def build_index(aliases=None):
     # correct grey into an amber pointing at a 404.
     genes = public_gene_names()
 
-    return {
+    # Antibodies whose DECLARED target is not the one people buy them for, plus
+    # the published lists of papers that used them against the other protein.
+    # Read from committed files, so it moves on a deploy and not on a write --
+    # `_dataset_stamp` therefore still describes the antibody data, and the
+    # ETag over the body is what tells a cache this changed.
+    #
+    # Additive, and `schema` does NOT move: every install re-downloads this file
+    # daily and would receive the key long before a build that knows what to do
+    # with it. A build that has never heard of `target_confusions` ignores it.
+    # Absent entirely rather than null when nothing is on file, so a reader of
+    # the JSON can tell "no notices deployed" from "deployed and nothing matched".
+    confusions = target_confusions.index_payload()
+
+    index = {
         'schema': 1,
         'generated': _dataset_stamp(),
         'source': BASE_URL,
+        # What the verdicts do and do not cover, shipped WITH the data rather
+        # than written into the extension.
+        #
+        # `recommendations.py::SCOPE_NOTE` is the one reader for this sentence
+        # on every other surface, and the extension was the one place it could
+        # not reach: a card is drawn from bundled JS, so a copy there would be
+        # a second wording that drifts on the day the owner sharpens the first
+        # — which has already happened twice (7 and 12 Aug 2026). Sending it in
+        # the index makes the Python constant the source for the card too, and
+        # a reworded caveat lands on every install at the next daily refresh
+        # with no store review.
+        #
+        # `card.js` carries a fallback for an install whose cached index
+        # predates this key; both are additive, so `schema` does not move.
+        'scope': _R_SCOPE_NOTE,
+        'scope_short': _R_SCOPE_SHORT,
+        # Appended INSIDE the verdict, so the strong words never stand
+        # alone. See CONDITIONS_QUALIFIER for why that is not the same
+        # job as the scope note underneath.
+        'conditions_qualifier': _R_CONDITIONS,
+        'protocols_url': _R_PROTOCOLS_URL,
+        # Keyed the way THIS FILE keys applications ('IF', not 'ICC-IF'), so the
+        # extension can look one up with the same key it draws the tab under.
+        # Built through `_KEY_TO_APPLICATION` rather than spelled again, or this
+        # becomes the fifth place the two spellings have to agree.
+        'application_scope': {
+            key: _R_APPLICATION_SCOPE[app]
+            for key, app in _KEY_TO_APPLICATION.items()
+            if app in _R_APPLICATION_SCOPE
+        },
+        # The wording behind the qualifier codes, and the sentence that says
+        # what the middle rung is worth. Shipped for the same reason as the
+        # scope note: this is the text most likely to be reworded again — it
+        # took three passes to land — and going through the index makes each
+        # rewrite a deploy that reaches every install within a day, rather than
+        # an AMO submission and a review wait.
+        #
+        # `card.js` and `content.js` keep the same table hardcoded as a
+        # fallback, so an install whose cached index predates this key still
+        # draws a sentence. The two can differ for a day during a rollout; that
+        # is already true of the scope note and has never bitten.
+        'qualifier_words': {code: clause
+                            for code, (clause, _) in _R_QUALIFIER_CODES.items()},
+        'limited_support_note': _R_LIMITED_NOTE,
         'genes': genes,
         'aliases': aliases or {},
         'antibodies': antibodies,
@@ -301,6 +462,9 @@ def build_index(aliases=None):
             'clones': len(clones),
         },
     }
+    if confusions:
+        index['target_confusions'] = confusions
+    return index
 
 
 def _manifest_problems(manifest, ext_root):
@@ -343,6 +507,31 @@ def _manifest_problems(manifest, ext_root):
     return problems
 
 
+def manifest_version():
+    """The version `build_zip_bytes` would stamp on the artefact, or ``None``.
+
+    Read rather than passed around because the manifest is the one place the
+    version lives — `build_zip_bytes` names the zip from it, and both stores
+    refuse a number they have already seen. A surface offering the download can
+    therefore say which version it is about to hand over, which is the check
+    against submitting a version that is already published.
+
+    Answers ``None`` rather than raising: this is drawn on the pipeline hub, and
+    a missing or malformed manifest must cost a line on a page, never the page.
+    """
+    import json
+    import os
+
+    from django.conf import settings
+
+    path = os.path.join(settings.BASE_DIR, 'browser-extension', 'manifest.json')
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return json.load(fh).get('version') or None
+    except (OSError, ValueError):
+        return None
+
+
 def build_zip_bytes():
     """Package the extension as a zip, carrying the *live* data snapshot.
 
@@ -367,11 +556,33 @@ def build_zip_bytes():
     # 'signed' holds the Mozilla-signed .xpi we host. Packaging it inside the
     # next build would ship a 150 kB copy of the previous release to every user
     # and hand a store reviewer a signed binary with no explanation.
-    exclude_dirs = {'test', 'node_modules', '__pycache__', 'signed'}
+    # 'store' holds the listing screenshots and promo tiles — about 2 MB of
+    # marketing assets for a page a reviewer reads, not code the extension
+    # runs. It went in the day the assets landed and the allowlist test
+    # caught it, which is exactly the shape that test exists for.
+    exclude_dirs = {'test', 'node_modules', '__pycache__', 'signed', 'store'}
     # package.json defines `npm test` and nothing the extension runs. Shipping
     # it would hand a store reviewer a devDependency on Playwright to explain.
+    #
+    # CLAUDE.md is this directory's working notes. It shipped in the 0.2.5
+    # package — caught by reading the artefact before submitting it, which is
+    # the only thing that could have caught it: nothing failed, the extension
+    # works perfectly with it inside, and the file simply was not on this list
+    # because it was written after the list was. It is internal engineering
+    # prose (measured accuracy figures, the release procedure, why particular
+    # things are wrong) sitting in every user's install directory and in front
+    # of a store reviewer.
+    #
+    # Note the shape: an EXCLUDE list fails open, so a new file in this
+    # directory ships by default and no test says so. That is the opposite
+    # trade-off to Render's ignored-paths filter (root CLAUDE.md, Deploy),
+    # where failing open is what makes it safe — there an unlisted path
+    # rebuilds a backup nobody was watching, here an unlisted file is published.
+    # The allowlist that closes it lives in the test, not here, so adding a file
+    # the extension really needs stays a one-line change with a test telling you
+    # to make it.
     exclude_names = {
-        '.DS_Store', 'make_icons.py', 'README.md', 'aliases.json',
+        '.DS_Store', 'make_icons.py', 'README.md', 'CLAUDE.md', 'aliases.json',
         'package.json', 'package-lock.json',
     }
 

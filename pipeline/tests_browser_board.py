@@ -146,7 +146,18 @@ os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "1")
 # the most valuable kind).
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
                      "needs playwright and the bundled Chromium")
-class BoardInARealBrowserTests(StaticLiveServerTestCase):
+class _RealBrowserHarness(StaticLiveServerTestCase):
+    """Sign-in, the browser, and the fixture every browser test starts from.
+
+    Split out on 28 Aug 2026 for a reason worth knowing before merging it back:
+    **a second class that subclasses a `TestCase` to reuse its `setUp` inherits
+    its test methods too.** Judge outcomes' four browser tests were written that
+    way and the file ran 78 tests instead of 4 — every one of this class's
+    tests a second time, at roughly 0.9 s each, on a file whose whole cost is
+    its count. Nothing failed, so the only symptom was the wall clock.
+
+    Carries the `skipUnless` so subclasses inherit it; holds no tests itself.
+    """
     # A plain LiveServerTestCase does not serve board.js, so the grid never
     # loads and every assertion times out looking like the bug you came for.
     databases = {DB, "academy_db"}
@@ -225,6 +236,10 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
     def tearDown(self):
         self.page.close()
 
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class BoardInARealBrowserTests(_RealBrowserHarness):
     def _settled(self, selector, before, timeout=20000):
         """Wait for a panel to say something different from what it said before.
 
@@ -474,8 +489,11 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
         self._checked("#new-panel")
         out = self.page.inner_text("#new-panel")
 
-        # An unknown gene is a link to the one place it can be added.
-        self.assertIn("Add the gene as a new target", out)
+        # An unknown gene is a link to the one place it can be added — and
+        # since 5 Sep 2026 that is the only place, so the note names the board
+        # rather than a tick box no panel carries any more.
+        self.assertIn("not in the pipeline yet", out)
+        self.assertIn("target board", out)
         link = self.page.query_selector("#new-panel a:has-text('Add TRPA1')")
         self.assertIsNotNone(link, out[-800:])
         self.assertIn("/targets/board/", link.get_attribute("href"))
@@ -691,6 +709,269 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
         session.refresh_from_db(using=DB)
         self.assertEqual(session.status, "planned")
         self.assertEqual(self.errors, [])
+
+    def test_a_refused_date_puts_the_words_back_not_the_stored_spelling(self):
+        """The same rule as cancelling a status, on an **open** set.
+
+        A received date is drawn `Aug 2026` over a stored `2026-08`, and the
+        label map `showValue` uses is built from a closed set of options —
+        which a date has none of. So a refused save put `2026-08` back where
+        `Aug 2026` had been: a valid spelling of the same month, no error, and
+        the column quietly stops matching the rows around it. Found by driving
+        the board; invisible to every source test, because the server answered
+        correctly and the page did the wrong thing with the answer.
+
+        The refusal itself is the other half. `01/02/2026` is 1 February to two
+        of these benches and 2 January to a third, so it is refused rather than
+        guessed — and a refusal nobody sees reads as a save that worked.
+        """
+        from pipeline.models import Antibody, Company
+        company = Company.objects.using(DB).create(name="Abcam")
+        antibody = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab124695", site_id=self.site.pk,
+            received_date="2026-08-01", received_precision="month")
+
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        sel = f'tr[data-row="{antibody.pk}"] .edit[data-field="received_date"]'
+        self.page.wait_for_selector(sel)
+        self.assertEqual(self.page.text_content(sel).strip(), "Aug 2026",
+                         "a month was drawn with a day it does not have")
+
+        self.page.click(sel)
+        self.page.fill(f"{sel} input", "01/02/2026")
+        self._posted(lambda: self.page.keyboard.press("Enter"))
+        self.page.wait_for_selector(f"{sel} input", state="detached")
+
+        banner = self.page.text_content("#board-error-text") or ""
+        self.assertIn("1 Feb", banner)
+        self.assertIn("2 Jan", banner)
+        self.assertEqual(
+            self.page.text_content(sel).strip(), "Aug 2026",
+            "the refused cell came back as the stored spelling, not the label")
+        antibody.refresh_from_db(using=DB)
+        self.assertEqual(antibody.received_precision, "month")
+        # The 400 is the refusal working, so it is not an error to assert away.
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
+    def test_adding_an_antibody_leaves_it_unnumbered_and_says_so(self):
+        """Logging stopped allocating on 2 Sep 2026, and a save that silently
+        produced no A-number reads as a save that went wrong — the mirror of the
+        finding that made the app announce numbers in the first place.
+
+        A browser, because the sentence is composed in `board.js` and rendered
+        by whichever panel is open: the server returns a count, and every part
+        of turning that into "this is deliberate, here is what to do next" is
+        page code. The board's own nudge is the other half — without a way back
+        to these rows, the gap is found on a printed bench sheet.
+        """
+        from pipeline.models import Antibody, Company
+        Company.objects.using(DB).create(name="Abcam")
+
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        self.page.wait_for_selector("#new-btn")
+        self.page.click("#new-btn")
+        self.page.wait_for_selector("#new-panel table tbody input")
+        self.page.click("#new-panel button:has-text('Paste')")
+        self.page.fill("#new-panel textarea",
+                       "gene\tcatalogue\tcompany\nSNCA\tab-new-1\tAbcam")
+        self.page.click("#new-panel button:has-text('Check')")
+        self._checked()
+        self.assertIn("without an a-number",
+                      (self.page.inner_text("#new-panel") or "").lower(),
+                      "the check did not say the row would be left unnumbered")
+
+        self.page.click("#new-panel button:has-text('Create')")
+        self._saved()
+        saved = (self.page.inner_text("#new-panel") or "").lower()
+        self.assertIn("no a-number", saved)
+        self.assertIn("assign numbers", saved)
+        self.assertIsNone(
+            Antibody.objects.using(DB).get(catalogue_number="ab-new-1").ab_number)
+
+        # And the board offers a way back to it, with somewhere to click.
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        nudge = self.page.text_content("body")
+        self.assertIn("no A-number yet", nudge)
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
+    def test_a_gene_page_deals_out_its_own_genes_numbers(self):
+        """The second page to mount `OGABoard.renumberPanel`, and the reason it
+        was moved into board.js rather than copied.
+
+        A browser, because everything that could differ between the two pages is
+        page code: which rows the panel means, whether the site rides along, and
+        whether the receipt survives. The gene page sends `?gene=&site=` instead
+        of a filter form — get that wrong and the panel either renumbers the
+        whole bench or refuses every press with "these are at 2 different
+        benches", and the source reads fine either way.
+        """
+        from pipeline.models import Antibody, Company
+        from pipeline.services import lab_numbers
+
+        company = Company.objects.using(DB).create(name="Abcam")
+        mine = []
+        for cat in ("gp-a", "gp-b"):
+            ab = Antibody(target_id=self.target.pk, company_id=company.pk,
+                          catalogue_number=cat, site_id=self.site.pk)
+            lab_numbers.withhold(ab)
+            ab.save(using=DB)
+            mine.append(ab)
+        # The same gene at another bench. It must be left alone rather than
+        # refusing the whole press, which is what `?gene=` without a site does.
+        other = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        theirs = Antibody(target_id=self.target.pk, company_id=company.pk,
+                          catalogue_number="gp-theirs", site_id=other.pk)
+        lab_numbers.withhold(theirs)
+        theirs.save(using=DB)
+
+        self.page.goto(f"{self.live_server_url}/pipeline/target/{self.target.pk}/")
+        self.page.wait_for_selector("#renumber-btn")
+        self.page.click("#renumber-btn")
+        self.page.wait_for_selector("#rn-check")
+        self.page.fill("#rn-start", "60")
+        self.page.click("#rn-check")
+        self.page.wait_for_selector("#rn-out table")
+        shown = self.page.text_content("#rn-out")
+        self.assertIn("A-60", shown)
+        self.assertIn("A-61", shown)
+        self.assertNotIn("gp-theirs", shown,
+                         "another bench's vial was pulled into the set")
+
+        self._posted(lambda: self.page.click("#rn-go"))
+        self.page.wait_for_selector("#rn-out .bg-emerald-50")
+        self.assertEqual(
+            sorted(Antibody.objects.using(DB)
+                   .filter(pk__in=[a.pk for a in mine])
+                   .values_list("ab_number", flat=True)),
+            [60, 61])
+        theirs.refresh_from_db(using=DB)
+        self.assertIsNone(theirs.ab_number, "another bench's vial was renumbered")
+
+        # This page is a Django template, not a grid — it cannot redraw the
+        # numbers in place, so it offers a button rather than reloading out from
+        # under its own receipt.
+        self.assertIn("Show them on this page",
+                      self.page.text_content("#rn-out"))
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_selector("#rn-check", state="detached")
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
+    def test_a_bench_that_numbers_on_receipt_ticks_the_box_and_gets_one(self):
+        """McGill has numbered a vial the day it arrives for years, and the
+        default that suits uOttawa would take that away.
+
+        A browser, because a tick that reaches the panel and not the request is
+        the failure mode here — it renders, it ticks, the check says one thing
+        and the save does another, and nothing on the page contradicts it. The
+        endpoint tests pin the three doors; this pins that the control on the
+        page is actually wired to one of them.
+        """
+        from pipeline.models import Antibody, Company
+        Company.objects.using(DB).create(name="Abcam")
+
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        self.page.wait_for_selector("#new-btn")
+        self.page.click("#new-btn")
+        self.page.wait_for_selector("#new-panel table tbody input")
+        self.page.check("#ne-number-now")
+        self.page.click("#new-panel button:has-text('Paste')")
+        self.page.fill("#new-panel textarea",
+                       "gene\tcatalogue\tcompany\nSNCA\tab-now-1\tAbcam")
+        self.page.click("#new-panel button:has-text('Check')")
+        self._checked()
+        checked = (self.page.inner_text("#new-panel") or "").lower()
+        self.assertIn("next lab number", checked,
+                      "the check still promised no number over a ticked box")
+        self.assertNotIn("without an a-number", checked)
+
+        self.page.click("#new-panel button:has-text('Create')")
+        self._saved()
+        self.assertIn("lab number given",
+                      (self.page.inner_text("#new-panel") or "").lower())
+        self.assertEqual(
+            Antibody.objects.using(DB).get(catalogue_number="ab-now-1").ab_number,
+            1)
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
+    def test_numbers_are_dealt_out_over_the_whole_filtered_set(self):
+        """Assign or rearrange A-numbers — the one operation that is not a cell.
+
+        A browser, because every part of it is page wiring the server cannot be
+        wrong about. `board.js` rebuilds the query from the **filter form**, so
+        the panel's two requests carry `?numbered=no` only if that filter is a
+        control on the form — a backend that accepts it and a form that cannot
+        say it look identical from the server side, and the press would then
+        renumber the whole board instead of the rows the reader is looking at.
+        The arm/disarm, the old → new table and the consent count are the same
+        shape: computed here, and never seen by a response test.
+
+        Escape is in here for a reason with a scar on it: `escapeCloses` takes a
+        *predicate*, and a call passing the element instead registers cleanly,
+        parses cleanly, and throws only when somebody presses the key.
+        """
+        from pipeline.models import Antibody, Company
+        from pipeline.services import lab_numbers
+
+        company = Company.objects.using(DB).create(name="Abcam")
+        made = []
+        for cat in ("ab-a", "ab-b", "ab-c"):
+            ab = Antibody(target_id=self.target.pk, company_id=company.pk,
+                          catalogue_number=cat, site_id=self.site.pk)
+            # A bench holding its numbers back is the case this exists for.
+            lab_numbers.withhold(ab)
+            ab.save(using=DB)
+            made.append(ab)
+        # One numbered row at the same bench, outside the filter: its number
+        # must not be handed out again.
+        Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab-old", site_id=self.site.pk, ab_number=71)
+
+        self.page.goto(f"{self.live_server_url}"
+                       f"/pipeline/antibodies/board/?gene=SNCA&numbered=no")
+        self.page.wait_for_selector(f'tr[data-row="{made[0].pk}"]')
+        self.assertEqual(
+            self.page.eval_on_selector("#filters [name=numbered]", "el => el.value"),
+            "no", "the filter the panel works through is not on the form")
+        # The filter reached the rows fetch, so the numbered row is not drawn.
+        self.assertEqual(len(self.page.query_selector_all("#grid tr[data-row]")), 3)
+
+        self.page.click("#renumber-btn")
+        self.page.wait_for_selector("#rn-check")
+        self.page.fill("#rn-start", "71")
+        self.page.click("#rn-check")
+        self.page.wait_for_selector("#rn-out p")
+        # 71 is taken by a row outside the set, and a refusal names the record
+        # rather than saying only "already taken".
+        refusal = self.page.text_content("#rn-out")
+        self.assertIn("A-71", refusal)
+        self.assertIn("ab-old", refusal)
+        self.assertTrue(self.page.is_disabled("#rn-go"),
+                        "a refused check left the write button armed")
+
+        self.page.fill("#rn-start", "80")
+        before = self.page.inner_text("#rn-out")
+        self.page.click("#rn-check")
+        self._settled("#rn-out", before)
+        self.page.wait_for_selector("#rn-out table")
+        shown = self.page.text_content("#rn-out table")
+        for number in ("A-80", "A-81", "A-82"):
+            self.assertIn(number, shown)
+        self.assertIn("3 numbers", self.page.text_content("#rn-go"))
+
+        self._posted(lambda: self.page.click("#rn-go"))
+        self.page.wait_for_selector("#rn-out .bg-emerald-50")
+        self.assertEqual(
+            sorted(Antibody.objects.using(DB)
+                   .filter(pk__in=[a.pk for a in made])
+                   .values_list("ab_number", flat=True)),
+            [80, 81, 82])
+
+        # And the panel closes on Escape rather than throwing on the keypress.
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_selector("#rn-check", state="detached")
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
 
     def test_a_status_cell_is_a_dropdown_and_saves_what_you_pick(self):
         """`status` is one of six codes. The Plan a session header draws it as a
@@ -1626,9 +1907,14 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
              "catalogue,company,lot\nab-up-1,Abcam,L9\n", "up.csv",
              lambda: Antibody.objects.using(DB)
                      .filter(catalogue_number="ab-up-1").exists()),
+            # A HAP1 knockout of a HAP1 parental. This row was `HEK293,KO,HAP1`
+            # until run 19, when the paste door learned what the backfill
+            # command already knew — a HEK293 does not come from a HAP1 — and
+            # started refusing it, which is the right answer to a wrong fixture.
             ("#cl-upload-btn", "#cl-upload-panel",
-             "name,genotype,parent\nHEK293,KO,HAP1\n", "cl.csv",
-             lambda: CellLine.objects.using(DB).filter(name="HEK293").exists()),
+             "name,genotype,parent\nHAP1,KO,HAP1\n", "cl.csv",
+             lambda: CellLine.objects.using(DB)
+                     .filter(name="HAP1", genotype="KO").exists()),
         ]
 
         for button, panel, body, filename, saved in cases:
@@ -2544,6 +2830,19 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(len(ko), 1, f"the KO box offered {ko}")
         self.assertIn("none on file", ko[0])
 
+        # `#cl-ko:disabled` is true *before* the cell-line fetch lands as well
+        # as after — `updateCellLineSelects` fills both boxes from one answer,
+        # and an unfilled WT box reads "— none on file —" exactly like an empty
+        # one. So the wait above cannot tell "not loaded yet" from "loaded and
+        # empty", and on a slow runner this read the placeholder and failed
+        # claiming the parental had gone missing (CI, 12 Sep 2026; 81/81 green
+        # locally on the same commit). Wait for the option itself, which exists
+        # only once the answer has arrived.
+        # `state="attached"`: an <option> inside a <select> is never "visible"
+        # in the layout sense, and the default would time out on a box that is
+        # correctly filled.
+        self.page.wait_for_selector("#cl-wt option:nth-child(2)",
+                                    state="attached", timeout=20000)
         wt = self.page.eval_on_selector(
             "#cl-wt", "el => [...el.options].map(o => o.textContent).join('|')")
         self.assertNotIn("CellLine-134", wt,
@@ -2880,13 +3179,22 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
         self.assertIn("from import",
                       self.page.text_content(f"{row}").lower())
 
-        # Typing here files the nomination the target never had.
+        # Choosing here files the nomination the target never had.
+        #
+        # A `<select>`, not a text box: `sites.strict_id` refuses a name that is
+        # not one on file, so the cell offers the ones that are. It was a bare
+        # box on this board while being a dropdown on the gene's own page, for
+        # the same field through the same endpoint. Picking IS the edit — there
+        # is no confirming keystroke, the same as the sessions board's status.
         cell.click()
-        self.page.fill(f"{row} .edit[data-field='site'] input", "Leicester")
-        self._posted(lambda: self.page.keyboard.press("Enter"))
+        select = self.page.wait_for_selector(f"{row} .edit[data-field='site'] select")
+        self.assertIn("Leicester", select.inner_text(),
+                      "the site cell offers no sites")
+        self._posted(lambda: self.page.select_option(
+            f"{row} .edit[data-field='site'] select", "Leicester"))
         self.page.wait_for_function(
             "sel => { const el = document.querySelector(sel);"
-            "         return el && !el.querySelector('input'); }",
+            "         return el && !el.querySelector('select'); }",
             arg=f"{row} .edit[data-field='site']", timeout=20000)
         nom = TargetNomination.objects.using(DB).filter(
             target_id=imported.pk).first()
@@ -3203,3 +3511,434 @@ class BoardInARealBrowserTests(StaticLiveServerTestCase):
         self.assertFalse(
             self.page.is_hidden("#add-batch-panel"),
             "the dialog closed on a refusal, losing what was typed")
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class JudgeOutcomesInARealBrowserTests(_RealBrowserHarness):
+    """Judge outcomes builds every card and every redraw in inline JS.
+
+    "The server answered correctly and the page did the wrong thing with it" is
+    the shape a browser is for, and this page is nothing but that: a picker that
+    fills itself from one fetch, cards drawn from another, and a save that
+    redraws one card from what it returned. Every one of those fails as a 200
+    with an empty grid, which no response test can see.
+
+    Two things are pinned here rather than at the source because they are only
+    true once the page has run: **an axis a session recorded is not pressable**
+    (the bench record wins, and a disabled control is the only thing that says
+    so before the click), and **the save redraws the card it saved** rather than
+    leaving the old answer on screen under a stored new one — a save that
+    reports success and shows the previous value is the silent-write shape this
+    repo keeps finding.
+    """
+
+    def _published(self, catalogue, signal="", rating=""):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from pipeline.models import (Company, ExperimentSession,
+                                     PublicationImage, WbResult)
+        import datetime
+        company, _ = Company.objects.using(DB).get_or_create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number=catalogue, target=self.target,
+            company=company, site=self.site)
+        PublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="WB",
+            image=SimpleUploadedFile(f"{catalogue}.png", b"x"))
+        if signal or rating:
+            member = Member.objects.using(DB).filter(site=self.site).first()
+            session = ExperimentSession.objects.using(DB).create(
+                procedure_type="WB", target=self.target, site=self.site,
+                experimenter=member, date=datetime.date(2026, 5, 1))
+            WbResult.objects.using(DB).create(
+                session=session, antibody=ab, signal=signal, rating=rating)
+        return ab
+
+    def _reading(self, ab, signal="", rating=""):
+        """A second run for an antibody that already has one — the shape that
+        makes the runs disagree."""
+        from pipeline.models import ExperimentSession, WbResult
+        import datetime
+        member = Member.objects.using(DB).filter(site=self.site).first()
+        session = ExperimentSession.objects.using(DB).create(
+            procedure_type="WB", target=self.target, site=self.site,
+            experimenter=member, date=datetime.date(2026, 6, 1))
+        return WbResult.objects.using(DB).create(
+            session=session, antibody=ab, signal=signal, rating=rating)
+
+    def _open(self, gene="SNCA"):
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?gene={gene}")
+        # Not `.out-card`: a gene with nothing left to judge draws none, which
+        # is the case one of these tests is about. Wait for the grid to stop
+        # saying "pick a gene" instead.
+        self.page.wait_for_function(
+            "!document.querySelector('#out-grid').textContent.includes('Pick a gene')",
+            timeout=20000)
+
+    def test_the_recommendation_is_pressable_and_the_note_follows_it(self):
+        """The half that was read-only until 29 Aug 2026.
+
+        Two things only true once the page has run: the button writes the flag,
+        and the card redraws with the conflict note the write just created.
+        Both halves are set from the screen with the figure on it, so a note
+        that went stale the moment somebody acted on it would send the reader
+        back to the other page this change exists to stop them opening.
+        """
+        ab = self._published("ab-rec")
+        from pipeline.models import AntibodyOutcome
+        AntibodyOutcome.objects.using(DB).create(
+            antibody=ab, application_type="WB", detects="yes", selective="no")
+        self._open()
+        # Fully judged, so the default "only what is still to judge" hides it —
+        # which is the whole point: a settled judgement is exactly the row whose
+        # recommendation might still disagree with it.
+        self.page.uncheck("#out-gaps-only")
+        card = f"#out-card-{ab.pk}"
+        self.page.wait_for_selector(card, timeout=20000)
+        self.assertEqual(
+            self.page.query_selector_all(f"{card} .conflict-note"), [])
+
+        self.page.click(f'{card} button[data-rec][data-rec-value="true"]')
+        self.page.wait_for_selector(
+            f'{card} button[data-rec][data-rec-value="true"].on-yes', timeout=20000)
+        ab.refresh_from_db()
+        self.assertTrue(ab.wb_recommended)
+        # Recommended and recorded as not selective: the standing check.
+        note = self.page.wait_for_selector(f"{card} .conflict-note",
+                                           timeout=20000)
+        self.assertIn("not selective", note.text_content())
+
+        # And back off again takes the note with it.
+        self.page.click(f'{card} button[data-rec][data-rec-value="false"]')
+        self.page.wait_for_function(
+            f"!document.querySelector('{card} .conflict-note')", timeout=20000)
+        ab.refresh_from_db()
+        self.assertFalse(ab.wb_recommended)
+
+    def test_a_gap_can_be_judged_and_the_card_redraws(self):
+        ab = self._published("ab111")
+        self._open()
+        card = f"#out-card-{ab.pk}"
+        self.page.click(f'{card} button[data-axis="detects"][data-value="yes"]')
+        # The card is replaced by the save's own answer, so wait for the class
+        # the new markup carries rather than for a timeout.
+        self.page.wait_for_selector(
+            f'{card} button[data-axis="detects"][data-value="yes"].on-yes',
+            timeout=20000)
+        self.page.click(f'{card} button[data-axis="selective"][data-value="no"]')
+        self.page.wait_for_selector(
+            f'{card} button[data-axis="selective"][data-value="no"].on-no',
+            timeout=20000)
+
+        from pipeline.models import AntibodyOutcome
+        row = AntibodyOutcome.objects.using(DB).get(antibody_id=ab.pk)
+        self.assertEqual((row.detects, row.selective), ("yes", "no"))
+        # The middle band, named on the page — the whole point of the page.
+        verdict = self.page.text_content(f"#verdict-{ab.pk}")
+        self.assertIn("plus other bands", verdict)
+        self.assertEqual(self.errors, [])
+
+    def test_a_reading_can_be_overridden_here_and_still_shows(self):
+        """Every change from this screen (owner, 29 Aug 2026). The safety is
+        that the card goes on printing what was overridden — one that stopped
+        would be indistinguishable from a reading nobody questioned."""
+        ab = self._published("ab222", signal="YES", rating="")
+        self._open()
+        card = f"#out-card-{ab.pk}"
+        button = self.page.query_selector(
+            f'{card} button[data-axis="detects"][data-value="no"]')
+        self.assertFalse(button.is_disabled(),
+                         "a recorded reading must be judgeable from here")
+        self.assertIn("Recorded at the bench",
+                      self.page.text_content(f"#why-{ab.pk}-detects"))
+
+        self.page.click(f'{card} button[data-axis="detects"][data-value="no"]')
+        self.page.wait_for_selector(
+            f'{card} button[data-axis="detects"][data-value="no"].on-no',
+            timeout=20000)
+        why = self.page.text_content(f"#why-{ab.pk}-detects")
+        self.assertIn("Recorded at the bench as “YES”", why)
+        self.assertIn("Your judgement is what stands", why)
+        self.assertIn("runs are unchanged", why)
+
+        from pipeline.models import WbResult
+        self.assertEqual(
+            [r.signal for r in WbResult.objects.using(DB).filter(antibody_id=ab.pk)],
+            ["YES"])
+        self.assertEqual(self.errors, [])
+
+    def test_pressing_the_answer_already_set_clears_it(self):
+        """The way back out of a mis-click. Without it a wrong press is
+        permanent from this page, and the reader goes looking for a control
+        that does not exist."""
+        ab = self._published("ab333")
+        self._open()
+        card = f"#out-card-{ab.pk}"
+        sel = f'{card} button[data-axis="detects"][data-value="yes"]'
+        self.page.click(sel)
+        self.page.wait_for_selector(sel + ".on-yes", timeout=20000)
+        self.page.click(sel)
+        self.page.wait_for_selector(sel + ":not(.on-yes)", timeout=20000)
+        from pipeline.models import AntibodyOutcome
+        self.assertEqual(
+            AntibodyOutcome.objects.using(DB).get(antibody_id=ab.pk).detects, "")
+
+    def test_hiding_the_judged_rows_says_what_it_hid(self):
+        """A control that empties the grid must say why, or it reads as a gene
+        with no figures at all."""
+        ab = self._published("ab444", signal="YES", rating="NO")
+        self._open()
+        self.assertIsNone(self.page.query_selector(f"#out-card-{ab.pk}"),
+                          "a fully judged figure is not a gap")
+        text = self.page.text_content("#out-grid")
+        self.assertIn("Everything on this gene has been judged", text)
+        # Unticking brings it back.
+        self.page.uncheck("#out-gaps-only")
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+
+    def _published_if(self, catalogue, r1=None, r2=None, best="", specific=""):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from pipeline.models import (Company, ExperimentSession, IfResult,
+                                     PublicationImage)
+        import datetime
+        company, _ = Company.objects.using(DB).get_or_create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number=catalogue, target=self.target,
+            company=company, site=self.site)
+        PublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="ICC-IF",
+            image=SimpleUploadedFile(f"{catalogue}.png", b"x"))
+        member = Member.objects.using(DB).filter(site=self.site).first()
+        session = ExperimentSession.objects.using(DB).create(
+            procedure_type="IF", target=self.target, site=self.site,
+            experimenter=member, date=datetime.date(2026, 5, 1))
+        IfResult.objects.using(DB).create(
+            session=session, antibody=ab, specific_signal=specific,
+            concentration_1="1/200", concentration_2="1/500",
+            wt_ko_ratio_1=r1, wt_ko_ratio_2=r2, best_concentration=best)
+        return ab
+
+    def test_an_if_band_draws_its_ratio_and_its_cut_offs(self):
+        """A band printed on its own is a verdict the reader cannot check, and
+        this one is derived from a number they never see otherwise."""
+        ab = self._published_if("ab555", r1="4.0", r2="1.1", best="1/200")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/"
+                       f"?app=ICC-IF&gene=SNCA")
+        # A derived band is an *answer*, so the card is not a gap and the
+        # default filter correctly hides it. That is the page working; this
+        # test is about what the card says once you look at it.
+        self.page.wait_for_selector("#out-gaps-only", timeout=20000)
+        self.page.uncheck("#out-gaps-only")
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+        block = self.page.text_content(f"#out-card-{ab.pk} .ratio-block")
+        self.assertIn("4.0", block)
+        self.assertIn("1.5", block)      # the floor
+        self.assertIn("2.6", block)      # strongly selective
+        self.assertIn("Strongly selective",
+                      self.page.text_content(f"#out-card-{ab.pk}"))
+        # The band is judgeable too, and overriding it keeps the ratio on the
+        # card — the measurement is not deleted by disagreeing with it.
+        self.page.click(f'#out-card-{ab.pk} '
+                        f'button[data-value="no_selective_signal"]')
+        self.page.wait_for_selector(
+            f'#out-card-{ab.pk} button[data-value="no_selective_signal"]'
+            f'.on-no_selective_signal', timeout=20000)
+        self.assertIn("4.0", self.page.text_content(
+            f"#out-card-{ab.pk} .ratio-block"))
+        self.assertIn("Your judgement is what stands",
+                      self.page.text_content(f"#why-{ab.pk}-selective"))
+        self.assertEqual(self.errors, [])
+
+    def test_a_row_with_no_best_concentration_asks_instead_of_guessing(self):
+        """Two measurements and no best named — 2 live rows. The higher of the
+        two is what the lab named best only 58% of the time, so there is
+        nothing to derive. A row carrying *one* measurement is not this: it has
+        nothing to choose between, so `best_ratio` uses it."""
+        ab = self._published_if("ab666", r1="6.0", r2="1.1", best="")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/"
+                       f"?app=ICC-IF&gene=SNCA")
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+        self.assertIsNone(
+            self.page.query_selector(f"#out-card-{ab.pk} .ratio-block"),
+            "no best concentration means no band to draw")
+        why = self.page.text_content(f"#why-{ab.pk}-selective")
+        self.assertIn("no best concentration", why.lower())
+        # …and it is judgeable by hand, on the three bands rather than yes/no:
+        # with no bench call either, all three are open.
+        values = self.page.eval_on_selector_all(
+            f"#out-card-{ab.pk} .axis-btns button",
+            "els => els.map(e => e.dataset.value)")
+        self.assertEqual(values, ["no_selective_signal", "selective",
+                                  "strongly_selective", "unclear"])
+        self.page.click(f'#out-card-{ab.pk} button[data-value="selective"]')
+        self.page.wait_for_selector(
+            f'#out-card-{ab.pk} button[data-value="selective"].on-selective',
+            timeout=20000)
+
+    def test_switching_application_redraws_the_axes(self):
+        """WB asks two questions and IF asks one. A page that kept its own list
+        would offer a control the writer refuses."""
+        self._published("ab777")
+        # No best concentration, so IF has nothing to derive and the card stays
+        # a gap — visible under the default filter on both applications, which
+        # is what lets this compare the two.
+        self._published_if("ab888", r1="6.0", r2="1.1", best="")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?gene=SNCA")
+        self.page.wait_for_selector(".axis-row", timeout=20000)
+        self.assertEqual(
+            len(self.page.query_selector_all(".out-card .axis-row")), 2)
+        self.page.select_option("#out-app", "ICC-IF")
+        self.page.wait_for_function(
+            "document.querySelectorAll('.out-card .axis-row').length === 1",
+            timeout=20000)
+        self.assertEqual(self.errors, [])
+
+    def test_a_judgement_can_be_changed_on_the_page(self):
+        """People revise calls. Pressing another answer changes it; pressing
+        the one already set takes it back off."""
+        ab = self._published("abCHG")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?gene=SNCA")
+        card = f"#out-card-{ab.pk}"
+        self.page.wait_for_selector(card, timeout=20000)
+
+        self.page.click(f'{card} button[data-axis="detects"][data-value="yes"]')
+        self.page.wait_for_selector(
+            f'{card} button[data-axis="detects"][data-value="yes"].on-yes',
+            timeout=20000)
+        # Change it — the previously chosen button must let go.
+        self.page.click(f'{card} button[data-axis="detects"][data-value="no"]')
+        self.page.wait_for_selector(
+            f'{card} button[data-axis="detects"][data-value="no"].on-no',
+            timeout=20000)
+        self.assertIsNone(self.page.query_selector(
+            f'{card} button[data-axis="detects"][data-value="yes"].on-yes'))
+
+        from pipeline.models import AntibodyOutcome
+        self.assertEqual(
+            AntibodyOutcome.objects.using(DB).get(antibody_id=ab.pk).detects,
+            "no")
+        self.assertEqual(self.errors, [])
+
+    def test_an_ungraded_visual_yes_is_graded_by_eye(self):
+        """210 published IF figures carry a bench "yes" and no ratio. The
+        binary is fixed by the bench and the grade is the reader's — so the two
+        upper bands are offered and the one that would contradict the bench is
+        not drawn, with the reason beside it rather than on a title."""
+        ab = self._published_if("ab999", r1=None, r2=None, best="",
+                                specific="YES")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/"
+                       f"?app=ICC-IF&gene=SNCA")
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+        values = self.page.eval_on_selector_all(
+            f"#out-card-{ab.pk} .axis-btns button",
+            "els => els.map(e => e.dataset.value)")
+        # All four: the bench call is shown and may be disagreed with, like
+        # every other recorded answer on this page.
+        self.assertEqual(values, ["no_selective_signal", "selective",
+                                  "strongly_selective", "unclear"])
+        why = self.page.text_content(f"#why-{ab.pk}-selective")
+        self.assertIn("no best concentration", why.lower())
+
+        self.page.click(f'#out-card-{ab.pk} '
+                        f'button[data-value="strongly_selective"]')
+        self.page.wait_for_selector(
+            f'#out-card-{ab.pk} button[data-value="strongly_selective"]'
+            f'.on-strongly_selective', timeout=20000)
+        self.assertIn("Strongly selective",
+                      self.page.text_content(f"#verdict-{ab.pk}"))
+
+        from pipeline.models import AntibodyOutcome
+        row = AntibodyOutcome.objects.using(DB).get(antibody_id=ab.pk)
+        self.assertEqual((row.application_type, row.selective),
+                         ("ICC-IF", "strongly_selective"))
+        self.assertEqual(self.errors, [])
+
+    def test_a_disagreement_is_settled_on_this_page(self):
+        """The click that used to dead-end. The page counted the disagreement
+        as work to do and the server then refused it, so the only feedback was
+        a red banner naming another page — on the one screen that has the
+        figure the question is about."""
+        ab = self._published("abCONF", signal="YES", rating="NO")
+        self._reading(ab, signal="NO", rating="NO")
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?gene=SNCA")
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+
+        why = self.page.text_content(f"#why-{ab.pk}-detects")
+        self.assertIn("runs disagree", why)
+        self.assertIn("Judge it from the figure", why)
+
+        self.page.click(f'#out-card-{ab.pk} '
+                        f'button[data-axis="detects"][data-value="yes"]')
+        self.page.wait_for_selector(
+            f'#out-card-{ab.pk} button[data-axis="detects"][data-value="yes"]'
+            f'.on-yes', timeout=20000)
+
+        # No banner: the save was accepted, not refused.
+        banner = self.page.query_selector("#out-banner:not(.out-hidden)")
+        self.assertIsNone(banner, "settling should not raise a refusal")
+
+        # The disagreement is still printed — a card that stopped saying so
+        # would make a judged row look like an agreed one.
+        why = self.page.text_content(f"#why-{ab.pk}-detects")
+        self.assertIn("runs disagreed", why)
+        self.assertIn("Settled here", why)
+
+        from pipeline.models import AntibodyOutcome, WbResult
+        self.assertEqual(
+            AntibodyOutcome.objects.using(DB).get(antibody_id=ab.pk).detects,
+            "yes")
+        # …and no session row moved.
+        self.assertEqual(
+            sorted(WbResult.objects.using(DB)
+                   .filter(antibody_id=ab.pk).values_list("signal", flat=True)),
+            ["NO", "YES"])
+        self.assertEqual(self.errors, [])
+
+    def test_the_conflicts_worklist_opens_from_the_picker(self):
+        """25 ICC-IF conflicts spread across the gene list: found a gene at a
+        time, this is a page-per-gene hunt. The picker offers them as one
+        list."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from pipeline.models import (AntibodyOutcome, Company,
+                                     PublicationImage)
+        company, _ = Company.objects.using(DB).get_or_create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number="abCONFLICT", target=self.target,
+            company=company, site=self.site, if_recommended=True)
+        PublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="ICC-IF",
+            image=SimpleUploadedFile("c.png", b"x"))
+        AntibodyOutcome.objects.using(DB).create(
+            antibody=ab, application_type="ICC-IF",
+            selective="no_selective_signal")
+
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?app=ICC-IF")
+        # `state="attached"`: an <option> inside a <select> is never "visible"
+        # to Playwright, so the default wait times out on a picker that is
+        # perfectly populated.
+        self.page.wait_for_function(
+            "document.querySelectorAll('#out-gene option').length > 1",
+            timeout=20000)
+        labels = self.page.eval_on_selector_all(
+            "#out-gene option", "els => els.map(e => e.textContent)")
+        self.assertTrue(any("disagrees with the data" in t for t in labels),
+                        f"no conflicts option in the picker: {labels}")
+
+        value = self.page.eval_on_selector(
+            "#out-gene", "el => [...el.options].find("
+                         "o => o.textContent.includes('disagrees')).value")
+        self.page.select_option("#out-gene", value)
+        self.page.wait_for_selector(f"#out-card-{ab.pk}", timeout=20000)
+
+        # The card says why it is on the list — a reader who scrolls past it
+        # judges the figure without knowing what they were sent to look at.
+        note = self.page.text_content(f"#out-card-{ab.pk} .conflict-note")
+        self.assertIn("Recommended for", note)
+        self.assertIn("did not", note)
+
+        # And it is judgeable here, which is the point.
+        self.page.click(f'#out-card-{ab.pk} button[data-value="selective"]')
+        self.page.wait_for_selector(
+            f'#out-card-{ab.pk} button[data-value="selective"].on-selective',
+            timeout=20000)
+        self.assertEqual(self.errors, [])

@@ -207,6 +207,39 @@ def other_names(target) -> list:
     return out
 
 
+def registry_names(target) -> list:
+    """Every name that identifies this gene to an **external registry**.
+
+    Not the same question as ``other_names`` above, which answers "what should
+    the gene page print under *also known as*" — and deliberately drops the
+    protein name, because repeating it there is noise. An outside database asks
+    the opposite: the Antibody Registry names a target by its **protein**, so
+    ``Podoplanin``, ``Alpha-1-antitrypsin``, ``Alpha-synuclein`` and
+    ``Synaptophysin`` are precisely the strings a lookup has to accept for PDPN,
+    SERPINA1, SNCA and SYP.
+
+    Reusing the display list for matching cost 16 of 19 remaining REVIEW rows on
+    the 30 Aug 2026 backfill — ten PDPN antibodies among them — because the one
+    name the registry used was the one ``other_names`` exists to leave out. Two
+    questions that look alike are two questions.
+
+    Returns the gene symbol first, then the protein name, then the other names.
+    """
+    if target is None:
+        return []
+    out, seen = [], set()
+    gene = (getattr(target, "gene_name", "") or "").strip()
+    protein = (getattr(target, "protein_name", "") or "").strip()
+    for name in [gene, protein] + list(other_names(target)):
+        name = (name or "").strip()
+        key = name.upper()
+        if not name or key in seen or key in NOT_APPLICABLE:
+            continue
+        seen.add(key)
+        out.append(name)
+    return out
+
+
 def sites_of(target, nominations=None) -> dict:
     """Which sites a target belongs to — ``{"sites": [Site, …], "from_import": bool}``.
 
@@ -481,3 +514,65 @@ def resolve_or_create_target(
             target_id=target.pk, site_id=site_id,
             defaults={"funded": False})
     return target, True
+
+
+def published_gene_request(raw, application: Optional[str] = None,
+                           db: str = DB) -> Tuple[str, str]:
+    """What ``?gene=`` asks for on a figure-review page, resolved against the data.
+
+    ``?gene=`` means the same thing on all four boards — an exact gene, so a link
+    can carry one from board to board — and a page that reads the value without
+    using it is a page whose picker sits on "Select a gene" while its own nav
+    links point at the gene the reader asked for (twentieth field test). Two
+    pages judge published figures a gene at a time (Set recommendations, Judge
+    outcomes) and they must answer the same way, so the resolution is here rather
+    than copied into each.
+
+    Returns ``(gene, note)``. ``gene`` is the target's **own spelling**, resolved
+    case-insensitively — the ``<option>`` values carry that spelling, and a
+    ``<select>`` given a value no option has keeps its placeholder, which is
+    indistinguishable from the parameter being ignored. It matters for the eight
+    mis-cased symbols: a link written ``?gene=RAB44`` has to open ``Rab44``.
+
+    ``note`` is what the page has to say when the request cannot be honoured, and
+    there are two of those that look identical from outside: a gene that is not
+    in the pipeline at all, and one that is but has **no published figures**,
+    which is the only reason a real gene is absent from these pickers. A picker
+    on its placeholder says neither.
+
+    ``application`` narrows the figure test to one of ``PublicationImage``'s four
+    values — ``'WB'`` for a page that judges western blots only, so a gene whose
+    figures are all IP says that rather than opening empty.
+    """
+    from pipeline.models import Antibody
+
+    text = (raw or "").strip()
+    if not text:
+        return "", ""
+
+    # `?gene=` may name several — a bulk add lands on one — and these pages take
+    # one gene at a time, so say which was taken rather than dropping the rest.
+    terms = gene_terms(text) or [text]
+    wanted, extra = terms[0], terms[1:]
+    tail = (f" Showing {wanted} only — this page sets one gene at a time, and "
+            f"{', '.join(extra)} {'were' if len(extra) > 1 else 'was'} not "
+            "opened.") if extra else ""
+
+    target = Target.objects.using(db).filter(gene_name__iexact=wanted).first()
+    if target is None:
+        return "", f"There is no gene called {wanted} in the pipeline." + tail
+
+    gene = target.gene_name
+    figures = Antibody.objects.using(db).filter(
+        target_id=target.pk, publication_images__isnull=False)
+    if application:
+        figures = figures.filter(publication_images__application_type=application)
+    if not figures.exists():
+        kind = f"published {application} figures" if application \
+            else "published characterisation figures"
+        return "", (
+            f"{gene} has no {kind} yet, so there is nothing to judge here. "
+            "Crop one on Publish figures first — this page lists a gene once it "
+            "has at least one." + tail)
+
+    return gene, tail.strip()

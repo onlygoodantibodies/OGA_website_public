@@ -29,7 +29,14 @@ from pipeline.services import review
 
 #: Objects whose keys are data, not contract — a supplier name, a gene. An
 #: example naming one our fixture does not have is not a phantom field.
-DATA_KEYED = {'supplier_summary', 'recommendations_by_application'}
+#:
+#: ``oga_qualifiers`` is the same shape for a different reason: it carries only
+#: the applications whose capability axis the bench actually judged, so which
+#: keys appear is a fact about the data rather than about the contract. The
+#: example documents a qualified IP because that is what the field is FOR, and a
+#: fixture with no judged axis must not make documenting it an error.
+DATA_KEYED = {'supplier_summary', 'recommendations_by_application',
+              'oga_qualifiers'}
 
 
 def documented_examples():

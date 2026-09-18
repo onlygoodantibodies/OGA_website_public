@@ -991,3 +991,102 @@ class WhatAMemberMayNotReachTests(TestCase):
         plan = self._preview("target", self.target.pk, boss)
         self.assertTrue(plan["allowed"])
         self.assertTrue(plan["overriding"])
+
+
+class GateSentenceIsPerBoardTests(TestCase):
+    """The gate announces itself, and what it announces differs by board.
+
+    One shared sentence said "pick a single gene" on all three, which is true
+    everywhere and complete nowhere. On the cell lines board `NA` is a second,
+    necessary route — a wild type has no gene, so a gene filter can never reach
+    one — while on the antibodies and sessions boards it matches nothing, so
+    teaching it there sends somebody to an empty grid. And the targets board,
+    where a person looking for a Delete goes first, said nothing at all.
+
+    These pin the wiring rather than the prose: each board must pass **its own**
+    constant, because a shared writer with three call sites is exactly how one
+    board silently keeps the default.
+    """
+    databases = {"pipeline_db", "academy_db"}
+
+    BOARDS = {
+        "/pipeline/antibodies/board/": "OGABoard.GENE_GATE_ANTIBODIES",
+        "/pipeline/cell-lines/board/": "OGABoard.GENE_GATE_CELL_LINES",
+        "/pipeline/sessions/board/": "OGABoard.GENE_GATE_SESSIONS",
+    }
+
+    def setUp(self):
+        self.site = Site.objects.create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+
+    def test_each_board_passes_its_own_sentence(self):
+        for url, const in self.BOARDS.items():
+            with self.subTest(url=url):
+                body = self.client.get(url).content.decode()
+                self.assertIn("OGABoard.geneGate(", body)
+                call = body.split("OGABoard.geneGate(", 1)[1][:200]
+                self.assertIn(const, call,
+                              f"{url} still writes the default gate sentence")
+
+    def test_the_three_sentences_are_defined_and_differ(self):
+        from pathlib import Path
+        js = Path("pipeline/static/pipeline/board.js").read_text()
+        names = ["GENE_GATE_ANTIBODIES", "GENE_GATE_CELL_LINES", "GENE_GATE_SESSIONS"]
+        for name in names:
+            self.assertIn(f"const {name} =", js, f"{name} is not defined")
+            self.assertIn(name, js.split("return {", 1)[-1],
+                          f"{name} is defined but never exported")
+
+    @staticmethod
+    def _sentence(name):
+        from pathlib import Path
+        js = Path("pipeline/static/pipeline/board.js").read_text()
+        return js.split(f"const {name} =", 1)[1].split(";", 1)[0]
+
+    def test_na_is_offered_on_the_two_boards_that_read_it(self):
+        """Only the cell-lines board *needs* it; two of the three *support* it."""
+        self.assertIn("NA", self._sentence("GENE_GATE_CELL_LINES"))
+        self.assertIn("NA", self._sentence("GENE_GATE_ANTIBODIES"))
+        # Sessions says NA finds nothing rather than staying silent about it —
+        # the word is taught on the adjacent boards, so silence reads as broken.
+        self.assertIn("finds nothing", self._sentence("GENE_GATE_SESSIONS"))
+
+    def test_only_the_cell_lines_sentence_claims_it_reaches_a_wild_type(self):
+        """A wild type has no gene, so NA is the *only* route to one there.
+
+        On the antibodies board the same word is supported and, on live at
+        2 Sep 2026, matches nothing — `Antibody.target` is NOT NULL, so the only
+        shape it can reach is a target with a blank `gene_name`. Saying "wild
+        type" there would name something that board cannot hold.
+        """
+        self.assertIn("wild type", self._sentence("GENE_GATE_CELL_LINES"))
+        self.assertNotIn("wild type", self._sentence("GENE_GATE_ANTIBODIES"))
+
+    def test_the_sentences_match_which_boards_actually_read_na(self):
+        """The fact the sentences claim, asked of the filters themselves.
+
+        This is the half that would rot: teach `gene_q_with_na` to the sessions
+        board later and its sentence becomes a lie with nothing to catch it.
+        """
+        from pipeline.services import (antibody_board, cell_line_board,
+                                       session_board)
+        for module in (antibody_board, cell_line_board):
+            with self.subTest(module=module.__name__):
+                self.assertIn("gene_q_with_na", _source(module),
+                              f"{module.__name__} stopped reading NA while its "
+                              f"gate sentence still offers it")
+        self.assertNotIn("gene_q_with_na", _source(session_board),
+                         "the sessions board now reads NA — its gate sentence "
+                         "says the word finds nothing there")
+
+    def test_the_targets_board_says_where_a_gene_is_deleted(self):
+        body = self.client.get("/pipeline/targets/board/").content.decode()
+        self.assertNotIn('class="delete-row', body,
+                         "the targets board grew a per-row Delete")
+        self.assertIn("own page", body,
+                      "the targets board offers no Delete and does not say where one is")
+
+
+def _source(module):
+    import inspect
+    return inspect.getsource(module)

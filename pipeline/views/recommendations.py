@@ -7,7 +7,7 @@ Moved here from core/views.py (the old `admin_recommendations` tool at
 lives on the pipeline behind @pipeline_member_required — the same gate as every
 other pipeline write path — and reads/writes pipeline_db directly.
 
-The tool shows every antibody for a gene with its published validation images
+The tool shows every antibody for a gene with its published characterisation images
 side by side; clicking an image toggles that antibody's recommended flag for
 that application. Recommendations can also be set one antibody at a time on the
 antibody edit form, and at publish time in the cropper; this is the bulk,
@@ -50,56 +50,14 @@ def _supplier_name(ab):
 
 
 def _requested_gene(request):
-    """What ``?gene=`` on this page asks for, resolved against the database.
+    """What ``?gene=`` on this page asks for — ``targets.published_gene_request``.
 
-    ``?gene=`` means the same thing on all four boards — an exact gene, so a
-    link can carry one from board to board — and this page ignored it: the
-    picker still read "Select a gene", while the nav links on the same page had
-    picked the value up and pointed at the boards filtered to it. The value was
-    being read; it was not being used by the one control it is for. With a
-    160-item dropdown and no link here from a gene's own page, setting a gene's
-    recommendations meant scrolling to find it by hand every time (twentieth
-    field test).
-
-    Returns ``(gene, note)``. ``gene`` is the target's own spelling — resolved
-    case-insensitively, so a link carrying ``ace`` or one of the mis-cased
-    symbols still selects the right option, since the ``<option>`` values are
-    what ``rec_genes`` stored. ``note`` is what the page has to say when the
-    request cannot be honoured, and there are two of those that look identical
-    from outside and are not: a gene that is not in the pipeline at all, and one
-    that is but has no published figures, which is the only reason a real gene
-    is absent from this particular picker. A picker sitting on its placeholder
-    says neither.
+    The resolution used to live here in full. It is shared with Judge outcomes,
+    which asks the same question of the same data and has to answer it the same
+    way, so it moved to the service; this page judges figures for every
+    application, so it passes no ``application``.
     """
-    raw = (request.GET.get("gene") or "").strip()
-    if not raw:
-        return "", ""
-
-    # Shared parsing with the boards: `?gene=` there may name several, and this
-    # page is one gene at a time, so say which one was taken rather than
-    # silently dropping the rest.
-    terms = target_svc.gene_terms(raw) or [raw]
-    wanted, extra = terms[0], terms[1:]
-    tail = (f" Showing {wanted} only — this page sets one gene at a time, and "
-            f"{', '.join(extra)} {'were' if len(extra) > 1 else 'was'} not "
-            "opened.") if extra else ""
-
-    target = (Target.objects.using(DB)
-              .filter(gene_name__iexact=wanted)
-              .first())
-    if target is None:
-        return "", f"There is no gene called {wanted} in the pipeline." + tail
-
-    gene = target.gene_name
-    has_images = Antibody.objects.using(DB).filter(
-        target_id=target.pk, publication_images__isnull=False).exists()
-    if not has_images:
-        return "", (
-            f"{gene} has no published validation figures yet, so there is "
-            "nothing to judge here. Crop one on Publish figures first — this "
-            "page lists a gene once it has at least one." + tail)
-
-    return gene, tail.strip()
+    return target_svc.published_gene_request(request.GET.get("gene"))
 
 
 @pipeline_member_required

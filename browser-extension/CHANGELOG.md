@@ -3,6 +3,547 @@
 Starts at 0.1.7. Earlier releases predate this file; 0.1.5 and 0.1.6 exist as
 signed builds in `signed/` and the repository history is the record for them.
 
+## 0.4.2
+
+**A paper is named three ways now, not one.** The declared-target lists were
+keyed on the DOI a page declares, which is exactly as far as a publisher's own
+page gets you and no further. Four of the papers in the PERK review are
+e-Century titles — *Am J Transl Res* and *Am J Cancer Res* — and e-Century
+registers no DOI with Crossref at all, so four papers the reviewer **had**
+established were reachable by neither tool. Because both PERK lists are
+`papers_only`, that was not a soft hedge but silence: a documented misuse handed
+back as an open question, which is the direction that costs something.
+
+A list row may now be keyed by **DOI**, by **PubMed id**, or by **title and
+year**, and a row carrying more than one is stored under each — which of them a
+page declares is a fact about the publisher, not about the paper. The three
+keys, their order and their normalisers are `paper.js`'s, which the citation
+layer has used since it shipped: *which paper is this* is one question and must
+not get two answers. `content.js` already had all three on hand from `pageKeys`
+and was passing one of them.
+
+**The year slack goes in the lookup, never in the data.** A row is stored under
+the one year the reviewer recorded; a page is looked up under the three years it
+could honestly be, because online-first and print dates routinely differ by one.
+Storing three would put a tolerance into the data, where it reads as three
+different papers. A title alone is refused — a title is a string two papers can
+share and the year is what confirms it, the rule `paper.js::confirmPaper`
+already enforces for citations.
+
+**Three product codes were in the payload and reachable by nothing**, found
+while testing the above and fixed here. Cell Signaling prints its catalogue
+numbers `#3179`, so that is what the datasheet says and what is stored — but
+`TOKEN_RE` begins `[A-Za-z0-9]`, so a page printing `#3179` only ever yields the
+token `3179`, and the punctuation-insensitive map could not help either because
+four characters is below `MIN_COLLAPSED`. All three CST codes were dark, which
+is two of the four papers this release adds. They are now registered under the
+bare token as well, **only** where `supplier_required` is set: that flag is what
+makes a four-digit key safe, since it demands the manufacturer's name within the
+window before anything is marked. `cat. 3179` with no supplier beside it still
+draws nothing, and the card still prints `#3179`.
+
+**The tally on the card counts papers again.** It counted rows, which was the
+same number until a paper could sit under two keys and until four PERK papers
+named two antibodies each — so it read *191* under a link to a review that says
+187. Every list now agrees with its own published figure: 54, 317 of 406, 2,
+and 187.
+
+`A18196` is attributed to **ABclonal**, from the vendor's own catalogue page. It
+shipped with no supplier because the attribution was not confident, and a card
+naming the wrong manufacturer is worse than one naming none.
+
+**Everything above except the lookup itself is data**, so it reaches every
+install at its next daily refresh on a site deploy alone — the additive key
+working as intended. The four PMID keys, the corrected tally and the supplier
+travel that way; only the code that reads a PMID needs this version.
+
+Still outstanding: the four e-Century papers are keyed by PubMed id, which
+reaches them on PubMed, PMC and Europe PMC. A title and year would also reach
+them on the publisher's own page, and the review's listing gives no full title
+to key on.
+
+## 0.4.1
+
+**A third review, and the first one the feature could not take as data alone.**
+PERK and p-ERK are two unrelated proteins whose abbreviations differ by one
+hyphen: PERK is EIF2AK3, the ER kinase of the unfolded protein response, near
+125 kDa; p-ERK is phosphorylated ERK1/2, the growth-signalling double band near
+42 and 44 kDa. Sholto David's list records **187** papers that used a PERK
+antibody to blot or stain p-ERK, and **2** the other way round.
+
+Two notice files, because one `declared_target` per notice and this collision
+runs both ways. 18 product codes, led by `ab65142` (39 papers), `ab192591` (37),
+`ab229912` (36) and Cell Signaling's `#3192` (23). Four papers the review lists
+carry a PubMed id and no DOI, so they are **not** included and say so in the
+file: every lookup in both tools keys on the DOI a page declares.
+
+**`papers_only`: some lists may only speak about the papers they name.** A
+notice is found by the product code, so by default a page naming one draws a
+mark whatever paper it is, and with no verdict the card leads *"This paper MAY
+have used the wrong antibody"* with the review's tally behind it. That is a fair
+caution where the product is mostly misused — 317 of the 406 p16 papers used
+`ab51243` as a p16-INK4a antibody, so on an unlisted paper the odds are with the
+warning.
+
+For PERK the base rate flips. `ab65142` is a perfectly good PERK antibody and
+nearly every paper citing it used it correctly for the unfolded protein
+response, so the same caution would be a false accusation against a correct
+paper — the failure `as_declared` exists to prevent, arriving through a
+different door. **The unlisted-paper fallback is a bet on the base rate**, and
+this is the per-notice flag that declines the bet: the two 2026 For Better
+Science lists keep the caution they shipped with, and the PERK lists draw
+nothing off their own papers. Both halves are pinned, in all three suites.
+
+It also makes the supplier gate on `#3192`, `#3179` and `#5683`
+belt-and-braces rather than load-bearing. Those are bare four-digit numbers and
+`TOKEN_RE` matches any alphanumeric run, so `3192` on any page is a candidate
+identifier — but a page that is not on the list can no longer mark at all. The
+gate stays because it costs nothing.
+
+`A18196` ships with **no supplier**: its catalogue could not be attributed with
+confidence, and a card naming the wrong manufacturer is worse than one naming
+none.
+
+## 0.4.0
+
+**Red now means two things, and the card says which.** A page mentioning
+`ab51243` used to draw nothing at all: the product is not in the OGA dataset, so
+there was no verdict, no target to offer alternatives for, and `worthShowing`
+correctly dropped it. It is an antibody to ARPC5 (p16-ARC) and Abcam's datasheet
+says there is no observed cross-reactivity with p16-INK4a — the CDKN2A tumour
+suppressor that 317 of 406 reviewed papers were using it to blot for, in Nature,
+Nature Medicine, Cancer Cell and eLife among others. The same has happened with
+eight antibodies to the *E. coli* LacZ β-galactosidase, used as markers of the
+mammalian GLB1 enzyme behind senescence-associated β-galactosidase.
+
+So eleven product codes across two published reviews now draw a red mark whose
+card leads with which protein the reagent is raised against, says what the review
+found about **this** paper, and links the review:
+
+    Antibody to ARPC5 (p16-ARC), not to p16-INK4a
+    This paper is on a published list of papers that used it as a p16-INK4a antibody.
+
+**Red rather than a seventh colour** (owner's decision): a reader only has to
+know that red means stop and read the card, and the card's first line separates
+the two. Nothing about a notice is a performance verdict — OGA has characterised
+none of these products — and the card says that outright, draws no application
+chips, and carries no scope line, because there is no measurement to qualify.
+
+**The paper decides whether there is a mark at all.** The lists record a verdict
+per paper, and all three states reach the card in their own words:
+
+| the review found | the mark | the card says |
+|---|---|---|
+| used as the other protein (317 + 54) | red | this paper is on the list |
+| could not reach the full text (72) | red | which protein it was used for is not known |
+| used correctly, for the declared target (17) | **none** | — |
+
+The last row is the one that mattered most to get right. Seventeen papers used
+ab51243 properly, for ARPC5, and a red mark on those is a false accusation
+against a paper somebody checked — the same shape as `present_unlinked` on the
+MCP side, where folding a three-valued answer into the harder one was the defect.
+A page that declares no DOI gets the product half and the word *may*.
+
+**Two gates, both against marking the wrong reagent.** A notice needs antibody
+vocabulary in the block, the higher bar the inferred marks clear, because a red
+mark reading "this is an antibody to another protein" over a recombinant enzyme
+is a claim about the wrong thing. And `AB986` (Merck Millipore) and `A-11132`
+(Thermo Fisher) are only matched where the supplier is named beside them:
+Millipore's AB-prefixed numbers are typeset exactly like Abcam's, so marking
+every `AB986` would put a Millipore notice on an Abcam product.
+
+**The table ships in `index.json`, and `schema` does not move.** 25 KB raw, 5 KB
+gzipped, additive, read from committed files rather than from live data — so a
+build that has never heard of `target_confusions` ignores it and behaves exactly
+as it does today, and the snapshot stays byte-identical while the data is
+unchanged. **That is not a way round store review**: an install without this
+release's code reads none of it, so the marks appear only once this version is
+approved. What it buys is every list change *after* this release — a third
+review, a reworded sentence, a corrected verdict — which then reaches installs
+at their next daily refresh with no submission at all. `core/target_confusions.py` is the one reader; the MCP connector reads
+the same functions and serves the same four paper states as prose, so a reagent
+cannot light up here and come back clean there. Adding a third review is a JSON
+file and a CSV.
+
+**A limited-support mark had no colour, and had not had one since 0.3.1.**
+`content.js::LEVEL_CLASS` is the only thing that paints a mark, and it had no
+entry for `yellow` — the rung 0.3.1 was released to make visible. So the mark
+shipped as `class="oga-hl undefined"`: no colour, no underline, no pattern,
+while the hover card behind it was perfectly correct. Drawn and invisible,
+which is the worst of the three outcomes, and **856 of the live index's 1,603
+records carry a qualifier**, so it was most of the rung.
+
+Every other surface had its half: `content.css` paints `mark.oga-yellow` in
+both themes and gives it a dashed pattern under *use line styles as well as
+colour*, `card.js` has `.hd-yellow`, the popup has a yellow tile you can click
+through. Only the map that puts the class on the element did not.
+
+Nothing could see it. The bundled 18-record fixture carries no qualifier at
+all, so no local run can produce a yellow mark, and the one environment that
+could — CI, whose network lets the live index replace the fixture — was already
+red for an unrelated harness reason, so it arrived as one of three failures in
+a suite nobody trusted. `matcher.test.mjs` pins the pairing now, with the levels
+derived by driving the matcher and the table read out of the source, and it was
+checked by reverting the fix.
+
+**The toolbar panel described a result in words nothing else on the site uses.**
+*Worth a look* said **not recommended**, while the hover card said *not
+supportive*, the six tiles four centimetres above it in the same panel said
+NOT SUPPORTIVE, and every page on the site had moved off the word — OGA
+characterises antibodies, it does not recommend them, and a panel that
+recommends makes a stronger claim than the data does. It survived because nothing
+contradicted it except everything around it. `popup.test.mjs` reads
+`card.js::CODE_LABEL` and compares, so the two cannot drift apart again.
+
+**It was not the last surface, and the paragraph above said it was.** Three more
+were found by unzipping the built artefact and grepping it — which is the only
+reason they were found at all, since two tests had just been written about this
+exact word and neither reads these files:
+
+    was:  Not tested for FC — but recommended for WB, not recommended for IP
+    now:  Not tested for FC — but supports WB, not supportive for IP
+
+    was:  For context, it was tested and not recommended in 2 applications (WB, IP).
+    now:  For context, it was tested, and not supportive for WB, IP.
+
+    was:  [screen reader] MA1-510: not tested in FC …; tested and recommended for WB
+    now:  [screen reader] MA1-510: not tested in FC …; tested and supports WB
+
+plus the `split` tile's own tooltip. **The grey headline had its own copy of the
+failed-side clause**, which is how it kept the old vocabulary *and* the bug
+0.3.3 fixed everywhere else: a qualified failure printed as a flat negative over
+a chip reading *limited support*. It calls `failedSide` now, the one reader the
+other three headlines already used.
+
+`matcher.js` still calls the index's codes `RECOMMENDED` and `NOT_RECOMMENDED`,
+deliberately — the codes are 0/1/2 and renaming them moves nothing a reader
+sees. That is also exactly how the printed strings kept the word: an internal
+name is not a printed string, and only one of the two is the reader's.
+`vocabulary.test.mjs` now sweeps every file in `src/`, comments stripped and
+those two identifiers excepted, with `options.html` exempt in writing because
+the only thing OGA recommends there is a **setting**. Checked by reverting each
+of the four.
+
+Three more shapes in the same list, each stating something false in its own
+direction:
+
+    was:  MA1-510 (NR3C1) — not recommended for WB, FC     ×6, under a tile reading 7
+    now:  MA1-510 (NR3C1) — not supportive for WB, FC      once
+
+    was:  ab109535 (TARDBP) — not recommended for WB
+    now:  ab109535 (TARDBP) — supports IP, IF, not supportive for WB
+
+    was:  ab9361 — not recommended
+    now:  ab9361 — an antibody to lacZ (E. coli beta-galactosidase), not to
+          mammalian beta-galactosidase. Not an OGA result; open the mark for
+          the review.
+
+**The list is reagents where the tiles are marks, and the two are different
+questions.** A supplier catalogue names one product in every row, so mapping
+the marks gave six identical `MA1-510` lines under a tile reading 7 — a count
+and the list it totals disagreeing on one screen, which reads as the panel
+being broken rather than as it being right about two things. Deduplicated in
+`content.js::notifySummary`, on the reagent, first mark wins.
+
+**A split verdict printed only its failures**, turning the card's own
+*Supports IP — not supportive for WB* into a blanket negative. And **a
+declared-target notice is level `red` with no failed applications**, so it came
+out as a bare negative: a performance claim about a product OGA has never
+tested, in the one place on this panel that makes a claim in words rather than
+a count — introduced by the notices earlier in this same release. `kind` is
+what the line branches on.
+
+**The hint under the tiles had a second table for the level names, and it was
+wrong twice over.** `LEVEL_NAME` said *Recommended* and *Not recommended* where
+the tile under the cursor said SUPPORTS and NOT SUPPORTIVE, so clicking a tile
+renamed its own verdict; and it had no `yellow` at all — the rung 0.3.1 was
+released for — so clicking the limited-support tile wrote `undefined — 1 of 2`.
+The same omission as `LEVEL_CLASS` above, in the same release, one table over.
+It is gone: the hint reads the label off the button the reader just clicked, so
+there is one string per level, it lives in `popup.html`, and a level added later
+needs nothing. `popup.test.mjs` drives every tile in the real markup.
+
+No version bump — 0.4.0 has not been submitted to either store, so this is the
+same release.
+
+**A red count claimed a test result where there was none.** The red tile's face
+reads NOT SUPPORTIVE, and a declared-target notice is level red — so a paper
+citing `ab9361` and nothing else drew `1 NOT SUPPORTIVE` in the toolbar panel on
+a page where OGA has tested nothing at all. Seen on oncotarget 17778. The tile's
+tooltip names both meanings of red, and **a tooltip is not the label**: a count
+is a claim about the page. One red colour still stands — a seventh hue would
+mean nothing on sight, and that decision holds for the tally as well — so the
+panel says the number out loud underneath instead:
+
+    1 of the red marks is a declared-target notice — the product is
+    documented as an antibody to a different protein. Not an OGA test result.
+
+Hidden at zero, which is almost every page.
+
+**And the tiles count marks where the list names reagents.** `7 NOT SUPPORTIVE`
+over two lines is two right answers to two different questions — a supplier
+catalogue fills several rows with one product, which is what the dedup above is
+for. The hint over the tally already said *marks*; the list carries its own now
+(*One line per reagent, however many times the page names it*), because both
+halves are right and a reader cannot tell which is which unless told.
+
+**A list of four read "a and b and c and d".** `join(" and ")` is right for two
+and wrong for everything above it, and two applications is the common case — so
+this read correctly for months and then printed, on a card:
+
+    This page mentions Western blot and Immunoprecipitation and
+    Immunofluorescence and IHC, and the Immunoprecipitation and
+    Immunofluorescence and IHC reading is unreliable
+
+Six call sites across the hover card and the mark's screen-reader label each had
+their own copy of the same expression. `matcher.js::listOf` is the joiner now,
+for the reason `verdictClause` lives there: both surfaces need it, and wording
+fixed on one is a reader getting two different answers about one row. No serial
+comma, which is the house style in the rest of the copy.
+
+Worth recording how close the fix came to being worse than the bug: `explain()`
+had no `M` in scope, so three of the six replacements would have thrown at
+runtime with `node --check` clean and every existing suite green — the same
+shape as `setCommitLabel` being declared in one function and called from
+another. Caught by reading for scope rather than by the tests.
+
+**Known limit, pinned rather than fixed.** `TOKEN_RE` only closes up a space
+between digits with exactly three after it, so a publisher setting `ab 51243`
+tokenises it as two words and no lookup sees it. Widening that would make
+"passage 12" and "Figure 3" candidate identifiers across every number on the
+page, which is a much larger false-positive surface than it buys back.
+
+## 0.3.3
+
+**A headline no longer contradicts the chip beneath it.** The middle rung —
+*limited support*, a negative the data still says something on-target about —
+was computed per chip and never reached the headline except through the yellow
+mark, which `matcher.js` grants only when there are no passes **and** every
+failure is qualified. So `mixed` and `red` flattened it to the harder word:
+
+    was:  Supports IP, IF — not supportive for WB      (chip: WB limited support)
+    now:  Supports IP, IF — limited support for WB
+
+    was:  Tested; data not supportive for WB, IP, IF   (chip: WB limited support)
+    now:  Tested; limited support for WB, data not supportive for IP, IF
+
+Seen live on ab237703 and ab104859 on one LRRK2 paper, 3 Sep 2026 — the same
+shape as the 0.3.2 fix, on the rung 0.3.1 exists to keep visible. `isLimited`
+is now the one reader both the chip and the headline ask, so they cannot answer
+differently again; the per-application clause stays on the chips, since a mixed
+verdict carrying three of them is unreadable. Records with no qualifier — most
+of the dataset — are word-for-word unchanged.
+
+**Nothing had ever rendered a qualified negative.** `data/index.json` carries no
+`q` key on any of its 18 records, and `card.test.mjs`'s hand-built statuses
+omitted `qualifiers` entirely, so three suites drew the middle rung zero times
+between them. The fixture is not hand-edited (it is rebuilt from live data);
+the tests construct the shape instead, and `baseStatus` now carries `qualifiers`
+the way `resolveStatus` does.
+
+
+
+**The verdict names which protocols, and links them.** Every verdict ended *in
+the conditions tested*, which qualified the claim without saying whose
+conditions or which — a reader taking the headline alone was left to infer both
+from a provenance line at the foot of the card. It now reads *under the
+consensus protocols*, and the phrase is a link to the protocols themselves
+(owner, 3 Sep 2026).
+
+    Tested; data not supportive for WB under the consensus protocols
+
+**The wording half is already live.** It is served in `index.json`
+(`core/recommendations.py::CONDITIONS_QUALIFIER`), which is the whole reason it
+was put there, so installs picked it up at their next daily refresh with no
+submission. What waits for a release is the *link* and the trimmed caveat below
+it — until then a card in the field draws the new words as plain text with
+"Read the protocols" still underneath, which is correct, just wordier.
+
+**The caveat under the verdict gave up its first sentence.** It opened "Result
+from consensus protocols.", which the verdict itself now says one line higher —
+where a reader who reads nothing else still reads it. Repeating it below made
+the same fact twice on a 330px card, which is what teaches a reader to skip
+every caveat on it. What is left is the half that has nowhere better to be:
+*Antibody performance is protocol and sample dependent.*
+
+The link moved with the sentence rather than doubling it, and reaches further
+for doing so: the caveat is drawn on three of the six card states, while every
+verdict that takes a qualifier now carries the way to check it.
+
+**The popup needed the release, and that is the one interim gap.** It draws
+counts, not verdicts, so it has nothing to bind the qualifier to and its note
+was the shortened sentence alone — meaning a field install between the deploy
+and this release shows a caveat that no longer names the protocols anywhere on
+that panel. It composes the naming back from both served strings now
+(`Results <qualifier>. <scope>`), so no bundled sentence can go stale, but the
+fix travels in the bundle rather than in the index.
+
+
+## 0.3.2
+
+**A narrowed verdict now narrows its headline.** When the citation layer says
+which application a paper used, the colour is scoped to it — that is the whole
+point of the layer. The words were not, so a card narrowed to western blot
+printed *"Limited support for WB, IP, IF"* over chips reading IP **not
+supportive** and IF **not supportive**, claiming limited support for two
+applications that have none. Found on a real ab104859 card in a screenshot
+taken for the store listing, 29 Aug 2026.
+
+Yellow is where it showed, because `failed` can hold applications the narrowing
+excluded; the same mismatch was latent in green, red and mixed. A proximity
+guess still cannot shrink a headline — it never sets `scopedTo`, and that guess
+was wrong on 17 of the 54 papers it spoke about — so the rule is unchanged for
+everything except a lookup, which is exactly where it was already trusted to
+set the colour.
+
+
+## 0.3.1
+
+**"Did the thing" was never the right words.** It was shorthand from the design
+conversation that leaked into the interface. The middle rung now has a name —
+**limited support** — and the clause beside it says what was actually seen
+rather than reaching for a phrase that covers every application at once:
+
+    Limited support — detects the target
+    Limited support — enriches the target, but not significantly
+    Limited support — some selective signal
+    Supportive — detects the target, but is not selective
+
+**The clause is an observation, not a reason.** Whether the data supports an
+application is an overall judgement, and the recorded axes are inputs to it
+rather than a formula that produces it — an antibody can detect its target and
+still carry enough non-selective signal to be hard to use with confidence, and
+there is no threshold anybody can write down for that. So the clause states
+what was seen, and one sentence, shown wherever the rung appears, states what
+it is worth and that usability depends on the reader's own context.
+
+Where two applications carry different clauses the card now names both rather
+than falling back to one sentence about neither.
+
+**The wording is served, not baked.** `qualifier_words` and
+`limited_support_note` arrive in the index, the way `scope` and
+`application_scope` already do, with this build's table kept as the fallback.
+This text has moved three times in a day; going through the index makes the
+next rewrite a deploy that reaches every install within a day instead of
+another submission and review wait.
+
+**The card's dot is blue on a blue card.** It kept the old orange through
+0.3.0: the amber-to-blue rename moved the level string and every other rule,
+and this one names its colour in hex, so nothing caught it. The limited-support
+headline also takes its rung's colour, where only green had one before.
+
+## 0.3.0
+
+**One colour, one meaning.** Amber meant "this antibody is untested but its
+target is characterised — here are alternatives", which is an *offer*. It now
+also had to mean "not supportive, but the antibody did the thing the application
+is for", which is a *finding*. One hue cannot carry both, so the offer moves to
+**blue** and the new finding takes **yellow**.
+
+**Yellow is the new one, and it is the point of the release.** "Detected the
+target and did not meet the bar" and "showed nothing" are different findings —
+491 of the 1,833 negatives this dataset publishes are the first — and a reader
+deciding whether to try a reagent needs them apart. The clause is in the
+headline rather than only in the rows underneath, because a reader who takes the
+headline alone must not take away "showed nothing".
+
+The mark is one colour for a whole reagent while the card lists each application
+separately, so **yellow means nothing here showed nothing**: a single unqualified
+failure keeps the mark red. Conservative on purpose — the other direction paints
+a reagent that failed outright as one worth a try.
+
+**A supportive verdict is never repainted by its qualifier.** *Supportive — but
+not selective* keeps its green chip and takes a small yellow tab. The antibody
+*is* supported for the application; the shortfall is a footnote on it, not a
+demotion, and colouring it otherwise would contradict the word inside the chip.
+
+**The words change with the colours.** *Recommended* and *not recommended*
+become *supportive* and *not supportive* throughout — the card, the chips, the
+popup tallies and the screen-reader labels. OGA characterises antibodies; it
+does not validate them, and a gene page is headed "characterisation data", so
+the answer describes evidence rather than issuing advice. **The codes in the
+index do not move**: `a` is still 0/1/2, because every install re-downloads that
+file daily and would receive a fourth value long before a build that knew what
+to do with it.
+
+**Your "show amber" setting is carried across.** It is `showBlue` now, and a
+reader who had turned those marks off would otherwise have silently got them
+back. The migration is read-only, so a downgrade to a signed 0.2.x build still
+finds its own key intact.
+
+**Where the wording lives.** The index ships a two-letter code per qualified
+application and this build holds the sentences — that file is a megabyte before
+gzip and is fetched twice per install per day. A test in the site's own suite
+pins that both sides know the same codes, because a code this build cannot read
+would draw nothing, silently, on a mark whose whole meaning is the clause.
+
+## 0.2.5
+
+**Every verdict now says what conditions produced it.** "Recommended" and "not
+recommended" are strong words for what is a measurement, and on a card they sat
+two lines above a knockout blot with nothing saying under which protocol, in
+which cell line, or that the answer can differ in another assay system. The
+words themselves stay — they are what the consortium publishes, and they are
+what the API's enum carries — and the caveat is carried in two places, doing two
+different jobs.
+
+**Inside the claim**: every verdict ends *in the conditions tested*, on the card
+and in the screen-reader label, which had to move together or one row gives a
+reader two answers. Putting it only on the line below was tried first and is not
+enough — that leaves the strong sentence standing alone, and a reader who takes
+only the headline takes an unqualified verdict.
+
+Not on *not tested*: an application nobody ran is not a result under any
+conditions, and qualifying it would imply one. So a grey card reads *Not tested
+for FC — recommended for IP, IF in the conditions tested*, the lead plain and
+the clause after it qualified.
+
+**Underneath**, a line carrying the wider point: *Result from consensus
+protocols. Antibody performance is protocol and sample dependent.* — with a link
+to the protocols. The popup carries the same line under its tally. It is drawn
+on cards that hold a verdict and **not** on grey or amber ones, where the card's
+own first line already says there is no result for this reagent; a caveat about
+what a result covers, on a card holding none, is the third caveat on one screen
+and teaches a reader to skip all three.
+
+**The wording arrives with the data, not with the build.** `index.json` now
+carries `scope`, `scope_short`, `conditions_qualifier` and `protocols_url`,
+built from
+`core/recommendations.py` — the constant every page, the API, the bulk archive
+and the JSON-LD already read. A copy bundled here would be a second wording, and
+that sentence has been sharpened twice already; shipped in the index it reaches
+every install at the next daily refresh with no store review in between.
+`card.js` and `content.js` keep fallbacks in the same words for an install
+whose cached index predates the keys. Additive, so `schema` does not move and an older build ignores
+it.
+
+**A card no longer answers a question nobody asked.** `defaultApp` looks for *a*
+figure to open on, and on the two branches where we hold nothing for what the
+paper did it found one for a different assay: a card headed *Not tested for FC*
+opened on the IP tab with a knockout immunoprecipitation filling most of it. The
+headline was right and the caption was right, and a knockout figure is the most
+persuasive thing on this card, so having it be about another application is an
+expensive way to be misread. Now: an application the paper used that this
+antibody has **no result for** opens its own tab, where the panel says so; an
+application **OGA does not assess at all** (IHC above all) preselects nothing
+and draws no figure. Neither hides anything — the chips carry all four verdicts
+either way, and one click still reaches every figure. Where the page names no
+application, the fall-through is unchanged and a figure is still offered.
+
+**Immunofluorescence says what it depends on.** Whether an epitope survives
+depends on how the sample was fixed and permeabilised, so the IF panel now
+carries *Immunofluorescence results are fixation and permeabilisation
+dependent.* — under the figure it qualifies, not in the card-wide caveat, since
+it is true of one tab and not the others. It ships in `index.json` as
+`application_scope`, keyed the way the tabs are ('IF', not the database's
+'ICC-IF'), from `core/recommendations.py::APPLICATION_SCOPE`. An application
+with nothing specific to say carries no line at all.
+
+All of it is pinned in the new `test/card.test.mjs`, and each assertion fails
+without the change it guards.
+
+No change to matching, to the four verdicts, or to what is sent anywhere.
+
 ## 0.2.4
 
 Two defects a Europe PMC field test found on 18 August 2026, across 27 records —

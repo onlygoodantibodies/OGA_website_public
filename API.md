@@ -16,7 +16,7 @@ Everything else is safe to call as often as your rate limit allows.
 ## The machine-readable contract
 
 This page is the narrative — why the endpoints are shaped as they are and what a
-recommendation means. **The contract is OpenAPI 3.1**, served, needing no key, at:
+result means. **The contract is OpenAPI 3.1**, served, needing no key, at:
 
 ```
 https://onlygoodantibodies.co.uk/api/v1/openapi.json
@@ -37,7 +37,7 @@ Postman and Insomnia both import that URL directly and give you every endpoint,
 parameter and example as a ready collection.
 
 It is generated from the code rather than kept alongside it, so the rate limits,
-the recommendation values, the four applications and the CSV column order are the
+the result values, the four applications and the CSV column order are the
 same objects the server uses — they cannot say one thing while the API does
 another.
 
@@ -134,38 +134,99 @@ then the images from a CDN that is not us.
 
 ---
 
-## 3. What a recommendation means
+## 3. What a result means
 
-A recommendation is **per application** — a pass in western blot says nothing
-about immunofluorescence. Every antibody carries `oga_recommendations` with one
-of three values per application:
+A result is **per application** — support in western blot says nothing about
+immunofluorescence. Every antibody carries `oga_support` with one of four values
+per application:
 
-| Value | Means |
+| Value | Printed as | Means |
+|---|---|---|
+| `supportive` | Supportive | The characterisation data supports this application in the conditions tested. |
+| `limited_support` | Limited support | Tested; the data does not support this application overall, and the antibody was still seen to do what the application is for. |
+| `not_supportive` | Not supportive | Tested, and nothing on-target was seen. |
+| `not_tested` | Not tested | Nobody has run it. |
+
+These are the four rungs every OGA page, the browser extension and the AI
+connector print. `oga_support` is the field to **switch on**; `oga_display`
+carries the same four as the words to **print**, so you never have to hard-code
+our wording or re-derive a rung from a qualifier.
+
+### If you are reading `oga_recommendations`, read this
+
+`oga_recommendations` is the older field and has three values, not four. It is
+still on every response and **is not going away** — but it cannot express
+`limited_support`, and that is not a rounding error:
+
+| `oga_support` | `oga_recommendations` reports |
 |---|---|
-| `recommended` | Recommended for this application in the conditions tested. |
-| `not_recommended` | Tested and not recommended in the conditions tested. |
-| `not_tested` | Not tested for this application. |
+| `supportive` | `recommended` |
+| `limited_support` | `not_recommended` |
+| `not_supportive` | `not_recommended` |
+| `not_tested` | `not_tested` |
+
+**Both negatives arrive as `not_recommended`**, and on the live dataset
+`limited_support` is **491 of the 1,833 negative results**. So if you show
+`not_recommended` to a reader as "failed" — or filter it out, or colour it red —
+better than a quarter of the time you are overstating what the data says about
+a named commercial product.
+
+What to change:
+
+```diff
+- if row["oga_recommendations"][app] == "not_recommended":
+-     print("failed")
++ support = row["oga_support"][app]
++ if support == "not_supportive":
++     print("not supportive")
++ elif support == "limited_support":
++     print("limited support")      # or: row["oga_display"][app]["sentence"]
+```
+
+Nothing breaks if you do nothing: every field you already read is still there,
+still means what it meant, and still arrives in the same shape. The only cost of
+doing nothing is the one above — the middle rung stays invisible to you.
+
+`recommendations` is the original object of plain booleans. It cannot tell
+`not_recommended` from `not_tested`, because `false` means both; it cannot
+express `limited_support` either. Kept for the integrations that read it.
 
 Results are based on [consensus
 protocols](https://www.nature.com/articles/s41596-024-01095-8). Antibody
-performance is protocol and sample dependent, and these results do not validate
-or invalidate experiments in other assay systems or sample types. (Ayoubi et
-al., 2024, *Nature Protocols*.)
+performance is assay, protocol and sample dependent, so **performance in your
+own experimental context may differ** and needs its own controls. (Ayoubi et al.,
+2024, *Nature Protocols*.) Planning those controls:
+[the Framework](https://onlygoodantibodies.co.uk/tools/validation-framework/).
 
 That sentence is **in the data as well as in this document**. Every response
-that carries recommendations — `/antibodies/`, `/genes/`, `/gene-detail/` —
-carries it as `recommendation_scope` on the envelope, beside `count`, so it
-reaches code that never reads a page. It is one field per response rather than
-one per row: a caveat repeated on 1,600 rows is one nobody reads, and the rows
-themselves are unchanged.
+that carries results — `/antibodies/`, `/genes/`, `/gene-detail/` — carries it
+as `recommendation_scope` on the envelope, beside `count`, so it reaches code
+that never reads a page. It is one field per response rather than one per row: a
+caveat repeated on 1,600 rows is one nobody reads, and the rows themselves are
+unchanged.
 
 Not to be confused with `scope` on `/manifest/`, which says which *part of the
 dataset* your key covers. Different question, so a different name.
 
-Two older keys carry the same information. `verdicts` is a deprecated alias of
-`oga_recommendations`. `recommendations` is the original object of plain
-booleans and cannot tell `not_recommended` from `not_tested`, because `false`
-means both.
+### The full set of result fields
+
+Four keys carry the result, and they are layers rather than alternatives. Each
+was added because the one before it could not say something; **none is ever
+removed.**
+
+| Key | Shape | Use it for |
+|---|---|---|
+| `oga_support` | one of four values, per application | switching |
+| `oga_display` | words, qualifier, sentence, colour, per application | printing |
+| `oga_qualifiers` | the clause alone, per application | printing |
+| `oga_recommendations` | one of three values, per application | legacy; still emitted |
+| `recommendations` | booleans, per application | legacy; still emitted |
+
+A field that arrived after your integration was written is invisible to your
+parser, which is why they are added rather than changed. `verdicts`, a fourth
+key, was removed in 2.0.0 on 7 August 2026 — see §12. It is the only field this
+API has ever taken away, and it went while no key had been issued outside OGA.
+That is no longer true, so nothing else will follow it.
 
 ---
 
@@ -317,6 +378,9 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
       "discontinued": false,
       "gene_page_url": "https://onlygoodantibodies.co.uk/antibodies/ACE/",
       "added_at": "2026-08-05T14:52:14.964314+00:00",
+      "oga_support": "limited_support",
+      "oga_display": "Limited support",
+      "oga_qualifier": "enriches the target, but not significantly",
       "oga_recommendation": "not_recommended",
       "filename": "ACE_ab254222_IP.png"
     }
@@ -437,9 +501,51 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
 ```
 
 ```csv
-url,filename,gene,catalogue_number,rrid,supplier,application,application_display,oga_recommendation,product_link,discontinued,gene_page_url,image_id,added_at
-https://onlygoodantibodies.co.uk/media/publication_images/2026/ab254222_WB.png,ACE_ab254222_WB.png,ACE,ab254222,AB_3073965,Abcam,WB,Western Blot,recommended,https://www.abcam.com/ab254222,False,https://onlygoodantibodies.co.uk/antibodies/ACE/,1,2026-08-05T14:52:33.547850+00:00
+url,filename,gene,catalogue_number,rrid,supplier,application,application_display,oga_recommendation,oga_display,oga_qualifier,product_link,discontinued,gene_page_url,image_id,added_at,oga_support
+https://onlygoodantibodies.co.uk/media/publication_images/2026/ab254222_WB.png,ACE_ab254222_WB.png,ACE,ab254222,AB_3073965,Abcam,WB,Western Blot,recommended,Supportive,selective,https://www.abcam.com/ab254222,False,https://onlygoodantibodies.co.uk/antibodies/ACE/,1,2026-08-05T14:52:33.547850+00:00
 ```
+
+### What a result says, in three columns
+
+Every manifest row carries the answer three times, and each is on purpose.
+
+`oga_support` is the **value to switch on** — `supportive`, `limited_support`,
+`not_supportive`, `not_tested`. One value per rung, so it says exactly what the
+row prints. See [§3](#3-what-a-result-means) for the full table.
+
+`oga_display` is the **wording OGA’s own pages print** for that value —
+*Supportive*, *Limited support*, *Not supportive*, *Not tested*. Print this
+rather than mapping the value yourself, and your file and our pages cannot come
+to two different words for one row.
+
+`oga_recommendation` is the **legacy enum** — `recommended`, `not_recommended`,
+`not_tested`. Still on every row and staying there, but it cannot express
+`limited_support`: that rung and `not_supportive` both arrive as
+`not_recommended`, and on the live dataset the middle one is **491 of the 1,833
+negative results**. If you switch on this column and print "failed", better than
+a quarter of the time you are overstating what the data says about somebody’s
+product. That is what the other two columns are for.
+
+`oga_qualifier` is the clause behind the rung — *detects the target, but is not
+selective*, *enriches the target, but not significantly*, *strongly selective*.
+It is empty where that axis was not judged, and it qualifies a supportive result
+as readily as a negative one: 36% of supportive western blots carry one. Support
+is an overall judgement rather than a sum of the parts — an antibody can detect
+its target and still carry enough non-selective signal to be hard to use with
+confidence.
+
+One case where the columns look inconsistent and are not: an immunofluorescence
+result whose measured ratio falls below the floor reads `not_supportive` however
+the flag is set. The legacy enum reports the flag; `oga_support` applies the
+veto, the same way the gene pages do.
+
+**`oga_support` is the last column in the CSV, not the third.** It belongs beside
+the other two by meaning, and it is appended instead so that every column index
+a spreadsheet or a positional parser already depends on keeps working.
+
+`/api/v1/antibodies/` carries the same pair as `oga_display` and
+`oga_qualifiers`, keyed by application rather than flattened — a manifest row
+is one application, so here they are plain strings.
 
 **Plain URLs** — one per line, for `wget -i`:
 
@@ -516,6 +622,35 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
         "recombinant": "Yes",
         "product_link": "https://www.abcam.com/ab254222",
         "discontinued": false
+      },
+      "oga_support": {
+        "WB": "supportive",
+        "IP": "limited_support",
+        "ICC-IF": "not_tested",
+        "FC": "not_tested"
+      },
+      "oga_display": {
+        "WB": {
+          "support": "supportive",
+          "words": "Supportive",
+          "qualifier": "",
+          "sentence": "Supportive",
+          "tone": "supportive",
+          "tab": false
+        },
+        "IP": {
+          "support": "limited_support",
+          "words": "Limited support",
+          "qualifier": "enriches the target, but not significantly",
+          "sentence": "Limited support — enriches the target, but not significantly",
+          "tone": "qualified",
+          "tab": false
+        },
+        "ICC-IF": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false },
+        "FC": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false }
+      },
+      "oga_qualifiers": {
+        "IP": "enriches the target, but not significantly"
       },
       "recommendations": { "WB": true, "ICC-IF": false, "IP": false, "FC": false },
       "oga_recommendations": {
@@ -763,7 +898,7 @@ carrying your product's name.
 
 **Everything they return is unpublished.** It may change or be withdrawn before
 release. Do not quote it, publish it or link it, and do not read
-`provisional_recommendation` as an OGA recommendation — that verdict is not
+`provisional_recommendation` as an OGA recommendation — that result is not
 applied to the antibody until the figure is released, at which point the figure
 appears in `/manifest/` and on the public gene page like any other.
 
@@ -857,6 +992,141 @@ non-zero while nothing has changed on the public page.
 
 `stage` is a coarse label for sorting a list: `in_progress`,
 `awaiting_release`, `published_figures`, `reported`.
+
+---
+
+## 10c. The review list — what came back without support
+
+**`GET /not-supportive/`** answers one question: *which of my antibodies did OGA
+test and find no supportive result for, in any application tested?* Everything
+in it is already on the public gene pages — this endpoint assembles the slice,
+which is the whole of what it adds. A key with no supplier scope is answered
+with the whole dataset, unlike `/pipeline-data/` next door, because there is
+nothing here that is not already published.
+
+**An application nobody ran is absent from this list, never a failure in it.**
+A missing recommendation flag means *not tested* on a gene OGA has not curated
+yet; only an application with a published figure on a curated gene is reported,
+which is the same rule `oga_recommendations` follows everywhere else.
+
+**Two findings, and they are not the same.** `Not supportive` means nothing
+on-target was seen. `Limited support` means the antibody was still seen to do
+what the application is for — it detected the target but was not selective, or
+enriched it but not significantly. Both carry
+`oga_recommendation: "not_recommended"` — the same controlled value the rest of
+this API uses; the `finding` field is what tells them apart, and it is the word
+the gene page prints.
+
+**`Limited support` is excluded by default.** The default list is the hard
+edge: antibodies where *nothing on-target was seen in any application they were
+tested in*. Pass **`?include_limited=1`** to widen it to every antibody with no
+supportive result. The switch moves whole antibodies, never individual
+findings — an antibody that appears always carries every one of its results, or
+the counts on it would disagree with the list beneath them.
+`manifest.limited_support_would_add` says how many antibodies the wider set
+holds that this one does not, so a client can state the cost of the switch
+before flipping it.
+
+**`applications` is the whole strip; `findings` is what is counted.** Every row
+carries both. `findings` is the results that came back without support — the
+rows the CSV writes and the numbers the manifest counts. `applications` is all
+four in the order every OGA surface prints them, with the ones nobody ran
+marked `tested: false` and `oga_recommendation: "not_tested"`. Nothing in
+either list is ever `recommended`: an antibody is in this reply only because no
+application was supportive.
+
+**`references` is the reference point, per gene and per application.** A
+negative is hard to read without knowing what a good result on the same gene
+looks like, so the reply carries a supportive example for each gene and each
+application that has one, keyed by UPPER-CASE gene symbol. It is a **different
+antibody** — usually a different product and often a different supplier — and
+the example is chosen per application, so a gene's western-blot example and its
+immunoprecipitation example are routinely two different products. A supportive
+result with no caveat is preferred; where a gene has only a caveated one, that
+is used and `caveated: true` says so. Nothing here is scoped to the caller: it
+is all on the public gene page each row links to.
+
+```json
+{
+  "scope": "Reagents supplied by Thermo Fisher Scientific.",
+  "manifest": {
+    "antibodies": 122,
+    "findings": 302,
+    "not_supportive": 240,
+    "limited_support": 62,
+    "genes": 81,
+    "figures": 302,
+    "limited_support_would_add": 56
+  },
+  "references": {
+    "ACE": {
+      "WB": {
+        "catalogue_number": "PA5-86568",
+        "supplier": "Thermo Fisher Scientific",
+        "sentence": "Supportive",
+        "caveated": false,
+        "figure_url": "https://onlygoodantibodies.co.uk/media/experiments/ACE-WB-PA586568.png"
+      }
+    }
+  },
+  "antibodies": [
+    {
+      "catalogue_number": "MA5-32741",
+      "rrid": "AB_2810018",
+      "gene": "ACE",
+      "applications_tested": 2,
+      "applications_not_supportive": 2,
+      "has_limited_support": false,
+      "findings": [
+        {
+          "application": "WB",
+          "finding": "Not supportive",
+          "qualifier": "",
+          "sentence": "Not supportive",
+          "oga_recommendation": "not_recommended"
+        }
+      ],
+      "applications": [
+        {"application": "WB", "finding": "Not supportive", "tested": true},
+        {"application": "IP", "finding": "Not supportive", "tested": true},
+        {"application": "ICC-IF", "finding": "Not tested", "tested": false},
+        {"application": "FC", "finding": "Not tested", "tested": false}
+      ]
+    }
+  ]
+}
+```
+
+`applications_tested` and `applications_not_supportive` are both on every row on
+purpose: *failed all four* and *failed the only one anybody ran* are different
+statements about a product, and a reader who cannot tell them apart has been
+handed the stronger one.
+
+**`GET /not-supportive/csv/`** is the same set as a spreadsheet, **one row per
+application result** rather than per antibody — a wide row with four result
+columns would leave you deciding which blank meant *not tested*. The two counts
+above ride on every row so the antibody-level fact survives the flattening.
+
+**There is no PDF endpoint, and there was one** (withdrawn 14 Sep 2026). It
+rendered one page per antibody with the figures in it, and the figures are the
+part it could not be relied on to deliver: every one is an object-storage read
+on a four-thread site, so the document had to be budgeted, and a budgeted
+document sometimes arrives short of the pictures it exists for — which is the
+one thing it was for. The figures are drawn on the portal page instead, where
+the browser fetches them itself and nothing has to be budgeted; every row's
+`applications[].figure_url` is that same image for a client building its own
+view. If you reinstate it, solve the fetching first.
+
+The rows arrive **grouped by gene**, ordered by gene symbol then catalogue
+number, so a client can break sections by walking the list once rather than
+sorting it into a second order of its own.
+
+Both take **`?gene=`** (one symbol or a comma-separated list) and
+**`?include_limited=`**, and both narrow the manifest and the file identically,
+so the count you were shown is always the count in the file you get.
+
+Both take the key as a header, so neither can be a plain link in a browser —
+fetch it and save the blob.
 
 ---
 
@@ -1033,6 +1303,41 @@ until something actually changes.
 
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
+
+### 2.1.0 — 14 September 2026
+
+**Added: `oga_support`** — the result as a controlled value with one entry per
+rung the pages print: `supportive`, `limited_support`, `not_supportive`,
+`not_tested`. On `/antibodies/` keyed by application, on `/manifest/` rows and
+`/not-supportive/` as a single value, and as the **last** CSV column so existing
+column indices do not move. §3 has the mapping and a two-line diff.
+
+Read it if you read `oga_recommendations`. That field has three values and
+cannot express `limited_support` — an antibody tested and not supported overall
+that was still seen to do what the application is for. It and `not_supportive`
+both arrive there as `not_recommended`, and the middle rung is 491 of the 1,833
+negative results on the live dataset.
+
+**Documented: `oga_display` and `oga_qualifiers` on `/antibodies/`.** Both have
+shipped on that endpoint since 12 September and were in no version of this
+document or of `openapi.json`. A field you receive and we never mention is one
+you cannot be expected to use.
+
+**Changed: `oga_display` on `/antibodies/` no longer carries a `verdict` key.**
+It is the legacy value, which the same response already carries as
+`oga_recommendations`, and it reached the wire by accident when this object was
+first published two days ago — undocumented, and contradicting a decision made
+on 7 August about what to call these results. Everything else in the object is
+unchanged. This is the one subtraction in this release; if you read it, read
+`oga_recommendations` or the new `oga_support` instead.
+
+**Manifest body version 4.** `MANIFEST_VERSION` moved so that a client holding
+an ETag is told once that the representation changed and re-fetches to pick the
+new column up; an additive change nobody is told about is a column that exists
+on the endpoint and in nobody's copy of the file.
+
+Nothing else moved. Every field any response carried on 13 September it still
+carries, with the same shape and meaning.
 
 ### 2.0.0 — 7 August 2026
 

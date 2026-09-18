@@ -8,51 +8,50 @@
 name: browser boards and search
 
 on:
-  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
-  # The month's GitHub Actions minutes are spent, so every automatic run was
-  # failing before a single test executed -- a red tick on `beta` that says
-  # nothing about the code and trains everyone to ignore red ticks.
-  #
-  # The automatic triggers below are commented out, NOT deleted, so restoring
-  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
-  # left on, so the Actions tab can still run this by hand.
-  #
-  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
-  # is off is a suite nobody runs, and it looks exactly like a suite that
-  # passes.
-  # ───────────────────────────────────────────────────────────────────────
-#   push:
-#     paths:
-#       - 'pipeline/templates/**'
-#       - 'pipeline/static/**'
-#       - 'pipeline/views/**'
-#       - 'templates/**'
-#       - 'pipeline/tests_browser_board.py'
-#       - 'core/templates/**'
-#       - 'core/static/**'
-#       - 'core/views.py'
-#       - 'core/tests_browser_search.py'
-#       - 'core/tests_browser_availability.py'
-#       - 'core/tests_browser_portal_pipeline.py'
-#       - '.github/workflows/browser.yml'
-#   pull_request:
-#     paths:
-#       - 'pipeline/templates/**'
-#       - 'pipeline/static/**'
-#       - 'pipeline/views/**'
-#       - 'templates/**'
-#       - 'pipeline/tests_browser_board.py'
-#       - 'core/templates/**'
-#       - 'core/static/**'
-#       - 'core/views.py'
-#       - 'core/tests_browser_search.py'
-#       - 'core/tests_browser_availability.py'
-#       - 'core/tests_browser_portal_pipeline.py'
-#       - '.github/workflows/browser.yml'
-#   # Nightly, so the commissioning tests are checked daily rather than on every
-#   # push. They are excluded below by tag; this is where they run.
-#   schedule:
-#     - cron: '17 3 * * *'
+  push:
+    paths:
+      - 'pipeline/templates/**'
+      - 'pipeline/static/**'
+      - 'pipeline/views/**'
+      - 'templates/**'
+      - 'pipeline/tests_browser_board.py'
+      - 'core/templates/**'
+      - 'core/static/**'
+      - 'core/views.py'
+      - 'core/tests_browser_search.py'
+      - 'core/tests_browser_availability.py'
+      - 'core/tests_browser_portal_pipeline.py'
+      # The Not Supportive tab is drawn entirely in the browser from
+      # these two, so a change to either can break the tab with every
+      # response test still green.
+      - 'core/tests_browser_portal_not_supportive.py'
+      - 'core/not_supportive.py'
+      - 'core/api_not_supportive.py'
+      - '.github/workflows/browser.yml'
+  pull_request:
+    paths:
+      - 'pipeline/templates/**'
+      - 'pipeline/static/**'
+      - 'pipeline/views/**'
+      - 'templates/**'
+      - 'pipeline/tests_browser_board.py'
+      - 'core/templates/**'
+      - 'core/static/**'
+      - 'core/views.py'
+      - 'core/tests_browser_search.py'
+      - 'core/tests_browser_availability.py'
+      - 'core/tests_browser_portal_pipeline.py'
+      # The Not Supportive tab is drawn entirely in the browser from
+      # these two, so a change to either can break the tab with every
+      # response test still green.
+      - 'core/tests_browser_portal_not_supportive.py'
+      - 'core/not_supportive.py'
+      - 'core/api_not_supportive.py'
+      - '.github/workflows/browser.yml'
+  # Nightly, so the commissioning tests are checked daily rather than on every
+  # push. They are excluded below by tag; this is where they run.
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 # One run per branch. Pushing a series of commits used to leave every superseded
@@ -128,7 +127,7 @@ jobs:
             EXCLUDE="--exclude-tag commissioning"
           fi
           echo "running with: ${EXCLUDE:-<everything>}"
-          python manage.py test pipeline.tests_browser_board core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
+          python manage.py test pipeline.tests_browser_board core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline core.tests_browser_portal_not_supportive $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
           if grep -q "needs playwright and the bundled Chromium" /tmp/browser.log; then
             echo "::error::Browser tests skipped — Chromium was not found where the suite looks for it."
             exit 1

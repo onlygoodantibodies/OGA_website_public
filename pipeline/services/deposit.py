@@ -153,7 +153,7 @@ def metadata_for(target, sessions, antibodies) -> dict:
             "rights": [{"id": LICENCE}],
             "subjects": [{"subject": s} for s in
                          [_gene(target), "antibody characterisation",
-                          "knockout validation"] if s],
+                          "knockout controls"] if s],
             "related_identifiers": related,
             "publisher": "Zenodo",
         },

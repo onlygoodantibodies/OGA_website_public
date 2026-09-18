@@ -77,16 +77,36 @@ a:hover {
 }
 
 /* Navigation Link Styles */
+/* `flex-wrap: wrap` is load-bearing, not tidying. The bar is nine items and
+   the hamburger only takes over at 768px, so between 769px and about 1000px
+   a nowrap row was wider than the header: at 769px Partners, Contact and
+   Academy sat past the right edge, at 900px Academy did. `html { overflow-x:
+   hidden }` clips that, so they were not pushed off a scrollable page — they
+   were gone, with no hamburger at that width to reach them and nothing on
+   screen saying a link existed. Wrapping keeps every item reachable and does
+   it for whatever the bar grows to, where tuning the gap or the font size
+   would fit today's nine and silently drop the tenth.
+
+   `white-space: nowrap` on the link is the other half: flex items shrink to
+   min-content, so without it the row "fits" by breaking the labels instead —
+   "About Us" and "News & Publications" were each rendering over two lines.
+   Break the bar between items, never inside one.
+
+   Both are safe under 768px, where nav ul.menu is a column: wrapping on the
+   block axis needs a constrained height and the dropdown's is auto. */
 nav ul {
     list-style-type: none;
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px 20px;
 }
 
 nav ul li a {
     color: var(--main-blue);
     text-decoration: none;
     font-weight: normal;
+    white-space: nowrap;
 }
 
 nav ul li a:hover {
@@ -366,8 +386,22 @@ nav ul li a:hover {
 }
 
 /* Footer Styling */
+/* No `width: 100vw` here, deliberately. The footer is a block element whose
+   parent is always the full page width (body, or an unstyled .footer-wrapper),
+   so `width: auto` already fills it and draws the padding INSIDE that width.
+   `100vw` did neither: with no `box-sizing: border-box` the 20px of side
+   padding was added to it, making the footer 40px wider than the viewport, and
+   100vw is the viewport INCLUDING the scrollbar gutter, so a browser that
+   reserves one added that too. Both are invisible — `html { overflow-x:
+   hidden }` above clips the excess — and the symptom is instead that the
+   centred .footer-container is centred on the footer's width rather than the
+   page's, sitting 20px right of every other centred thing on the page.
+   /about/ was the one page it looked right on, and only by accident: it
+   declares `.abt-page * { box-sizing: border-box }`, which caught the footer.
+   The full-bleed variant below needs `100vw` because it escapes a constrained
+   parent, and pairs it with the negative margin and box-sizing that make it
+   work. */
 .footer {
-    width: 100vw;
     padding: 40px 20px;
     background-color: var(--main-blue);
     color: #ffffff;
@@ -425,6 +459,12 @@ nav ul li a:hover {
 
 .social-icon:hover {
     transform: scale(1.1);
+}
+
+/* Follow Us carries each network's name beside its icon, so the icon has to
+   sit on the text's centre line rather than its baseline. */
+.footer-column .social-icon {
+    vertical-align: middle;
 }
 
 /* Bottom Footer Styling */
@@ -2065,6 +2105,44 @@ td {
 strong {
     color: var(--main-blue);
     font-weight: bold;
+}
+
+/* The six cards are a nowrap flex row of 260px boxes, and the wrap rule that
+   saves them was written only into the 768px block below — but the row needs
+   about 995px. Between 769px and there the boxes shrank to a min-content floor
+   of 139px and then overflowed BOTH edges (the row is centred), clipped by
+   `html { overflow-x: hidden }`. Six 139px slivers, with the ends cut off.
+
+   Fixed in its own band rather than by moving the 768px breakpoint up, because
+   that block also restyles `.learn-more-button`, which Data Access uses
+   outside a card — raising it would have shrunk buttons on a page with no
+   cards on it. Nothing below 769px or above 1199px changes.
+
+   Three per row, not the two the phone layout uses: at 900px that is ~270px a
+   card, near the 260px the design draws at full width, where two would be 420.
+
+   The band runs to 1199px rather than stopping where the overflow stops,
+   which is a judgement and not a fix. Above 991px the one-row layout no
+   longer overflows, but it is still six columns the cards were not drawn for:
+   they only reach their 260px design width at about a 1700px viewport, so at
+   1000-1200px they render at 139-177px with words breaking mid-phrase. The
+   owner compared the two at 1000, 1100 and 1200px and chose this. Reverting
+   is this one number; nothing else depends on it, and CI cannot see the
+   difference either way. */
+@media (min-width: 769px) and (max-width: 1199px) {
+    .educational-section {
+        flex-wrap: wrap;
+    }
+
+    .edu-box {
+        width: auto;
+        flex: 1 1 calc(33.333% - 14px);
+        /* `box-sizing` matters here and nowhere else in this rule: a percentage
+           flex-basis sizes the CONTENT box, and .edu-box carries 20px of
+           padding and a 1px border, so without it each card came out 42px wider
+           than its basis and only two fitted per row. */
+        box-sizing: border-box;
+    }
 }
 
 @media (max-width: 768px) {

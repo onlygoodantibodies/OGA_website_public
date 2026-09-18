@@ -64,7 +64,6 @@ window.OGABoard = (function () {
   const PREVIEW_STATUS = {
     'create': ['new', 'good'],
     'update': ['already on file — will be updated', 'cool'],
-    'create-target': ['new, and adds the gene to your site\'s list', 'warn'],
     'no-target': ['skipped — no matching gene', 'warn'],
     'blocked': ['skipped', 'warn'],
   };
@@ -104,6 +103,37 @@ window.OGABoard = (function () {
     + 'Type one in the Gene box above and press Apply — the grid then shows '
     + 'that gene\'s records, and each row gets a Delete.';
 
+  /* **The sentence is per board, because the answer is.** One shared string
+   * said "pick a single gene" on all three, and what that leaves out is
+   * different on each. Two boards read `NA` (`targets.gene_q_with_na`) and one
+   * does not, so the word is offered on exactly the two where it reaches
+   * something: on **cell lines** it is necessary — a wild type has no gene, so a
+   * gene filter can never reach one, and on live (2 Sep 2026) 148 lines are
+   * reachable only that way; on **antibodies** it is supported and currently
+   * matches nothing, which is right to offer anyway, since it is the shape a
+   * blank gene cell takes and a field test already typed it here after learning
+   * it one board over. The **sessions** board filters with `gene_q` alone and
+   * every session has a gene, so saying nothing there would leave the word
+   * looking broken rather than inapplicable.
+   *
+   * The other half is where a record this page cannot delete *is* deleted: a
+   * reader who finds no Delete concludes the app cannot do it.
+   *
+   * `geneGate` takes the sentence, so the *mechanism* stays in one place and
+   * only the wording varies — the mistake to avoid is three boards each growing
+   * their own gate. */
+  const GENE_GATE_ANTIBODIES = 'Deleting is off until you pick a single gene. '
+    + 'Type one in the Gene box above and press Apply — or NA for the antibodies '
+    + 'with no gene recorded. The grid then shows those records, and each row '
+    + 'gets a Delete. Deleting a gene itself is on that gene\'s own page.';
+  const GENE_GATE_CELL_LINES = 'Deleting is off until you pick a single gene. '
+    + 'Type one in the Gene box above and press Apply — or type NA for the lines '
+    + 'with no gene recorded, which is how you reach a wild type, since a gene '
+    + 'filter never can. The grid then shows those records, and each row gets a '
+    + 'Delete.';
+  const GENE_GATE_SESSIONS = GENE_GATE
+    + ' Every session has a gene, so NA finds nothing here.';
+
   /* The genes a `?gene=` filter names — the mirror of
    * `services/targets.py::gene_terms`, and it has to stay a mirror: the server
    * narrows on this list and `oneGene` gates deleting on its length, so the two
@@ -130,10 +160,10 @@ window.OGABoard = (function () {
     return geneTerms(box && box.value).length === 1;
   }
 
-  function geneGate(form, el) {
+  function geneGate(form, el, message) {
     const on = oneGene(form);
     if (el) {
-      el.textContent = on ? '' : GENE_GATE;
+      el.textContent = on ? '' : (message || GENE_GATE);
       el.classList.toggle('hidden', on);
     }
     return on;
@@ -365,12 +395,53 @@ window.OGABoard = (function () {
    * preview that names A-3085 and then writes A-3087 is worse than one that
    * names nothing. The save reports what was actually issued, which is the
    * moment the answer is real. */
+  /* Two boards, two opposite behaviours, so two keys.
+   *
+   * A **cell line** is numbered when it is created: a C-number is issued per
+   * site in freeze order and a freeze-down batch takes the next one, so there is
+   * nothing to defer. An **antibody** is not, since 2 Sep 2026 — the A-number
+   * decides which freezer box a vial goes in, and numbering on arrival scatters
+   * a protein across as many boxes as it had deliveries. So the antibody
+   * message names the *absence* and says where the number comes from instead.
+   *
+   * `will_be_numbered` and `will_be_unnumbered` are deliberately different keys
+   * rather than one flag read two ways: this is one writer for both panels, and
+   * a key meaning opposite things on two boards is how a message ends up true
+   * of neither. */
   function labNumberNote(summary) {
-    const n = (summary || {}).will_be_numbered || 0;
+    const s = summary || {};
+    const numbered = s.will_be_numbered || 0;
+    const unnumbered = s.will_be_unnumbered || 0;
+    let out = '';
+    if (numbered) {
+      out += `<li>${plural(numbered, 'new record')} will be given this site's
+        next lab number. Type one in the number column to use your own
+        instead.</li>`;
+    }
+    if (unnumbered) {
+      out += `<li>${plural(unnumbered, 'new antibody', 'new antibodies')} will be
+        added <b>without an A-number</b>, so you can deal the numbers out once
+        the whole delivery is in and keep each protein's vials together — press
+        <b>Assign numbers</b> on the antibodies board when you are ready. Type a
+        number in the <b>ab #</b> column to set one now. Planning a session gives
+        a number to anything that still has none.</li>`;
+    }
+    return out;
+  }
+
+  /* What a save left deliberately blank. The counterpart to `labNumbersIssued`:
+     a number the app declined to give is as much a thing the app did as one it
+     gave, and a save that silently produced no A-number reads as a save that
+     went wrong — the mirror image of run 8's finding, which was a number
+     appearing with nothing to announce it. */
+  function labNumbersDeferred(result) {
+    const n = (result || {}).left_unnumbered || 0;
     if (!n) return '';
-    return `<li>${plural(n, 'new record')} will be given this site's next lab
-      number — an A-number for an antibody, a C-number for a cell line. Type one
-      in the number column to use your own instead.</li>`;
+    return `<br><span>${plural(n, 'antibody', 'antibodies')} added with
+      <b>no A-number</b> — that is deliberate. Press <b>Assign numbers</b> when
+      the delivery is complete and they will be dealt out in gene order, so each
+      protein's vials sit together in the freezer. Nothing is numbered until you
+      say so, or until a session is planned.</span>`;
   }
 
   function labNumbersIssued(result) {
@@ -397,7 +468,7 @@ window.OGABoard = (function () {
 
   function saveNotes(result) {
     return concentrationSaved(result) + cNumberSaved(result)
-         + labNumbersIssued(result);
+         + labNumbersIssued(result) + labNumbersDeferred(result);
   }
 
   /* Which sheet an upload was read from, when there was a choice.
@@ -552,6 +623,7 @@ window.OGABoard = (function () {
               extraClass ? ' ' + extraClass : ''}"
               data-target="${esc(rowId)}" data-field="${esc(field)}"${attrs}${
               blank ? ' data-empty="1"' : ` data-value="${esc(value)}"`}${
+              !blank && display !== value ? ` data-display="${esc(display)}"` : ''}${
               extraClass ? ` data-cellclass="${esc(extraClass)}"` : ''}
               tabindex="0" role="button"
               aria-label="${esc(label)}${value ? `: ${shown}` : ' — empty'}. Click to edit."
@@ -633,6 +705,23 @@ window.OGABoard = (function () {
    * status nobody chose. */
   let editSeq = 0;
   const EDIT_CLASS = 'border border-ycharos-400 rounded px-1 py-0.5 text-sm w-full min-w-[10rem]';
+
+  /* The plain values out of a `cellChoices` entry, for a surface that wants the
+   * same vocabulary in a different control.
+   *
+   * A board's grid cell and its Add panel offer the same fields — site, role,
+   * clonality — and the two draw them differently on purpose: a grid cell may be
+   * a `<select>`, while an Add-panel cell stays a text input because `newEntry`
+   * serialises the grid to TSV through the same parser a paste uses. Without
+   * this each template mapped the list itself, which is three copies of one
+   * transformation and three chances for a panel to offer something the cell
+   * beside it does not. The blank option is dropped: it exists so a dropdown can
+   * *clear* a value, and there is nothing to clear on a row being created. */
+  function optionValues(spec) {
+    return ((spec && spec.values) || [])
+      .map(v => (typeof v === 'string' ? v : (v && v.value) || ''))
+      .filter(Boolean);
+  }
 
   function editorHtml(spec, original) {
     const opts = ((spec && spec.values) || []).map(v => (typeof v === 'string'
@@ -1166,10 +1255,23 @@ window.OGABoard = (function () {
          * on a save the row does not redraw — built from the same closed set
          * the editor's <select> is built from, so the two cannot disagree. */
         const choices = (cfg.cellChoices || {})[span.dataset.field];
+        /* What this cell was showing before the edit. `choices` answers for a
+         * closed set — a session status, where every code has a label — and
+         * cannot answer for an **open** one: the antibodies board draws a
+         * received date as `Aug 2026` over a stored `2026-08`, and there is no
+         * list of every date to look it up in. Cancelling or a refused save
+         * both put `original` back, so the label it was drawn with is exactly
+         * the right answer for both, and it is on the span already. Without
+         * this the cell came back reading `2026-08` — a valid spelling of the
+         * same day, which is what makes it worth fixing: nothing looks broken,
+         * the column just quietly stops matching the rows around it. */
+        const shownOriginal = span.dataset.display || '';
         const labelOf = v => {
           const opt = ((choices && choices.values) || []).find(
             o => o && typeof o === 'object' && String(o.value) === String(v));
-          return opt ? (opt.label || opt.value) : v;
+          if (opt) return opt.label || opt.value;
+          if (shownOriginal && String(v) === String(original)) return shownOriginal;
+          return v;
         };
         // A pill's own styling is wrong around a text box or a dropdown.
         const cellClass = span.dataset.cellclass;
@@ -1749,6 +1851,20 @@ window.OGABoard = (function () {
       if (inFlight) return;
       setBusy(true);
       try {
+        // **"Nothing entered" and "the check failed" are two states**, and this
+        // collapsed them into one. `post` writes *Nothing entered yet.* into the
+        // output panel for an empty grid and returns null, and the branch below
+        // then overwrote the reason beside the button with *Fix the rows above
+        // and check again* — pointing at rows that do not exist. Run 18 hit it
+        // by pressing Check with the Paste tab open and empty, and the message
+        // named nothing it could act on. Asked here, before the request, so the
+        // sentence beside the button matches the one in the panel.
+        if (!tsv()) {
+          out.innerHTML = '<p class="text-gray-500">Nothing entered yet.</p>';
+          arm(false, 'There is nothing to check yet — type a row into the table '
+                   + 'above, or paste one into the Paste tab.');
+          return;
+        }
         const d = await post(cfg.urls.preview, 'Checking…', 'preview');
         if (!d) {
           // A check the server refused leaves the save greyed — say which of the
@@ -2032,7 +2148,7 @@ window.OGABoard = (function () {
           <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
             <p class="font-semibold text-gray-900">${sheetLine(d)}${plural(s.rows || 0, 'row')} read.</p>
             <p class="text-gray-700">${s.create || 0} new,
-               ${s.update || 0} already known (will be updated)${
+               ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}${
                  s.blocked ? `, ${s.blocked} skipped` : ''}.</p>
             ${dropped ? `<ul class="mt-1 list-disc list-inside">${dropped}</ul>` : ''}
           </div>
@@ -2747,15 +2863,208 @@ window.OGABoard = (function () {
     });
   }
 
+
+  /* ── Assign numbers ────────────────────────────────────────────────────────
+   *
+   * Assign or rearrange a bench's A-numbers, as a whole mapping rather than a
+   * cell. The A-number decides which freezer box a vial goes in, so a bench
+   * receiving reagents over weeks wants to group a protein's antibodies
+   * together *after* they have all arrived — which is why uOttawa stopped
+   * logging into the portal and kept a spreadsheet instead.
+   *
+   * **Two pages mount this, and that is why it lives here.** The antibodies
+   * board points it at its filter form; a gene's own page points it at that
+   * gene. A second copy in the second template is how the two would come to
+   * refuse different things, print different counts, or arm the button on
+   * different conditions — the failure this repo records more than any other,
+   * and one this panel would show off badly, because the thing it writes is a
+   * number somebody puts on a freezer box.
+   *
+   * `cfg.query()` is the only difference between the two: it returns the query
+   * string naming the rows this page means, and the server resolves them from
+   * it, so a paginated board cannot renumber half of them.
+   *
+   * Two presses, deliberately. The first writes nothing and draws every
+   * old → new pair; the second sends the count *and* the mapping's stamp it was
+   * shown, and the server refuses a set that moved in between.
+   */
+  function renumberPanel(cfg) {
+    const mount = cfg.mount;
+    const urls = cfg.urls || {};
+    let plan = null;
+
+    const el = id => document.getElementById(id);
+
+    function row(it) {
+      if (it.held) {
+        return `<tr class="text-gray-500">
+          <td class="px-2 py-1">${esc(it.label)}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${esc(it.old) || DASH}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${pill('keeps it', 'warn')}</td>
+          <td class="px-2 py-1 text-xs">${esc(it.held)}</td></tr>`;
+      }
+      return `<tr${it.moves ? '' : ' class="text-gray-400"'}>
+        <td class="px-2 py-1">${esc(it.label)}</td>
+        <td class="px-2 py-1 whitespace-nowrap">${esc(it.old) || '<span class="text-gray-400">not numbered</span>'}</td>
+        <td class="px-2 py-1 whitespace-nowrap font-semibold">${esc(it.new)}</td>
+        <td class="px-2 py-1 text-xs">${it.moves ? '' : 'unchanged'}</td></tr>`;
+    }
+
+    function draw(d) {
+      const out = el('rn-out');
+      if (d.refusal) {
+        out.innerHTML = `<p class="text-red-800">${esc(d.refusal)}</p>`;
+        arm(false, '');
+        bringIntoView(out);
+        return;
+      }
+      const held = (d.items || []).filter(i => i.held).length;
+      out.innerHTML = `
+        <p class="font-semibold text-gray-900">${plural(d.moving, 'number')} would change${
+          held ? `, and ${plural(held, 'antibody', 'antibodies')} keep${held === 1 ? 's' : ''} what it has` : ''}.</p>
+        ${held ? `<p class="text-xs text-gray-500 mt-1">An antibody that has been used
+          is left alone — a reading, a published figure, a queued crop, or a
+          planned experiment. Its number is on a bench sheet or under a figure by
+          now, and moving it would file a later reading against a different
+          antibody.</p>` : ''}
+        <div class="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+          <div class="max-h-72 overflow-y-auto">
+            <table class="text-xs w-full">
+              <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide sticky top-0">
+                <tr><th class="px-2 py-1 text-left font-semibold">Antibody</th>
+                    <th class="px-2 py-1 text-left font-semibold">Now</th>
+                    <th class="px-2 py-1 text-left font-semibold">Would become</th>
+                    <th class="px-2 py-1"></th></tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">${(d.items || []).map(row).join('')}</tbody>
+            </table></div></div>`;
+      arm(d.moving > 0, d.moving > 0 ? '' :
+        'Nothing would change — these antibodies already have these numbers.');
+      bringIntoView(out);
+    }
+
+    function arm(on, why) {
+      const go = el('rn-go');
+      go.disabled = !on;
+      go.classList.toggle('opacity-50', !on);
+      go.classList.toggle('cursor-not-allowed', !on);
+      go.textContent = on && plan
+        ? `Change ${plural(plan.moving, 'number')}`
+        : 'Change the numbers';
+      el('rn-why').textContent = on ? '' : (why || '');
+    }
+
+    function open() {
+      plan = null;
+      mount.innerHTML = `
+        <div class="border border-gray-200 rounded-xl bg-white p-4 mt-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="text-sm text-gray-600 max-w-2xl">
+              <b class="text-gray-900">Assign or rearrange A-numbers.</b>
+              This works on <b>${esc(cfg.scope)}</b>, in the order they are shown —
+              gene, then supplier, then catalogue — so numbering them as shown puts
+              each protein's antibodies together.
+              <span class="block mt-2 text-gray-500">Leave the first number blank
+              to carry on from this bench's highest. Type one to re-deal a block
+              you have already used — the numbers move together, in one go, so
+              two vials are never both holding the same one.</span>
+              <span class="block mt-2 text-amber-800">Only do this while the
+              numbers are not yet written on the tubes. Nothing in the app can
+              know whether they are.</span>
+              <span class="block mt-2 text-gray-500">Your own bench's antibodies,
+              unless you are a superuser.</span>
+            </div>
+            <button type="button" id="rn-close"
+                    class="text-gray-400 hover:text-gray-700 font-bold text-lg leading-none">&times;</button>
+          </div>
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="block">
+              <span class="block text-xs font-semibold text-gray-500 mb-1">First number</span>
+              <input type="text" id="rn-start" placeholder="this bench's next"
+                     class="w-44 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            </label>
+            <button type="button" id="rn-check"
+                    class="px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-sm">Check these</button>
+            <button type="button" id="rn-go" disabled aria-describedby="rn-why"
+                    class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold text-sm opacity-50 cursor-not-allowed">Change the numbers</button>
+            <span id="rn-why" class="text-xs text-gray-500"></span>
+          </div>
+          <div id="rn-out" class="mt-3 text-sm" role="alert"></div>
+        </div>`;
+
+      el('rn-close').addEventListener('click', () => { mount.innerHTML = ''; });
+
+      el('rn-check').addEventListener('click', async () => {
+        const body = new URLSearchParams({start: el('rn-start').value});
+        const d = await requestJson(`${urls.plan}?${cfg.query()}`,
+          {method: 'POST',
+           headers: {'X-CSRFToken': cfg.csrf,
+                     'Content-Type': 'application/x-www-form-urlencoded'},
+           body: body.toString()},
+          msg => { el('rn-out').innerHTML = `<p class="text-red-700">${esc(msg)}</p>`;
+                   arm(false, ''); },
+          'read');
+        if (!d) return;
+        plan = d;
+        draw(d);
+      });
+
+      el('rn-go').addEventListener('click', async () => {
+        if (!plan) return;
+        /* The count *and* the mapping the button offered go with the press. A
+           count alone is not consent: one row leaving the set as another joins
+           keeps the count and changes which antibodies move. */
+        const body = new URLSearchParams({
+          start: el('rn-start').value,
+          consented_count: String(plan.moving),
+          stamp: plan.stamp || '',
+        });
+        const d = await requestJson(`${urls.apply}?${cfg.query()}`,
+          {method: 'POST',
+           headers: {'X-CSRFToken': cfg.csrf,
+                     'Content-Type': 'application/x-www-form-urlencoded'},
+           body: body.toString()},
+          msg => { el('rn-out').innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; });
+        if (!d) return;
+        const changed = d.changed || [];
+        el('rn-out').innerHTML = `
+          <div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+            <b>${plural(changed.length, 'number')} changed at ${esc(d.site)}.</b>
+            ${changed.length ? `<ul class="mt-1 list-disc list-inside text-xs">${
+              changed.slice(0, 12).map(c =>
+                `<li>${esc(c.was) || 'not numbered'} → <b>${esc(c.now)}</b></li>`).join('')}${
+              changed.length > 12 ? `<li>and ${changed.length - 12} more</li>` : ''}</ul>` : ''}
+            ${cfg.afterNote ? cfg.afterNote(d) : ''}
+          </div>`;
+        plan = null;
+        arm(false, 'Done — press Check these again to look at another set.');
+        bringIntoView(el('rn-out'));
+        if (cfg.onDone) cfg.onDone(d);
+      });
+
+      bringIntoView(mount);
+    }
+
+    /* Registered once, not inside `open` — `escapeCloses` adds a document
+       listener and the panel is rebuilt on every press of the button, so
+       registering there stacks a fresh listener per open. It takes a
+       *predicate*, not an element: the mount is empty exactly when the panel is
+       closed. */
+    escapeCloses(() => mount.innerHTML !== '', () => { mount.innerHTML = ''; });
+    return {open};
+  }
+
   return {esc, pill, cell, doiCell, dateText, formQuery, banner, requestJson, create, newEntry,
           previewRows, supplierLabel, uploadPanel, identityDialog, bringIntoView,
           concentrationWarning, concentrationSaved, targetAddSummary, rowDeleted,
           labNumberNote, labNumbersIssued, checkNotes, saveNotes,
           targetAddDestination, targetAddGo,
           oneGene, geneGate, geneTerms, GENE_GATE,
+          GENE_GATE_ANTIBODIES, GENE_GATE_CELL_LINES, GENE_GATE_SESSIONS,
           cNumberWarning, cNumberSaved, sheetLine, plural, pastedBlock,
+          optionValues,
           downloadWithReceipt, downloadReceipts, confirmWholeDownload,
-          deleteDialog, filesPanel,
+          deleteDialog, filesPanel, renumberPanel,
           // Exported because a page mounting its own dialog needs the same
           // Escape behaviour the three built-in pop-outs have. A page-local
           // copy is how one surface comes to dismiss differently.

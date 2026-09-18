@@ -10,7 +10,6 @@ Cell lines differ from antibodies in three ways that shape this module:
   - WT lines are often consortium-wide (no target); only KO lines need a gene.
 
 Reuses the shared pieces so nothing drifts:
-  - services.targets.resolve_or_create_target — inline target creation (enriched)
   - services.cropper.db.resolve_company        — dedup-safe supplier resolution
 
 `plan()` is read-only (preview + dry-run). `apply()` writes, filling only blank
@@ -32,7 +31,7 @@ from pipeline.services import example_row
 from pipeline.services import sites as site_svc
 from pipeline.services import targets as target_svc
 from pipeline.services.cropper import db as cdb
-from pipeline.services.targets import resolve_or_create_target, resolve_target
+from pipeline.services.targets import resolve_target
 
 DB = "pipeline_db"
 
@@ -62,6 +61,15 @@ HEADER_ALIASES = {
     "site": "site", "lab": "site", "institution": "site", "centre": "site",
     "center": "site", "node": "site",
     "medium": "medium", "media": "medium", "growth medium": "medium",
+    # Adherent or suspension. `CellLine.growth_properties` has been filled on
+    # 411 rows since the Access import and was in no sheet and on no screen —
+    # uOttawa asked for it by name, for students looking a line up (14 Sep
+    # 2026). "growth" alone is deliberately **not** an alias: `growth medium`
+    # is a real heading for a different column, and a prefix rule would read one
+    # as the other.
+    "growth properties": "growth_properties", "growth property": "growth_properties",
+    "growth type": "growth_properties", "adherence": "growth_properties",
+    "adherent or suspension": "growth_properties",
     "clone": "clone", "clone id": "clone",
     "species": "species", "origin": "origin",
     # Where a line came from, in a person's own words. The model has carried this
@@ -70,15 +78,25 @@ HEADER_ALIASES = {
     "comments": "origin_comments", "comment": "origin_comments",
     "notes": "origin_comments", "note": "origin_comments",
     "origin comments": "origin_comments", "provenance": "origin_comments",
-    # the paired partner's C-number (WT/KO shipped together, matched on C-number)
-    "paired ko": "pair_c", "paired ko c": "pair_c", "ko c number": "pair_c",
-    "ko c#": "pair_c", "ko cnumber": "pair_c", "pair c": "pair_c", "paired c": "pair_c",
-    "pair c number": "pair_c", "paired c number": "pair_c", "paired": "pair_c",
-    # The heading says who the column is for, because a knockout does not have a
-    # paired knockout and the bare name read as though every row needed one. Both
-    # spellings are aliases so sheets downloaded before the rename still load.
-    "paired ko (wt rows)": "pair_c", "paired ko wt rows": "pair_c",
-    "paired ko (wt)": "pair_c", "paired ko (for wt lines)": "pair_c",
+    # **`paired ko` was removed on 14 Sep 2026 and is deliberately not an alias.**
+    # It wrote `CellLine.arrived_with_ko` — on a WT row, the C-number of the KO
+    # that arrived in the same shipment — and on live it had reached **2 rows of
+    # 616, both wrong**: a Leicester HAP1 paired to McGill's `HCT116 SLC2A6 KO`
+    # and a Leicester SH-SY5Y to McGill's `HEK293T SLC29A1 KO`, both knockouts of
+    # a different background, both already recording their real parent.
+    #
+    # The mechanism is the reason it is gone rather than fixed. The partner
+    # lookup was `CellLineVial.objects.filter(c_number=pc).first()` with **no
+    # site filter**, and C-numbers are issued per site — so your own bench's
+    # `C-29` matched whoever else held C-29. It also had no `wrong_background`
+    # check, unlike `parent` one column over, and a *successful* pairing was
+    # written in `apply` with nothing in the preview and no receipt, so neither
+    # of the two writes ever appeared on a screen.
+    #
+    # Leaving the aliases in would keep exactly that write path alive for every
+    # sheet already on somebody's disk. Removed, the heading is *unrecognised*,
+    # and `imports._ignored_note` names it — which is the whole point of
+    # `header_field` below.
     # storage of the vial (freeze-down batch)
     "storage type": "storage_type", "temp": "storage_type", "temperature": "storage_type",
     "storage temp": "storage_type",
@@ -88,9 +106,9 @@ HEADER_ALIASES = {
 }
 
 ROW_KEYS = ("name", "gene", "genotype", "parent", "c_number", "cellosaurus_id",
-            "company", "catalogue", "lot", "site", "medium", "clone", "species",
-            "origin_comments",
-            "origin", "pair_c", "storage_type", "location", "freezer", "box",
+            "company", "catalogue", "lot", "site", "medium", "growth_properties",
+            "clone", "species", "origin_comments",
+            "origin", "storage_type", "location", "freezer", "box",
             "position", "rack", "shelf", "building", "room")
 
 # storage columns that, if any are present, mean "record where this vial lives"
@@ -113,6 +131,21 @@ def _cells(line: str):
 
 def _norm_header(h: str) -> str:
     return re.sub(r"\s+", " ", (h or "").strip().lower()).strip(" .:#")
+
+
+def header_field(heading: str) -> str | None:
+    """Which row key a heading names, or ``None`` if this sheet has nowhere to
+    put it. The one reader, so a caller can ask instead of re-deriving it.
+
+    ``views/imports.py::_ignored_note`` is the caller. It named unrecognised
+    columns on the antibodies sheet and said nothing at all on this one, because
+    only the antibody parser exposed a reader and guessing at these aliases from
+    a view would have been a second one. That gap stopped being theoretical the
+    day `paired ko (WT rows)` was dropped: every cell-lines sheet already
+    downloaded still carries the heading, and a column that silently goes
+    nowhere is the failure this app is most careful about everywhere else.
+    """
+    return HEADER_ALIASES.get(_norm_header(heading))
 
 
 def _header_map(cells):
@@ -239,6 +272,15 @@ def match_note(row, line) -> str:
     if line is None:
         return ""
     on_file = line.name or f"line {line.pk}"
+    # **Which clone it landed on, whenever there is one to name.** A knockout's
+    # clone is what tells it from its siblings, so a preview that says only
+    # "already on file" is answering a question the reader did not ask: a bench
+    # with three clones of one KO needs to know it matched clone C11 and not
+    # E11 *before* the save fills that row's blanks. Said first because it is
+    # the part a reader is checking.
+    clone = (line.clone or "").strip()
+    if clone and clone.upper() != "NA":
+        return f"matches “{on_file}”, clone {clone} — already on file"
     cvcl = _norm_cvcl(row.get("cellosaurus_id"))
     if cvcl and (line.cellosaurus_id or "").upper() == cvcl:
         return f"matches “{on_file}”, which already has {cvcl}"
@@ -313,10 +355,63 @@ def find_cell_line(row, target, db: str = DB, member=None, site_id=None):
         f = f.filter(target=target) if target else f.filter(target__isnull=True)
         if site_id:
             f = f.filter(site_id=site_id)
+        f = _narrow_to_clone(f, row)
         hit = f.first()
         if hit:
             return hit
     return None
+
+
+def find_cell_line_matches(row, target, db: str = DB, member=None, site_id=None):
+    """Every row the name branch answers to — what `find_cell_line` chose from.
+
+    `find_cell_line` returns one row and takes `.first()` when several answer,
+    which was safe only while one background plus one gene could mean exactly one
+    line. It cannot now: a bench with seven clones of `HCT116 ACSL5 KO` has seven
+    rows under that name, and `.first()` under `Meta.ordering = ['name']` picks
+    an arbitrary one — the coin toss `services/cell_lines.py` exists to refuse,
+    arriving in the write path instead of the read one.
+
+    So `plan` asks this as well and blocks a row that names no clone where more
+    than one is on file. Same query as the name branch above and deliberately
+    not the Cellosaurus or catalogue branches: those identify a *product*, and a
+    supplier's KO line is one clone sold under one catalogue number.
+    """
+    if site_id is None:
+        site_id = getattr(member, "site_id", None)
+    want_genotype = norm_genotype(row.get("genotype"), row.get("name"),
+                                  bool(row.get("parent")))
+    name = _derived_name(row, want_genotype)
+    if not name:
+        return []
+    same_kind = Q(genotype=want_genotype) | Q(genotype="") | Q(genotype__isnull=True)
+    qs = CellLine.objects.using(db).filter(same_kind, name__iexact=name)
+    qs = qs.filter(target=target) if target else qs.filter(target__isnull=True)
+    if site_id:
+        qs = qs.filter(site_id=site_id)
+    return list(_narrow_to_clone(qs, row))
+
+
+def _narrow_to_clone(qs, row):
+    """Narrow to the clone the row names — and **only** when it names one.
+
+    A gene and a background define the knockout; the clone says which one. So a
+    stated clone is part of what is being matched: `clone E11` must not land on
+    the row recorded as `clone C11` and fill its blanks, which is what happened
+    to 47 clones in the Access merge and is the reason this column exists at all.
+
+    A **blank** clone still matches anything, because blank means "not written
+    down", not "a different one" — the rule that governs every other cell here.
+    Filtering on `clone=""` would make a sheet whose clone column somebody left
+    empty create a second copy of every row it was meant to update, silently, on
+    the round trip a board download is supposed to close.
+    """
+    clone = (row.get("clone") or "").strip()
+    # `NA` is the Access placeholder for "not recorded" — 15 KO rows carry it —
+    # and reading it as a clone would make an absence narrow the match.
+    if not clone or clone.upper() == "NA":
+        return qs
+    return qs.filter(clone__iexact=clone)
 
 
 # ── plan (read-only preview) ─────────────────────────────────────────────────
@@ -516,7 +611,7 @@ def _pick_parent(matches, site_id):
     return matches[0]
 
 
-def plan(rows, create_targets: bool = False, member=None):
+def plan(rows, member=None):
     """Per-row preview. **Two passes**, because a row's parent may be a row.
 
     The first pass settles every row's own identity and status; only then is it
@@ -564,7 +659,22 @@ def plan(rows, create_targets: bool = False, member=None):
                 "column, or set the genotype to WT if this is a parental line")
         else:
             existing = find_cell_line(r, target, site_id=site_id)
-            if existing:
+            siblings = (find_cell_line_matches(r, target, site_id=site_id)
+                        if genotype == "KO" else [])
+            if len(siblings) > 1:
+                # **A knockout that names no clone, where several are on file,
+                # is a question rather than a row.** Picking one would fill a
+                # different single-cell line's blanks and hang this row's vials
+                # off it — which is exactly the shape of the Access merge that
+                # cost 47 clone identities. The clones are listed so the answer
+                # can be copied straight back into the cell.
+                listed = ", ".join(cl.clone.strip() for cl in siblings
+                                   if (cl.clone or "").strip()) or "none recorded"
+                status, note = "blocked", (
+                    f"{len(siblings)} clones of {name} {gene} KO are on file at "
+                    f"this bench ({listed}) — say which one this row is in the "
+                    f"clone column, or give it its own clone if it is a new one")
+            elif existing:
                 status, note = "update", match_note(r, existing)
             elif genotype == "WT" and gene:
                 # Refused here for the same reason the identity dialog refuses it
@@ -577,20 +687,19 @@ def plan(rows, create_targets: bool = False, member=None):
                     "one HAP1 WT serves every knockout made from it — leave the "
                     "gene blank, or set the genotype to KO")
             elif gene and target is None:
-                status = "create-target" if create_targets else "blocked"
-                if not create_targets:
-                    # **Name the control that is on this page.** This said
-                    # tick "create targets", and no control anywhere is called
-                    # that: the checkbox reads "Add the gene as a new target if
-                    # it isn't one yet". A refusal that names a control nobody
-                    # can find is the same failure as one that names a retired
-                    # page — the reader follows it, finds nothing, and concludes
-                    # the feature is broken. `add_target_url` is the other half:
-                    # a gene belongs on the target board, so the preview offers
-                    # the way there rather than describing it.
-                    note = (f"gene '{gene}' is not in the pipeline yet — tick "
-                            f"“Add the gene as a new target if it isn't one yet” "
-                            f"above, or add it on the target board first")
+                # **A target is added on the targets doors and nowhere else**
+                # (owner, 5 Sep 2026). There was a `create-target` status here,
+                # behind the panel's tick: no preview confirmed the symbol, and
+                # the write created the gene inside the commit's transaction
+                # through a 10 s UniProt call. The board that exists for this
+                # does neither. `add_target_url` carries the reader there.
+                #
+                # The wording named that tick until run 20 followed it from the
+                # Upload panel, which never had one. There is one sentence now
+                # because there is one way through.
+                status, note = "blocked", (
+                    f"gene '{gene}' is not in the pipeline yet — add it on the "
+                    f"target board first, then bring this row back")
 
         # A C-number that cannot be read is refused *per cell*, and the row is
         # still written — the same bargain the concentration column strikes, for
@@ -598,7 +707,6 @@ def plan(rows, create_targets: bool = False, member=None):
         # away a good cell line. What must not happen is the row going in with a
         # number this made up, which is what a bare `re.search(r"\d+")` did.
         cnum, cnum_err = _cnum(r.get("c_number"))
-        pair_c, pair_err = _cnum(r.get("pair_c"), field="paired ko")
         # A number **another** line at this bench already carries is a different
         # matter from one that cannot be read, and it does not take the same
         # bargain. Unreadable means the cell says nothing usable and the line is
@@ -616,7 +724,7 @@ def plan(rows, create_targets: bool = False, member=None):
         # Held back rather than joined here, so the second pass can put the
         # parent note where it has always read — after the row's own verdict and
         # before the per-cell refusals.
-        cnum_notes = [err for err in (cnum_err, pair_err) if err]
+        cnum_notes = [err for err in (cnum_err,) if err]
 
         comp = (cdb.resolve_company(r.get("company", ""), r.get("catalogue", ""),
                                     create=False) if r.get("company") else None)
@@ -624,7 +732,6 @@ def plan(rows, create_targets: bool = False, member=None):
             "row": r, "name": name, "gene": gene, "genotype": genotype,
             "parent": (r.get("parent") or "").strip(),
             "c_number": cnum,
-            "pair_c": pair_c,
             # See `bulk_antibodies.plan`. A row whose C-number cell could not be
             # read is *not* counted: that one is deliberately left blank
             # (`lab_numbers.withhold`), and `no_c_number` is what names it.
@@ -633,7 +740,6 @@ def plan(rows, create_targets: bool = False, member=None):
             # Named separately from `note` so a summary can count them without
             # matching on the wording of a message.
             "c_number_dropped": bool(cnum_err),
-            "pair_c_dropped": bool(pair_err),
             "target_id": target.id if target else None,
             "company_status": ("existing" if comp else ("new" if r.get("company") else "none")),
             # What the row will be saved under, not the display spelling — the
@@ -672,6 +778,19 @@ def plan(rows, create_targets: bool = False, member=None):
         if it["status"] in ("create", "update", "create-target") and it["genotype"] == "KO":
             _parent, pnote = resolve_parent(it["parent"], site_id=it["site_id"],
                                             pending=pending)
+            # **A wild type is not enough; it must be a wild type of that
+            # background.** `resolve_parent` answered "is it a wild type" and
+            # this row was written whatever the answer to "of what" — the
+            # nineteenth field test pasted a HAP1 knockout with parent `HeLa`
+            # and read *your site's line — new*. Blocked, not noted: a
+            # mismatched control is read as the matched one by every session
+            # planned afterwards, and `apply` writes only what `plan` passed.
+            wrong = cell_line_svc.wrong_background(
+                it["name"], _parent, gene=it["gene"], site_id=it["site_id"])
+            if wrong:
+                it["status"] = "blocked"
+                it["will_be_numbered"] = False
+                pnote = f'parent "{it["parent"]}" — {wrong}'
             if pnote:
                 parts.append(pnote)
         parts.extend(it.pop("_cnum_notes"))
@@ -710,8 +829,7 @@ def summarize(items) -> dict:
         # at the check. Per-row notes alone are how the eleventh field test read
         # a refusal, pressed the button anyway and got two lines saved with no
         # C-number where it had typed one.
-        "no_c_number": sum(1 for i in items
-                           if i.get("c_number_dropped") or i.get("pair_c_dropped")),
+        "no_c_number": sum(1 for i in items if i.get("c_number_dropped")),
         # Which benches this paste would write to — see bulk_antibodies.summarize.
         "sites": sorted({i["site"] for i in items if i.get("site")}),
     }
@@ -727,9 +845,21 @@ def _apply_metadata(cl, row, *, creating, member, overwrite=False, site_id=None)
         company = cdb.resolve_company(row["company"], row.get("catalogue", ""), create=True)
         if company:
             cl.company = company
+    # **The clone is set when the row is created and never afterwards.** It is
+    # identity now — a gene and a background define the knockout, the clone says
+    # which one — so it is what `find_cell_line` matched *on*, and a sheet that
+    # could rewrite it would rename one clone into another while its vials, its
+    # readings and its sessions stayed attached. Changing it is the identity
+    # dialog's job, which shows what is attached before it moves. `NA` is the
+    # Access placeholder for "not recorded" and is read as blank, so it never
+    # becomes a clone called NA on a screen.
+    if creating:
+        clone = (row.get("clone") or "").strip()
+        cl.clone = "" if clone.upper() == "NA" else clone
     for src, field in (("catalogue", "catalogue_number"), ("lot", "lot_number"),
                        ("cellosaurus_id", "cellosaurus_id"), ("medium", "medium"),
-                       ("clone", "clone"), ("origin", "origin"),
+                       ("growth_properties", "growth_properties"),
+                       ("origin", "origin"),
                        ("origin_comments", "origin_comments"),
                        ("parent", "parental_line_name")):
         val = (row.get(src) or "").strip()
@@ -806,14 +936,14 @@ def _ensure_location(vial, cl, row, member, db=DB, site_id=None):
         vial=vial, cell_line=cl, site_id=site_id, storage_type=st, notes=notes, **fields)
 
 
-def apply(rows, create_targets: bool, member=None, overwrite=False):
+def apply(rows, member=None, overwrite=False):
     """Create/update cell lines (and, if asked, missing targets) in one
     transaction. Fills only blank fields by default; overwrite=True lets non-empty
     values replace existing ones (the edited-export round-trip). Processes WT/other
     rows before KO rows so a KO's parent — if it is in the same paste — exists in
     time to be linked."""
-    items = plan(rows, create_targets, member=member)
-    out = {"created": [], "updated": [], "created_targets": [],
+    items = plan(rows, member=member)
+    out = {"created": [], "updated": [],
            "skipped": [], "notes": [],
            # Rows written *without* the C-number they named, so the save box can
            # say so rather than leaving it to a per-row note on the check.
@@ -823,8 +953,6 @@ def apply(rows, create_targets: bool, member=None, overwrite=False):
            "numbers_issued": []}
 
     order = sorted(range(len(items)), key=lambda i: items[i]["genotype"] == "KO")
-    processed = []          # [(item, cell_line)] for the pairing pass
-    cnum_map = {}           # this paste's C-number → cell line
     with transaction.atomic(using=DB):
         for idx in order:
             it = items[idx]
@@ -835,11 +963,9 @@ def apply(rows, create_targets: bool, member=None, overwrite=False):
                     out["notes"].append(f"{name or gene or 'row'}: {it['note']}")
                 continue
 
+            # Resolved, never created — `plan` blocks a row whose gene is not
+            # on file, so a row reaching here has one.
             target = resolve_target(gene) if gene else None
-            if gene and target is None and create_targets:
-                target, made = resolve_or_create_target(gene, member=member)
-                if made and target:
-                    out["created_targets"].append(target.gene_name)
 
             cl = find_cell_line(r, target, site_id=it["site_id"])
             creating = cl is None
@@ -884,9 +1010,6 @@ def apply(rows, create_targets: bool, member=None, overwrite=False):
             cl.save(using=DB)
             vial = _ensure_vial(cl, it["c_number"], member, site_id=it["site_id"])
             _ensure_location(vial, cl, r, member, site_id=it["site_id"])
-            if it["c_number"] is not None:
-                cnum_map[it["c_number"]] = cl
-            processed.append((it, cl))
 
             if creating and it["c_number"] is None and cl.c_number is not None:
                 out["numbers_issued"].append(
@@ -897,28 +1020,10 @@ def apply(rows, create_targets: bool, member=None, overwrite=False):
             if it.get("c_number_dropped"):
                 out["no_c_number"].append(
                     {"name": cl.name, "typed": str(r.get("c_number") or "").strip()})
-            if it.get("pair_c_dropped"):
-                out["no_c_number"].append(
-                    {"name": cl.name, "typed": str(r.get("pair_c") or "").strip()})
 
-        # ── pairing pass: a paired-KO C-number links the WT↔KO shipped together ──
-        for it, cl in processed:
-            pc = it.get("pair_c")
-            if pc is None:
-                continue
-            partner = cnum_map.get(pc)
-            if partner is None:
-                v = CellLineVial.objects.using(DB).filter(c_number=pc).first()
-                partner = v.cell_line if v else None
-            if partner is None or partner.pk == cl.pk:
-                out["notes"].append(f"{cl.name}: paired C-{pc} not found")
-                continue
-            wt = cl if cl.genotype == "WT" else (partner if partner.genotype == "WT" else None)
-            ko = cl if cl.genotype == "KO" else (partner if partner.genotype == "KO" else None)
-            if wt and ko:
-                if wt.arrived_with_ko_id != ko.pk:
-                    wt.arrived_with_ko = ko
-                    wt.save(using=DB, update_fields=["arrived_with_ko"])
-            else:
-                out["notes"].append(f"{cl.name}: pairing needs one WT and one KO")
+        # The pairing pass that stood here wrote `CellLine.arrived_with_ko` and
+        # was removed with the column — see HEADER_ALIASES for what it did and
+        # what it got wrong. `CellLine.arrived_with_ko` itself is untouched: the
+        # two rows it holds are still readable, and dropping a live column is a
+        # migration rather than a deletion of dead code.
     return out

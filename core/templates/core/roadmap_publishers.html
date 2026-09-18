@@ -262,18 +262,18 @@ html{scroll-behavior:smooth}
       <div class="pub-toolkit-card">
         <div class="pub-toolkit-icon pub-icon-compat">🔗</div>
         <h3>Standards Compatibility</h3>
-        <p>OGA tools work alongside existing frameworks rather than replacing them. If you already use MDAR or STAR Methods, these add to them.</p>
+        <p>OGA tools work alongside existing frameworks rather than replacing them. If you already use MDAR, IWGAV or STAR Methods, these add to them. Each standard below links to its own documentation.</p>
         <div class="pub-sublist">
           <div class="pub-sublist-item">
-            <strong>MDAR checklist</strong>
+            <strong><a href="https://www.incf.org/mdar" target="_blank" rel="noopener">MDAR checklist ↗</a></strong>
             The Validation Record captures all antibody-related MDAR fields. A completed Validation Record satisfies MDAR antibody requirements automatically.
           </div>
           <div class="pub-sublist-item">
-            <strong>IWGAV five-pillar framework</strong>
+            <strong><a href="https://doi.org/10.1038/nmeth.3995" target="_blank" rel="noopener">IWGAV five-pillar framework ↗</a></strong>
             The Planning Framework uses the IWGAV validation strategies (genetic, orthogonal, independent antibody, tagged expression, IP-MS) and helps authors pick the right one.
           </div>
           <div class="pub-sublist-item">
-            <strong>STAR Methods / Key Resources Table</strong>
+            <strong><a href="https://www.cell.com/star-authors-guide" target="_blank" rel="noopener">STAR Methods / Key Resources Table ↗</a></strong>
             The Validation Record captures the same identity fields, and adds validation evidence to the resource table you already have.
           </div>
         </div>
@@ -382,38 +382,7 @@ html{scroll-behavior:smooth}
   <p>This guidance is derived from the MRC-funded Delphi consensus study (NC3Rs Ref: NC/NAM0019/1, MRC UKRI076) on improving antibody validation in biomedical research. Publisher integration is being developed in partnership with eLife, The Company of Biologists, and SciCrunch.</p>
 </div>
 
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>Quick Links</h4>
-      <a href="{% url 'home' %}">Home</a>
-      <a href="{% url 'about' %}">About Us</a>
-      <a href="{% url 'roadmap' %}">Roadmap</a>
-      <a href="{% url 'news_publications' %}">Publications</a>
-      <a href="{% url 'news_publications' %}">News</a>
-      <a href="{% url 'contact' %}">Contact</a>
-    </div>
-    <div class="footer-column">
-      <h4>Contact Us</h4>
-      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-    </div>
-    <div class="footer-column">
-      <h4>Follow Us</h4>
-      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-      </a>
-      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-      </a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    <button onclick="window.scrollTo({top:0,behavior:'smooth'});" class="back-to-top">Back to Top</button>
-  </div>
-</footer>
+{% include 'core/footer.html' %}
 
 <script>
 // ── Accordion toggle ──

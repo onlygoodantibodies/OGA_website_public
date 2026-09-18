@@ -54,6 +54,24 @@ def normalise_unit(raw: str) -> str:
         "μ", "u").replace(" ", "").replace(".", "").replace("per", "/")
 
 
+def known_unit(raw: str) -> str:
+    """The normalised unit if this is one we can convert, else ``""``.
+
+    For a caller holding a *heading* rather than a cell — ``Concentration
+    (mg/mL)`` — which is the half this module did not cover and which cost the
+    thousand-fold error all over again. ``HEADER_ALIASES`` maps
+    ``concentration mgml`` to plain ``concentration``, so the unit named in the
+    heading was thrown away and the bare digits underneath it were read as
+    µg/mL: a sheet of 42 stock concentrations, every one of them a thousand
+    times too low, with nothing on any screen to catch it by.
+
+    Returns the normalised key (``mg/ml``) rather than a factor, so the caller
+    can hand ``parse`` a value and a unit and let one function do the arithmetic.
+    """
+    unit = normalise_unit(raw)
+    return unit if unit in _FACTORS else ""
+
+
 def parse(raw) -> tuple[Decimal | None, str]:
     """``(value_in_ug_per_ml, error)``.
 

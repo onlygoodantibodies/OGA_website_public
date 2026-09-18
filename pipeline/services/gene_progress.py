@@ -25,8 +25,12 @@ the rest.
 """
 from __future__ import annotations
 
-from pipeline.models import Antibody, CellLine, Report, Target, TargetNomination
+from collections import defaultdict
+
+from pipeline.models import (Antibody, CellLine, ExperimentSession, Report,
+                             Target, TargetNomination)
 from pipeline.services import ko_validation
+from pipeline.services import session_board
 from pipeline.services.target_board import (APPLICATIONS, application_coverage,
                                             completed_report_q)
 
@@ -77,6 +81,22 @@ def steps_for(target: Target) -> list[dict]:
 
     antibody_count = Antibody.objects.using(DB).filter(target_id=pk).count()
     coverage = application_coverage([pk]).get(pk, {})
+    # **Planning an experiment is not doing it.** `application_coverage`
+    # answers "which sites have a session" — the right question for the
+    # target board's coverage column and deliberately still asked of
+    # sessions — but a tick on this strip says the blot has been *run*, and
+    # the nineteenth field test planned a WB, wrote nothing on it, and read
+    # "✓ WB · Next: KO confirmed" a few centimetres above a status card
+    # saying "Not started". Same page, one question, two answers. A step is
+    # done here on a reading, through `session_board.reading_counts`, the
+    # reader the status card and the report already use; a session with no
+    # readings is named as planned rather than counted as done.
+    session_procs = list(ExperimentSession.objects.using(DB)
+                         .filter(target_id=pk).values_list("pk", "procedure_type"))
+    readings = session_board.reading_counts([sid for sid, _p in session_procs])
+    read_by_app = defaultdict(int)
+    for sid, proc in session_procs:
+        read_by_app[proc] += readings.get(sid, 0)
     report = (Report.objects.using(DB)
               .filter(completed_report_q(), target_id=pk).first())
 
@@ -127,13 +147,24 @@ def steps_for(target: Target) -> list[dict]:
 
     for app in APPLICATIONS:
         where = coverage.get(app) or []
-        out.append(_step(
-            f"app_{app}", app, where,
-            ", ".join(where),
-            f"No {app} session recorded. Many targets never need all four — "
-            f"this is only worth chasing if {app} is part of the plan.",
-            f"/pipeline/sessions/board/{q}&procedure={app}" if q
-            else f"/pipeline/sessions/board/?procedure={app}"))
+        url = (f"/pipeline/sessions/board/{q}&procedure={app}" if q
+               else f"/pipeline/sessions/board/?procedure={app}")
+        if read_by_app.get(app):
+            out.append(_step(f"app_{app}", app, True, ", ".join(where), "", url))
+        elif where:
+            out.append(_step(
+                f"app_{app}", app, False,
+                f"planned at {', '.join(where)} — no readings yet",
+                f"A {app} session is planned at {', '.join(where)} and nothing "
+                f"has been recorded on it yet. Put the readings in on the "
+                f"sessions board — a planned session is not a run one.",
+                url))
+        else:
+            out.append(_step(
+                f"app_{app}", app, False, "",
+                f"No {app} session recorded. Many targets never need all four — "
+                f"this is only worth chasing if {app} is part of the plan.",
+                url))
         # Straight after WB, wherever WB sits in APPLICATIONS — reading the
         # position out of the list rather than hard-coding an index, so a fifth
         # application added later cannot silently move it.

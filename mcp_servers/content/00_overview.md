@@ -133,7 +133,7 @@ demonstrated them (see `plan_schema.json` → `rubric`).
   promise about other sample types or cell lines. `not_tested`, and absence from
   the dataset entirely, are **not** negative verdicts.
 - **Honest about mess.** Live searching does not always give clean answers.
-  Sometimes there is no knockout-validated data for a target. Say so — learning
+  Sometimes there is no knockout-controlled characterisation data for a target. Say so — learning
   that antibody selection is genuinely hard is itself an outcome. *(Champions PDF,
   "It will be messy — that's the point.")*
 - **Tuned to the person.** Adapt to their scientific question, budget, and skills.

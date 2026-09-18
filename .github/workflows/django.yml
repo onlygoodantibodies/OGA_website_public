@@ -20,39 +20,26 @@
 name: django
 
 on:
-  # ── CI PAUSED, 20 Aug 2026 ─────────────────────────────────────────────
-  # The month's GitHub Actions minutes are spent, so every automatic run was
-  # failing before a single test executed -- a red tick on `beta` that says
-  # nothing about the code and trains everyone to ignore red ticks.
-  #
-  # The automatic triggers below are commented out, NOT deleted, so restoring
-  # them is removing the `# ` prefix and nothing else. `workflow_dispatch` is
-  # left on, so the Actions tab can still run this by hand.
-  #
-  # TURN THIS BACK ON when the minutes reset -- register #78. A workflow that
-  # is off is a suite nobody runs, and it looks exactly like a suite that
-  # passes.
-  # ───────────────────────────────────────────────────────────────────────
-#   push:
-#     paths-ignore:
-#       - 'browser-extension/**'
-#       - 'benchmarks/**'
-#       - '**.md'
-#       # Skills are instructions for a coding agent, and the citation-DOIs job is
-#       # a manual data pull -- neither can change what a Django test does. The
-#       # other workflow files are NOT ignored: a change to CI should run CI.
-#       - '.claude/**'
-#       - '.github/workflows/citation-dois.yml'
-#   pull_request:
-#     paths-ignore:
-#       - 'browser-extension/**'
-#       - 'benchmarks/**'
-#       - '**.md'
-#       # Skills are instructions for a coding agent, and the citation-DOIs job is
-#       # a manual data pull -- neither can change what a Django test does. The
-#       # other workflow files are NOT ignored: a change to CI should run CI.
-#       - '.claude/**'
-#       - '.github/workflows/citation-dois.yml'
+  push:
+    paths-ignore:
+      - 'browser-extension/**'
+      - 'benchmarks/**'
+      - '**.md'
+      # Skills are instructions for a coding agent, and the citation-DOIs job is
+      # a manual data pull -- neither can change what a Django test does. The
+      # other workflow files are NOT ignored: a change to CI should run CI.
+      - '.claude/**'
+      - '.github/workflows/citation-dois.yml'
+  pull_request:
+    paths-ignore:
+      - 'browser-extension/**'
+      - 'benchmarks/**'
+      - '**.md'
+      # Skills are instructions for a coding agent, and the citation-DOIs job is
+      # a manual data pull -- neither can change what a Django test does. The
+      # other workflow files are NOT ignored: a change to CI should run CI.
+      - '.claude/**'
+      - '.github/workflows/citation-dois.yml'
   workflow_dispatch:
 
 # One run per branch. Pushing a series of commits used to leave every superseded

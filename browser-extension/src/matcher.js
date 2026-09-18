@@ -31,7 +31,7 @@
    * the something else is usually wrong. A reader is told which of the two they
    * are looking at rather than being given one hedge over everything: hedging the
    * reliable signal too would only teach them to discount it, which is the same
-   * reasoning that kept cautionary language OFF the amber card, where 45 of 45
+   * reasoning that kept cautionary language OFF the blue card, where 45 of 45
    * attributions were right.
    */
   const RELIABLE_CUES = ["WB"];
@@ -82,7 +82,7 @@
     new RegExp("\\banti[-\\s](" + TARGET_WORD + "{1,24})\\b", "gdi"),
     // Up to four words, because targets are routinely spelled out in full:
     // "antibodies against amyloid precursor protein (APP, ab101492)". Capturing
-    // one word grabbed "amyloid" and resolved nothing, losing the amber.
+    // one word grabbed "amyloid" and resolved nothing, losing the blue.
     new RegExp(
       "\\bantibod(?:y|ies)\\s+(?:against|to|recognis?zing|directed\\s+against)\\s+" +
       "((?:" + TARGET_WORD + "*(?:\\s+|$)){1,4})", "gdi"),
@@ -167,6 +167,18 @@
    */
   const MIN_COLLAPSED = 5;
 
+  /**
+   * How far a page's declared year may be from the listed one and still be the
+   * same paper. Online-first and print dates routinely differ by one.
+   *
+   * Mirrors `paper.js::YEAR_SLACK`, which the citation layer has used since it
+   * shipped, and `core/target_confusions.py::YEAR_SLACK`. Not read off
+   * `OGAPaper` at runtime: `matcher.js` is loaded in contexts where `paper.js`
+   * is not, and a lookup silently widening to zero on those pages is the kind of
+   * difference nothing on screen would show.
+   */
+  const YEAR_SLACK = 1;
+
   function collapseIdentifier(token) {
     const collapsed = normaliseKey(normaliseIdentifier(token)).replace(/[^a-z0-9]/g, "");
     return collapsed.length >= MIN_COLLAPSED ? collapsed : "";
@@ -221,7 +233,7 @@
     // Santa Cruz numbers every product sc-271462, and the hyphen after the
     // letters made the whole supplier unmatchable. Separators and dash
     // variants are tolerated here on the same terms as TOKEN_RE, so a
-    // publisher's typesetting cannot hide an amber either.
+    // publisher's typesetting cannot hide an blue either.
     "([A-Za-z]{0,4}[" + DASH_CLASS + "]?[0-9]" +
     "(?:[A-Za-z0-9" + DASH_CLASS + "_.]|" + GROUP_SEP_LOOKAROUND + "){2,})" +  // catalogue number
     "\\s*\\)",
@@ -451,7 +463,7 @@
     // Never read a target out of a neighbouring block. In a Key Resources table
     // every row is its own text node, so without this an RRID in the anti-mCherry
     // row happily adopts "anti-p62" from the row below and claims SQSTM1 — an
-    // amber verdict attached to entirely the wrong reagent.
+    // blue verdict attached to entirely the wrong reagent.
     let blockStart = text.lastIndexOf("\n", Math.max(0, offset - 1));
     blockStart = blockStart === -1 ? 0 : blockStart + 1;
     let blockEnd = text.indexOf("\n", offset);
@@ -489,7 +501,7 @@
    * drop words from the end — longest wins, so "amyloid precursor protein"
    * resolves before the useless bare "amyloid".
    *
-   * The phrase that resolved is known here and nowhere else, and the amber card
+   * The phrase that resolved is known here and nowhere else, and the blue card
    * quotes it back to the reader as its evidence. Quoting the whole capture
    * instead would print the trailing junk and make a correct inference look
    * broken.
@@ -565,19 +577,51 @@
   }
 
   /**
-   * "recommended for WB", "not recommended for WB, IF", or both halves joined.
+   * "WB", "WB and IP", "WB, IP and IF" — a list in English.
+   *
+   * `join(" and ")` is right for two and wrong for everything above it, and the
+   * two-item case is the common one, so it read correctly for months and then
+   * printed *"mentions Western blot and Immunoprecipitation and
+   * Immunofluorescence and IHC"* on the first page that named four (12 Sep
+   * 2026). Six call sites across the card and the mark's label had their own
+   * copy of the same `join`.
+   *
+   * No serial comma, which is the house style everywhere else in this copy.
+   */
+  function listOf(items) {
+    const list = (items || []).filter(Boolean).map(String);
+    if (list.length <= 1) return list[0] || "";
+    if (list.length === 2) return `${list[0]} and ${list[1]}`;
+    return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+  }
+
+  /**
+   * "supports WB", "not supportive for WB, IF", or both halves joined.
    * Empty when the record carries no verdict anywhere, which is the one case
    * where "no independent data" is the true thing to say.
    *
    * It lives here because the card and the screen-reader label both need it
    * and were both wrong in the same way: fixing the wording on one surface and
    * not the other is how a reader gets two different answers about one row.
+   *
+   * `card.js::CODE_LABEL`'s words, and they are not the index's: the codes are
+   * still 0/1/2 and the constants below are still named for them, which is how
+   * the printed strings here kept saying "recommended" long after every screen
+   * had stopped. An internal name is not a printed string; only one of the two
+   * is the reader's.
+   *
+   * It does NOT name the limited rung. `isLimited` is card-side (it needs the
+   * qualifier clauses the index ships) and duplicating it here would be the
+   * two-readers split this function exists to prevent. So a qualified failure
+   * reads as the plain negative in the mark's label and as "limited support" on
+   * the chip. Coarser, not contradictory — and worth fixing by moving
+   * `isLimited` here, not by copying it.
    */
   function verdictClause(record) {
     const { passed, failed } = recordVerdicts(record);
     const parts = [];
-    if (passed.length) parts.push(`recommended for ${passed.join(", ")}`);
-    if (failed.length) parts.push(`not recommended for ${failed.join(", ")}`);
+    if (passed.length) parts.push(`supports ${passed.join(", ")}`);
+    if (failed.length) parts.push(`not supportive for ${failed.join(", ")}`);
     return parts.join(", ");
   }
 
@@ -588,15 +632,52 @@
    *   red    — tested and not recommended for the application used, or (when
    *            the paper does not say which application) not recommended in
    *            every application that was tested
-   *   amber  — this antibody is not in the dataset, but its target is, so
+   *   blue  — this antibody is not in the dataset, but its target is, so
    *            independently tested alternatives exist
    *   grey   — target not in the dataset; no signal either way
    */
   function resolveStatus(record, apps, target, index, source) {
+    /* A declared-target notice outranks everything below it, INCLUDING a record.
+     *
+     * Not reachable on today’s data — none of the listed product codes across
+     * the two lists is in the dataset (checked 12 Sep 2026) — and written this
+     * way anyway, because the alternative is the one that cannot be allowed: a
+     * reagent recommended for western blot drawn GREEN over a paper that used it
+     * against a protein it does not bind. Which protein the antibody is raised
+     * against comes before how well it detects it, so the level is red and the
+     * card names the mismatch first; the record’s own tabs are still drawn
+     * underneath, because if we ever test one of these the verdict is real.
+     */
+    const confusion = (source && source.confusion) || null;
+    if (confusion) {
+      const mentioned = (apps || []).filter((a) => ASSESSED.includes(a));
+      const unassessed = (apps || []).filter((a) => !ASSESSED.includes(a));
+      const { passed, failed } = recordVerdicts(record);
+      return {
+        record: record || null,
+        confusion,
+        mentioned, unassessed, passed, failed,
+        untested: record
+          ? ASSESSED.filter((a) => (record.a[a] ?? NOT_TESTED) === NOT_TESTED)
+          : [],
+        qualifiers: (record && record.q) || {},
+        // No proximity caution: nothing on this card rests on which application
+        // the page was read as naming, so repeating the hedge would be the third
+        // caveat on one screen and would teach a reader to skip all of them.
+        uncertain: [],
+        via: (source && source.via) || "proximity",
+        paperStatus: (source && source.paperStatus) || "unavailable",
+        applicationAmbiguous: false,
+        untestedApplications: [],
+        gene: (target && target.gene) || null,
+        level: "red",
+        reason: "target-confusion",
+      };
+    }
     if (!record) {
       const gene = target && target.gene;
       if (gene && index.geneSet.has(gene)) {
-        return { level: "amber", gene, applications: apps, reason: "alternatives" };
+        return { level: "blue", gene, applications: apps, reason: "alternatives" };
       }
       return { level: "grey", gene: gene || null, applications: apps, reason: gene ? "target-untested" : "target-unknown" };
     }
@@ -634,6 +715,19 @@
     const passed = ASSESSED.filter((a) => record.a[a] === RECOMMENDED);
     const failed = ASSESSED.filter((a) => record.a[a] === NOT_RECOMMENDED);
     const untested = ASSESSED.filter((a) => (record.a[a] ?? NOT_TESTED) === NOT_TESTED);
+    /* The qualifier codes the index ships for this record, sparse and absent on
+       most of them. `QUALIFIERS` (card.js) holds the wording; here we only need
+       to know which applications carry one, because that is what separates a
+       negative that showed nothing from one that did the thing its application
+       is for. Guarded: a record built before the key existed simply has none. */
+    const qualifiers = (record && record.q) || {};
+    /* A negative the data still says something good about. Conservative on
+       purpose: the mark is ONE colour for the whole reagent while the card
+       lists each application separately, so a single application that showed
+       nothing keeps the mark red. Yellow has to mean "nothing here showed
+       nothing". */
+    const failedAllQualified = (list) =>
+      list.length > 0 && list.every((a) => Boolean(qualifiers[a]));
     // Which of the page's namings to caution about — see RELIABLE_CUES. A
     // looked-up application is not a doubted reading of the page, so it carries
     // no caution: repeating the proximity hedge over it would teach a reader to
@@ -643,6 +737,7 @@
       : uncertainApplications([].concat(mentioned, unassessed));
     const base = {
       record, mentioned, unassessed, uncertain, passed, failed, untested,
+      qualifiers,
       via,
       paperStatus: (source && source.paperStatus) || "unavailable",
       // CiteAb's own token was one its glossary cannot resolve to a single one of
@@ -677,7 +772,9 @@
         return {
           ...base,
           level: failedHere.length && passedHere.length ? "mixed"
-               : failedHere.length ? "red" : "green",
+               : failedHere.length
+                 ? (failedAllQualified(failedHere) ? "yellow" : "red")
+                 : "green",
           reason: "paper-application",
           scopedTo: here,
         };
@@ -711,7 +808,136 @@
     if (passed.length) {
       return { ...base, level: "green", reason: mentioned.length ? "mentioned" : "no-application" };
     }
-    return { ...base, level: "red", reason: mentioned.length ? "mentioned" : "no-application" };
+    /* Not supportive, and yet it did the thing every failed application is
+       for: yellow rather than red, because "detected the target and did not
+       meet the bar" and "showed nothing" are not the same finding and a reader
+       deciding whether to try a reagent needs them apart. */
+    return {
+      ...base,
+      level: failedAllQualified(failed) ? "yellow" : "red",
+      reason: mentioned.length ? "mentioned" : "no-application",
+    };
+  }
+
+  /* ------------------------------------------- declared-target notices */
+
+  /**
+   * Antibodies whose DECLARED target is not the one people buy them for.
+   *
+   * NOT A VERDICT ABOUT PERFORMANCE, and it must never be read as one. Every
+   * other colour on a page comes from knockout-controlled testing; this one
+   * comes from the supplier's own datasheet plus a published list of papers,
+   * and it answers the question one step before the verdicts: *is this an
+   * antibody to the protein the paper is talking about at all?* `ab51243` is an
+   * ARPC5 (p16-ARC) antibody and Abcam says so; 317 of the 406 papers on the
+   * list used it as a p16-INK4a (CDKN2A) antibody.
+   *
+   * IT SHARES RED WITH "not supportive" BY DECISION (owner, 12 Sep 2026). Two
+   * facts, one colour, and the colour key says so on both surfaces — the card
+   * and the aria-label lead with which of the two this is, because the mark
+   * cannot.
+   *
+   * THE PAPER VERDICT DECIDES WHETHER THERE IS A MARK AT ALL. Seventeen of the
+   * p16 papers used the reagent correctly, for ARPC5, and marking those red
+   * would be a false accusation against a competent paper on the strength of
+   * its DOI appearing in a spreadsheet. `as_declared` therefore draws NOTHING
+   * (see `worthShowing`) — the same rule as `present_unlinked` on the MCP side,
+   * where folding a three-valued answer into the harder one was the defect.
+   *
+   * `not_checked` is the third value and is not a hedge: the reviewer could not
+   * reach the full text of 72 of them. Those keep the mark and the card says
+   * the use could not be established, rather than borrowing the majority's
+   * answer.
+   */
+  function confusionFor(index, token) {
+    const table = index.confusions;
+    if (!table) return null;
+    // Exact case-folded form first, then punctuation-insensitive — the same
+    // order, and the same reason, as the catalogue lookup: a collapsed key can
+    // only ever ADD a match after the printed form has failed.
+    const key = normaliseKey(normaliseIdentifier(token));
+    let entry = table.antibodies.get(key);
+    if (!entry) {
+      const collapsed = collapseIdentifier(token);
+      entry = collapsed ? table.antibodiesCollapsed.get(collapsed) : undefined;
+    }
+    if (!entry) return null;
+    const kind = table.kinds[entry.kind];
+    // A payload whose `kinds` and `antibodies` disagree is not something to
+    // paper over: with no wording there is no card to draw, and a red mark with
+    // an empty card is worse than no mark.
+    return kind ? { entry, kind } : null;
+  }
+
+  /**
+   * Does the page name the SUPPLIER beside this number?
+   *
+   * Required on the codes whose shape belongs to no one supplier. Millipore's
+   * `AB986` is typeset exactly like an Abcam catalogue number, so marking every
+   * `AB986` would put a Millipore notice on an Abcam product — a claim about
+   * the wrong reagent, which is the direction nothing on the page contradicts.
+   * The cues are what a paper PRINTS (`Invitrogen`, `Thermo`), never the
+   * supplier's full legal name.
+   */
+  function confusionSupplierNamed(text, start, end, entry) {
+    if (!entry.supplier_required) return true;
+    const from = Math.max(0, start - ANTIBODY_WINDOW);
+    const to = Math.min(text.length, end + ANTIBODY_WINDOW);
+    const window = text.slice(from, to).toLowerCase();
+    return (entry.cues || []).some((cue) => cue && window.includes(cue));
+  }
+
+  /**
+   * Every key this page could be listed under, most certain first.
+   *
+   * THREE KEYS, BECAUSE NO ONE KEY IS ON EVERY PAGE — the same three
+   * `paper.js` has always used for the citation record, and deliberately in the
+   * same order with the same normalisers, because "which paper is this" is one
+   * question that must not get two answers.
+   *
+   * The DOI alone was the whole of this until 0.4.2, and that is exactly as far
+   * as a publisher's page gets you: four of the PERK papers are e-Century
+   * titles which register no DOI with Crossref, so a paper the reviewer HAD
+   * established was reachable by nothing at all.
+   *
+   * THE YEAR SLACK GOES HERE AND NOT IN THE DATA. A list row is stored under the
+   * one year the reviewer recorded; a page is looked up under the three years it
+   * could honestly be, because online-first and print dates routinely differ by
+   * one and rejecting a real match over that would be a defect of our own
+   * making. Storing three would put a tolerance into the data, where it reads as
+   * three different papers. Mirrors `core/target_confusions.py::_lookup_keys`.
+   */
+  function paperLookupKeys(paper) {
+    if (!paper) return [];
+    const keys = [];
+    if (paper.pageDoi) keys.push(paper.pageDoi);
+    if (paper.pagePmid) keys.push(`pmid:${paper.pagePmid}`);
+    if (paper.pageTitleKey && paper.pageYear) {
+      for (let d = -YEAR_SLACK; d <= YEAR_SLACK; d += 1) {
+        keys.push(`title:${paper.pageTitleKey}:${paper.pageYear + d}`);
+      }
+    }
+    return keys;
+  }
+
+  /**
+   * What the published list records for THIS paper and THIS product code.
+   *
+   * `null` means the pair is not on a list, which is not a verdict and is not
+   * drawn as one — it covers both "this paper is on no list" and "this paper is
+   * listed for a different product". A page that declares none of the three
+   * identifiers simply gets the product half, exactly as before.
+   */
+  function confusionVerdict(index, paper, entry) {
+    const table = index.confusions;
+    if (!table) return null;
+    const wanted = normaliseKey(entry.id || "");
+    for (const key of paperLookupKeys(paper)) {
+      const listed = table.papers[key];
+      const verdict = listed && listed[wanted];
+      if (verdict) return verdict;
+    }
+    return null;
   }
 
   /**
@@ -728,8 +954,15 @@
    * it in an application nobody assessed.
    */
   function worthShowing(hit) {
+    // A paper the reviewer read and recorded as using the reagent for the target
+    // it is actually sold against is a correct paper, and there is nothing to
+    // say on it. Checked BEFORE `hit.record`, because it must hold even on the
+    // day one of these codes enters the dataset.
+    if (hit.status.confusion
+        && hit.status.confusion.verdict === "as_declared") return false;
     if (hit.record) return true;              // we have data: green/red/mixed, or grey-for-this-application
-    return hit.status.level === "amber";      // no data on the antibody, but its target is characterised
+    if (hit.status.reason === "target-confusion") return true;  // declared target is another protein
+    return hit.status.level === "blue";      // no data on the antibody, but its target is characterised
   }
 
   function findMentions(text, index, blocks, paper) {
@@ -779,12 +1012,61 @@
       const rrid = index.catalogue[normaliseKey(key)]
         || (collapsed && index.catalogueCollapsed
             ? index.catalogueCollapsed.get(collapsed) : undefined);
-      if (!rrid) continue;
+      // A declared-target notice is looked up in the SAME pass rather than in
+      // one of its own, so that a code carrying both a notice and an OGA record
+      // reaches `resolveStatus` with both. In a later pass the catalogue hit
+      // would have claimed the span and the notice would silently never attach
+      // — unreachable today, since none of the listed codes is in the dataset,
+      // and the shape that makes it wrong is the ordering, not the data.
+      const listed = confusionFor(index, token);
+      if (!rrid && !listed) continue;
       if (looksLikeMeasurement(text, start, end)) continue;
       if (isWeakIdentifier(key) && !hasContext(text, start, end)) continue;
 
+      // The notice draws RED off a supplier's datasheet rather than off a
+      // verdict, so it clears the higher bar the INFERRED marks clear and not
+      // the looser "somebody bought a reagent" one: the block has to say
+      // antibody, because a red mark reading "this is an antibody to another
+      // protein" beside a recombinant enzyme or a cell line is a claim about
+      // the wrong reagent, and nothing on the page would contradict it.
+      let confusion = null;
+      if (listed && hasAntibodyContext(text, start, end)
+          && confusionSupplierNamed(text, start, end, listed.entry)) {
+        const verdict = confusionVerdict(index, paper, listed.entry);
+        /* SOME LISTS MAY ONLY MARK A PAPER THEY NAME.
+         *
+         * A notice is found by the product code, so by default a page naming
+         * one draws a mark whatever paper it is, and with no verdict the card
+         * leads "This paper MAY have used the wrong antibody" plus the review's
+         * tally. That is a fair caution where the product is mostly misused —
+         * 317 of the 406 p16 papers used `ab51243` as a p16-INK4a antibody.
+         *
+         * It is the wrong bet on PERK. `ab65142` is a perfectly good PERK
+         * antibody, and nearly every paper citing it used it correctly for the
+         * unfolded protein response; marking those would be a false accusation
+         * against a correct paper. So `papers_only` lists draw nothing unless
+         * the page's own DOI is on them — which also makes the supplier gate
+         * above belt-and-braces rather than load-bearing for a bare number
+         * like Cell Signaling's `3192`, since an unrelated page cannot mark at
+         * all.
+         *
+         * Per notice, not global: the two 2026 For Better Science lists keep
+         * the caution they shipped with. */
+        if (!(listed.kind && listed.kind.papers_only && !verdict)) {
+          confusion = {
+            id: listed.entry.id,
+            supplier: listed.entry.supplier || null,
+            statement: listed.entry.statement || null,
+            kind: listed.entry.kind,
+            words: listed.kind,
+            verdict,
+          };
+        }
+      }
+      if (!rrid && !confusion) continue;
+
       const record = index.antibodies[rrid] || null;
-      const hit = buildHit({ text, start, end, matched: token, rrid, record, index, blocks, paper, via: "catalogue" });
+      const hit = buildHit({ text, start, end, matched: token, rrid, record, index, blocks, paper, via: "catalogue", confusion });
       if (!worthShowing(hit)) continue;
       claimed.push([start, end]);
       hits.push(hit);
@@ -818,7 +1100,7 @@
     }
 
     // Then catalogue numbers we do NOT hold, but which the paper has labelled
-    // with a target we do. Amber at most: we are saying "not this one, but this
+    // with a target we do. Blue at most: we are saying "not this one, but this
     // target has tested antibodies", never anything about the reagent itself.
     GENE_THEN_CAT_RE.lastIndex = 0;
     while ((m = GENE_THEN_CAT_RE.exec(text)) !== null) {
@@ -828,7 +1110,7 @@
 
       // Already carries a real verdict — the catalogue pass owns it. Asked the
       // same two ways the catalogue pass asks, or a number it now resolves by its
-      // collapsed key would be marked amber here as well as green there.
+      // collapsed key would be marked blue here as well as green there.
       const collapsedKey = collapseIdentifier(token);
       if (index.catalogue[normaliseKey(key)]
           || (collapsedKey && index.catalogueCollapsed
@@ -844,7 +1126,7 @@
       // "antibody" and not merely "cat no." -- a recombinant enzyme is bought
       // by catalogue number from a named supplier and reads identically:
       // "MMP-7 (cat no. M4565) were purchased from Sigma-Aldrich" is not an
-      // antibody at all, and amber there is a claim about the wrong reagent.
+      // antibody at all, and blue there is a claim about the wrong reagent.
       if (!hasAntibodyContext(text, start, end)) continue;
 
       const hit = buildHit({
@@ -857,7 +1139,7 @@
     }
 
     // Finally, antibodies named only by target ("anti-TDP-43 antibody") with no
-    // catalogue number. These can only ever be amber or grey.
+    // catalogue number. These can only ever be blue or grey.
     for (const re of TARGET_PATTERNS) {
       re.lastIndex = 0;
       while ((m = re.exec(text)) !== null) {
@@ -884,15 +1166,15 @@
         if (!hasContext(text, start, end)) continue;
         // "anti-TDP-43 antibody (Abcam ab109535)" is one reagent named twice: the
         // catalogue number immediately follows the phrase and already carries
-        // the verdict, so marking the name too would put amber beside green for
+        // the verdict, so marking the name too would put blue beside green for
         // the same thing. Look forward only, and only far enough to cover the
         // trailing parenthetical — "an additional anti-TDP-43 antibody (Vendor,
         // cat# X)" further down the paragraph is a genuinely different reagent
-        // and must keep its amber.
+        // and must keep its blue.
         // The gene-adjacent pass above marks that trailing catalogue number too,
-        // so this now has to dedup against an ambered token as well as a
+        // so this now has to dedup against an blueed token as well as a
         // record-backed one — otherwise "anti-TDP-43 (Abcam, cat# <unknown>)"
-        // draws two amber marks for one reagent.
+        // draws two blue marks for one reagent.
         if (hits.some((h) => {
           const g = h.record ? h.record.g : (h.target && h.target.gene);
           return g === gene && h.start > start && h.start - start < 60;
@@ -914,7 +1196,7 @@
   /**
    * How the target was attributed — a different question from `via`, which
    * says how the *identifier* was found, and the only one that matters for
-   * amber:
+   * blue:
    *
    *   record   the dataset row says so. Certain.
    *   stated   the page put the name against this identifier — "PINK1 (#A2164)",
@@ -923,7 +1205,7 @@
    *            the one that can be wrong: in a Key Resources table it is the
    *            row above or below.
    */
-  function buildHit({ text, start, end, matched, rrid, record, index, blocks, paper, via, forcedTarget }) {
+  function buildHit({ text, start, end, matched, rrid, record, index, blocks, paper, via, forcedTarget, confusion }) {
     // What the citation record says THIS paper used THIS reagent for, if it
     // covers the paper and lists the reagent. `rrid` is the only key it can be
     // looked up by, so a hit resolved by target name (which carries no rrid)
@@ -941,6 +1223,11 @@
       via: cited
         ? (cited.applications.length ? "paper" : "paper-unrecorded")
         : "proximity",
+      // The supplier's declared target, where it is not the one people buy this
+      // reagent for, plus what a published list records for THIS paper. Resolved
+      // by the caller, because only the identifier passes know which token they
+      // matched and on what.
+      confusion: confusion || null,
     };
     const applications = (cited && cited.applications.length)
       ? cited.applications
@@ -991,10 +1278,59 @@
       }
     }
 
+    /* Antibodies whose DECLARED target is not the one people buy them for.
+       Absent on an install whose cached index predates the key, and on one
+       whose snapshot carries no notices at all — both are `null` here and
+       every notice path then does nothing, which is exactly the behaviour
+       before this existed. Gated on the payload's own `schema`, which is
+       finer-grained than `index.json`'s: this key is additive, so the outer
+       schema deliberately did NOT move for it. */
+    const rawConfusions = raw.target_confusions;
+    let confusions = null;
+    if (rawConfusions && rawConfusions.schema === 1 && rawConfusions.antibodies) {
+      const byKey = new Map();
+      const byCollapsed = new Map();
+      for (const [key, entry] of Object.entries(rawConfusions.antibodies)) {
+        byKey.set(normaliseKey(key), entry);
+        const folded = collapseIdentifier(key);
+        // First key wins, so a collision between two stored codes can never
+        // displace an exact match: this map is only consulted after the
+        // printed form has failed. Same rule as `catalogueCollapsed`.
+        if (folded && !byCollapsed.has(folded)) byCollapsed.set(folded, entry);
+      }
+      confusions = {
+        kinds: rawConfusions.kinds || {},
+        antibodies: byKey,
+        antibodiesCollapsed: byCollapsed,
+        papers: rawConfusions.papers || {},
+      };
+    }
+
     return {
       schema: raw.schema,
       generated: raw.generated,
       source: raw.source,
+      confusions,
+      // What the verdicts do and do not cover, sent WITH the data so the one
+      // wording lives in core/recommendations.py rather than in a bundled copy
+      // here that drifts the next time the owner sharpens it. Absent on an
+      // install whose cached index predates the key -- card.js falls back.
+      scope: raw.scope || null,
+      scopeShort: raw.scope_short || null,
+      // Appended inside a verdict, never printed alone. See
+      // core/recommendations.py::CONDITIONS_QUALIFIER.
+      conditionsQualifier: raw.conditions_qualifier || null,
+      protocolsUrl: raw.protocols_url || null,
+      // Per-application, keyed the way the tabs are ('IF'). An application with
+      // nothing specific to say is simply absent.
+      applicationScope: raw.application_scope || {},
+      // The clause behind each qualifier code, and what the middle rung is
+      // worth. Served rather than baked so the owner can reword without a
+      // store submission — the same reason as `scope` above, and this is the
+      // text most likely to move again. `card.js` and `content.js` keep the
+      // table as a fallback for a cached index that predates the key.
+      qualifierWords: raw.qualifier_words || null,
+      limitedSupportNote: raw.limited_support_note || null,
       counts: raw.counts || {},
       antibodies: raw.antibodies || {},
       catalogue: raw.catalogue || {},
@@ -1016,6 +1352,11 @@
     resolveGene,
     resolveStatus,
     recordVerdicts,
+    confusionFor,
+    confusionVerdict,
+    paperLookupKeys,
+    confusionSupplierNamed,
+    listOf,
     verdictClause,
     normaliseIdentifier,
     collapseIdentifier,

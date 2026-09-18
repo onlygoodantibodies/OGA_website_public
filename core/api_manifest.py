@@ -24,9 +24,10 @@ The whole manifest sidesteps it: the client diffs against what it already holds
 and both directions fall out, additions and removals alike. The cost of doing
 that on every reconnect is what ``ETag`` removes — an unchanged dataset answers
 ``304 Not Modified`` with no body, which is cheaper than any delta request would
-have been. The fingerprint covers image identity, file name and every
-recommendation flag in scope, so a **replaced** figure and a changed
-recommendation both break the ETag, which a timestamp cursor would miss.
+have been. The fingerprint covers image identity, file name, every
+recommendation flag in scope and a stamp over the outcome judgements behind
+``oga_display``, so a **replaced** figure and a changed verdict both break the
+ETag, which a timestamp cursor would miss.
 
 ``?since=`` exists for callers who specifically want the additions, and the
 response says in as many words that it cannot report removals or replacements.
@@ -63,7 +64,21 @@ from .api_views import (
 # 2 since 7 Aug 2026: the body gained `scope.requested_genes` and the
 # `sync.narrowed_by_request` / `narrowed_note` pair when `?gene=` was added.
 # Additive, but this constant exists to say the body shape moved.
-MANIFEST_VERSION = 2
+#
+# 3 since 12 Sep 2026: every row gained `oga_display` and `oga_qualifier`, the
+# site's own words for the same verdict. Additive again — but this constant is
+# inside the fingerprint, so bumping it is also how every client holding an
+# ETag is told once that the representation moved and re-downloads to pick the
+# new columns up. A purely additive change nobody is told about is a column
+# that exists on the endpoint and in nobody's copy of the file.
+#
+# 4 since 14 Sep 2026: every row gained `oga_support`, the four-rung verdict as
+# a controlled value. `oga_display` shipped the distinction as a WORD in
+# version 3, which left a consumer either string-matching prose or switching on
+# an `oga_recommendation` that cannot express *Limited support* — so this is
+# the half that makes "switch on what you print" true. Same reason for the
+# bump: the fingerprint carries it, so an ETag holder is told once.
+MANIFEST_VERSION = 4
 
 # Default filename pattern, matching the portal's Settings panel default so a
 # consumer who set one there gets the same names from both routes.
@@ -194,11 +209,25 @@ def _fingerprint(qs, curated_ids):
     curated-gene set is included whole because one gene's first recommendation
     changes the answer for every *other* antibody against it (see
     ``core/recommendations.py``).
+
+    ``oga_display`` moves on a third input — the capability axes behind
+    *Limited support* — so the outcome table is stamped too. Deliberately a
+    stamp and not the derived words: resolving them here would mean
+    materialising the whole scope on the 304 path, which is the path that
+    exists to avoid exactly that. ``assessed_at`` is ``auto_now`` and the count
+    catches a deletion, so a review pass filling a judgement in breaks the ETag
+    the way a flipped flag does. **What it does not cover is a bench edit to a
+    session result row**, which ``services/outcomes.py`` also reads: that is the
+    same tolerance the manifest already has for a supplier rename or an
+    ``out_of_market`` flip, neither of which is hashed either. Stated rather
+    than implied, because a client syncing on the ETag is entitled to know
+    which drift it is carrying.
     """
     digest = hashlib.sha256()
     digest.update(f'v{MANIFEST_VERSION}\n'.encode())
     digest.update(('curated:' + ','.join(str(i) for i in sorted(curated_ids))
                    + '\n').encode())
+    digest.update((f'outcomes:{R.outcome_stamp()}\n').encode())
     rows = qs.values_list(
         'pk', 'image', 'application_type',
         'antibody__wb_recommended', 'antibody__ip_recommended',
@@ -243,6 +272,33 @@ def _filename(pattern, row, extension):
     return f'{name}.{extension}'
 
 
+def _display_map(images, curated_ids):
+    """``{(antibody_id, application): (support, words, qualifier)}`` for a scope.
+
+    The manifest's own words for a verdict, resolved in bulk. ``describe`` needs
+    the capability axes to tell *Limited support* from *Not supportive*, and
+    asking for them one figure at a time is 4,290 round trips on the full
+    archive — so ``capability_axes`` is called once for the whole scope, which
+    is two queries per application whatever the size of the set.
+
+    Keyed on ``(antibody, application)`` rather than per row because an antibody
+    has one answer per application however many figures carry it.
+    """
+    by_pair = {}
+    axes = R.capability_axes({image.antibody_id for image in images})
+    for image in images:
+        key = (image.antibody_id, image.application_type)
+        if key in by_pair:
+            continue
+        antibody = image.antibody
+        described = R.describe(
+            antibody, image.application_type, {image.application_type},
+            antibody.target_id in curated_ids, axes.get(key))
+        by_pair[key] = (described['support'], described['words'],
+                        described['qualifier'])
+    return by_pair
+
+
 def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=False):
     """Serialise the scoped figures, one row per downloadable file.
 
@@ -261,11 +317,16 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
     config = consumer.portal_config or {}
     pattern = (config.get('filename_pattern') or '').strip() or DEFAULT_FILENAME_PATTERN
 
+    # Materialised before the loop because the display map needs the whole
+    # scope at once; iterating the queryset would populate the same cache.
+    images = list(qs)
+    display = _display_map(images, curated_ids) if include_recommendations else {}
+
     rows = []
     seen_names = {}
     collisions = 0
 
-    for image in qs:
+    for image in images:
         antibody = image.antibody
         target = antibody.target
         url = _absolute(image.image)
@@ -294,6 +355,28 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
                 antibody, image.application_type,
                 {image.application_type}, target.pk in curated_ids)
             row['oga_recommendation'] = value
+            # The same verdict in the words every OGA surface prints, beside
+            # the controlled value and never instead of it — the shape
+            # `/v1/antibodies/` already ships as `oga_display` and
+            # `oga_qualifiers`, flattened because a manifest row is one
+            # application and theirs are keyed by all four.
+            #
+            # Two of the four rungs cannot be read off `oga_recommendation` at
+            # all, which is the whole reason this is here: *Limited support* is
+            # `not_recommended` where the bench still saw the antibody do what
+            # the application is for (491 of 1,833 negatives on live data,
+            # 29 Aug 2026), and an ICC-IF verdict can be vetoed by a ratio
+            # below the floor. A consumer switching on `oga_recommendation`
+            # goes on working; one printing a word for a person reads this.
+            support, words, clause = display.get(
+                (image.antibody_id, image.application_type), ('', '', ''))
+            # `oga_display` is the word and `oga_support` the value behind it,
+            # so a consumer no longer has to choose between switching on a
+            # field that cannot express *Limited support* and string-matching
+            # a word we reserve the right to reword.
+            row['oga_support'] = support
+            row['oga_display'] = words
+            row['oga_qualifier'] = clause
 
         filename = _filename(pattern, row, _extension_of(url))
         if filename in seen_names:
@@ -322,10 +405,21 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
 # Endpoint: GET /api/v1/manifest/
 # ─────────────────────────────────────────────────────────
 
+#: The manifest's columns, in order.
+#:
+#: **``oga_support`` is appended last rather than filed beside the other two
+#: verdict columns**, which is where it belongs by meaning and the wrong place
+#: by consequence. A consumer reading this CSV positionally — and a spreadsheet
+#: formula is positional whatever the header says — keeps every index it
+#: already has if the new column goes on the end, and silently reads the wrong
+#: column for the rest of the file if it goes in the middle. The grouping is a
+#: readability preference; the indices are somebody's working pipeline.
 CSV_COLUMNS = [
     'url', 'filename', 'gene', 'catalogue_number', 'rrid', 'supplier',
     'application', 'application_display', 'oga_recommendation',
+    'oga_display', 'oga_qualifier',
     'product_link', 'discontinued', 'gene_page_url', 'image_id', 'added_at',
+    'oga_support',
 ]
 
 
@@ -678,9 +772,23 @@ def _readme_for(version, count):
         # for every surface, and only this one is a plain-text file opened in
         # whatever the reader's zip tool uses.
         scope=textwrap.fill(R.SCOPE_NOTE, 78),
-        recommended=R.MEANINGS[R.RECOMMENDED],
-        not_recommended=R.MEANINGS[R.NOT_RECOMMENDED],
-        not_tested=R.MEANINGS[R.NOT_TESTED],
+        # The rung and its sentence, wrapped and indented rather than laid out
+        # in a column: two of the four run past 78 characters on one line, and
+        # this is a plain-text file opened in whatever a reader's zip tool uses
+        # — where a long line wraps wherever the window happens to end and the
+        # column stops being one.
+        rungs='\n\n'.join(
+            f'  {word}\n' + textwrap.fill(meaning, 74,
+                                          initial_indent='      ',
+                                          subsequent_indent='      ')
+            for word, meaning in (
+                (R.CELL_WORDS[R.RECOMMENDED], R.MEANINGS[R.RECOMMENDED]),
+                (R.LIMITED_WORDS, R.LIMITED_MEANING),
+                (R.CELL_WORDS[R.NOT_RECOMMENDED],
+                 R.MEANINGS[R.NOT_RECOMMENDED]),
+                (R.UNTESTED_WORDS, R.MEANINGS[R.NOT_TESTED]),
+            )),
+        limited_note=textwrap.fill(R.LIMITED_SUPPORT_NOTE, 78),
         manifest_url=f'{BASE_URL}{reverse("api:manifest")}',
         base_url=BASE_URL,
     )
@@ -966,6 +1074,18 @@ def api_index(request):
                         'report is out. Derived from records, never a typed '
                         'status.',
              'parameters': {'gene': 'exact gene symbol'},
+             'side_effects': 'none'},
+            {'path': url('not-supportive/'), 'method': 'GET',
+             'summary': 'Antibodies in your scope that OGA tested and found no '
+                        'supportive result for, in any application tested. '
+                        'Published data, assembled: an application nobody ran '
+                        'is absent from this list, never a failure in it. Each '
+                        'row names Not supportive and Limited support apart.',
+             'side_effects': 'none'},
+            {'path': url('not-supportive/csv/'), 'method': 'GET',
+             'summary': 'The same list as a spreadsheet, one row per '
+                        'application finding, naming the supportive example '
+                        'for the same gene and application beside each one.',
              'side_effects': 'none'},
         ],
         'oga_recommendations': {

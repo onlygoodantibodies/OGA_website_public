@@ -134,7 +134,7 @@ PROCEDURE_CONDITION_FIELDS = {
         ('lysis_buffer', 'Lysis Buffer', 'text', 'e.g. IP buffer'),
         ('bead_type', 'Bead Type', 'text', 'e.g. Protein A/G'),
         ('protein_amount_mg', 'Protein Amount (mg)', 'number', 'e.g. 1.0'),
-        ('detection_antibody', 'Detection Antibody', 'text', 'KO-validated Ab for WB step'),
+        ('detection_antibody', 'Detection Antibody', 'text', 'KO-controlled Ab for WB step'),
         ('detection_antibody_dilution', 'Detection Ab Dilution', 'text', 'e.g. 1:1000'),
         ('secondary_antibody', 'Secondary Antibody', 'text', 'e.g. anti-rabbit HRP'),
         ('secondary_dilution', 'Secondary Dilution', 'text', 'e.g. 1:10000'),
@@ -306,7 +306,11 @@ def session_create(request):
         ?ajax=antibodies&target=1             → JSON list of antibodies for target
         ?ajax=cell_lines&target=1             → the WT and KO boxes' own lists
 
-    POST: creates ExperimentSession + child result records, redirects to detail.
+    POST: creates the ExperimentSession and lands on the sessions board with it
+    open. **The template posts no antibodies**, so the session has no result
+    rows; they arrive through its bench sheet (`bench_results`), which lists
+    the gene's vials as a picking list for a session that has none. The page
+    says so — run 19 planned one here and then looked for the picker.
     """
     # ── AJAX sub-requests ──
     ajax_type = request.GET.get('ajax', '')

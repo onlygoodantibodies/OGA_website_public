@@ -39,6 +39,7 @@
   </div>
 
   {{ roles|json_script:"roles-json" }}
+  {{ cell_choices|json_script:"cell-choices" }}
   {{ new_columns|json_script:"new-columns" }}
   {{ new_example|json_script:"new-example" }}
   <div id="new-panel"></div>
@@ -214,8 +215,14 @@
   }
 
   const errors = banner('board-error', 'board-error-text', 'board-error-close');
+  /* Site and role are both closed sets — `members.set_field` refuses an
+   * unknown role by name and `sites.strict_id` an unknown site — and both
+   * were bare text boxes on the page that decides who can reach the pipeline
+   * at all. See services/members.py::cell_choices. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
+
   const board = OGABoard.create({
-    grid, filtersForm, errors, csrf,
+    grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
     urls: {rows: rowsUrl, patch: patchUrl},
@@ -269,6 +276,21 @@
     columns: JSON.parse(document.getElementById('new-columns').textContent),
     example: JSON.parse(document.getElementById('new-example').textContent),
     rows: 5,
+    /* The same two limited sets as the grid cells, on the surface where people
+     * are actually added. The intro below lists the roles in prose and names a
+     * site as "a short code or a name" — which is a limited set *described*
+     * rather than offered, and the column beside it was blank. Still a text
+     * input, because `newEntry` serialises the grid to TSV through the same
+     * parser a paste uses; the list removes the typo, not the door. */
+    suggestions: {
+      site: cellChoices.site.values.map(v => v.value).filter(Boolean),
+      /* The display names, the same words the grid's dropdown shows. This
+       * offered the codes while the board offered `Administrator`, so one
+       * page named the same five roles two ways — run 18 F3. The parser
+       * reads either spelling now (`members.role_from`), so offering the
+       * readable one costs nothing. */
+      role: cellChoices.role.values.map(v => v.label),
+    },
     urls: {preview: checkUrl, commit: commitUrl},
     commitLabel: d => {
       const n = ((d && d.summary) || {}).create || 0;
@@ -282,7 +304,7 @@
             password is left alone. For a new login, type a <b>password</b> or
             leave the column blank and one is generated — either way it is shown
             once when you save, and can be read out straight away.</span>
-            <span class="block mt-1 text-gray-500">Roles: ${ROLES.map(r => r.value).join(', ')}.
+            <span class="block mt-1 text-gray-500">Roles: ${ROLES.map(r => r.label).join(', ')}.
             Site is a short code or a name.</span>`,
     buildBody: (text) => ({text}),
     renderPreview: d => {

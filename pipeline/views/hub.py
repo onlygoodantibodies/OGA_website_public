@@ -45,6 +45,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.shortcuts import render
 
+from core.extension_index import manifest_version
 from pipeline.decorators import pipeline_member_required
 from pipeline.models import Member
 
@@ -71,11 +72,18 @@ TASK_DEFS = [
      "exist — then add it to your site's list from the same page.",
      "pipeline:feasibility", "feas"),
     ("record", "Sessions board", "Every session across every site — find one and edit it, results included.", "pipeline:session_board", "record"),
-    ("publish", "Publish figures", "Crop a validation figure and send it to the review queue.", "pipeline:cropper", "cropper"),
+    ("publish", "Publish figures", "Crop a characterisation figure and send it to the review queue.", "pipeline:cropper", "cropper"),
     ("review", "Review queue",
      "Figures cropped and not yet on the website — check them, then release.",
      "pipeline:review_queue", "review"),
     ("recommend", "Set recommendations", "Review a gene's figures and mark which antibodies are recommended.", "pipeline:recommendations", "recommend"),
+    # Added 28 Aug 2026. Sits beside Set recommendations because it is the same
+    # act at a finer grain — the two questions the single "recommended" bit
+    # flattens. Nothing public reads it yet; the boolean is still the verdict.
+    ("outcomes", "Judge outcomes",
+     "Detects the target, and selective for it — the two answers behind a "
+     "recommendation, judged from the figure.",
+     "pipeline:outcomes", "outcomes"),
     ("data_io", "Downloads & uploads", "Export the whole dataset, edit it, and upload the changes.", "pipeline:data_io", "io"),
     # Added 23 Aug 2026 with the public nomination form. It sits under "Across
     # every gene" rather than in step 1: the two cards there are the two ways a
@@ -111,7 +119,7 @@ PHASES = [
      "A gene's own page carries the same sessions with its bench sheets — search "
      "for the gene above to get there."),
     ("publish", "Publish what you found", "Crop the figures, review them, then release.",
-     ["publish", "review", "recommend"],
+     ["publish", "review", "recommend", "outcomes"],
      "Cropping no longer publishes: the figures wait in the review queue until "
      "somebody releases them, which is the press that puts them on the public "
      "website. The gene's page generates a draft Data Note; a Zenodo deposit or "
@@ -133,6 +141,7 @@ _ICON = {
     "cropper": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>',
     "review": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-4 3 2.5L15.5 9 21 14"/><circle cx="8.5" cy="8.5" r="1.4"/></svg>',
     "recommend": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l2.5 5.2 5.5.8-4 3.9.9 5.6L12 16.9 7.1 18.5l.9-5.6-4-3.9 5.5-.8z"/></svg>',
+    "outcomes": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V9M10 20V4M16 20v-7M22 20H2"/><circle cx="10" cy="4" r="1.6" fill="currentColor"/></svg>',
     "requests": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M9 9h6M9 12h4"/></svg>',
     "io": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v10M8 9l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
     "board": '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/></svg>',
@@ -205,4 +214,18 @@ def hub(request):
         # so surface it here while that is the case. Once it is public it lives
         # on the public Tools hub and this row disappears.
         "extension_preview": not getattr(settings, "EXTENSION_PAGE_PUBLIC", False),
+        # The packaged zip, for whoever is cutting a store release.
+        #
+        # HERE rather than on `/extension/`, where it was first put and where it
+        # cannot work: that page is public and edge-cached, Cloudflare keeps one
+        # copy and serves it to everybody, so a member-only panel on it is
+        # invisible to the member it is for. `/pipeline/` is in
+        # `cache_headers.NEVER_CACHED_PREFIXES`, so this row is rendered per
+        # visitor, every time.
+        #
+        # A row and not a task card, for the reason above `user_admin`: cards
+        # are the work a scientist does and each must be reachable by everyone.
+        # Cutting a release is a chore, and it names the version because the one
+        # way to waste a submission is to upload a number a store already has.
+        "extension_zip_version": manifest_version(),
     })

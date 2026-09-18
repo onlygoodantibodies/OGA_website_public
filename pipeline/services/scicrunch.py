@@ -315,6 +315,38 @@ def _cat_match(ncat: str, lcat: str, other: str) -> bool:
     return (ncat and _norm_cat(other) == ncat) or _loose_cat(other) == lcat
 
 
+#: How a registry target name is broken into comparable words. Not a split on
+#: every non-alphanumeric: a hyphen is *inside* plenty of symbols (``NKX2-1``,
+#: ``HLA-DRA``), so splitting there would stop those ever matching.
+_TARGET_SPLIT_RE = re.compile(r"[\s\[\]\(\),;:/]+")
+
+
+def _target_tokens(s: str) -> set:
+    """The words of a registry target name, upper-cased."""
+    parts = _TARGET_SPLIT_RE.split((s or "").upper())
+    return {p.strip(".").strip() for p in parts if p.strip(".").strip()}
+
+
+def _is_bare_symbol(s: str) -> bool:
+    """Is this registry target a bare symbol we could contradict?
+
+    ``antibodies.primary[].targets[].name`` is a product **title**, not a gene
+    symbol. Live returns ``ADAM10 antibody [EPR5622]``, and where the registry
+    knows the protein rather than the gene it returns things like
+    ``Glucocorticoid Receptor antibody`` for NR3C1. So *failing to find* our
+    symbol in one is a signal we did not get, never a disagreement — only a
+    single bare word is a claim about identity that can actually conflict with
+    ours.
+
+    Getting this wrong is not academic: comparing a symbol against a title by
+    equality made every exact catalogue-and-vendor match report "registry
+    target gene differs" and refuse to fill. The fixtures could not show it,
+    because they carried a bare ``APOE`` where the registry returns a title.
+    """
+    s = (s or "").strip()
+    return bool(s) and not _TARGET_SPLIT_RE.search(s)
+
+
 def _vendor_similar(a: str, b: str) -> bool:
     a, b = (a or "").strip().lower(), (b or "").strip().lower()
     if not a or not b:
@@ -328,12 +360,23 @@ def _vendor_similar(a: str, b: str) -> bool:
         return False
 
 
-def match_registry(catalogue: str, company: str, gene: str, records: list):
+def match_registry(catalogue: str, company: str, gene: str, records: list,
+                   aliases=()):
     """Match one antibody (catalogue + company + gene) against registry records.
 
     HIGH only when the catalogue matches and at least one of {target gene, vendor}
     agrees while neither contradicts. The gene check rejects a catalogue that
     resolves to a different antibody.
+
+    ``aliases`` are the other symbols this gene is known by — pass
+    ``services.targets.other_names(target)``. **The registry routinely names a
+    gene by a synonym or its older official symbol**, and comparing our primary
+    symbol alone reads that as a different antibody: the first live pass put ten
+    PDPN antibodies from six vendors into REVIEW, plus three OGA (whose older
+    symbol is MGEA5), NFE2L2 (NRF2), GBA1 (GBA) and MAPT (TAU) — every one of
+    which we already store the synonym for. Six vendors do not independently
+    mis-file one antibody; that shape is a synonym, not a mismatch. No network:
+    the names are on our own Target row.
 
     Returns (status, rrid, url, note): status in {"high","review","nomatch"}.
     """
@@ -342,7 +385,13 @@ def match_registry(catalogue: str, company: str, gene: str, records: list):
     if not lcat:
         return ("nomatch", "", "", "")
     gene_u = (gene or "").strip().upper()
+    # Every name that counts as "ours" for this comparison.
+    accept = {gene_u} | {(a or "").strip().upper() for a in (aliases or [])}
+    accept.discard("")
+    accept_loose = {_loose_cat(a) for a in accept}
+    accept_loose.discard("")
 
+    seen_targets = []
     cand = {}
     for rec in records:
         rrid = normalize_rrid(rec.get("rrid"))
@@ -352,9 +401,23 @@ def match_registry(catalogue: str, company: str, gene: str, records: list):
         rec_cats = [v.get("catalogue") for v in vendors if v.get("catalogue")]
         if rec_cats and not any(_cat_match(ncat, lcat, c) for c in rec_cats):
             continue
-        rec_genes = [g.strip().upper() for g in (rec.get("genes") or []) if g]
-        gene_ok = bool(gene_u) and gene_u in rec_genes
-        gene_bad = bool(gene_u) and bool(rec_genes) and not gene_ok
+        rec_genes = [g.strip() for g in (rec.get("genes") or []) if g and g.strip()]
+        for g in rec_genes:
+            if g not in seen_targets:
+                seen_targets.append(g)
+        # Our symbol -- or any name this gene is also known by -- as a *word* of
+        # the target name, OR as the whole of it once punctuation and case are
+        # set aside. The second half is for the multi-word protein names the
+        # registry uses ("Ras-related protein Rab-11A"), which no single token
+        # can carry; it is an equality, not an overlap, so it cannot match two
+        # different proteins that happen to share the word "protein".
+        gene_ok = bool(accept) and (
+            any(accept & _target_tokens(g) for g in rec_genes)
+            or any(_loose_cat(g) in accept_loose for g in rec_genes))
+        # Absence is not contradiction — see _is_bare_symbol. Only a target that
+        # IS a bare symbol, and is none of our names, disagrees with us.
+        gene_bad = (bool(accept) and not gene_ok
+                    and any(_is_bare_symbol(g) for g in rec_genes))
         vendor_ok = any(_vendor_similar(company, v.get("vendor")) for v in vendors)
         url = ""
         for v in vendors:
@@ -370,21 +433,32 @@ def match_registry(catalogue: str, company: str, gene: str, records: list):
 
     if not cand:
         return ("nomatch", "", "", "")
+    # A gene we positively confirmed wins. One registry RRID routinely carries
+    # SEVERAL target names -- ab32127 lists "Syp", "Synaptophysin antibody
+    # [YE269]" and "Synaptophysin" -- and gene_bad is OR-ed across them, so
+    # requiring `not gene_bad` let a second name veto a match the first name had
+    # already confirmed. A contradiction only counts where nothing confirmed.
     strong = {r: e for r, e in cand.items()
-              if not e["gene_bad"] and (e["gene_ok"] or e["vendor_ok"])}
+              if e["gene_ok"] or (e["vendor_ok"] and not e["gene_bad"])}
     if len(strong) == 1:
         r, e = next(iter(strong.items()))
         conf = "+".join([s for s, ok in (("gene", e["gene_ok"]), ("vendor", e["vendor_ok"])) if ok])
         return ("high", r, e["url"], f"confirmed by {conf}")
     if len(strong) > 1:
         return ("review", "", "", f"multiple confirmed RRIDs {sorted(strong)}")
+    said = "; ".join(seen_targets[:3]) or "nothing"
     if any(e["gene_bad"] for e in cand.values()):
-        return ("review", "", "", f"catalogue matched but registry target gene differs (ours={gene})")
+        # Name what it said. "differs" without the other side is a refusal you
+        # cannot act on: the first live pass produced 28 of these and settling
+        # any one of them meant querying the registry again by hand.
+        return ("review", "", "",
+                f"catalogue matched but registry target gene differs "
+                f"(ours={gene}, registry says {said!r})")
     return ("review", "", "", f"catalogue matched RRID(s) {sorted(cand)} but could not confirm "
-                              f"vendor/gene (ours vendor={company!r})")
+                              f"vendor/gene (ours vendor={company!r}, registry says {said!r})")
 
 
-def resolve_rrid(catalogue: str, company: str, gene: str):
+def resolve_rrid(catalogue: str, company: str, gene: str, aliases=()):
     """Best-effort HIGH-confidence RRID for one antibody. Returns
     (rrid_or_None, url, note). Never raises — network/parse failures return
     (None, "", reason), so callers at entry time can degrade gracefully."""
@@ -397,5 +471,6 @@ def resolve_rrid(catalogue: str, company: str, gene: str):
         return (None, "", f"lookup failed: {e}")
     if not reg.get("records"):
         return (None, "", reg.get("error") or "no registry record")
-    status, rrid, url, note = match_registry(catalogue, company, gene, reg["records"])
+    status, rrid, url, note = match_registry(catalogue, company, gene,
+                                             reg["records"], aliases=aliases)
     return (rrid, url, note) if status == "high" else (None, url, note or status)

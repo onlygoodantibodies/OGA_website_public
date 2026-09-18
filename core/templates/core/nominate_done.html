@@ -87,22 +87,36 @@
   </div>
 </div>
 
-<footer class="footer">
-    <div class="footer-container">
-        <div class="footer-column">
-            <h4>Quick Links</h4>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'about' %}">About Us</a>
-            <a href="{% url 'contact' %}">Contact</a>
-        </div>
-        <div class="footer-column">
-            <h4>Contact Us</h4>
-            <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    </div>
-</footer>
+{% include 'core/footer.html' %}
+
+{% include 'core/cookie_banner.html' %}
+{% comment %}
+The success page renders at /nominate/, the same URL as the form itself, so a
+pageview cannot tell somebody who submitted from somebody who looked and left.
+The event is the only thing that can, which is why it is here and not a second
+URL: a redirect to a /thanks/ page would lose the gene, the applications and
+the funding answer this page is drawn from.
+
+It fires only on `recorded` — set by the view when a GeneRequest row was
+actually written. The honeypot path renders this same template at a bot, and a
+conversion count that includes bots is worse than no count at all.
+
+`source` is where they came in from (`search` off a failed home-page search),
+the same value stored on the row; empty means they arrived at /nominate/
+directly. The include above must stay ahead of this block: it defines the
+queue shim that holds the call until the async tracker loads.
+{% endcomment %}
+{% if recorded %}
+<script>
+  if (typeof plausible !== 'undefined') {
+    plausible('Gene Nominated', {
+      props: {
+        source: '{{ source|default:"direct"|escapejs }}',
+        funding: '{% if has_funding %}yes{% else %}no{% endif %}'
+      }
+    });
+  }
+</script>
+{% endif %}
 </body>
 </html>

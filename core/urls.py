@@ -1,6 +1,6 @@
 from django.urls import path, include
 from django.shortcuts import redirect
-from . import views
+from . import mcp_usage, views
 
 urlpatterns = [
     path('', views.home, name='home'),  # Home page
@@ -41,8 +41,15 @@ urlpatterns = [
     path('extension/index.json', views.extension_index, name='extension_index'),
     path('extension/citations.json', views.extension_citations, name='extension_citations'),
     path('extension/download/', views.extension_download, name='extension_download'),
+    path('extension/download/', views.extension_download, name='extension_download'),
     path('extension/updates.json', views.extension_updates, name='extension_updates'),
     path('extension/firefox.xpi', views.extension_firefox_xpi, name='extension_firefox_xpi'),
+
+    # The hosted MCP server reports each tool call here, so usage survives the
+    # seven days Render keeps that service's log (`core/mcp_usage.py`). Token-
+    # gated and 404 when no token is set, which is why it can sit in the public
+    # URLconf.
+    path('internal/mcp-usage/', mcp_usage.report, name='mcp_usage_report'),
 
     # Validation tools
     path('tools/', views.tools_hub, name='tools_hub'),

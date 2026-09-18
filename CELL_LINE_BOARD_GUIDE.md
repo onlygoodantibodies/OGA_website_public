@@ -24,19 +24,90 @@ rather than silently emptying the field.
 
 ---
 
+## Cells that offer what they will accept
+
+Some cells give you a list rather than a blank box, and there are two kinds:
+
+- **A dropdown** where the field has a fixed set of answers. Anything else would
+  be refused when you save, so it is not offered.
+- **A type-ahead** where the field is a convention rather than a rule. It offers
+  what the column already holds, so you can pick the spelling everyone else is
+  using — and you can still type something new, because a vocabulary nobody may
+  add to stops describing the bench.
+
+The type-ahead lists are built from the database each time the page loads, and
+they fold case: where a column holds both `rabbit` and `Rabbit` you are offered
+only the one already more used. Nothing is rewritten — picking from the list is
+just how the split stops getting wider. A column with hundreds of different
+values gets no list at all; that is free text, and a menu of hundreds is a
+scroll rather than a reminder.
+
+---
+
+## How the line grows
+
+The **Growth** column, next to Medium, says whether the line is **adherent** or
+grows in **suspension** — the thing you need to know before you thaw a vial, and
+the reason it was asked for: a student looking a line up had nothing on the
+screen telling them.
+
+It is a type-ahead, not a fixed list. Adherent and suspension are what nearly
+every row says, and a line somebody wants to describe more precisely can be.
+It is in the download and in the blank template as **growth properties**, so it
+goes out and comes back with everything else.
+
+Blank cells read *adherent? suspension?* — that is a prompt, not a value. Many
+rows have it recorded already; it came across with the Access import and, until
+now, was in no column on any screen.
+
+The **Species** column beside it says which animal the line came from. Nearly
+every line on file is human — 604 of 616 — with a handful of mouse, rat, monkey
+and dog. That is the reason it is drawn rather than assumed: if you never see
+the column, you cannot spot the ones that are not human. Left blank on a new
+row it is recorded as Human.
+
+---
+
+## The clone
+
+**A gene and a background say what was knocked out and in what. The clone says
+which one.** Two clones of one knockout are two different single-cell lines,
+often made with different guides — so they are two rows here, not one row with a
+note, and the CLONE column is what tells them apart.
+
+Where a knockout has siblings the cell says so: *clone 2.3 · 1 of 7 clones*. A
+knockout whose clone was never written down says **that**, rather than showing an
+empty cell somebody would read as a filing error.
+
+Two things follow, and both are deliberate:
+
+- **Filtering to a gene can show several rows with the same name.** `HCT116`
+  three times under ACSL5 is three clones, not one line listed three times —
+  read the CLONE column.
+- **Adding a knockout that already has clones on file asks which one this is.**
+  It will not guess: it lists the clones already recorded and waits, because
+  filling in a different clone's blanks — or hanging this one's vials off it — is
+  how the clones were lost in the first place.
+
+A C-number is a freeze-down batch **of a clone**, so the numbers listed under a
+row are that clone's tubes.
+
+---
+
 ## What you cannot change, and why
 
-**Name, gene, genotype and parent line.** These four are the structure, not
-description.
+**Name, gene, genotype, clone and parent line.** These five are the structure,
+not description.
 
 A knockout line only means something as *this gene, knocked out, in that
-parent*. Every session that used the line points at this row, and the entire
-interpretation of those results depends on which of the two lines was the WT and
-which was the KO. Renaming a line in a grid cell, or flipping its genotype, would
-not correct history — it would rewrite it, silently, while every result already
-recorded stayed attached.
+parent* — and, where there is more than one, *this clone of it*. Every session
+that used the line points at this row, and the entire interpretation of those
+results depends on which of the two lines was the WT and which was the KO.
+Renaming a line in a grid cell, flipping its genotype, or retyping its clone
+would not correct history — it would rewrite it, silently, while every result
+already recorded stayed attached.
 
-So the grid refuses those four. **Click the line's name** to change them
+So the grid refuses those five. **Click the line's name** — or its clone — to change them
 deliberately: the dialog tells you what is already attached — how many sessions
 used the line, how many knockouts were made from it — *before* you type, and
 refuses a change that would leave a knockout without its parent.

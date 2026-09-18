@@ -24,9 +24,12 @@
     .t:focus-visible { outline: 2px solid #12639e; outline-offset: 1px; }
     .t b { display: block; font-size: 17px; line-height: 1.1; }
     .t span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; }
-    .t-green { background: #e6f5ec; color: #14713b; border-color: #b7e0c6; }
-    .t-red   { background: #fdeaea; color: #a82525; border-color: #f3c4c4; }
-    /* Split is not a shade of amber: it is a green verdict and a red verdict on
+    .t-green { background: #eafaf0; color: #0b6b3a; border-color: #b7e0c6; }
+    .t-red   { background: #fdeceb; color: #a3231d; border-color: #f3c4c4; }
+    /* Limited support: its own rung and its own colour, because "did not meet
+       the bar" and "showed nothing" are different findings. */
+    .t-yellow { background: #fffaea; color: #8a6100; border-color: #f4b400; }
+    /* Split is not a shade of blue: it is a green verdict and a red verdict on
        the same mention. It carries the same half-green/half-red bar the
        highlight uses on the page, so the two states never look related. */
     .t-mixed {
@@ -34,7 +37,7 @@
       background-image: linear-gradient(90deg, #1c8f4b 0 50%, #c62f2f 50% 100%);
       background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 3px;
     }
-    .t-amber { background: #fdf3e6; color: #8a5410; border-color: #edd6b2; }
+    .t-blue { background: #eaf2fc; color: #1a5fa8; border-color: #bcd8f5; }
     .t-grey  { background: #f1f4f7; color: #6a7480; border-color: #e0e6ec; }
     h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .02em; color: #5d6b7a; margin: 0 0 5px; }
     section { margin-bottom: 12px; }
@@ -58,8 +61,9 @@
       h1, h2 { color: #9fadbb; }
       .t-green { background: #123020; color: #7ddba3; border-color: #1e5335; }
       .t-red   { background: #3a1a1a; color: #f2a3a3; border-color: #5c2a2a; }
+      .t-yellow { background: #3a2f10; color: #f0cc72; border-color: #6a5416; }
       .t-mixed { background: #262d36; color: #d3dce5; border-color: #333d48; }
-      .t-amber { background: #33260f; color: #e8b86a; border-color: #55401a; }
+      .t-blue { background: #14283d; color: #7fb6ee; border-color: #22456b; }
       .t-grey  { background: #262d36; color: #94a2b0; border-color: #333d48; }
       footer { border-top-color: #2c343d; }
       footer a { color: #6fb6ec; }
@@ -75,15 +79,35 @@
   <p class="hint" id="hint">Click a count to jump through those marks.</p>
 
   <div class="tally">
-    <button type="button" class="t t-green" data-level="green" title="Recommended in every assessed application that has a result."><b id="c-green">0</b><span>rec</span></button>
-    <button type="button" class="t t-red" data-level="red" title="Tested with knockout controls and not recommended in every assessed application that has a result."><b id="c-red">0</b><span>not rec</span></button>
-    <button type="button" class="t t-mixed" data-level="mixed" title="Passes some assessed applications and fails others — e.g. recommended for Western blot but not for immunofluorescence. 43% of the dataset. The card lists every application with its own result."><b id="c-mixed">0</b><span>split</span></button>
-    <button type="button" class="t t-amber" data-level="amber" title="This antibody has not been tested, but its target has — so independently validated alternatives exist."><b id="c-amber">0</b><span>alts</span></button>
+    <button type="button" class="t t-green" data-level="green" title="The characterisation data supports every assessed application that has a result."><b id="c-green">0</b><span>supports</span></button>
+    <button type="button" class="t t-yellow" data-level="yellow" title="Not supportive overall, and the antibody was still seen to do something on-target — it detected, enriched, or gave a selective signal. Support is an overall judgement, not a sum of the parts: there is no fixed threshold, and whether it is usable depends on what you need it for. The card says what was seen."><b id="c-yellow">0</b><span>limited support</span></button>
+    <button type="button" class="t t-red" data-level="red" title="Two things, and the card says which. Either: tested with knockout controls, and the data is not supportive in every assessed application that has a result, with at least one showing nothing. Or: the antibody is documented as being raised against a DIFFERENT protein from the one it shares a name with — a question about reagent identity, not about quality, and not an OGA result."><b id="c-red">0</b><span>not supportive</span></button>
+    <button type="button" class="t t-mixed" data-level="mixed" title="Passes some assessed applications and fails others — e.g. supportive for Western blot and not supportive for immunofluorescence. 43% of the dataset. The card lists every application with its own result."><b id="c-mixed">0</b><span>split</span></button>
+    <button type="button" class="t t-blue" data-level="blue" title="This antibody has not been tested, but its target has — so alternatives with supportive characterisation data exist."><b id="c-blue">0</b><span>alts</span></button>
     <button type="button" class="t t-grey" data-level="grey" title="Nothing we hold applies: the page names an application nobody has assessed, or one this antibody has no result for. A result in another application does not carry over."><b id="c-grey">0</b><span>app untested</span></button>
   </div>
 
+  <!-- Red means two things and this tile's face names one of them, so when any
+       of the red marks is a declared-target notice the panel says so here. A
+       count is a claim about the page; the tooltip that names both meanings is
+       not the label. Hidden at zero, which is almost every page. -->
+  <p class="note" id="notices" hidden></p>
+
+  <!-- What the five counts above are counts OF. Filled from the summary, which
+       carries it from index.json, so this popup, the hover card and every page
+       on the site read one sentence (core/recommendations.py::SCOPE_SHORT).
+       Hidden until it arrives rather than carrying a bundled copy that goes
+       stale the next time the wording is sharpened. -->
+  <p class="note" id="scope" hidden></p>
+
   <section>
     <h2>Worth a look</h2>
+    <!-- The tiles count MARKS and this list names REAGENTS, which is why 7 not
+         supportive can sit over two lines — a supplier catalogue names one
+         product in every row. Both halves are right and a reader cannot tell
+         without being told, so the hint above the tally says "marks" and this
+         one says what the list is. -->
+    <p class="hint">One line per reagent, however many times the page names it.</p>
     <div id="concerns"></div>
   </section>
 

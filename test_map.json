@@ -1,6 +1,7 @@
 {
 "always_run": [
 "django:core.tests_browser_availability",
+"django:core.tests_browser_extension_page",
 "django:core.tests_healthcheck",
 "django:core.tests_portal_script",
 "django:core.tests_static_hashing",
@@ -11,7 +12,7 @@
 "pytest:core/tests.py",
 "pytest:pipeline/services/cropper/tests/test_crops.py"
 ],
-"built_from": "19f4920be2b2bfa81afdfe932dfcdb864d709dca",
+"built_from": "debc3fc2d0c50f15d8dc147e661f9d56cafafb71",
 "map": {
 "academy/assistant.py": [
 "django:academy.tests_assistant",
@@ -40,7 +41,8 @@
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/admin.py": [
-"django:core.tests_legacy_retired"
+"django:core.tests_legacy_retired",
+"django:core.tests_mcp_usage"
 ],
 "core/api_manifest.py": [
 "django:core.tests_api",
@@ -50,11 +52,17 @@
 "django:core.tests_api_schema",
 "django:core.tests_api_usage",
 "django:core.tests_apimd_drift",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_data_access",
 "django:core.tests_headline_counts",
 "django:pipeline.tests_consumer_activity",
+"pytest:pipeline/services/tests/test_attachments.py"
+],
+"core/api_not_supportive.py": [
+"django:core.tests_browser_portal_not_supportive",
+"django:core.tests_not_supportive",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/api_pipeline.py": [
@@ -77,10 +85,12 @@
 "django:core.tests_api_schema",
 "django:core.tests_api_usage",
 "django:core.tests_apimd_drift",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_data_access",
 "django:core.tests_headline_counts",
+"django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
@@ -95,9 +105,11 @@
 "django:core.tests_api_schema",
 "django:core.tests_api_usage",
 "django:core.tests_apimd_drift",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_headline_counts",
+"django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
@@ -109,14 +121,63 @@
 "django:core.tests_api_schema",
 "django:core.tests_api_usage",
 "django:core.tests_apimd_drift",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_headline_counts",
+"django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/apps.py": [
-"django:core.tests_extension_package"
+"django:core.tests_api",
+"django:core.tests_api_docs",
+"django:core.tests_api_manifest",
+"django:core.tests_api_pipeline",
+"django:core.tests_availability",
+"django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
+"django:core.tests_extension_package",
+"django:core.tests_extension_scope",
+"django:core.tests_headline_counts",
+"django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
+"django:core.tests_public_genes",
+"django:core.tests_target_confusions",
+"django:pipeline.tests_abcam_catalogue_case",
+"django:pipeline.tests_access_update",
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_availability_import",
+"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_browser_board",
+"django:pipeline.tests_columns",
+"django:pipeline.tests_consumer_activity",
+"django:pipeline.tests_deletion",
+"django:pipeline.tests_fix_figure_application",
+"django:pipeline.tests_gene_requests",
+"django:pipeline.tests_identity",
+"django:pipeline.tests_lab_numbers",
+"django:pipeline.tests_merge_sites",
+"django:pipeline.tests_merge_targets",
+"django:pipeline.tests_navigation",
+"django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
+"django:pipeline.tests_proteintech_catalogue_case",
+"django:pipeline.tests_purge_target",
+"django:pipeline.tests_recommendation_stamp",
+"django:pipeline.tests_restore_clones",
+"django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
+"pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
+"pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
+"pytest:pipeline/services/tests/test_dataset.py",
+"pytest:pipeline/services/tests/test_dataset_inventory.py",
+"pytest:pipeline/services/tests/test_dataset_writeback.py",
+"pytest:pipeline/services/tests/test_duplicates.py",
+"pytest:pipeline/services/tests/test_renumber.py",
+"pytest:pipeline/services/tests/test_session_import.py"
 ],
 "core/bulk_archive.py": [
 "django:core.tests_api",
@@ -129,7 +190,11 @@
 ],
 "core/citations.py": [
 "django:core.tests_bandwidth",
-"django:core.tests_citations"
+"django:core.tests_citations",
+"django:core.tests_data_access",
+"django:core.tests_extension_scope",
+"django:core.tests_recommendation_caveat",
+"django:core.tests_target_confusions"
 ],
 "core/citations_doi.py": [
 "django:core.tests_citations"
@@ -138,14 +203,19 @@
 "django:academy.tests_assistant",
 "django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_browser_scroll",
 "django:core.tests_browser_search",
 "django:core.tests_data_access",
+"django:core.tests_extension_scope",
+"django:core.tests_footer",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
 "django:core.tests_legacy_retired",
+"django:core.tests_mcp_usage",
 "django:core.tests_nav",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
@@ -166,9 +236,11 @@
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
@@ -179,10 +251,56 @@
 "pytest:pipeline/services/tests/test_dataset.py"
 ],
 "core/extension_index.py": [
+"django:core.tests_api",
+"django:core.tests_api_docs",
+"django:core.tests_api_manifest",
+"django:core.tests_api_pipeline",
+"django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_extension_package",
+"django:core.tests_extension_scope",
 "django:core.tests_headline_counts",
-"django:core.tests_public_genes"
+"django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
+"django:core.tests_public_genes",
+"django:core.tests_target_confusions",
+"django:pipeline.tests_abcam_catalogue_case",
+"django:pipeline.tests_access_update",
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_availability_import",
+"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_browser_board",
+"django:pipeline.tests_columns",
+"django:pipeline.tests_consumer_activity",
+"django:pipeline.tests_deletion",
+"django:pipeline.tests_fix_figure_application",
+"django:pipeline.tests_gene_requests",
+"django:pipeline.tests_identity",
+"django:pipeline.tests_lab_numbers",
+"django:pipeline.tests_merge_sites",
+"django:pipeline.tests_merge_targets",
+"django:pipeline.tests_navigation",
+"django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
+"django:pipeline.tests_proteintech_catalogue_case",
+"django:pipeline.tests_purge_target",
+"django:pipeline.tests_recommendation_stamp",
+"django:pipeline.tests_restore_clones",
+"django:pipeline.tests_retired_pages",
+"django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
+"pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
+"pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
+"pytest:pipeline/services/tests/test_dataset.py",
+"pytest:pipeline/services/tests/test_dataset_inventory.py",
+"pytest:pipeline/services/tests/test_dataset_writeback.py",
+"pytest:pipeline/services/tests/test_duplicates.py",
+"pytest:pipeline/services/tests/test_renumber.py",
+"pytest:pipeline/services/tests/test_session_import.py"
 ],
 "core/legacy_gene_ids.py": [
 "pytest:pipeline/services/tests/test_attachments.py"
@@ -201,6 +319,10 @@
 "core/management/commands/build_bulk_archive.py": [
 "django:core.tests_bulk_archive"
 ],
+"core/mcp_usage.py": [
+"django:core.tests_mcp_usage",
+"pytest:pipeline/services/tests/test_attachments.py"
+],
 "core/models.py": [
 "django:core.tests_api",
 "django:core.tests_api_docs",
@@ -208,11 +330,18 @@
 "django:core.tests_api_pipeline",
 "django:core.tests_api_usage",
 "django:core.tests_apimd_drift",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_headline_counts",
 "django:core.tests_legacy_retired",
+"django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity"
+],
+"core/not_supportive.py": [
+"django:core.tests_browser_portal_not_supportive",
+"django:core.tests_not_supportive",
+"pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/public_search.py": [
 "django:core.tests_availability",
@@ -230,23 +359,34 @@
 "django:core.tests_apimd_drift",
 "django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_extension_package",
+"django:core.tests_extension_scope",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
-"django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:core.tests_target_confusions",
+"django:pipeline.tests_review"
 ],
 "core/sitemaps.py": [
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
+"core/target_confusions.py": [
+"django:core.tests_bandwidth",
+"django:core.tests_data_access",
+"django:core.tests_extension_scope",
+"django:core.tests_recommendation_caveat",
+"django:core.tests_target_confusions"
+],
 "core/urls.py": [
 "django:core.tests_connect_your_ai_url",
-"django:core.tests_data_access",
 "django:core.tests_retired_tools",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
@@ -254,11 +394,15 @@
 "django:academy.tests_assistant",
 "django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_browser_scroll",
 "django:core.tests_browser_search",
 "django:core.tests_citations",
 "django:core.tests_data_access",
+"django:core.tests_extension_scope",
+"django:core.tests_footer",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
@@ -291,14 +435,19 @@
 "django:academy.tests_assistant",
 "django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_browser_scroll",
 "django:core.tests_browser_search",
 "django:core.tests_data_access",
+"django:core.tests_extension_scope",
+"django:core.tests_footer",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
 "django:core.tests_legacy_retired",
+"django:core.tests_mcp_usage",
 "django:core.tests_nav",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
@@ -319,9 +468,11 @@
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
@@ -332,6 +483,7 @@
 "pytest:pipeline/services/tests/test_dataset.py"
 ],
 "pipeline/decorators.py": [
+"django:core.tests_extension_scope",
 "django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_csrf",
 "django:pipeline.tests_board_fieldtest",
@@ -353,6 +505,7 @@
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
@@ -363,7 +516,7 @@
 "django:pipeline.tests_snapshot",
 "django:pipeline.tests_timeouts",
 "django:pipeline.tests_user_board",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_session_import.py",
 "pytest:pipeline/services/tests/test_session_template.py"
@@ -373,6 +526,9 @@
 ],
 "pipeline/management/commands/add_site.py": [
 "django:pipeline.tests_add_site"
+],
+"pipeline/management/commands/backfill_cell_line_parents.py": [
+"django:pipeline.tests_backfill_parents"
 ],
 "pipeline/management/commands/backfill_depmap_expression.py": [
 "pytest:pipeline/services/tests/test_backfill_depmap_expression.py"
@@ -392,8 +548,14 @@
 "pipeline/management/commands/find_duplicate_antibodies.py": [
 "pytest:pipeline/services/tests/test_duplicates.py"
 ],
+"pipeline/management/commands/fix_abcam_catalogue_case.py": [
+"django:pipeline.tests_abcam_catalogue_case"
+],
 "pipeline/management/commands/fix_cell_line_identity.py": [
 "django:pipeline.tests_access_update"
+],
+"pipeline/management/commands/fix_figure_application.py": [
+"django:pipeline.tests_fix_figure_application"
 ],
 "pipeline/management/commands/fix_gene_case.py": [
 "django:pipeline.tests_gene_case"
@@ -428,38 +590,80 @@
 "pipeline/management/commands/purge_target.py": [
 "django:pipeline.tests_purge_target"
 ],
+"pipeline/management/commands/restore_cell_line_clones.py": [
+"django:pipeline.tests_restore_clones"
+],
 "pipeline/management/commands/withdraw_figures.py": [
 "django:pipeline.tests_review"
 ],
 "pipeline/models.py": [
+"django:core.tests_api",
+"django:core.tests_api_docs",
+"django:core.tests_api_manifest",
+"django:core.tests_api_pipeline",
+"django:core.tests_api_usage",
+"django:core.tests_apimd_drift",
+"django:core.tests_availability",
+"django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
+"django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
+"django:core.tests_extension_package",
+"django:core.tests_extension_scope",
+"django:core.tests_gene_search",
+"django:core.tests_headline_counts",
+"django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
+"django:core.tests_public_genes",
+"django:core.tests_recommendation_caveat",
+"django:pipeline.tests_abcam_catalogue_case",
 "django:pipeline.tests_access_update",
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_availability_import",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_browser_board",
+"django:pipeline.tests_columns",
+"django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_fix_figure_application",
+"django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
+"django:pipeline.tests_merge_sites",
+"django:pipeline.tests_merge_targets",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_pagination",
+"django:pipeline.tests_proteintech_catalogue_case",
 "django:pipeline.tests_purge_target",
+"django:pipeline.tests_recommendation_stamp",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_session_board",
 "django:pipeline.tests_session_conditions",
 "django:pipeline.tests_session_io",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_bulk_targets.py",
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
+"pytest:pipeline/services/tests/test_dataset_writeback.py",
 "pytest:pipeline/services/tests/test_deposit.py",
+"pytest:pipeline/services/tests/test_duplicates.py",
+"pytest:pipeline/services/tests/test_renumber.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
+"pytest:pipeline/services/tests/test_session_template.py",
 "pytest:pipeline/services/tests/test_session_workbook_roundtrip.py"
 ],
 "pipeline/public.py": [
@@ -473,29 +677,34 @@
 "django:core.tests_apimd_drift",
 "django:core.tests_availability",
 "django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_browser_scroll",
 "django:core.tests_browser_search",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_data_access",
 "django:core.tests_extension_package",
+"django:core.tests_extension_scope",
+"django:core.tests_footer",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
+"django:core.tests_target_confusions",
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_impact",
-"django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:pipeline.tests_review"
 ],
 "pipeline/rrid_utils.py": [
 "django:core.tests_availability",
 "django:core.tests_identifier_search",
 "django:pipeline.tests_access_update",
 "django:pipeline.tests_gene_requests",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_dataset.py",
@@ -517,31 +726,35 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py"
 ],
 "pipeline/services/attachments.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "pipeline/services/batches.py": [
 "django:pipeline.tests_batches",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/bench_results.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_lab_numbers",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py"
 ],
 "pipeline/services/board_columns.py": [
 "django:pipeline.tests_antibody_board",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_board_new_entry",
@@ -549,6 +762,7 @@
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_cell_line_board",
 "django:pipeline.tests_columns",
+"django:pipeline.tests_conventions",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
@@ -557,7 +771,7 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/board_page.py": [
 "django:pipeline.tests_antibody_board",
@@ -570,7 +784,7 @@
 "django:pipeline.tests_session_board",
 "django:pipeline.tests_timeouts",
 "django:pipeline.tests_user_board",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/bulk_antibodies.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -580,31 +794,38 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py"
 ],
 "pipeline/services/bulk_cell_lines.py": [
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_lab_numbers",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:pipeline.tests_navigation",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/bulk_sessions.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_new_entry",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/bulk_targets.py": [
+"django:pipeline.tests_board_csrf",
 "django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_gene_case",
-"pytest:pipeline/services/tests/test_attachments.py",
-"pytest:pipeline/services/tests/test_bulk_targets.py"
+"django:pipeline.tests_timeouts",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_bulk_targets.py",
+"pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/c_number.py": [
 "django:pipeline.tests_access_update",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
@@ -618,7 +839,7 @@
 "django:pipeline.tests_merge_cell_lines",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_pagination",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
 "pytest:pipeline/services/tests/test_session_import.py"
 ],
@@ -639,10 +860,12 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py"
 ],
 "pipeline/services/cell_lines.py": [
 "django:pipeline.tests_access_update",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_guides",
@@ -661,11 +884,13 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_recommendations",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_session_board",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
+"pytest:pipeline/services/tests/test_cell_choices.py",
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
@@ -678,9 +903,12 @@
 "django:core.tests_api_pipeline",
 "django:core.tests_apimd_drift",
 "django:core.tests_availability",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
 "django:pipeline.tests_antibody_board",
@@ -688,11 +916,13 @@
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
@@ -707,12 +937,13 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/cropper/tests/test_metadata.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py"
 ],
 "pipeline/services/consumer_activity.py": [
 "django:pipeline.tests_consumer_activity",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/cropper/commit.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -720,7 +951,7 @@
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
@@ -736,7 +967,7 @@
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_dataset.py",
@@ -760,6 +991,7 @@
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "pytest:pipeline/services/cropper/tests/test_metadata.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
 "pytest:pipeline/services/tests/test_dataset_logistics.py",
@@ -773,7 +1005,7 @@
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_snapshot",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
 "pytest:pipeline/services/tests/test_dataset_logistics.py",
@@ -784,15 +1016,16 @@
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_deletion",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "pipeline/services/depmap.py": [
 "django:pipeline.tests_feasibility_add",
 "django:selector.tests",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/deposit.py": [
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_deposit.py"
 ],
 "pipeline/services/doi.py": [
@@ -806,6 +1039,7 @@
 "pytest:pipeline/services/tests/test_duplicates.py"
 ],
 "pipeline/services/example_row.py": [
+"django:pipeline.tests_board_csrf",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_roundtrip",
@@ -814,8 +1048,10 @@
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
-"pytest:pipeline/services/tests/test_attachments.py",
-"pytest:pipeline/services/tests/test_bulk_targets.py"
+"django:pipeline.tests_timeouts",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_bulk_targets.py",
+"pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/find.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -823,7 +1059,7 @@
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_session_board",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/gene_progress.py": [
@@ -831,12 +1067,13 @@
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/gene_reporting.py": [
 "django:core.tests_api_pipeline",
@@ -844,35 +1081,38 @@
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "pipeline/services/gene_requests.py": [
+"django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_gene_requests",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:pipeline.tests_impact",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/gene_symbol.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_gene_case",
-"django:pipeline.tests_navigation",
 "django:pipeline.tests_review",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py",
-"pytest:pipeline/services/tests/test_bulk_targets.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_bulk_targets.py",
+"pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/horizon.py": [
 "django:pipeline.tests_feasibility_add",
 "django:selector.tests",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/identity.py": [
 "django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_identity",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:pipeline.tests_restore_clones",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/impact.py": [
 "django:core.tests_headline_counts",
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_impact",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/ko_validation.py": [
 "django:pipeline.tests_batches",
@@ -885,8 +1125,9 @@
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/lab_numbers.py": [
 "django:core.tests_api",
@@ -894,12 +1135,17 @@
 "django:core.tests_api_pipeline",
 "django:core.tests_availability",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
+"django:core.tests_extension_scope",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
 "django:core.tests_public_genes",
+"django:pipeline.tests_abcam_catalogue_case",
 "django:pipeline.tests_access_update",
 "django:pipeline.tests_antibody_board",
 "django:pipeline.tests_availability_import",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
@@ -910,6 +1156,7 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_find_c_number",
+"django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
@@ -918,12 +1165,15 @@
 "django:pipeline.tests_merge_targets",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_proteintech_catalogue_case",
 "django:pipeline.tests_purge_target",
+"django:pipeline.tests_recommendation_stamp",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
@@ -932,22 +1182,30 @@
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
 "pytest:pipeline/services/tests/test_dataset_writeback.py",
 "pytest:pipeline/services/tests/test_duplicates.py",
-"pytest:pipeline/services/tests/test_session_import.py"
+"pytest:pipeline/services/tests/test_renumber.py",
+"pytest:pipeline/services/tests/test_run7_endtoend.py",
+"pytest:pipeline/services/tests/test_session_import.py",
+"pytest:pipeline/services/tests/test_session_workbook_roundtrip.py"
 ],
 "pipeline/services/members.py": [
+"django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_board_new_entry",
+"django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_identity",
 "django:pipeline.tests_merge_members",
+"django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_session_board",
 "django:pipeline.tests_user_board",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py"
 ],
 "pipeline/services/next_step.py": [
 "django:pipeline.tests_antibody_board",
@@ -967,7 +1225,32 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_session_board",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
+],
+"pipeline/services/outcomes.py": [
+"django:core.tests_api",
+"django:core.tests_api_docs",
+"django:core.tests_api_manifest",
+"django:core.tests_api_pipeline",
+"django:core.tests_apimd_drift",
+"django:core.tests_availability",
+"django:core.tests_bandwidth",
+"django:core.tests_browser_gene_page",
+"django:core.tests_browser_portal_not_supportive",
+"django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
+"django:core.tests_extension_package",
+"django:core.tests_extension_scope",
+"django:core.tests_gene_search",
+"django:core.tests_headline_counts",
+"django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
+"django:core.tests_public_genes",
+"django:core.tests_recommendation_caveat",
+"django:pipeline.tests_browser_board",
+"django:pipeline.tests_outcomes",
+"django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/planning.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -983,21 +1266,40 @@
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_gene_case",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_targets.py",
 "pytest:pipeline/services/tests/test_target_board.py"
+],
+"pipeline/services/received.py": [
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_columns",
+"django:pipeline.tests_identity",
+"django:pipeline.tests_lab_numbers",
+"django:pipeline.tests_navigation",
+"django:pipeline.tests_pagination",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_received.py"
+],
+"pipeline/services/renumber.py": [
+"django:pipeline.tests_antibody_board",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_renumber.py"
 ],
 "pipeline/services/report_generator.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
@@ -1012,23 +1314,26 @@
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/scicrunch.py": [
 "pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_scicrunch_service.py"
 ],
 "pipeline/services/session_board.py": [
+"django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
@@ -1038,13 +1343,15 @@
 "django:pipeline.tests_session_board",
 "django:pipeline.tests_session_conditions",
 "django:pipeline.tests_session_io",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py",
 "pytest:pipeline/services/tests/test_deposit.py",
+"pytest:pipeline/services/tests/test_renumber.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py"
 ],
 "pipeline/services/session_import.py": [
 "django:pipeline.tests_board_fieldtest",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
@@ -1053,11 +1360,11 @@
 "pipeline/services/session_io.py": [
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_session_io",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/services/session_template.py": [
 "django:pipeline.tests_board_fieldtest",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
@@ -1066,7 +1373,8 @@
 ],
 "pipeline/services/sessions.py": [
 "django:pipeline.tests_board_fieldtest",
-"pytest:pipeline/services/tests/test_attachments.py",
+"django:pipeline.tests_lab_numbers",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py"
 ],
 "pipeline/services/sites.py": [
@@ -1098,7 +1406,7 @@
 "django:pipeline.tests_session_io",
 "django:pipeline.tests_timeouts",
 "django:pipeline.tests_user_board",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_bulk_targets.py"
 ],
@@ -1107,6 +1415,18 @@
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_snapshot",
 "pytest:pipeline/services/tests/test_dataset.py"
+],
+"pipeline/services/storage.py": [
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_columns",
+"django:pipeline.tests_identity",
+"django:pipeline.tests_lab_numbers",
+"django:pipeline.tests_navigation",
+"django:pipeline.tests_pagination",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py"
 ],
 "pipeline/services/target_board.py": [
 "django:core.tests_api_pipeline",
@@ -1122,6 +1442,7 @@
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_gene_case",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
@@ -1129,21 +1450,25 @@
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bulk_targets.py",
+"pytest:pipeline/services/tests/test_cell_choices.py",
 "pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/target_list_io.py": [
 "django:pipeline.tests_board_csrf",
+"django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_target_board.py"
 ],
 "pipeline/services/targets.py": [
 "django:pipeline.tests_antibody_board",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_board_csrf",
 "django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_browser_board",
@@ -1157,13 +1482,17 @@
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_recommendations",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
+"pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
 "pytest:pipeline/services/tests/test_bulk_targets.py",
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
 "pytest:pipeline/services/tests/test_gene_aliases.py",
@@ -1176,23 +1505,53 @@
 "pytest:pipeline/services/tests/test_target_other_names.py"
 ],
 "pipeline/services/uniprot.py": [
-"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_csrf",
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_timeouts",
 "django:selector.tests",
-"pytest:pipeline/services/tests/test_attachments.py",
-"pytest:pipeline/services/tests/test_bulk_targets.py"
+"pytest:pipeline/services/tests/test_bulk_targets.py",
+"pytest:pipeline/services/tests/test_target_board.py",
+"pytest:pipeline/services/tests/test_uniprot_interactive.py"
+],
+"pipeline/services/vocabulary.py": [
+"django:pipeline.tests_antibody_board",
+"django:pipeline.tests_board_csrf",
+"django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_guides",
+"django:pipeline.tests_board_new_entry",
+"django:pipeline.tests_board_patch",
+"django:pipeline.tests_board_roundtrip",
+"django:pipeline.tests_browser_board",
+"django:pipeline.tests_cell_line_board",
+"django:pipeline.tests_deletion",
+"django:pipeline.tests_identity",
+"django:pipeline.tests_impact",
+"django:pipeline.tests_lab_numbers",
+"django:pipeline.tests_merge_sites",
+"django:pipeline.tests_navigation",
+"django:pipeline.tests_next_step",
+"django:pipeline.tests_recommendations",
+"django:pipeline.tests_retired_pages",
+"django:pipeline.tests_review",
+"django:pipeline.tests_session_board",
+"django:pipeline.tests_session_conditions",
+"django:pipeline.tests_session_io",
+"django:pipeline.tests_user_board",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py",
+"pytest:pipeline/services/tests/test_deposit.py"
 ],
 "pipeline/services/workbook.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_conventions",
-"pytest:pipeline/services/tests/test_attachments.py",
+"django:pipeline.tests_lab_numbers",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py"
 ],
 "pipeline/services/zenodo.py": [
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_deposit.py"
 ],
 "pipeline/signals.py": [
@@ -1201,12 +1560,17 @@
 "django:core.tests_api_pipeline",
 "django:core.tests_availability",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
+"django:core.tests_extension_scope",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
+"django:core.tests_not_supportive",
 "django:core.tests_public_genes",
+"django:pipeline.tests_abcam_catalogue_case",
 "django:pipeline.tests_access_update",
 "django:pipeline.tests_antibody_board",
 "django:pipeline.tests_availability_import",
+"django:pipeline.tests_backfill_parents",
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
@@ -1217,6 +1581,7 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_find_c_number",
+"django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_lab_numbers",
@@ -1225,9 +1590,13 @@
 "django:pipeline.tests_merge_targets",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
+"django:pipeline.tests_outcomes",
 "django:pipeline.tests_proteintech_catalogue_case",
 "django:pipeline.tests_purge_target",
+"django:pipeline.tests_recommendation_stamp",
+"django:pipeline.tests_restore_clones",
 "django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_backfill_rrid_from_registry.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_bulk_antibodies_rrid.py",
@@ -1235,7 +1604,9 @@
 "pytest:pipeline/services/tests/test_dataset.py",
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
 "pytest:pipeline/services/tests/test_dataset_writeback.py",
-"pytest:pipeline/services/tests/test_duplicates.py"
+"pytest:pipeline/services/tests/test_duplicates.py",
+"pytest:pipeline/services/tests/test_renumber.py",
+"pytest:pipeline/services/tests/test_session_import.py"
 ],
 "pipeline/storages.py": [
 "django:core.tests_academy_backup",
@@ -1258,7 +1629,7 @@
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "pipeline/views/__init__.py": [
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/antibody_board.py": [
 "django:pipeline.tests_antibody_board",
@@ -1275,15 +1646,16 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/attachments.py": [
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/bulk_import.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
-"pytest:pipeline/services/tests/test_attachments.py"
+"django:pipeline.tests_lab_numbers",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/cell_line_board.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -1300,38 +1672,39 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/cropper.py": [
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/dashboard.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/data_io.py": [
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_snapshot",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_dataset.py"
 ],
 "pipeline/views/deletion.py": [
 "django:pipeline.tests_deletion",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/deposit.py": [
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/feasibility.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -1340,32 +1713,33 @@
 "django:pipeline.tests_gene_case",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/find.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/gene_requests.py": [
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/guides.py": [
 "django:pipeline.tests_board_guides",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/hub.py": [
+"django:core.tests_extension_scope",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/impact.py": [
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_impact",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/imports.py": [
 "django:pipeline.tests_antibody_board",
@@ -1382,6 +1756,7 @@
 "django:pipeline.tests_feasibility_add",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
@@ -1389,25 +1764,30 @@
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
 "django:pipeline.tests_session_board",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
+],
+"pipeline/views/outcomes.py": [
+"django:pipeline.tests_browser_board",
+"django:pipeline.tests_outcomes",
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/recommendations.py": [
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/review.py": [
 "django:pipeline.tests_review",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/search.py": [
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_columns",
 "django:pipeline.tests_pagination",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/session_board.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -1421,11 +1801,12 @@
 "django:pipeline.tests_session_board",
 "django:pipeline.tests_session_conditions",
 "django:pipeline.tests_session_io",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/session_bulk.py": [
 "django:pipeline.tests_board_fieldtest",
-"pytest:pipeline/services/tests/test_attachments.py",
+"django:pipeline.tests_navigation",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py"
 ],
 "pipeline/views/session_entry.py": [
@@ -1433,7 +1814,7 @@
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_attachments.py",
+"pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_session_import.py",
 "pytest:pipeline/services/tests/test_session_template.py"
 ],
@@ -1450,12 +1831,12 @@
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
 "django:pipeline.tests_timeouts",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "pipeline/views/user_admin.py": [
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_user_board",
-"pytest:pipeline/services/tests/test_attachments.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py"
 ],
 "selector/admin.py": [
 "django:core.tests_legacy_retired"

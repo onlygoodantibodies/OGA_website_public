@@ -59,7 +59,7 @@ def run():
 
     from django.contrib.auth.models import User
     from pipeline.models import (
-        Site, Member, Company, Target, Antibody,
+        Site, Member, Company, Target, Antibody, AntibodyOutcome,
         ExperimentSession, WbResult, IpResult, IfResult, FcResult, Report,
         PublicationImage,
     )
@@ -153,6 +153,13 @@ def run():
                          rrid="AB_2895247", host_species="Rabbit")
     snca_bad = antibody(snca, cst, "2642", M, False, set(),
                         rrid="AB_10695412", host_species="Mouse")
+    # …and one that is ALSO not recommended for WB, but which the bench watched
+    # detect its target. This is the middle rung — `limited_support` — and
+    # nothing in this fixture could reach it until 14 Sep 2026, so every test
+    # naming it passed over an empty list. Its axes are seeded below, next to
+    # the publication images, because the rung needs a published figure too.
+    snca_qualified = antibody(snca, abcam, "ab27766", P, False, set(),
+                              rrid="AB_2192497", host_species="Rabbit")
     # SYT1: recombinant recommended for IF+FC only.
     syt1_ab = antibody(syt1, novus, "NB120-1234", R, True, {"IF", "FC"},
                        host_species="Rabbit")
@@ -205,10 +212,29 @@ def run():
     for app in ("WB", "IP", "ICC-IF"):
         pub_image(snca_good, app)          # strong ab: figures for WB/IP/IF
     pub_image(snca_bad, "WB")              # published WB figure, but NOT recommended
+    pub_image(snca_qualified, "WB")        # published WB figure; negative, but it detects
     for app in ("ICC-IF", "FC"):
         pub_image(syt1_ab, app)            # SYT1 recombinant: IF/FC figures
     pub_image(syt1_spaced, "ICC-IF")       # the stored-with-a-space catalogue
     pub_image(qprt_ab, "WB")               # published WB figure on an UNCURATED gene
+    # --- The capability axes = the MIDDLE RUNG ------------------------------
+    # Without an `AntibodyOutcome` row nothing in this fixture can resolve to
+    # `limited_support`, and every test naming that rung passes by reaching an
+    # empty list — the shape this repo calls "a guard reading a mark nobody
+    # applies always passes". It was exactly that until 14 Sep 2026: the table
+    # has existed since 29 Aug and this seed created no rows in it, so the whole
+    # capability layer was unreachable from the connector's suite.
+    #
+    # It goes on a NEW antibody rather than on `snca_bad`. Seeding the axes onto
+    # that row instead would have moved the fixture's only plain negative up a
+    # rung and left `not_supportive` unreachable — trading one missing rung for
+    # another, on the row a dozen negative-path tests already rest on. The two
+    # negatives have to be distinguishable from EACH OTHER, not merely from
+    # `supportive`, so SNCA/WB now holds one of each.
+    AntibodyOutcome.objects.using(DB).get_or_create(
+        antibody=snca_qualified, application_type="WB",
+        defaults={"detects": "yes", "selective": "no"})
+
     stored_as = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC"}
     for ab in sqstm1_abs:                  # every SQSTM1 antibody is public
         for a in ("WB", "IP", "IF", "FC"):

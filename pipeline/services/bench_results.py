@@ -538,6 +538,13 @@ def apply(session, parsed, member=None):
             session.session_conditions = conditions
             session.save(using=DB, update_fields=["session_conditions", "updated_at"])
 
+        # A sheet can put an antibody on a session that had no rows (a session
+        # planned by the step-by-step form lists the gene's vials as a picking
+        # list), and a reading is written against a tube — so anything this
+        # records gets its A-number now if it still has none, the same rule
+        # `sessions.apply` and `session_import.apply_import` hold.
+        numbers_issued = lab_numbers.ensure_numbered(
+            [e["ab"] for e in collapsed if e["fields"]], db=DB)
         for entry in collapsed:
             ab, fields = entry["ab"], entry["fields"]
             if not fields:
@@ -551,4 +558,5 @@ def apply(session, parsed, member=None):
             row.save(using=DB)
             (created if is_new else updated).append(str(ab))
     return {"ok": True, "created": created, "updated": updated,
-            "unmatched": unmatched, "conditions_stored": sorted(stored)}
+            "unmatched": unmatched, "conditions_stored": sorted(stored),
+            "numbers_issued": numbers_issued}

@@ -7,10 +7,13 @@ Scoping doc §5.1 / Vision doc Phase 1:
 API docs: https://www.uniprot.org/help/api
 """
 
+import hashlib
 import logging
 import re
+import threading
 
 import requests
+from django.core.cache import cache
 from requests.exceptions import RequestException
 
 logger = logging.getLogger(__name__)
@@ -18,6 +21,120 @@ logger = logging.getLogger(__name__)
 UNIPROT_SEARCH_URL = "https://rest.uniprot.org/uniprotkb/search"
 UNIPROT_ENTRY_URL = "https://rest.uniprot.org/uniprotkb/{accession}.json"
 TIMEOUT_SECONDS = 10
+
+# ---------------------------------------------------------------------------
+# Asking UniProt from a page somebody is typing into
+# ---------------------------------------------------------------------------
+#
+# **A call this module makes takes a whole thread with it, and there are four.**
+# The site runs one gunicorn instance with `--threads 4`, so four threads is the
+# whole of the site's concurrency — including Render's `/healthz` probe, which
+# gives up after 5 seconds and, after enough of those, restarts the instance.
+# `TIMEOUT_SECONDS` is 10. Four lookups in flight is therefore a site that
+# answers nothing for ten seconds, and it is not a hypothetical: on 2 Sep 2026
+# the selection tool's gene box turned one visitor's typing into a run of
+# lookups for `T`, `TP`, `TP53`, `P5`, `P51`, `ga`, `n` — one call each, none
+# cached — the health check timed out twice (probes queued for ~14s and then
+# all answered in the same millisecond), and Render restarted the instance at
+# 15:53. Nothing was broken; the app had simply parked every thread on somebody
+# else's API.
+#
+# `lookup_interactive` is the entry point for the two **public** pages that ask
+# — the selection tool and the nominate-a-target check — and it holds three
+# things the batch paths do not need:
+#
+#   * **A cache**, so a visitor's keystrokes cost one call per distinct string
+#     rather than one per press, and so a repeat of that run costs nothing.
+#     Cached on the failure too, briefly: an unreachable UniProt is unreachable
+#     for everybody, and re-asking per visitor makes an outage worse.
+#   * **A shorter deadline** than the batch paths, so a slow answer cannot hold
+#     a thread past the health check's own patience.
+#   * **A cap on how many threads may be inside a call at once**, which is the
+#     half that actually keeps the site up: at most `MAX_INTERACTIVE_CALLS` of
+#     the four, so `/healthz` and every page that needs no network still have a
+#     thread to run on. Over the cap the answer is `unavailable` immediately,
+#     never a queue — and *that* answer is not cached, because it says nothing
+#     about the gene.
+#
+# Every caller already handles `unavailable`: the tool falls back to "here's
+# where to look yourself", and a nomination is recorded `unchecked` rather than
+# turned away. So the degraded path is one somebody has already designed for.
+#
+# The batch paths are deliberately untouched. `bulk_targets` runs its own
+# threads under a wall-clock budget and degrades to `unchecked` on its own; a
+# cap of two would make a spreadsheet preview slower and *less* confirmed.
+INTERACTIVE_TIMEOUT_SECONDS = 4
+MAX_INTERACTIVE_CALLS = 2
+_CACHE_SECONDS = 24 * 3600
+_UNAVAILABLE_CACHE_SECONDS = 120
+
+_interactive_slots = threading.BoundedSemaphore(MAX_INTERACTIVE_CALLS)
+
+
+def _cache_key(text: str) -> str:
+    """A key for a typed string, hashed so no query can make an invalid one.
+
+    Keyed on a hash rather than the text because the text is whatever a stranger
+    typed: `gene_request_uniprot_v1:covid 19 spike` raised `CacheKeyWarning` on
+    every request that reached it — a space is illegal in a memcached key — and
+    warnings in a production log about a working feature are noise nobody can
+    act on.
+    """
+    norm = " ".join((text or "").split()).lower()
+    return "uniprot_lookup_v1:" + hashlib.sha1(norm.encode("utf-8")).hexdigest()
+
+
+def _busy() -> dict:
+    """The answer when every interactive slot is taken.
+
+    Shaped like an outage because that is what it is from the reader's side:
+    nothing was learned about this gene, and asking again is the right advice.
+    """
+    return {
+        "found": False,
+        "unavailable": True,
+        "uniprot_id": "",
+        "protein_name": "",
+        "gene_name": "",
+        "alternative_names": [],
+        "gene_synonyms": [],
+        "mass_kda": None,
+        "function_summary": "",
+        "subcellular_location": "",
+        "error": "UniProt lookups are busy; not asking a fifth time",
+        "resolved_from": "busy",
+    }
+
+
+def lookup_interactive(text: str) -> dict:
+    """`lookup`, for a public page: cached, deadlined, and capped.
+
+    The one reader for "ask UniProt about something a visitor typed". See the
+    block comment above for why a page open to the public may not ask the way a
+    board's preview does.
+    """
+    text = (text or "").strip()
+    if not text:
+        return lookup(text)
+
+    key = _cache_key(text)
+    answer = cache.get(key)
+    if answer is not None:
+        return answer
+
+    if not _interactive_slots.acquire(blocking=False):
+        logger.info("UniProt lookup skipped for %r: %d already in flight",
+                    text, MAX_INTERACTIVE_CALLS)
+        return _busy()
+    try:
+        answer = lookup(text, timeout=INTERACTIVE_TIMEOUT_SECONDS)
+    finally:
+        _interactive_slots.release()
+
+    cache.set(key, answer,
+              _UNAVAILABLE_CACHE_SECONDS if answer.get("unavailable")
+              else _CACHE_SECONDS)
+    return answer
 
 
 # A UniProt accession, as UniProt itself defines the format. Two shapes, and
@@ -42,7 +159,7 @@ def looks_like_accession(text: str) -> bool:
     return bool(_ACCESSION.match((text or "").strip()))
 
 
-def lookup(text: str) -> dict:
+def lookup(text: str, timeout: float = TIMEOUT_SECONDS) -> dict:
     """Look a gene up by symbol **or** by accession, whichever was typed.
 
     Returns the same shape either way, plus ``resolved_from``, so a page can say
@@ -51,15 +168,15 @@ def lookup(text: str) -> dict:
     """
     text = (text or "").strip()
     if looks_like_accession(text):
-        out = lookup_accession(text)
+        out = lookup_accession(text, timeout=timeout)
         out["resolved_from"] = "accession"
         return out
-    out = lookup_gene(text)
+    out = lookup_gene(text, timeout=timeout)
     out["resolved_from"] = "gene"
     return out
 
 
-def lookup_accession(accession: str) -> dict:
+def lookup_accession(accession: str, timeout: float = TIMEOUT_SECONDS) -> dict:
     """
     Fetch ONE UniProt entry by its exact accession (e.g. "P02649") and return
     structured metadata for target gap-fill.
@@ -107,7 +224,7 @@ def lookup_accession(accession: str) -> dict:
             UNIPROT_ENTRY_URL.format(accession=accession),
             params={"fields": ("accession,protein_name,gene_names,gene_synonym,"
                                "mass,cc_subcellular_location,sequence")},
-            timeout=TIMEOUT_SECONDS,
+            timeout=timeout,
             headers={"Accept": "application/json"},
         )
         response.raise_for_status()
@@ -169,7 +286,7 @@ def lookup_accession(accession: str) -> dict:
     return result
 
 
-def lookup_gene(gene_name: str) -> dict:
+def lookup_gene(gene_name: str, timeout: float = TIMEOUT_SECONDS) -> dict:
     """
     Search UniProt for a human gene and return structured metadata.
 
@@ -222,7 +339,7 @@ def lookup_gene(gene_name: str) -> dict:
         response = requests.get(
             UNIPROT_SEARCH_URL,
             params=params,
-            timeout=TIMEOUT_SECONDS,
+            timeout=timeout,
             headers={"Accept": "application/json"},
         )
         response.raise_for_status()

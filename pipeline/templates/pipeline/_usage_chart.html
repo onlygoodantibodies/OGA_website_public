@@ -1,0 +1,45 @@
+{% comment %}
+One counter's last N days as a column chart. Included with:
+
+    {% include "pipeline/_usage_chart.html" with series=api.series busiest=api.busiest_day unit="requests" %}
+
+`series` is `[{date, n}, …]` oldest first with **zeros already filled in** by
+`impact._daily_series`, and `busiest` is its tallest bar, computed in the view
+because `widthratio` is the only arithmetic a template has and it cannot find a
+maximum. Setting a bar's height from its own count instead draws every busy day
+identically once it passes the track — the bug the Overview chart shipped with.
+
+Drawn as a fixed 64px track filled bottom-up, one column per day, so thirty days
+fit on a line. `min-height` is on the **non-zero** bars only: a zero day must be
+an empty track, or a chart of nothing draws a floor of activity that did not
+happen. The count is on the title attribute *and* the busiest day is written out
+underneath — a `title` is not a label, and this file's whole job is to be read at
+a glance.
+{% endcomment %}
+<div class="rounded border border-gray-200 bg-white p-4">
+  <div class="flex items-end gap-px" style="height: 64px;">
+    {% for row in series %}
+      {% comment %}
+      Every day is a full-height grey track; the fill is that day's share of the
+      busiest one. A day with nothing draws the track and no fill, which is what
+      makes a quiet fortnight visible as a quiet fortnight.
+      {% endcomment %}
+      <div class="flex-1 h-full flex items-end rounded-t bg-gray-100"
+           title="{{ row.date|date:'j M Y' }}: {{ row.n }} {{ unit }}">
+        {% if row.n %}
+          <div class="w-full rounded-t bg-ycharos-500"
+               style="height: {% widthratio row.n busiest 100 %}%; min-height: 3px;"></div>
+        {% endif %}
+      </div>
+    {% empty %}
+      <p class="text-sm text-gray-500 italic">Nothing recorded yet.</p>
+    {% endfor %}
+  </div>
+  {% if series %}
+    <div class="mt-2 flex justify-between text-xs text-gray-500">
+      <span>{{ series.0.date|date:"j M" }}</span>
+      <span>busiest day {{ busiest }} {{ unit }}</span>
+      {% with last=series|last %}<span>{{ last.date|date:"j M" }}</span>{% endwith %}
+    </div>
+  {% endif %}
+</div>

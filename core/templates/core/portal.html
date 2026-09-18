@@ -10,7 +10,8 @@
     :root {
       --navy: #0d2b5e; --blue: #10428a; --mid: #4a8ec9; --light: #86bef0;
       --pale: #eef4fb; --bg: #f5f7fa; --card: #fff; --border: #e2e8f0;
-      --text: #333; --muted: #777; --green: #16a34a; --amber: #d97706; --red: #dc2626;
+      --text: #333; --muted: #777; --green: #0f9d58; --amber: #f4b400; --red: #c5221f;
+      --ns-fig: 190px; --ns-fig-h: 200px;
     }
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Open Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -100,7 +101,16 @@
     /* Three results, three looks. The transparent border on the base keeps all
        four badges the same size whether or not the state they carry draws one. */
     .app-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 3px; border: 1px solid transparent; }
-    .app-badge.rec { background: #dcfce7; color: var(--green); }
+    .app-badge.rec { background: #eafaf0; color: #0b6b3a; }
+    /* Assessed, did not meet the bar, and did the thing the application is for
+       anyway. Added 29 Aug 2026 — the one addition to this page that runs in
+       the manufacturer's favour, which is why it does not reopen the decision
+       below it. */
+    .app-badge.nuanced { background: #fffaea; color: #8a6100; border-color: #f4b400; }
+    /* A supportive verdict the data fell short of: green, with the same small
+       yellow tab the gene page draws. */
+    .app-badge.rec.has-caveat { position: relative; }
+    .app-badge.rec.has-caveat::after { content: ""; position: absolute; top: 0; right: 6px; width: 14px; height: 3px; background: #f4b400; border-radius: 0 0 2px 2px; }
     /* Assessed with knockout controls and not recommended. That is a real
        finding about a named commercial product, so it reads as one. */
     /* Never assessed. An empty dashed outline, because the one thing this must
@@ -115,9 +125,28 @@
     .card-images { display: flex; flex-wrap: wrap; gap: 0; }
     .exp-thumb { flex: 1 1 100px; min-width: 90px; max-width: 160px; border-right: 1px solid var(--border); position: relative; text-align: center; }
     .exp-thumb:last-child { border-right: none; }
-    .exp-recommended { background: #f0fdf4; }
+    /* Presented as a gene page presents it: green marks the thing a reader is
+       scanning for and words carry the rest, so a supplier comparing this row
+       with the page it links to does not meet two visual languages for one
+       result. The star and the blanket green tint went with it — they were the
+       binary model, and there are four rungs now. */
+    .exp-supportive { background: #eafaf0; }
     .thumb-label { font-size: 0.68rem; font-weight: 700; color: var(--blue); padding: 4px 2px 2px; background: var(--pale); border-bottom: 1px solid #e8eef6; }
-    .exp-recommended .thumb-label { background: #dcfce7; color: var(--green); }
+    .exp-supportive .thumb-label { background: #dcfce7; color: #0b6b3a; }
+    /* A supportive verdict the data fell short of keeps its green and takes the
+       same small yellow tab the gene page draws. */
+    .exp-thumb.has-caveat .thumb-label { position: relative; }
+    .exp-thumb.has-caveat .thumb-label::after { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 22px; height: 3px; background: #f4b400; border-radius: 0 0 2px 2px; }
+    /* The sentence under the figure, as on a gene page — the only thing telling
+       `Limited support` from `Not supportive` once colour is green-only. */
+    .exp-caveat { font-size: 0.63rem; line-height: 1.35; color: #5a6570; padding: 4px 6px 6px; text-align: left; min-height: 2.7em; }
+    .exp-caveat.supportive { color: #0b6b3a; font-weight: 600; }
+    .card-supports { font-size: 0.72rem; color: var(--muted); padding: 0 16px 6px; }
+    .card-supports b { color: #0b6b3a; }
+    .lg-swatch { font-size: 0.68rem; font-weight: 700; color: #5a6570; border: 1px solid var(--border); border-radius: 3px; padding: 2px 7px; white-space: nowrap; }
+    .lg-supportive { background: #eafaf0; color: #0b6b3a; border-color: #b7e0c6; }
+    .lg-tab { position: relative; }
+    .lg-tab::after { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 18px; height: 3px; background: #f4b400; border-radius: 0 0 2px 2px; }
     .thumb-select { position: absolute; top: 24px; left: 4px; z-index: 2; }
     .thumb-select input { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
     .exp-thumb img { display: block; width: 100%; max-height: 120px; object-fit: contain; padding: 4px; cursor: pointer; }
@@ -183,6 +212,76 @@
     #toast.show { transform: translateX(-50%) translateY(0); }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 900px) { #antibody-grid, .embed-gallery { grid-template-columns: 1fr; } .settings-grid { grid-template-columns: 1fr; } #portal-header { flex-direction: column; align-items: flex-start; } .tabs { padding: 0 12px; overflow-x: auto; } .tab { padding: 0.6rem 0.75rem; font-size: 0.78rem; white-space: nowrap; } }
+
+    /* ── Not Supportive tab ────────────────────────────────────────────────
+       The chip strip is the browser extension's (browser-extension/src/card.js),
+       deliberately: a supplier who has the extension installed meets one visual
+       language rather than two. Three states only — red for a flat negative,
+       amber for limited support, grey for untested. There is no green here and
+       there cannot be: an antibody is on this page only because no application
+       was supportive. The exception is the reference figure in a gene heading,
+       which IS supportive and is drawn as a figure rather than as a chip, so it
+       is never mistaken for one of the products below it. */
+    .ns-gene { border-top: 2px solid var(--navy); margin: 0 0 4px; }
+    .ns-gene:first-of-type { border-top: none; }
+    .ns-gene-bar { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      padding: 18px 24px 6px; }
+    .ns-gene-name { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin: 0;
+      letter-spacing: 0.01em; }
+    .ns-gene-count { font-size: 0.78rem; color: var(--muted); }
+    .ns-gene-ref { margin: 0 24px 14px; padding: 12px 14px; background: var(--pale);
+      border: 1px solid var(--border); border-radius: 8px; }
+    .ns-gene-ref-lead { font-size: 0.78rem; color: var(--text); margin-bottom: 10px; }
+    .ns-gene-ref-none { margin: 0 24px 14px; font-size: 0.78rem; color: var(--muted); }
+    .ns-ref-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+    .ns-ref { margin: 0; width: var(--ns-fig); }
+    .ns-ref-cap { font-size: 0.72rem; color: var(--muted); margin-bottom: 4px; }
+    .ns-ref-cap b { color: var(--green); }
+    .ns-ref-note { font-size: 0.7rem; color: var(--green); margin-top: 4px; }
+    .ns-ref-caveat { color: var(--amber); }
+    .ns-rows { padding: 0 24px 22px; display: flex; flex-direction: column; gap: 10px; }
+    .ns-row { display: flex; align-items: stretch; gap: 18px; padding: 12px 14px; }
+    /* The identity column is fixed, so catalogue numbers line up down the page
+       and the figures start at one left edge — a ragged one makes two rows look
+       like two different kinds of record. */
+    .ns-row-id { flex: 0 0 252px; min-width: 0; padding-right: 16px;
+      border-right: 1px solid var(--border); }
+    .ns-row-link { display: inline-block; margin-top: 8px; color: var(--blue);
+      font-size: 0.75rem; }
+    .ns-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+      padding: 8px 0 0; }
+    .ns-chip { border-radius: 6px; padding: 5px 3px; text-align: center;
+      border: 1px solid transparent; font: inherit; cursor: pointer; }
+    .ns-chip b { display: block; font-size: 0.7rem; font-weight: 700; }
+    .ns-chip i { display: block; font-style: normal; font-size: 0.6rem; line-height: 1.25; }
+    .ns-chip-n { background: #fdeceb; color: #a3231d; border-color: #f3c4c4; }
+    .ns-chip-q { background: #fffaea; color: #8a6100; border-color: #f4b400; }
+    .ns-chip-u { background: #f1f4f7; color: #77838f; border-color: #e0e6ec; }
+    /* Labels, not controls: every figure is drawn, so there is nothing to
+       switch to. */
+    .ns-chip { cursor: default; }
+    /* Flex, not a 1fr grid: a fixed figure width keeps two applications the
+       same size as four, where an auto-fit track would stretch a lone WB panel
+       across the row and draw it as the more important result. */
+    .ns-figures { display: flex; flex-wrap: wrap; align-items: flex-start;
+      align-content: flex-start; gap: 14px; flex: 1 1 auto; min-width: 0; }
+    .ns-fig { margin: 0; width: var(--ns-fig); }
+    .ns-fig-cap { font-size: 0.75rem; font-weight: 700; margin-bottom: 3px;
+      min-height: 2.2em; }
+    .ns-fig-note { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+    .ns-panel-sub { font-size: 0.72rem; color: var(--muted); margin: 2px 0 6px; }
+    .ns-figure { width: auto; max-width: 100%; max-height: var(--ns-fig-h);
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 4px; display: block; }
+    /* Narrow enough that the two columns would each be too small to read: the
+       identity goes back above its figures rather than beside them. */
+    @media (max-width: 760px) {
+      .ns-row { flex-direction: column; gap: 10px; }
+      /* Stacked, the divider is between the two halves, so it turns the corner
+         with them rather than staying on the right of nothing. */
+      .ns-row-id { flex: 1 1 auto; width: 100%; padding: 0 0 10px;
+        border-right: none; border-bottom: 1px solid var(--border); }
+    }
   </style>
 </head>
 <body>
@@ -226,6 +325,12 @@
          absent is a feature a reader concludes does not exist, so the tab is
          here and the reason it is empty is printed inside it. -->
     <div class="tab" data-tab="pipeline" onclick="switchTab('pipeline')">Pipeline Data</div>
+    <!-- The review list. Shown to every key, not only to a scoped one: the data
+         is already on the public gene pages, so there is nothing here to gate,
+         and a tab that is simply absent is a feature a reader concludes does
+         not exist. An unscoped key sees the whole dataset, which is what
+         /v1/antibodies/ already answers for it. -->
+    <div class="tab" data-tab="notsupportive" onclick="switchTab('notsupportive')">Not Supportive</div>
   </div>
   <div id="settings-panel" class="hidden">
     <h3>Download settings</h3>
@@ -268,14 +373,22 @@
       <button class="btn-ghost btn-sm" onclick="clearSelection()">Clear Selection</button>
     </div>
   </div>
+  {{ supported_applications_label|json_script:"supports-label" }}
   <div id="result-legend" class="result-legend hidden">
-    <span class="legend-item"><span class="app-badge rec">WB &#10003;</span><span><b>Recommended</b> for that application, in the conditions tested.</span></span>
-    <span class="legend-item"><span><b>No pill</b> &mdash; either tested and not recommended, or not tested. Use the API if you need to know which.</span></span>
+    {% comment %}
+      Describes the FIGURES now, not a row of pills. The portal presents results
+      the way a public gene page does, so a supplier comparing their row here
+      with the page it links to meets one visual language rather than two.
+    {% endcomment %}
+    <span class="legend-item"><span class="lg-swatch lg-supportive">Supportive</span><span>A green figure. The characterisation data supports that application, under the consensus protocols.</span></span>
+    <span class="legend-item"><span class="lg-swatch lg-supportive lg-tab">Supportive</span><span>Green with a yellow tab &mdash; still supportive; the data fell short on one axis. The sentence under the figure says which.</span></span>
+    <span class="legend-item"><span class="lg-swatch">Limited support</span><span>Not supportive overall, and the antibody was still seen to do something on-target. Support is an overall judgement rather than a sum of the parts: there is no fixed threshold, and whether it is usable depends on what you need it for.</span></span>
+    <span class="legend-item"><span class="lg-swatch">Not supportive</span><span>Tested, and nothing on-target was seen in that application. Every figure carries its own sentence, so this is never left to colour alone.</span></span>
     <span class="legend-item"><span>{% include 'core/_recommendation_caveat.html' %}</span></span>
   </div>
   <div id="tab-embed">
     <div class="instructions-banner" id="embed-instructions">
-      <h3>How to embed OGA validation data on your product pages</h3>
+      <h3>How to embed OGA characterisation data on your product pages</h3>
       <p>Each card below previews your antibody's independent characterisation data exactly as it will appear when embedded. The <strong>Copy</strong> button copies an iframe showing all tested applications in one card.</p>
       <p>To embed data for a single application only, use the <strong>WB</strong>, <strong>IP</strong>, <strong>ICC-IF</strong>, or <strong>FC</strong> buttons below each card. These copy an iframe that shows only that application's data.</p>
       <p>Paste any of these iframe snippets into your product page HTML. The cards update automatically when new data is added. For CMS help, contact <a href="mailto:onlygoodantibodies@gmail.com" style="color:var(--blue);">onlygoodantibodies@gmail.com</a>.</p>
@@ -287,6 +400,7 @@
   <div id="tab-data" class="hidden"><div id="antibody-grid"></div><div id="pager-data" class="pager"></div></div>
   <div id="tab-competitor" class="hidden"><div id="competitor-content"></div></div>
   <div id="tab-pipeline" class="hidden"><div id="pipeline-content"></div></div>
+  <div id="tab-notsupportive" class="hidden"><div id="notsupportive-content"></div></div>
   <div id="action-bar" class="hidden">
     <div class="action-left">
       <span id="selection-count">0 images selected</span>
@@ -318,6 +432,18 @@ const EMBED_BASE = 'https://onlygoodantibodies.co.uk/embed/';
    them (core/recommendations.py::APPLICATIONS). It was written out three times in
    here, which is three places to forget one. */
 const APPS = ['WB', 'IP', 'ICC-IF', 'FC'];
+/* The gene page's own heading for the same list, from the same constant
+   (`core/recommendations.py::SUPPORTED_APPLICATIONS_LABEL`). Typed here it
+   would be the second copy, and the two surfaces would drift the first time
+   either was reworded.
+   Through `json_script` rather than interpolated into this string: a template
+   variable inside a JS literal is what `ThePortalScriptParsesTests` substitutes
+   into, so it fails the parse check — and that check is the only thing standing
+   between a stray brace and a page that renders with no grid at all.
+   (Writing the braces out here would itself be an empty variable tag, which is
+   a TemplateSyntaxError on every request. Learned the hard way.) */
+const SUPPORTS_LABEL = JSON.parse(
+  document.getElementById('supports-label').textContent);
 /* Cards per page. The whole feed is still fetched and still filtered in the
    browser — see pageOf() for why only the drawing is paged. */
 const PAGE_SIZE = 60;
@@ -366,20 +492,19 @@ function hasRecommendations(ab) {
    commercial product failed a test nobody ran on it. Drawing nothing makes no
    claim at all. And the distinction is not lost from the data --
    `oga_recommendations` still carries all three values per application on
-   every row of /api/v1/, so anything built on the API keeps it. */
-const RECOMMENDED_WHY =
-  'Recommended for this application in the conditions tested.';
-function recommendationBadge(ab, app) {
-  /* Falls back to the raw booleans for a payload with no `oga_recommendations`
-     key, which is the same answer here: `true` is the only value that draws
-     anything. */
-  const recommended = hasRecommendations(ab)
-    ? ab.oga_recommendations[app] === 'recommended'
-    : (ab.recommendations || {})[app] === true;
-  if (!recommended) return '';
-  return '<span class="app-badge rec" title="' + escAttr(RECOMMENDED_WHY) + '">'
-    + app + ' ✓</span>';
-}
+   every row of /api/v1/, so anything built on the API keeps it.
+
+   **The qualified result joined it on 29 Aug 2026, and it is the one addition
+   that does not reopen that decision.** Where an antibody did the thing its
+   application is for -- detected, enriched, gave a selective signal -- and
+   still did not meet the bar, the manufacturer currently sees no pill at all,
+   indistinguishable from a product nobody has tested. That is the opposite
+   failure to the one above and it runs against them: a real, favourable
+   finding about their reagent, drawn as nothing. So a second pill says it, in
+   the antibody's own words from `oga_qualifiers`.
+
+   A plain negative still draws nothing. That half is what protects a supplier
+   from a claim nobody ran the test for, and it is unchanged. */
 /* Nothing assessed at all, in any application — the count that stops
    "0 recommended" reading as "OGA rejected the lot". */
 function isUnassessed(ab) {
@@ -465,7 +590,8 @@ function switchTab(tab) {
   S.currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
-  hide('tab-embed'); hide('tab-data'); hide('tab-competitor'); hide('tab-pipeline'); show('tab-' + tab);
+  hide('tab-embed'); hide('tab-data'); hide('tab-competitor'); hide('tab-pipeline');
+  hide('tab-notsupportive'); show('tab-' + tab);
   /* Select/Clear act on the image checkboxes, and only the data grid draws
      those. The legend explains the result badges, and only the two card tabs
      draw those — a legend for something not on the screen is noise. */
@@ -476,7 +602,13 @@ function switchTab(tab) {
      in S.antibodies; the pipeline tab is a different dataset fetched from a
      different endpoint, and a filter bar that silently does nothing is worse
      than none. */
-  if (tab === 'pipeline') { hide('filter-bar'); loadPipelineData(); } else { show('filter-bar'); }
+  /* Same reason as the pipeline tab: this is a different dataset from a
+     different endpoint, and the bar above filters S.antibodies. A filter
+     control that silently does nothing is worse than none, so this tab draws
+     its own gene picker instead. */
+  if (tab === 'pipeline') { hide('filter-bar'); loadPipelineData(); }
+  else if (tab === 'notsupportive') { hide('filter-bar'); loadNotSupportive(); }
+  else { show('filter-bar'); }
   applyFilters();
 }
 
@@ -584,7 +716,27 @@ function renderAbCard(ab, showSupplier) {
   const exps = (ab.experiments || []).filter(e => e.image_url);
   const appFilter = $('filter-app').value;
   const isYours = showSupplier && S.consumer.supplier_filter && S.consumer.supplier_filter.split(',').map(s => s.trim()).includes(meta.supplier);
-  const badges = APPS.map(app => recommendationBadge(ab, app)).join('');
+  /* What a gene page prints above its cells, from the same constant. The
+     application's own display name comes off its experiment rather than a
+     second label map here — a verdict needs a published figure, so every
+     supported application has one. */
+  const appLabel = (a) => {
+    const e = (ab.experiments || []).find(x => x.experiment_type === a);
+    return (e && e.experiment_type_display) || a;
+  };
+  /* `oga_support` is the published value for this rung and `oga_display` no
+     longer carries a copy of the legacy one, so this reads the field that is
+     actually the answer. Two fallbacks, oldest last: a cached response from
+     before `oga_support` existed, then one from before either key did, where
+     the boolean was all there was to draw. */
+  const supports = APPS.filter(
+    a => (ab.oga_support ? ab.oga_support[a] === 'supportive'
+          : (ab.oga_recommendations ? ab.oga_recommendations[a] === 'recommended'
+             : (ab.recommendations || {})[a] === true)));
+  const supportsLine = supports.length
+    ? '<div class="card-supports"><b>' + esc(SUPPORTS_LABEL) + '</b> '
+      + supports.map(a => esc(appLabel(a))).join(', ') + '</div>'
+    : '';
   const filteredExps = appFilter ? exps.filter(e => e.experiment_type === appFilter) : exps;
 
   const showReviewBtn = !showSupplier;
@@ -597,12 +749,22 @@ function renderAbCard(ab, showSupplier) {
   const thumbs = filteredExps.map(exp => {
     const url = exp.image_url;
     const isRec = recs[exp.experiment_type] === true;
+    /* The site's own answer for this cell — words, colour and tab together
+       (`core/recommendations.py::describe`). Guarded: a cached response from
+       before the key existed falls back to the boolean, which is the only
+       value that ever drew anything. */
+    const d = (ab.oga_display || {})[exp.experiment_type] || {};
+    const tone = d.tone || (isRec ? 'supportive' : '');
     const checked = S.selected.has(url) ? 'checked' : '';
     const showCb = !showSupplier;
-    return '<div class="exp-thumb ' + (isRec ? 'exp-recommended' : '') + '">'
+    return '<div class="exp-thumb '
+      + (tone === 'supportive' ? 'exp-supportive ' : '')
+      + (d.tab ? 'has-caveat' : '') + '">'
       + (showCb ? '<label class="thumb-select"><input type="checkbox" ' + checked + ' onchange="toggleImg(this,\'' + esc(url) + '\',\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\',\'' + exp.experiment_type + '\',' + isRec + ')"></label>' : '')
-      + '<div class="thumb-label">' + (exp.experiment_type_display || exp.experiment_type) + (isRec ? ' \u2605' : '') + '</div>'
-      + '<img src="' + url + '" alt="' + exp.experiment_type + '" loading="lazy" onclick="previewImage(\'' + esc(url) + '\')"></div>';
+      + '<div class="thumb-label">' + (exp.experiment_type_display || exp.experiment_type) + '</div>'
+      + '<img src="' + url + '" alt="' + exp.experiment_type + '" loading="lazy" onclick="previewImage(\'' + esc(url) + '\')">'
+      + (d.sentence ? '<p class="exp-caveat ' + esc(tone) + '">' + esc(d.sentence) + '</p>' : '')
+      + '</div>';
   }).join('');
 
   /* Still only on your own rows in the competitor view: reporting a problem
@@ -623,7 +785,7 @@ function renderAbCard(ab, showSupplier) {
     + (meta.rrid ? '<span>' + esc(meta.rrid) + '</span><span class="meta-sep">\u00b7</span>' : '')
     + '<span>' + esc(meta.host || '') + '</span><span class="meta-sep">\u00b7</span><span>' + esc(meta.clonality || '') + '</span>'
     + '</div>'
-    + '<div class="card-recs">' + badges + '</div>'
+    + supportsLine
     + '</div>'
     + '<div class="card-images">' + (thumbs || '<span class="no-images">No experiment images</span>') + '</div>'
     + (rb ? '<div class="card-actions-row">' + rb + '</div>' : '')
@@ -795,6 +957,400 @@ function pipelineReportCell(r) {
   const label = esc(r.doi || 'published');
   return r.url ? '<a href="' + escAttr(r.url) + '" target="_blank" style="color:var(--blue)">' + label + '</a>' : label;
 }
+
+/* ── Not Supportive ─────────────────────────────────────────────────────────
+   Every antibody in your scope that OGA tested and found no supportive result
+   for, in any application it was tested in. Three things this screen has to
+   get right, and each is a way it could mislead a supplier about their own
+   product:
+
+   * **An untested application is absent, not failed.** The server applies that
+     (core/recommendations.py), and this tab prints the tested count beside the
+     failed count on every card so "failed all four" and "failed the only one
+     anybody ran" cannot read alike.
+   * **The two rungs are told apart.** Limited support is amber and Not
+     supportive is red, the same colours and the same words as the public gene
+     page — a supplier comparing a card here with the page it links to must not
+     meet two ways of saying one thing.
+   * **The manifest is printed before the press, not after.** The counts on the
+     download buttons are the server's own manifest, read off the rows the
+     files are built from, so the sentence on screen and the file cannot
+     disagree.                                                               */
+let NS_STATE = { rows: [], manifest: null, gene: '', scope: '', note: '',
+                 includeLimited: false };
+
+function nsQuery() {
+  const parts = [];
+  if (NS_STATE.gene) parts.push('gene=' + encodeURIComponent(NS_STATE.gene));
+  if (NS_STATE.includeLimited) parts.push('include_limited=1');
+  return parts.length ? '?' + parts.join('&') : '';
+}
+
+async function loadNotSupportive(gene, includeLimited) {
+  const c = $('notsupportive-content');
+  c.innerHTML = '<div class="empty-state"><div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="margin-top:1rem;">Loading...</p></div>';
+  let data;
+  try {
+    const parts = [];
+    if (gene) parts.push('gene=' + encodeURIComponent(gene));
+    if (includeLimited) parts.push('include_limited=1');
+    data = await apiGet('/v1/not-supportive/' + (parts.length ? '?' + parts.join('&') : ''));
+  } catch (err) {
+    /* The server's own refusal, printed as it was written — it names what is
+       wrong and what still works, and a scope that matches no supplier is a
+       configuration problem, never a statement about their products. */
+    c.innerHTML = '<div class="empty-state"><h3 style="font-size:1rem;color:var(--text);margin-bottom:0.5rem;">'
+      + esc(err.error || 'This could not be loaded') + '</h3><p style="max-width:44rem;margin:0 auto;">'
+      + esc(err.detail || 'Please try again, or email onlygoodantibodies@gmail.com.') + '</p></div>';
+    return;
+  }
+  /* `genes` is every gene in the UNFILTERED list, kept across a narrowing so
+     the picker does not collapse to the one option you just chose — a dropdown
+     with a single option reads as the answer rather than as a filter. */
+  const rows = data.antibodies || [];
+  const allGenes = (gene && NS_STATE.genes && NS_STATE.genes.length)
+    ? NS_STATE.genes
+    : Array.from(new Set(rows.map(r => r.gene).filter(Boolean))).sort();
+  NS_STATE = {
+    rows: rows, manifest: data.manifest || {}, genes: allGenes,
+    gene: data.gene || '', scope: data.scope || '', note: data.note || '',
+    scopeNote: data.scope_note || '',
+    includeLimited: !!data.include_limited,
+    references: data.references || {},
+  };
+  renderNotSupportive();
+}
+
+/* The picker refetches rather than filtering in the browser, because it
+   narrows the DOWNLOADS too — a supplier gets a complete PDF for one gene
+   where the whole list would run past the time the server may spend reading
+   figures. Refetching is what keeps the count on the button and the contents
+   of the file the same set: they are both the server's answer to one query. */
+function nsGeneChanged(value) { loadNotSupportive(value, NS_STATE.includeLimited); }
+
+/* The tick refetches for the same reason the gene picker does: it changes
+   which antibodies are on the page, so it changes the downloads too, and the
+   count on the button has to be the count in the file. */
+function nsLimitedChanged(on) { loadNotSupportive(NS_STATE.gene, on); }
+
+function renderNotSupportive() {
+  const c = $('notsupportive-content');
+  const m = NS_STATE.manifest || {};
+  const rows = NS_STATE.rows;
+
+  let html = '<div class="instructions-banner"><h3>Antibodies with no supportive result</h3>'
+    + '<p>' + esc(NS_STATE.note) + '</p>'
+    + '<p style="margin-top:0.5rem"><strong>Scope:</strong> ' + esc(NS_STATE.scope) + '</p>'
+    + '<p style="margin-top:0.5rem">' + esc(NS_STATE.scopeNote) + '</p></div>';
+
+  if (!rows.length) {
+    /* Two different empty states. "Nothing of yours qualifies" is a fact about
+       the dataset; "nothing on that gene" is a fact about the filter, and a
+       reader shown the first when the second is true has been told something
+       untrue about their whole catalogue. */
+    html += NS_STATE.gene
+      ? '<div class="empty-state">No antibody of yours on ' + esc(NS_STATE.gene)
+        + ' is in this list. <button class="btn-outline btn-sm" onclick="nsGeneChanged(\'\')">'
+        + 'Show all genes</button></div>'
+      : '<div class="empty-state">Nothing qualifies. No antibody in your scope has '
+        + 'been tested and come back without a supportive result in every application '
+        + 'tested. Applications nobody has run are not counted here.</div>';
+    c.innerHTML = html;
+    return;
+  }
+
+  /* A download owes a manifest, not a gate: every number is known before the
+     press, so the press is a deliberate act rather than a surprise in the
+     Downloads folder. */
+  html += '<div class="competitor-section"><h3>' + m.antibodies + ' '
+    + plural(m.antibodies, 'antibody', 'antibodies') + ' · ' + m.findings + ' application '
+    + plural(m.findings, 'result', 'results') + ' · ' + m.genes + ' '
+    + plural(m.genes, 'gene', 'genes') + '</h3></div>'
+    + '<div style="padding:0 24px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">'
+    + '<select id="ns-gene" onchange="nsGeneChanged(this.value)"><option value="">All genes</option>'
+    + nsGeneOptions() + '</select>'
+    + '<button class="btn-primary btn-sm" id="ns-csv" onclick="downloadNotSupportive()">Download CSV</button>'
+    /* Off by default, and the label says what it ADDS rather than what it
+       filters — the default list is the hard edge and the tick widens it. The
+       count beside it is the server's, resolved before the press, because a
+       tick whose effect you can only learn by pressing it is one nobody
+       presses. */
+    + '<label class="toggle-label"><input type="checkbox" id="ns-limited"'
+    + (NS_STATE.includeLimited ? ' checked' : '')
+    + ' onchange="nsLimitedChanged(this.checked)"> Also include Limited support'
+    + nsWouldAddNote() + '</label>'
+    + '<span class="setting-hint" style="flex-basis:100%">'
+    + 'The CSV is one row per application result — ' + m.findings + ' '
+    + plural(m.findings, 'row', 'rows') + ', with the finding, the sentence behind it '
+    + 'and the supportive example for the same gene and application. '
+    /* There was a PDF beside this and it is gone: every figure in it was an
+       object-storage read on a four-thread site, so it had to be budgeted and
+       sometimes arrived short of the pictures it existed for. Every figure is
+       drawn on this page instead, and the CSV links to each one. */
+    + 'All ' + m.figures + ' published ' + plural(m.figures, 'figure', 'figures')
+    + ' behind these results ' + plural(m.figures, 'is', 'are') + ' shown on this page, '
+    + 'and the CSV links to ' + plural(m.figures, 'it', 'them') + '.'
+    + (NS_STATE.gene
+        ? ' It covers ' + esc(NS_STATE.gene) + ' only — the gene picker narrows the'
+          + ' download as well as this page.'
+        : ' It covers this whole list. Narrow by gene above for a smaller file.')
+    + (NS_STATE.includeLimited
+        ? ' Limited support is included, so the file carries it too.'
+        : ' Limited support is excluded, from the file as well as from this page.')
+    + '</span>'
+    /* With the tick OFF, "0 are Limited support" would be a count where the
+       truth is "excluded" — a number nobody filtered reading as a fact about
+       the data. So the sentence says what is being left out, and how much. */
+    + '<span class="setting-hint" style="flex-basis:100%">'
+    + (NS_STATE.includeLimited
+        ? '<strong>' + m.not_supportive + '</strong> ' + plural(m.not_supportive, 'result is', 'results are')
+          + ' Not supportive (nothing on-target seen) and <strong>' + m.limited_support + '</strong> '
+          + plural(m.limited_support, 'is', 'are') + ' Limited support (the antibody was still seen to do '
+          + 'what the application is for). They are different findings and the list keeps them apart.'
+        : 'Every result here is <strong>Not supportive</strong> — nothing on-target was seen. '
+          + 'Antibodies holding a <strong>Limited support</strong> result, where the antibody was '
+          + 'still seen to do what the application is for, are left out of this list'
+          + nsWouldAddSentence() + ' Tick above to include them.')
+    + '</span></div>';
+
+  /* Grouped by gene, with the transition marked, because that is how the work
+     is done: a reviewer settles one protein at a time, and the reference
+     examples below the heading are a fact about the GENE rather than about any
+     one product — drawn once, where they belong, instead of repeated under
+     every card. The rows arrive ordered by gene from the server, so this walks
+     them rather than re-sorting: a second ordering is a second answer to
+     "which gene comes first". */
+  let current = null;
+  rows.forEach(function (r) {
+    if (r.gene !== current) {
+      if (current !== null) html += '</div></section>';
+      current = r.gene;
+      html += nsGeneHeader(r.gene, rows.filter(x => x.gene === r.gene).length)
+        + '<div class="ns-rows">';
+    }
+    html += nsCard(r);
+  });
+  if (current !== null) html += '</div></section>';
+  c.innerHTML = html;
+}
+
+/* The demarcation between genes, and the reference point for the one below it.
+   A negative is only legible next to what a good result on the same gene looks
+   like — same protocol, same knockout line — so the supportive example rides
+   in the heading, named as the different product it is. */
+function nsGeneHeader(gene, count) {
+  const refs = (NS_STATE.references || {})[(gene || '').toUpperCase()] || {};
+  const apps = APPS.filter(a => refs[a]);
+  let html = '<section class="ns-gene"><div class="ns-gene-bar">'
+    + '<h3 class="ns-gene-name">' + esc(gene || '(no gene)') + '</h3>'
+    + '<span class="ns-gene-count">' + count + ' '
+    + plural(count, 'antibody', 'antibodies') + ' with no supportive result</span>'
+    + '</div>';
+
+  if (!apps.length) {
+    /* Said rather than left blank: an absent reference is a fact about this
+       gene — nothing published on it is supportive in any application — and a
+       heading that simply omitted the row would read as the feature not
+       working. */
+    html += '<p class="ns-gene-ref-none">No antibody on ' + esc(gene)
+      + ' has a supportive published result in any application, so there is no '
+      + 'reference example to show for it.</p>';
+    return html;
+  }
+
+  html += '<div class="ns-gene-ref"><div class="ns-gene-ref-lead">'
+    + 'What a supportive result on ' + esc(gene) + ' looks like — a <strong>different '
+    + 'antibody</strong> in each case, shown as the reference point:</div>'
+    + '<div class="ns-ref-grid">';
+  apps.forEach(function (app) {
+    const ref = refs[app];
+    html += '<figure class="ns-ref">'
+      + '<figcaption class="ns-ref-cap"><b>' + esc(app) + '</b> '
+      + esc(ref.catalogue_number) + (ref.supplier ? ' · ' + esc(ref.supplier) : '')
+      + '</figcaption>'
+      + (ref.figure_url
+          ? '<img src="' + escAttr(ref.figure_url) + '" loading="lazy" alt="'
+            + escAttr('Supportive ' + app + ' figure for ' + ref.catalogue_number
+                      + ' on ' + gene) + '" class="ns-figure">'
+          : '')
+      /* The caveat travels with the example. A reference whose own limitation
+         is hidden is worse than none — `reference_figures` prefers a clean one
+         and falls back, and this is where the fallback says so. */
+      + '<div class="ns-ref-note' + (ref.caveated ? ' ns-ref-caveat' : '') + '">'
+      + esc(ref.sentence) + '</div></figure>';
+  });
+  return html + '</div></div>';
+}
+
+function nsGeneOptions() {
+  const genes = NS_STATE.genes || [];
+  return genes.map(g => '<option value="' + escAttr(g) + '"'
+    + (g === NS_STATE.gene ? ' selected' : '') + '>' + esc(g) + '</option>').join('');
+}
+
+function nsCard(r) {
+  /* **Every application's figure, on the page, together — and side by side.**
+     The card carried a chip strip that switched one panel at a time — the
+     browser extension's shape, where a card floats over somebody else's tab
+     and has room for one figure. Here there is room for all of them, and a
+     supplier comparing their own product across applications should not have
+     to click three times to see what they came for.
+
+     Then it was a grid of narrow cards with the figures STACKED inside them,
+     which is the same mistake one turn later: the comparison a supplier makes
+     is WB against IP against ICC-IF for one product, and a column put each one
+     below the last, a screen apart, beside an empty half-page. So an antibody
+     is a row — identity on the left, every figure it has in a line to the
+     right (owner, 15 Sep 2026).
+
+     A PDF carried the same figures and was withdrawn (owner, 14 Sep 2026):
+     every figure in it is an object-storage read on a four-thread site, so the
+     document had to be budgeted, and a budgeted document sometimes arrives
+     short of the pictures it exists for. The page has no such problem — the
+     browser fetches the images itself, lazily, as they come into view.
+
+     The chip strip stays as the at-a-glance summary of all four ratings, and
+     is no longer a control: with every figure already drawn there is nothing
+     for it to switch to. */
+  let html = '<div class="ab-card ns-row"><div class="ns-row-id">'
+    + '<div class="card-title">'
+    + '<span class="cat-num">' + esc(r.catalogue_number || '(no catalogue number)') + '</span>'
+    + '<span class="gene-tag">' + esc(r.gene) + '</span></div>'
+    + '<div class="card-meta">' + esc([r.supplier, r.rrid ? 'RRID ' + r.rrid : '',
+        r.clone_id ? 'clone ' + r.clone_id : '', r.clonality, r.host_species,
+        r.discontinued ? 'discontinued' : ''].filter(Boolean).join(' · ')) + '</div>'
+    /* Both counts, every time. "Failed all four" and "failed the only one
+       anybody ran" are different statements about a product. */
+    + '<div class="card-meta">' + r.applications_not_supportive + ' of '
+    + r.applications_tested + ' tested ' + plural(r.applications_tested, 'application', 'applications')
+    + ' came back without support</div>';
+
+  /* All four ratings, including the applications nobody ran — drawn grey and
+     saying so. That is the one distinction this list must never let anybody
+     confuse with a failure, and a strip that omitted them would put it nowhere
+     on the row. Nothing here is ever green: an antibody is on this page only
+     because no application was supportive. */
+  html += '<div class="ns-chips" role="list" aria-label="Ratings for '
+    + escAttr(r.catalogue_number || r.gene) + '">';
+  r.applications.forEach(function (a) {
+    html += '<div class="ns-chip ' + nsChipClass(a) + '" role="listitem"'
+      + ' title="' + escAttr(NS_APP_LABEL[a.application] + ': ' + a.finding
+                             + (a.qualifier ? ' — ' + a.qualifier : '')) + '">'
+      + '<b>' + esc(a.application) + '</b><i>' + esc(a.finding) + '</i></div>';
+  });
+  html += '</div>';
+
+  /* The link rides in the identity column, under the thing it identifies —
+     a full-width footer would have pushed the row taller than its figures for
+     one line of text. */
+  if (r.gene_page_url) {
+    html += '<a class="ns-row-link" href="' + escAttr(r.gene_page_url) + '" target="_blank">'
+      + 'Full characterisation data for ' + esc(r.gene) + '</a>';
+  }
+  html += '</div>';
+
+  /* Only the applications that HAVE a figure get one. An untested one is
+     already stated in the strip beside them, and four empty panels repeating
+     it would bury the results the row is for. */
+  const shown = r.applications.filter(a => a.figure_url);
+  if (shown.length) {
+    html += '<div class="ns-figures">';
+    shown.forEach(function (a) {
+      html += '<figure class="ns-fig">'
+        + '<figcaption class="ns-fig-cap" style="color:' + nsToneColour(a) + '">'
+        + esc(a.finding) + ' — ' + esc(NS_APP_LABEL[a.application]) + '</figcaption>'
+        + '<img src="' + escAttr(a.figure_url) + '" loading="lazy" alt="'
+        + escAttr(a.application + ' figure for ' + (r.catalogue_number || '') + ' on ' + r.gene)
+        + '" class="ns-figure">'
+        + (a.sentence && a.sentence !== a.finding
+            ? '<div class="ns-fig-note">' + esc(a.sentence) + '</div>' : '')
+        + '</figure>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="ns-panel-sub">'
+      + 'No published figure is attached to these results.</div>';
+  }
+
+  return html + '</div>';
+}
+
+/* What the Limited support tick would add, printed beside it before it is
+   pressed. Silent once the tick is on (there is nothing left to add) and
+   silent when the server did not resolve it — "0 more" next to a live control
+   would be a different and wrong statement. */
+function nsWouldAddNote() {
+  const n = (NS_STATE.manifest || {}).limited_support_would_add;
+  if (NS_STATE.includeLimited || n === null || n === undefined) return '';
+  if (!n) return ' <span class="setting-hint">(none to add)</span>';
+  return ' <span class="setting-hint">(' + n + ' more '
+    + plural(n, 'antibody', 'antibodies') + ')</span>';
+}
+
+/* The same number as a clause rather than a chip, for the sentence under the
+   buttons. */
+function nsWouldAddSentence() {
+  const n = (NS_STATE.manifest || {}).limited_support_would_add;
+  if (n === null || n === undefined) return '.';
+  if (!n) return ' — there are none in this scope.';
+  return ' — ' + n + ' more ' + plural(n, 'antibody', 'antibodies') + ' would appear.';
+}
+
+const NS_APP_LABEL = { 'WB': 'Western blot', 'IP': 'Immunoprecipitation',
+                       'ICC-IF': 'Immunofluorescence / ICC', 'FC': 'Flow cytometry' };
+
+/* Red for a flat negative, amber for limited support, grey for untested. The
+   same three the gene page and the extension use, and there is no fourth:
+   green cannot occur on this page. */
+function nsChipClass(a) {
+  if (!a.tested) return 'ns-chip-u';
+  return a.tone === 'qualified' ? 'ns-chip-q' : 'ns-chip-n';
+}
+function nsToneColour(a) {
+  if (!a.tested) return 'var(--muted)';
+  return a.tone === 'qualified' ? 'var(--amber)' : 'var(--red)';
+}
+
+/* A browser cannot set a header on a navigation, so both files are fetched
+   with the key and saved from a blob — the same reason the pre-release
+   thumbnails are. Putting the key in the URL would leave it in history and in
+   every log the request passes through.
+
+   The button says what it is doing and then says it happened: a plain <a href>
+   writes a file and the page does not move, which is indistinguishable from a
+   click that did not register. */
+async function downloadNotSupportive() {
+  const btn = $('ns-csv');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Building CSV...';
+  try {
+    /* The same query the listing was fetched with — gene AND the Limited
+       support tick — so the file is the set the manifest above counted. */
+    const res = await fetch(API_BASE + '/v1/not-supportive/csv/' + nsQuery(),
+                            { headers: { 'X-API-Key': S.key } });
+    if (!res.ok) {
+      let detail = '';
+      try { const d = await res.json(); detail = d.detail || d.error || ''; } catch (e) {}
+      throw new Error(detail || ('The server answered ' + res.status + '.'));
+    }
+    const blob = await res.blob();
+    const name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    triggerDownload(blob, name ? name[1] : 'oga-not-supportive.csv');
+    /* A download says it happened, and names what arrived: a plain <a href>
+       writes a file and the page does not move, which is indistinguishable
+       from a click that did not register. */
+    toast('Saved ' + (name ? name[1] : 'the CSV') + ' (' + humanSize(blob.size) + ')');
+  } catch (err) {
+    toast(err.message || 'That download could not be built.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+/* Verbs agree with counts, and counts are often 1. */
+function plural(n, one, many) { return Number(n) === 1 ? one : many; }
 
 /* The key is a header, so an <img src> cannot carry it. Each thumbnail is
    fetched with the key and handed over as a blob: no key in a URL, and no

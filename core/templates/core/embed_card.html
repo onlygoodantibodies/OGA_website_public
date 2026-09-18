@@ -208,7 +208,7 @@
           <span class="meta-item"><span class="ml">Clone</span> <span class="mv">{{ desc.clone_ID }}</span></span>
         {% endif %}
         {% if applications %}
-          <span class="meta-rec">Recommended: {{ applications|join:", " }}</span>
+          <span class="meta-rec">{{ supported_applications_label }} {{ applications|join:", " }}</span>
         {% endif %}
       {% endif %}
     </div>
@@ -238,7 +238,7 @@
     </div>
 
     {% comment %}
-    Drawn whether or not the "Recommended:" line above is — the figures are what
+    Drawn whether or not the supported-applications line above is — the figures are what
     a reader judges the antibody on, and a card carrying four images and no
     recommendation is still a card somebody reads as performance.
     {% endcomment %}

@@ -415,6 +415,27 @@
            title="Review this gene's published figures and mark which antibodies are recommended">
           ★ Set recommendations
         </a>
+        {% comment %}Assign or rearrange this gene's A-numbers without leaving
+        the page. The board has the same button and the same panel — one
+        implementation, in board.js — because a renumbering that behaved
+        differently depending on which page you opened it from is exactly the
+        defect this file records most, and the thing it writes is a number
+        somebody puts on a freezer box.
+
+        Only for a member with a site: the panel renumbers whatever the query
+        names, and a gene held at two benches is refused (McGill's A-1 and
+        Leicester's A-1 are different antibodies). The board fixes that with its
+        site filter; this page has none, so it scopes to your own bench — the
+        only one you may renumber anyway. Always drawn: `Member.site` is
+        non-nullable and `pipeline_member_required` 403s anyone without a
+        Member, so there is no reader of this page whose site is unknown — and
+        a guard that cannot be false invites the next reader to believe there is
+        a case where the button is hidden.{% endcomment %}
+        <button type="button" id="renumber-btn"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
+                title="Give this gene's antibodies their A-numbers, or deal them out again">
+          # Assign numbers
+        </button>
         <a href="{% url 'pipeline:antibody_board' %}?gene={{ target.gene_name|urlencode }}"
            class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
           Edit on the board →
@@ -432,6 +453,7 @@
     the page does not move, which the sixth field test read as a broken
     feature.{% endcomment %}
     <p id="ab-template-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
+    <div id="renumber-panel"></div>
     <div id="ab-add-panel"></div>
       <div id="ab-upload-panel"></div>
 
@@ -680,6 +702,16 @@
             <td class="px-3 py-2 text-gray-900">
               {% if pair.ko %}
                 {{ pair.ko.name }}
+                {% comment %}Which clone this knockout is. A gene and a
+                background define the KO; the clone says which single-cell line
+                it came from, often from a different guide — so two rows here
+                reading "A549" are two different knockouts, and without this
+                they read as the same one listed twice. `clone_note` is
+                services/cell_lines.py, the one reader, so this and the cell
+                lines board cannot describe a row differently.{% endcomment %}
+                {% if pair.ko.clone_note %}
+                  <span class="ml-1 text-xs text-gray-500">{{ pair.ko.clone_note }}</span>
+                {% endif %}
                 {% comment %}
                 A green tick read off `ko_validated` alone appeared beside lines
                 whose own reason says the validation failed. `ko_badge` comes
@@ -1133,9 +1165,7 @@ and take the page's JavaScript with it.{% endcomment %}
 same payload every patch reply carries back, so the panels below are drawn once
 by the same renderer at load and again after every save.{% endcomment %}
 {{ board_row|json_script:"board-row" }}
-{{ board_sites|json_script:"board-sites" }}
-{{ board_agencies|json_script:"board-agencies" }}
-{{ board_projects|json_script:"board-projects" }}
+{{ cell_choices|json_script:"cell-choices" }}
 <script src="{% static 'pipeline/board.js' %}"></script>
 <script>
 (function () {
@@ -1405,6 +1435,25 @@ by the same renderer at load and again after every save.{% endcomment %}
       preview: "{% url 'pipeline:bulk_antibodies_parse' %}",
       commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
     },
+    /* The same tick the antibodies board's Add panel carries. This is the third
+       door to the same write, and a rule that reaches two of three doors is a
+       rule for two surfaces — the failure this repo records more often than any
+       other. Ids in extraHtml belong to the caller and this page mounts two
+       panels, so it is prefixed rather than reusing the board's.
+
+       extraValues is *replaced* by Object.assign, not merged, so it has to
+       carry default_gene as well or every row here loses its gene. */
+    extraHtml: `<label class="flex items-start gap-2 text-sm text-gray-700 max-w-md">
+        <input type="checkbox" id="ab-number-now" class="mt-1 rounded border-gray-300">
+        <span>Give these an <b>A-number now</b>
+          <span class="block text-xs text-gray-500">Off by default, so you can deal the
+          numbers out once a delivery is complete and keep each protein's vials in one
+          box. Anything still without a number gets one when a session is planned.</span></span>
+      </label>`,
+    extraValues: () => ({
+      default_gene: gene,
+      number_now: document.getElementById('ab-number-now').checked,
+    }),
     intro: `<b class="text-gray-900">Add antibodies for {{ target.gene_name }}.</b>
             Leave the gene column blank — every row here is {{ target.gene_name }}.
             <span class="block mt-2 border-l-4 border-ycharos-300 bg-ycharos-50 pl-3 py-2">
@@ -1473,9 +1522,7 @@ by the same renderer at load and again after every save.{% endcomment %}
               <span class="block mt-1">The <b>parent</b> is that wild type, by
               <b>name</b> (<span class="font-mono">HAP1</span>) or by <b>C-number</b>
               (<span class="font-mono">C-48</span>). This line's own
-              <span class="font-mono">c number</span> is its freeze-down batch, and
-              <span class="font-mono">paired ko</span> is only for a WT that arrived
-              beside a knockout.</span>
+              <span class="font-mono">c number</span> is its freeze-down batch.</span>
             </span>`,
     renderPreview: d => {
       const s = d.summary || {};
@@ -1543,12 +1590,63 @@ by the same renderer at load and again after every save.{% endcomment %}
     document.getElementById(button).addEventListener('click', panel.open);
   }
 
+  /* Assign or rearrange this gene's A-numbers. Same panel as the antibodies
+     board (`OGABoard.renumberPanel`); the only difference is which rows it
+     means — this gene, at your own bench.
+
+     `?site=` as well as `?gene=`: a gene held at two benches is refused,
+     correctly, and this page has no site filter to fix it with. Scoped to your
+     own bench, which is the only one the server would let you renumber.
+
+     No `board.load()` afterwards — this page is a Django template, not a grid,
+     so it cannot redraw the numbers in place. It says so and offers a button,
+     rather than reloading out from under its own receipt. */
+  const renumber = OGABoard.renumberPanel({
+    mount: document.getElementById('renumber-panel'),
+    csrf,
+    urls: {plan: "{% url 'pipeline:antibody_renumber_plan' %}",
+           apply: "{% url 'pipeline:antibody_renumber_apply' %}"},
+    query: () => new URLSearchParams({
+      gene: "{{ target.gene_name|escapejs }}",
+      site: "{{ my_site_id }}",
+    }).toString(),
+    scope: "{{ target.gene_name|escapejs }}'s antibodies at {{ my_site_name|escapejs }}",
+    afterNote: () => `<button type="button"
+        class="mt-2 block font-semibold underline text-emerald-900"
+        onclick="window.location.reload()">Show them on this page →</button>`,
+  });
+  document.getElementById('renumber-btn').addEventListener('click', renumber.open);
+
   upload('ab-upload-panel', 'ab-upload-btn', {
     templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
     urls: {
       preview: "{% url 'pipeline:import_upload' kind='antibodies' %}",
       commit: "{% url 'pipeline:bulk_antibodies_commit' %}",
     },
+    /* The fourth door into `bulk_antibodies`, and the one the first pass of
+       this missed. The board's Add panel, the board's Upload panel and this
+       page's Add panel all carry the tick; a sheet uploaded from a gene's own
+       page is the same write and was the one surface that could not ask for
+       numbers on receipt.
+
+       `extraFields` and `extraBody` are *replaced* by Object.assign rather than
+       merged, so both have to carry `default_gene` too — drop it and every row
+       in the sheet loses this page's gene. Same trap as the Add panel above. */
+    extraHtml: `<label class="flex items-start gap-2 text-sm text-gray-700 mt-2 max-w-md">
+        <input type="checkbox" id="ab-upload-number-now" class="mt-1 rounded border-gray-300">
+        <span>Give new rows an <b>A-number now</b>
+          <span class="block text-xs text-gray-500">Off by default. Rows that already
+          carry a number in the <b>ab #</b> column keep it either way.</span></span>
+      </label>`,
+    extraFields: () => ({
+      default_gene: gene,
+      number_now: document.getElementById('ab-upload-number-now').checked
+        ? 'true' : 'false',
+    }),
+    extraBody: () => ({
+      default_gene: gene,
+      number_now: document.getElementById('ab-upload-number-now').checked,
+    }),
     intro: `<b class="text-gray-900">Upload a sheet of antibodies for
             {{ target.gene_name }}.</b> The blank template — from the button
             beside this one, or from the Add panel — or a sheet you downloaded;
@@ -1679,18 +1777,15 @@ by the same renderer at load and again after every save.{% endcomment %}
   const patchUrl = "{% url 'pipeline:target_board_patch' %}";
   const errors = OGABoard.banner('board-error', 'board-error-text', 'board-error-close');
 
-  /* What each cell may hold. A site is refused unless it is one on file
-   * (`services/sites.py::strict_id` names the alternatives), so that one is a
-   * closed list with a blank option — clearing it is how an allocation is
-   * withdrawn. Funders and projects are created on demand by the same writer
-   * the board uses, so theirs are reminders, not rules. */
-  const cellChoices = {
-    site: {strict: true, values: [{value: '', label: '— none —'}].concat(
-      (json('board-sites') || []).map(s => ({value: s, label: s})))},
-    granting_agency: {values: json('board-agencies') || []},
-    project: {values: json('board-projects') || []},
-    essential_gene: {values: ['YES', 'NO', 'slightly']},
-  };
+  /* What each cell may hold — services/target_board.py::cell_choices, which the
+   * targets board reads too.
+   *
+   * It was built here, and only here: the same four fields were pickers on this
+   * page and bare text boxes on the board one click away, through the same
+   * patch endpoint. One fact, two controls. The reasoning has moved with the
+   * code — a site is refused unless it is one on file, funders and projects are
+   * created on demand so theirs are reminders rather than rules. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
 
   /* Whether this gene reads as completed, as it was when the page was drawn.
    * A publication save can flip it, and the badge at the top and the progress

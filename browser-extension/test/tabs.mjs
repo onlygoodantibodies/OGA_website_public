@@ -87,9 +87,148 @@ try {
   // fetch it from in a test, and what is under test is everything after arrival.
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 15000 });
+  // The extension refreshes its own citation table on install:
+  // `chrome.runtime.onInstalled` fires the moment Playwright loads the unpacked
+  // extension into this fresh profile, and calls `refreshCitations`
+  // UNCONDITIONALLY -- not through `refreshIfStale`. So it fetches the live
+  // snapshot and `storage.local.set`s it over whatever this test seeded, and the
+  // fixture's synthetic title key is not in the real record.
+  //
+  // That made the suite pass or fail on whether the machine running it could
+  // reach the site: green on a sandbox with no egress, red on CI, and the
+  // browser version it got blamed on had nothing to do with it. Playwright's
+  // context.route does NOT reach a worker's fetch -- tried, and the handler was
+  // never called -- so the stub goes inside the worker, where the fetch is.
+  await worker.evaluate((table) => {
+    const real = globalThis.fetch;
+    globalThis.fetch = async (input, ...rest) => {
+      if (String(input && input.url || input).includes("/extension/citations.json")) {
+        return new Response(JSON.stringify(table),
+          { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return real(input, ...rest);
+    };
+  }, CITATIONS);
+
   await worker.evaluate(async (table) => {
     await chrome.storage.local.set({ citations: table, citationsFetchedAt: Date.now() });
   }, CITATIONS);
+
+  // A fetch already in flight when the stub went up can still land after the
+  // seed, so the seed is not assumed -- it is checked, and re-applied. Asserting
+  // the table IS the fixture at page-load time is the invariant the three
+  // lookup checks below rest on; without it a clobbered run reports three
+  // mysterious product failures instead of one plain harness one.
+  let settled = false;
+  for (let i = 0; i < 20 && !settled; i++) {
+    settled = await worker.evaluate(async (key) => {
+      const { citations } = await chrome.storage.local.get("citations");
+      return !!(citations && citations.by_title && citations.by_title[key] !== undefined);
+    }, titleKey);
+    if (!settled) {
+      await worker.evaluate(async (table) => {
+        await chrome.storage.local.set({ citations: table, citationsFetchedAt: Date.now() });
+      }, CITATIONS);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  if (!settled) {
+    console.log("\nFAILED: the seeded citation table never stuck -- the extension's "
+      + "own refresh keeps overwriting it, so nothing below would be testing the "
+      + "fixture.");
+    await context.close(); server.close(); process.exit(1);
+  }
+
+  // ...and then hold it, because settling is not the same as staying settled.
+  // The loop above only re-seeds while the fixture is MISSING, so it stops
+  // watching the moment it is there — and a refresh that began before the stub
+  // went up is still in flight, on a runner whose network is slower than the
+  // two seconds that loop spends. It lands afterwards and overwrites the
+  // fixture between here and the page load, which is why CI stayed red through
+  // the stub, the re-seed and the guard: all three were about the fetch, and
+  // this one arrives as a WRITE.
+  //
+  // So the write is what is closed off. Any later `citations` key is dropped
+  // and every other key still goes through — the table cannot be replaced
+  // whatever lands, whenever it lands, which is a guarantee no amount of
+  // waiting can give. Driven both ways: with a live-shaped snapshot set 300ms
+  // from here, the suite fails exactly as CI does without this and passes with
+  // it.
+  await worker.evaluate(() => {
+    const realSet = chrome.storage.local.set.bind(chrome.storage.local);
+    chrome.storage.local.set = (items, cb) => {
+      if (items && Object.prototype.hasOwnProperty.call(items, "citations")) {
+        const { citations, ...rest } = items;
+        if (!Object.keys(rest).length) return cb ? cb() : Promise.resolve();
+        return realSet(rest, cb);
+      }
+      return realSet(items, cb);
+    };
+  });
+
+  // ...AND the copy held in memory, which is the half both earlier fixes missed
+  // and the reason CI stayed red through all of them.
+  //
+  // `refreshCitations` assigns `cachedCitations` BEFORE it writes storage, and
+  // `getCitations` returns that copy without reading storage at all:
+  //
+  //     cachedCitations = fresh;                       // <- the in-flight fetch
+  //     await chrome.storage.local.set({ citations: fresh, ... });   // <- locked above
+  //
+  // So the lock above does exactly what it claims and the worker goes on
+  // answering from the live snapshot regardless. Worse, it made the diagnosis
+  // point the wrong way: the probe below reads STORAGE, so a clobbered run
+  // printed a healthy fixture and a covered lookup beside three failures it
+  // could not explain. Both earlier attempts were reasoning about the copy that
+  // was fine.
+  //
+  // `getCitations` is a top-level function declaration in a classic worker
+  // script, so it IS a property of the global object and the message handler
+  // resolves it there at call time — replacing it reaches the real caller.
+  // Pointed at storage, which the lock above has already made unclobberable,
+  // the in-memory copy stops mattering whatever lands and whenever.
+  //
+  // Driven both ways on Chromium 141: with `cachedCitations` set to a
+  // live-shaped table after the seed, the three checks fail exactly as CI
+  // prints them without this, and pass with it.
+  await worker.evaluate(() => {
+    globalThis.getCitations = async () => {
+      const { citations } = await chrome.storage.local.get("citations");
+      return citations && citations.schema === 1 ? citations : null;
+    };
+  });
+
+  // AND THE INDEX, for the same reason and by the same route. `onInstalled`
+  // calls `refreshIndex()` on the line above `refreshCitations()`, so CI's
+  // network replaces the bundled 18-record fixture with the live 1,603-record
+  // one — and the live record for this fixture's antibody carries a qualifier
+  // where the bundled one does not, which makes the same mark yellow there and
+  // red here. Two clobbers, and only one of them had ever been guarded; the
+  // second was reading as a product fault in the very check the first one
+  // broke. Every assertion below is about the bundled fixture, so it is the
+  // bundled fixture that has to be what answers.
+  await worker.evaluate(async () => {
+    const { index } = await chrome.storage.local.get("index");
+    const bundled = index && index.schema === 1 ? index : null;
+    globalThis.getIndex = async () => {
+      if (bundled) return bundled;
+      const resp = await fetch(chrome.runtime.getURL("data/index.json"));
+      return resp.json();
+    };
+  });
+
+  // Record what the content script actually asks for. All three lookup-dependent
+  // checks fail together when the paper record does not reach the card, and the
+  // failure reads the same whichever half broke: a key computed differently in
+  // the tab, or a worker that never answered. This listener runs before the real
+  // one and returns false, so it observes and answers nothing.
+  await worker.evaluate(() => {
+    globalThis.__ogaSeen = [];
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg && msg.type === "oga:get-index") globalThis.__ogaSeen.push(msg.keys);
+      return false;
+    });
+  });
 
   const page = await context.newPage();
   await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -101,6 +240,39 @@ try {
     cls: [...el.classList].find((c) => c.startsWith("oga-") && c !== "oga-hl"),
     inside: el.closest("p") ? el.closest("p").id : null,
   })));
+
+  // Printed on every run, not only a failing one: the three checks below share
+  // one dependency, and which half of it broke is invisible in their messages.
+  // A worker that restarted loses the listener above -- which is itself an
+  // answer, so it is reported as one rather than as "nothing was asked".
+  const asked = await worker.evaluate(() => globalThis.__ogaSeen || null);
+  const lookup = await worker.evaluate(async (key) => {
+    const stored = await chrome.storage.local.get("citations");
+    return {
+      titlesInTable: stored.citations && stored.citations.by_title
+        ? Object.keys(stored.citations.by_title) : null,
+      direct: typeof findPaper === "function"
+        ? findPaper(stored.citations, { titleKey: key })
+        : "findPaper is not reachable in the worker",
+    };
+  }, titleKey);
+  console.log(`  key this fixture is filed under : ${titleKey}`);
+  console.log(`  keys the content script sent    : ${asked === null
+    ? "unknown -- the worker restarted and the diagnostic listener went with it"
+    : JSON.stringify(asked)}`);
+  console.log(`  worker-side lookup on that key  : ${JSON.stringify(lookup)}`);
+
+  check("every mark carries a level class", () => {
+    // `LEVEL_CLASS` is the only thing that paints a mark, and a level missing
+    // from it yields `class="oga-hl undefined"`: drawn, hoverable, correct in
+    // the card, and invisible as a signal on the page. That is how `yellow`
+    // shipped unpainted from 0.3.1 to 12 Sep 2026. Checked here over whatever
+    // this page produced rather than against a list, so a level added later is
+    // covered without anybody remembering this line.
+    const unpainted = marks.filter((m) => !m.cls);
+    assert.deepEqual(unpainted, [],
+      "a mark was drawn with no level class, so it has no colour at all");
+  });
 
   check("a looked-up application narrows the mark that proximity left mixed", () => {
     // Same antibody, same page, in the WB paragraph -- but the citation record

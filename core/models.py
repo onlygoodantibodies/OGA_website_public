@@ -79,6 +79,21 @@ class APIConsumer(models.Model):
     )
     created_at = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
+    #: Ours, not a customer's — a key we hold for testing or for running a demo.
+    #: The impact page's totals are what somebody quotes in a grant, and our own
+    #: exercising of the API is not reach. It is drawn there rather than hidden:
+    #: excluded from the headline and counted underneath, because a number that
+    #: silently swallowed our traffic cannot tell a quiet month from a broken
+    #: counter, which is the confusion these counters exist to end.
+    #:
+    #: Deliberately separate from `is_active`: a live internal key is normal, and
+    #: a switched-off customer key is still a customer.
+    is_internal = models.BooleanField(
+        default=False,
+        verbose_name="Internal / test key",
+        help_text="Ours — testing or demos. Kept out of the impact page's "
+                  "headline totals and counted separately beneath them.",
+    )
 
     class Meta:
         verbose_name = "API Consumer"
@@ -191,3 +206,76 @@ class ApiUsageDay(models.Model):
     def __str__(self):
         who = self.consumer.name if self.consumer else 'no key'
         return f"{self.date} {self.endpoint} — {who}: {self.count}"
+
+
+class McpUsageDay(models.Model):
+    """How many tool calls the hosted MCP server served, per tool, per day.
+
+    **Nothing recorded this before.** The MCP server is its own Render service
+    (`OGA_MCP`), so the only evidence it was being used at all was that
+    service's log — which Render keeps for seven days and then discards. On
+    31 Aug 2026 the question "is anybody using the MCP server?" could be
+    answered for the past week and for no week before it, and the WorkOS user
+    list that looked like the answer is a list of *accounts*, which counts a
+    sign-in that never called a tool the same as a partner using it daily.
+
+    Three things about the shape, each borrowed deliberately from
+    ``ApiUsageDay`` above, whose docstring carries the longer reasoning.
+
+    **A row per (day, tool, client), incremented in place**, so the table's
+    size is bounded by tools × clients × days and not by how hard anybody
+    pulls.
+
+    **``client`` is the MCP client's own name** — ``claude-ai``,
+    ``claude-code``, ``chatgpt`` — as it reports itself at connection. It is
+    the software, never the person: the server knows an OAuth subject and this
+    table deliberately does not, so the impact page can quote reach without
+    holding identities.
+
+    **Blank means the client did not say**, and is a value like any other
+    rather than ``NULL``, which keeps a plain unique constraint honest — the
+    lesson ``ApiUsageDay`` paid for with two partial ones.
+
+    Written by `core/mcp_usage.py` when the MCP service reports a call. A call
+    served with no report — the server running locally over stdio, or the
+    reporting token unset — is absent rather than zero, and the impact page
+    says so.
+    """
+
+    date = models.DateField(db_index=True)
+    tool = models.CharField(
+        max_length=64,
+        help_text="MCP tool name, e.g. 'search_antibodies'.",
+    )
+    client = models.CharField(
+        max_length=64, blank=True,
+        help_text="The MCP client's own name. Blank means it did not say.",
+    )
+    #: A call by us rather than by a reader — decided by the connector, which
+    #: compares the caller's OAuth subject against ``MCP_INTERNAL_SUBJECTS`` and
+    #: sends this boolean **instead of** the identity. So the table still holds
+    #: no identities, and the impact page can still tell our own testing from
+    #: somebody else's use. A call the connector could not attribute — no token,
+    #: or a subject not on the list — is external, which is the direction that
+    #: over-reports us rather than inventing reach.
+    internal = models.BooleanField(default=False)
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "MCP usage (day)"
+        verbose_name_plural = "MCP usage (days)"
+        ordering = ['-date', 'tool']
+        constraints = [
+            # `internal` is part of the key, not a property of the row. Without
+            # it, our call and a reader's call to one tool on one day collide on
+            # the same row and the flag becomes whichever arrived first — the
+            # count would be right and the attribution silently wrong, which is
+            # worse than not splitting them at all.
+            models.UniqueConstraint(
+                fields=['date', 'tool', 'client', 'internal'],
+                name='one_mcp_usage_row_per_day_tool_client_origin',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.tool} — {self.client or 'unnamed client'}: {self.count}"

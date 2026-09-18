@@ -1,0 +1,28 @@
+{
+  "id": "p-erk-for-perk",
+  "papers_only": true,
+  "declared_target": {
+    "gene": "MAPK1/MAPK3",
+    "protein": "phosphorylated ERK1/2",
+    "full_name": "phosphorylated extracellular signal-regulated kinase 1/2"
+  },
+  "mistaken_for": {
+    "gene": "EIF2AK3",
+    "protein": "PERK",
+    "full_name": "protein kinase R-like endoplasmic reticulum kinase"
+  },
+  "short": "This is an antibody to phosphorylated ERK1/2, the growth-signalling kinases written p-ERK or pERK. It is not an antibody to PERK (EIF2AK3), the endoplasmic reticulum kinase of the unfolded protein response. The confusion runs both ways, and this is the rarer direction.",
+  "explanation": "The same collision as the PERK notice, in the other direction. PERK is protein kinase R-like endoplasmic reticulum kinase (EIF2AK3), near 125 kDa; p-ERK is phosphorylated extracellular signal-regulated kinase 1/2 (MAPK3 and MAPK1), the double band near 42 and 44 kDa. Two unrelated proteins whose abbreviations differ by one hyphen. This direction is much the rarer of the two in the review's list, which is worth knowing rather than worth discounting: a phospho-ERK antibody used to blot for PERK answers no question about the unfolded protein response.",
+  "papers_file": "p_erk_for_perk_papers.csv",
+  "papers_source": "From the same list as the PERK notice; see that file. The reviewer recorded two papers in this direction.",
+  "source": {
+    "title": "PERK vs p-ERK: Another Antibody Confusion!",
+    "author": "Sholto David",
+    "publication": "Sholto's Substack",
+    "url": "https://sholto.substack.com/p/perk-vs-p-erk-another-antibody-confusion",
+    "date": "2026-08-25"
+  },
+  "antibodies": [
+    { "identifier": "sc-7383", "supplier": "Santa Cruz Biotechnology" }
+  ]
+}

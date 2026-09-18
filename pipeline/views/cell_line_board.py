@@ -72,6 +72,14 @@ def cell_line_board(request):
         # parser cannot drift apart.
         "new_columns": new_columns,
         "new_example": new_example,
+        # What each cell may hold — a `<select>` where the writer refuses
+        # anything else, a `<datalist>` where an unlisted value is legitimate.
+        # See the board service's `cell_choices`.
+        "cell_choices": board.cell_choices(),
+        # The Add panel offers two sets the grid has no cell for —
+        # `genotype` is identity, chosen at creation and changed only
+        # through the identity dialog afterwards.
+        "panel_choices": board.panel_choices(),
     })
 
 

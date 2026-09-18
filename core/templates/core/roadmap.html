@@ -471,12 +471,6 @@
   line-height: 1.45;
   margin-bottom: 3px;
 }
-.consensus-count {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #4a8ec9;
-  margin-top: 10px;
-}
 .stakeholder-dl {
   display: inline-flex;
   align-items: center;
@@ -537,6 +531,24 @@
   transition: gap 0.2s;
 }
 .tool-link:hover { gap: 8px; }
+
+/* The review tools span the row: they are for reading somebody else's work,
+   not for your own bench, so they read as a band under the three above. */
+.tool-card.wide { grid-column: 1 / -1; }
+.tool-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+.tool-split strong {
+  display: block;
+  color: rgba(255,255,255,0.9);
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+}
+.tool-split p { margin-bottom: 0; }
+.tool-link-row { display: flex; flex-wrap: wrap; gap: 12px 28px; }
 
 /* ── CTA CARDS ── */
 .cta-grid {
@@ -631,6 +643,7 @@
   .paper-cards { grid-template-columns: 1fr; }
   .stakeholder-grid { grid-template-columns: 1fr 1fr; }
   .tools-grid { grid-template-columns: 1fr; }
+  .tool-split { grid-template-columns: 1fr; }
   .cta-grid { grid-template-columns: 1fr; }
   .hero-stats { gap: 20px; }
   .jump-bar-label { display: none; }
@@ -797,7 +810,7 @@
         <div class="narrative-dot"></div>
         <div class="narrative-step-label">Now</div>
         <h3>We're building the tools and convening the stakeholders</h3>
-        <p>The OGA database, Academy, and Antibody Champions programme provide practical infrastructure to support implementation. We're bringing stakeholders together — including at the <strong>UKRN Annual Conference in July 2026</strong> — to turn recommendations into coordinated action.</p>
+        <p>The OGA database, Academy, and Antibody Champions programme provide practical infrastructure to support implementation. We're bringing stakeholders together — most recently at the <strong>UKRN Annual Conference in July 2026</strong> — to turn recommendations into coordinated action.</p>
       </div>
     </div>
   </div>
@@ -862,7 +875,6 @@
         <div class="stakeholder-icon">🏛</div>
         <h3>Institutions</h3>
         <p>Training, research integrity frameworks, and local champions</p>
-        <div class="consensus-count">3 consensus — all fully agreed, no feasibility concerns</div>
         <a href="{% static 'core/docs/S4_Institutional_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
         <a href="{% url 'roadmap_institutions' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
       </div>
@@ -871,7 +883,6 @@
         <div class="stakeholder-icon">💰</div>
         <h3>Funders</h3>
         <p>Validation budgets, grant requirements, reporting standards, benchmarking</p>
-        <div class="consensus-count">6 consensus + 4 effective but uncertain feasibility</div>
         <a href="{% static 'core/docs/S3_Funder_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
         <a href="{% url 'roadmap_funders' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
       </div>
@@ -880,7 +891,6 @@
         <div class="stakeholder-icon">📄</div>
         <h3>Publishers &amp; Journals</h3>
         <p>Antibody reporting packages, validation standards, editorial capacity</p>
-        <div class="consensus-count">4 consensus + 6 effective but uncertain feasibility</div>
         <a href="{% static 'core/docs/S2_Publisher_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
         <a href="{% url 'roadmap_publishers' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Adoption guide →</a>
       </div>
@@ -889,7 +899,6 @@
         <div class="stakeholder-icon">🧪</div>
         <h3>Manufacturers</h3>
         <p>Product identification (RRIDs at source), validation data, recombinant transition</p>
-        <div class="consensus-count">1 consensus + 2 effective but uncertain feasibility</div>
         <a href="{% static 'core/docs/S5_Manufacturer_Recommendations.pdf' %}" class="stakeholder-dl" target="_blank">↓ Consultation document</a>
         <a href="{% url 'roadmap_manufacturers' %}" class="stakeholder-dl" style="background:#10428a;color:#fff;border-color:#10428a;">Working with us →</a>
       </div>
@@ -932,7 +941,7 @@
     <div class="rm-label">The Tools</div>
     <div class="rm-title">Making better practice easier</div>
     <div class="rm-desc">
-      Saying what needs to change is half the job. These are the tools and programmes we have built so researchers, institutions and the wider community can act on the recommendations.
+      Saying what needs to change is half the job. These are the tools and programmes we have built so researchers, reviewers, institutions and the wider community can act on the recommendations.
     </div>
 
     <div class="tools-grid">
@@ -960,6 +969,28 @@
         <div class="tool-stat">Launching <strong>April 2026</strong> with NC3Rs</div>
         <a href="https://nc3rs.org.uk/news/antibody-champions-deliver-widespread-3rs-impact" class="tool-link" target="_blank">Learn more at NC3Rs →</a>
       </div>
+
+      <!-- The two review tools. Same pair the publishers and funders pages
+           carry; here they answer the 84.2% figure above — the point where a
+           reader could have caught it. -->
+      <div class="tool-card wide">
+        <h3>🔎 Screening a manuscript, preprint or grant</h3>
+        <p>Two free tools that put the independent, knockout-controlled data in front of whoever is reading the science rather than writing it — a reviewer, an editor, or a funding panel.</p>
+        <div class="tool-split">
+          <div>
+            <strong>Browser extension</strong>
+            <p>Marks every antibody cited on a journal or preprint page with its knockout-controlled result for the application it was used in, and shows the data on hover. Matching happens in your browser — no page text is sent anywhere.</p>
+          </div>
+          <div>
+            <strong>AI connector</strong>
+            <p>Connects the database to Claude, ChatGPT or any MCP-capable assistant, which reads a whole manuscript, preprint or application and tells you how each antibody it cites performed, application by application — and which specificity controls the paper shows.</p>
+          </div>
+        </div>
+        <div class="tool-link-row">
+          <a href="{% url 'extension' %}" class="tool-link">Get the browser extension →</a>
+          <a href="{% url 'connect_your_ai' %}" class="tool-link">Connect an AI →</a>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -979,7 +1010,7 @@
     <div class="cta-grid">
       <div class="cta-card">
         <h3>UKRN Conference 2026</h3>
-        <p>We have a 90-minute panel session — <em>"Working together to improve biomedical research: the OnlyGoodAntibodies experience"</em> — at the UK Reproducibility Network Annual Conference, 8–9 July 2026.</p>
+        <p>We ran a 90-minute panel session — <em>"Working together to improve biomedical research: the OnlyGoodAntibodies experience"</em> — at the UK Reproducibility Network Annual Conference on 8–9 July 2026. If you were there and want to carry something forward, get in touch.</p>
         <a href="https://www.ukrn.org/conference/" target="_blank">Conference details →</a>
       </div>
       <div class="cta-card">
@@ -1001,39 +1032,7 @@
 
 
 <!-- Footer -->
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>Quick Links</h4>
-      <a href="{% url 'home' %}">Home</a>
-      <a href="{% url 'about' %}">About Us</a>
-      <a href="{% url 'roadmap' %}">Roadmap</a>
-      <a href="{% url 'publications' %}">Publications</a>
-      
-      <a href="{% url 'news' %}">News</a>
-      <a href="{% url 'contact' %}">Contact</a>
-    </div>
-    <div class="footer-column">
-      <h4>Contact Us</h4>
-      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-    </div>
-    <div class="footer-column">
-      <h4>Follow Us</h4>
-      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-      </a>
-      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-      </a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
-  </div>
-</footer>
+{% include 'core/footer.html' %}
 
 
 <!-- ═══════════════════════════════════════

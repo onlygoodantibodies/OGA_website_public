@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Only Good Antibodies — validation at a glance",
+  "name": "Only Good Antibodies — characterisation",
   "short_name": "OGA",
-  "version": "0.2.4",
-  "description": "Highlights antibodies cited on a page and shows the knockout-controlled validation data for the application they were used in.",
+  "version": "0.4.2",
+  "description": "Highlights antibodies cited on a page and shows the knockout-controlled characterisation data for the application they were used in.",
   "homepage_url": "https://onlygoodantibodies.co.uk/extension/",
   "icons": {
     "16": "icons/icon-16.png",

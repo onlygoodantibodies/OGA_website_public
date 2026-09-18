@@ -31,9 +31,15 @@ from pipeline.services import targets as target_svc
 
 DB = "pipeline_db"
 
+# `clone` is deliberately **not** here: it is identity, changed through the
+# identity dialog like the name, the gene and the genotype. A gene and a
+# background define the knockout and the clone says which one, so retyping it in
+# a grid cell makes the row describe a different single-cell line while every
+# session, vial and reading recorded against it stays attached — the same
+# sentence this module's docstring already writes about the other four.
 EDITABLE_FIELDS = {
     "c_number", "catalogue_number", "lot_number", "cellosaurus_id", "species",
-    "clone", "growth_properties", "medium", "origin", "origin_comments",
+    "growth_properties", "medium", "origin", "origin_comments",
     "location_original_vial", "ko_validation_notes", "site",
 }
 
@@ -70,10 +76,20 @@ COLUMN_TIPS = {
     "genotype": "WT, KO, or other. Not editable here for the same reason as "
                 "the gene: a session's whole meaning depends on which of the "
                 "two lines was which.",
-    "parent": "The parental line a knockout was made from — recorded by name "
-              "(HAP1) or by C-number (C-48), which is how most rows on file "
-              "write it. A KO only means something alongside the WT it came "
-              "from.",
+    "parent": "The wild type this knockout was made from. Two things where they "
+              "differ: the line it is linked to, then the C-number the bench "
+              "recorded — which names a specific freeze-down batch, and matters "
+              "because one name covers several stocks (HeLa covers 17, from five "
+              "suppliers). 'not linked' means the reference resolved to nothing "
+              "or to the wrong background; run backfill_cell_line_parents to see "
+              "why. A KO only means something alongside the WT it came from.",
+    "clone": "Which single-cell clone this knockout is — often made with a "
+             "different guide. The gene and the background say what was knocked "
+             "out and in what; the clone says which one, so two rows here named "
+             "the same thing are two different knockouts and not one listed "
+             "twice. Where there is more than one on file the cell says how "
+             "many. Not editable here: like the gene and the genotype, it is "
+             "what the line is — click it to change it.",
     "c_number": "This line's own freeze-down batch, as written on the tube.",
     "cellosaurus_id": "Cellosaurus accession — the public identifier for a cell "
                    "line. Worth filling in: it is what makes the line "
@@ -89,6 +105,10 @@ COLUMN_TIPS = {
                     "check failed asks to be looked at rather than showing a "
                     "green confirmation. An unconfirmed KO line makes every "
                     "result that used it provisional.",
+    "growth_properties": "How the line grows — adherent or suspension. Click to "
+                         "change it; the box offers the spellings already in use.",
+    "species": "Which species the line came from. Nearly all are human, which is "
+               "why the few that are not are worth seeing.",
     "medium": "Growth medium and supplements.",
     "site": "Which site holds the line, and whether it has arrived and "
                    "been thawed yet.",
@@ -176,8 +196,14 @@ def apply_filters(qs, *, q="", genotype="", gene="", site="", ko_validated="",
     return qs
 
 
-def row_for(line) -> dict:
+def row_for(line, *, clone_total=None) -> dict:
     """One board row. Every value must be JSON — a plain string, number or bool.
+
+    ``clone_total`` is how many clones of this knockout are on file, supplied by
+    the caller from one batched query (`cell_lines.clone_counts`). Left out it is
+    asked per row, which is the N+1 `tests_cell_line_board.py` already caught
+    once on `batch_numbers` — so the two callers that draw many rows pass it and
+    the single-row patch response does not need to.
 
     This is where the board died. ``arrived_with_ko`` is a ForeignKey to the KO
     line a wild-type was shipped alongside, and returning it returned the
@@ -214,14 +240,23 @@ def row_for(line) -> dict:
         # a link to *that* row's page is a link to a page about nothing.
         "target_id": line.target_id,
         "genotype": line.genotype or "",
-        "parent": (line.parent_line.name if line.parent_line_id
-                   else (line.parental_line_name or "")),
+        # The linked parental *and* the batch the bench recorded — see
+        # `cell_lines.parent_label`. Drawing only the linked name lost the
+        # C-number off 156 rows the moment they were linked.
+        "parent": cell_lines_svc.parent_label(line),
         "company": line.company.name if line.company_id else "",
         "catalogue_number": line.catalogue_number or "",
         "lot_number": line.lot_number or "",
         "cellosaurus_id": line.cellosaurus_id or "",
         "species": line.species or "",
         "clone": line.clone or "",
+        # What the CLONE cell draws: the clone as recorded, and — when this
+        # knockout has siblings — how many there are. A cell showing one of
+        # several looks like an answer (the rule `services/storage.py` holds for
+        # an antibody kept in two boxes), and "all the clones of a KO" is the
+        # thing a bench asked for by name and the board could not say.
+        "clone_note": cell_lines_svc.clone_note(line, total=clone_total),
+        "clone_total": clone_total if clone_total is not None else 1,
         "growth_properties": line.growth_properties or "",
         "medium": line.medium or "",
         "origin": line.origin or "",
@@ -248,14 +283,93 @@ def _ordered(**filters):
 
 def board_rows(**filters) -> list[dict]:
     """Every matching row — for exports and for tests that want the whole set."""
-    return [row_for(c) for c in _ordered(**filters)]
+    lines = list(_ordered(**filters))
+    totals = cell_lines_svc.clone_counts(lines)
+    return [row_for(c, clone_total=totals.get(c.pk)) for c in lines]
 
 
 def board_page(*, page=1, per_page=board_page_svc.DEFAULT_PER_PAGE, locate=None,
                **filters) -> dict:
-    """One page of cell lines — see ``services/board_page.py``."""
-    return board_page_svc.slice_rows(_ordered(**filters), row_for,
-                                     page=page, per_page=per_page, locate=locate)
+    """One page of cell lines — see ``services/board_page.py``.
+
+    The slicer is asked for the *objects* and the rows are built here, so the
+    clone counts are one query for the page rather than one per drawn row.
+    Slicing still happens before any row is built, which is the invariant
+    `board_page.slice_rows` exists to hold.
+    """
+    result = board_page_svc.slice_rows(_ordered(**filters), lambda line: line,
+                                       page=page, per_page=per_page, locate=locate)
+    lines = result["rows"]
+    totals = cell_lines_svc.clone_counts(lines)
+    result["rows"] = [row_for(c, clone_total=totals.get(c.pk)) for c in lines]
+    return result
+
+
+def cell_choices() -> dict:
+    """What each cell may hold — see ``antibody_board.cell_choices``.
+
+    `site` is the one closed set here and it is closed because `strict_id`
+    already refuses anything else; the rest are conventions the bench writes in
+    its own words, so they are reminders drawn from the column itself.
+
+    **`site` is the only entry, and the two reasons for that are different.**
+
+    `medium` is drawn and holds 120 distinct values on live, well past
+    `vocabulary.MAX_OPTIONS` — `on_file` would answer with nothing, so naming it
+    would read as an oversight when it is a decision. A datalist of 120 media is
+    a scroll, not a reminder; same for `clone` (61) and
+    `location_original_vial` (82).
+
+    `species` (5 distinct over 567 rows), `growth_properties` (4 over 411) and
+    `origin` (11 over 488) were the opposite problem and the more interesting
+    one: they have exactly the vocabulary worth offering, and this board drew no
+    cell for any of them. They are in `EDITABLE_FIELDS`, so the patch endpoint
+    would save them, and no column existed to type into — the same dark shape as
+    the box and the received date, and register #91's question.
+
+    **The benches answered it for two of the three within an hour of each
+    other** (14 Sep 2026). uOttawa: a student looking a line up needs to know
+    whether it is adherent or in suspension before they thaw it. McGill, on the
+    same thread: the species matters too, human or mouse. Both are columns now
+    (`services/board_columns.py`) and therefore pickers here. `origin` still
+    draws no cell, so it is still not here — a picker for a cell nobody draws is
+    dead configuration.
+
+    Both are `<datalist>`s and not `<select>`s. Adherent and suspension are what
+    anybody writes, and the other spellings on file are somebody describing a
+    line more precisely than an enum would let them; species is 604 Human, 8
+    Mouse, 2 Rat, 1 Monkey and 1 Dog, and the next line through the door could
+    be from an animal none of those name.
+    """
+    from pipeline.services import vocabulary
+
+    return {
+        "site": vocabulary.sites(blank="— no site —"),
+        "growth_properties": vocabulary.choices(CellLine, "growth_properties"),
+        "species": vocabulary.choices(CellLine, "species"),
+    }
+
+
+def panel_choices() -> dict:
+    """Vocabularies for the **Add cell lines** panel, which is not the grid.
+
+    Two sets the grid has no cell for. `genotype` is part of the identity, so it
+    is chosen when a line is created and changed afterwards only through the
+    identity dialog — which means the Add panel is the one surface that needs to
+    offer it. `storage` on this sheet is the *location note*
+    (`bulk_cell_lines.HEADER_ALIASES` maps it to `location`, and `_storage_type`
+    reads the shelf back out of it), so the temperatures are offered as the
+    convention the sheet's own example already teaches rather than as a
+    narrowing.
+    """
+    from pipeline.models import CellLine
+    from pipeline.services import storage as storage_svc
+
+    return {
+        "genotype": [v for v, _label in
+                     (CellLine._meta.get_field("genotype").choices or [])],
+        "storage": list(storage_svc.TYPE_LABELS.values()),
+    }
 
 
 def filter_options() -> dict:

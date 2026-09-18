@@ -108,6 +108,11 @@ def target_board(request):
         # of genes is one bench's worth, and until this existed the paste door
         # could only ever nominate to the adder's own site.
         "my_site_id": getattr(member, "site_id", None) or "",
+        # What each cell may hold — a `<select>` where the writer refuses
+        # anything else, a `<datalist>` where an unlisted value is legitimate.
+        # One function, read by this board **and** by a gene's own page, so the
+        # same field cannot be a picker on one and a text box on the other.
+        "cell_choices": board.cell_choices(),
         "projects": opts["projects"],
         "agencies": opts["agencies"],
         "classes": opts["classes"],
@@ -402,11 +407,17 @@ def target_board_upload_commit(request):
     parsed = tio.parse_workbook(f)
     if not parsed.get("ok"):
         return JsonResponse(parsed, status=400)
+    # The genes the *preview* confirmed, sent back with the file. Always a list
+    # here even when the field is absent, so a POST that skipped the preview
+    # creates no new targets rather than falling through to the old ungated
+    # behaviour — `apply` treats `None` as "no check was run", and this door is
+    # the one a person presses.
     result = tio.apply(
         parsed,
         member=_member(request),
         apply_overwrites=request.POST.get("apply_overwrites") in ("true", "1", "on"),
         default_site=request.POST.get("default_site", ""),
+        confirmed_genes=set(request.POST.getlist("confirmed_genes")),
     )
     return JsonResponse(result)
 

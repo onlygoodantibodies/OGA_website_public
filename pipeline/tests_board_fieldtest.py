@@ -288,7 +288,7 @@ class VialMatchingTests(TestCase):
 
     def _apply(self, row, member):
         from pipeline.services import bulk_antibodies
-        return bulk_antibodies.apply([row], create_targets=False, member=member)
+        return bulk_antibodies.apply([row], member=member)
 
     def _antibodies(self):
         from pipeline.models import Antibody
@@ -347,7 +347,7 @@ class VialMatchingTests(TestCase):
         self._apply(self._row(lot="LOT-A"), self._member_at(self.leicester))
         mtl = self._member_at(self.montreal)
         row = self._row(lot="LOT-A")
-        planned = bulk_antibodies.plan([row], create_targets=False, member=mtl)
+        planned = bulk_antibodies.plan([row], member=mtl)
         self.assertEqual([i["status"] for i in planned], ["create"])
         out = self._apply(row, mtl)
         self.assertEqual(len(out["created"]), 1)
@@ -615,7 +615,12 @@ class BoardScriptsParseTests(TestCase):
                  "cell_line_board.html", "session_board.html",
                  "target_detail.html", "_bench_workbook_upload.html",
                  "user_board.html", "cropper.html", "data_io.html",
-                 "recommendations.html", "review_queue.html")
+                 "recommendations.html", "review_queue.html",
+                 # outcomes.html is recommendations.html's shape exactly: every
+                 # card, every axis button and every redraw built in inline JS
+                 # with no OGABoard, so a stray brace gives 200, no cards, and
+                 # nothing anywhere to say so.
+                 "outcomes.html")
 
     def _inline_scripts(self, name):
         path = (Path(settings.BASE_DIR) / "pipeline/templates/pipeline" / name)
@@ -1523,8 +1528,7 @@ class ACellLinePreviewSaysWhatItMatchedTests(TestCase):
     def test_an_update_really_does_not_rename_the_row_on_file(self):
         from pipeline.services import bulk_cell_lines as bulk
         header = "name\tgenotype\tsupplier\tcatalogue"
-        bulk.apply(bulk.parse(f"{header}\nHAP1 WT [COWORK RUN4]\tWT\tHorizon Discovery\tC631"),
-                   create_targets=False)
+        bulk.apply(bulk.parse(f"{header}\nHAP1 WT [COWORK RUN4]\tWT\tHorizon Discovery\tC631"))
         self.line.refresh_from_db()
         self.assertEqual(self.line.name, "HAP1")
         self.assertEqual(CellLine.objects.using(DB).count(), 1)
@@ -1757,22 +1761,26 @@ class EscapeAndTheBannerBehaveTheSameEverywhereTests(TestCase):
     STATIC = Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js"
 
     def test_escape_closes_every_pop_out(self):
-        """Four of them now — `deleteDialog` is the newest, and a modal you
+        """Five of them now — `renumberPanel` is the newest, and a modal you
         cannot dismiss with the keystroke every other modal on the page takes is
         exactly the shape three field tests have already misread as broken.
 
-        Counting rather than naming, so a fifth pop-out has to answer for
+        Counting rather than naming, so a sixth pop-out has to answer for
         itself: the failure this pins is a panel that was *added* without it.
+        And `renumberPanel` earned its place here twice over — its first version
+        passed `escapeCloses` the mount *element* where a predicate belongs,
+        which parses cleanly and throws only when somebody presses the key.
         """
         js = self.STATIC.read_text()
         self.assertIn("function escapeCloses(", js)
-        for fn in ("newEntry", "uploadPanel", "identityDialog", "deleteDialog"):
+        for fn in ("newEntry", "uploadPanel", "identityDialog", "deleteDialog",
+                   "renumberPanel"):
             with self.subTest(pop_out=fn):
                 block = js[js.index(f"function {fn}("):]
                 end = block.find("\n  function ", 1)
                 self.assertIn("escapeCloses(", block[:end if end > 0 else None])
-        self.assertEqual(js.count("escapeCloses("), 5,
-                         "one definition plus the four pop-outs")
+        self.assertEqual(js.count("escapeCloses("), 6,
+                         "one definition plus the five pop-outs")
 
     def test_the_banner_announces_itself_and_scrolls_into_view(self):
         js = self.STATIC.read_text()
@@ -1911,7 +1919,7 @@ class ThePreviewNamesTheSupplierThatWillBeStoredTests(TestCase):
         from pipeline.models import Antibody
         from pipeline.services import bulk_antibodies as bulk
         rows = [{"gene": "STMN2", "catalogue": catalogue, "company": company}]
-        bulk.apply(rows, create_targets=False, member=self._member_row())
+        bulk.apply(rows, member=self._member_row())
         ab = Antibody.objects.using(DB).get(catalogue_number=catalogue)
         return ab.company.name if ab.company_id else ""
 
@@ -3004,7 +3012,7 @@ class AParentMayBeARowOfTheSamePasteTests(TestCase):
     def test_the_save_does_what_the_preview_said(self):
         from pipeline.services import bulk_cell_lines
         rows = bulk_cell_lines.parse(self.PASTE)
-        bulk_cell_lines.apply(rows, False, member=self._member())
+        bulk_cell_lines.apply(rows, member=self._member())
         ko = CellLine.objects.using(DB).get(genotype="KO", name="U2OS")
         self.assertIsNotNone(ko.parent_line_id, "the knockout lost its parent")
         self.assertEqual(ko.parent_line.site_id, self.site.pk)
@@ -3056,7 +3064,7 @@ class AParentMayBeARowOfTheSamePasteTests(TestCase):
 class TheGridStatesItsConventionsWhereTheyStayTests(TestCase):
     """A placeholder is hidden the moment its cell has a value.
 
-    So the only statement of what `c number` or `paired ko` wants vanished as
+    So the only statement of what `c number` or `parent` wants vanished as
     soon as you typed, and rows 2 and beyond never had one — which is how a
     blank `parent` placeholder between two numeric ones got read as "parent
     wants a C-number".
@@ -3117,14 +3125,14 @@ class TheGridStatesItsConventionsWhereTheyStayTests(TestCase):
         rows = bulk_antibodies.parse(
             "gene\tcatalogue\tcompany\tcomments\n"
             "ELP3\tA-ELP3-901\tabcam\t[COWORK RUN6] arc step 3\n")
-        bulk_antibodies.apply(rows, False, member=member)
+        bulk_antibodies.apply(rows, member=member)
         ab = Antibody.objects.using(DB).get(catalogue_number="A-ELP3-901")
         self.assertIn("[COWORK RUN6]", ab.comments)
 
         rows = bulk_cell_lines.parse(
             "name\tgene\tgenotype\tcomments\n"
             "HAP1 ELP3 KO\tELP3\tKO\t[COWORK RUN6] from the Feb order\n")
-        bulk_cell_lines.apply(rows, False, member=member)
+        bulk_cell_lines.apply(rows, member=member)
         line = CellLine.objects.using(DB).get(name="HAP1 ELP3 KO")
         self.assertIn("[COWORK RUN6]", line.origin_comments)
 
@@ -3965,6 +3973,64 @@ class EveryPasteSurfaceOffersItsTemplateTests(TestCase):
         self.assertEqual(source.count("addEventListener('click', downloadBoard)"), 2)
         self.assertEqual(source.count("function downloadBoard()"), 1)
 
+    # A board page that must offer the blank sheet in the page itself, and the
+    # kind it is. The gene page has its own test above; these are the boards.
+    STATIC_LINK_PAGES = {
+        "cell_line_board.html": "cell-lines",
+        "antibody_board.html": "antibodies",
+        "target_board.html": "targets",
+    }
+
+    # Written down rather than left out, same rule as EXEMPT_MOUNTS above.
+    EXEMPT_PAGES = {
+        "session_board.html":
+            "Two surfaces, two artefacts. Its Add panel takes the blank template "
+            "and its Upload panel only ever edits rows the app has stamped, so a "
+            "blank sheet there reads as 0 rows with no error. A link in the "
+            "header would sit between them naming neither.",
+    }
+
+    def test_each_board_offers_its_blank_sheet_without_opening_a_pop_out(self):
+        """A link only a pop-out renders is a link you must already have decided
+        to use.
+
+        The gene page was fixed for this reason and the boards were not, so
+        somebody looking at the cell lines board and wondering whether they
+        could work in Excel had no way to find out that they could — while
+        uOttawa, who had the file, were emailing to ask what a column meant.
+        Both halves of one gap: the sheet is reachable, and it explains itself
+        (`imports.TEMPLATE_NOTES`).
+        """
+        root = Path(settings.BASE_DIR) / "pipeline/templates/pipeline"
+        for name, kind in self.STATIC_LINK_PAGES.items():
+            with self.subTest(template=name):
+                source = (root / name).read_text()
+                # Outside every <script>, so a mounted panel's copy cannot
+                # satisfy it — that is exactly what hid this.
+                static = re.sub(r"(?s)<script.*?</script>", "", source)
+                self.assertIn(f"kind='{kind}'", static,
+                              f"{name}'s blank sheet is behind a pop-out")
+                # And it says it arrived, like every other download here.
+                self.assertIn("data-receipt=", static)
+        for name, reason in self.EXEMPT_PAGES.items():
+            self.assertTrue(reason, name)
+
+    def test_the_header_template_links_are_wired_to_a_receipt(self):
+        """`data-receipt` is half of it: `downloadReceipts()` is what turns the
+        attribute into a line of text. The page marked one and never called it
+        on data_io.html, and the attribute did nothing at all."""
+        root = Path(settings.BASE_DIR) / "pipeline/templates/pipeline"
+        for name in self.STATIC_LINK_PAGES:
+            with self.subTest(template=name):
+                source = (root / name).read_text()
+                if 'data-receipt="header-template-receipt"' not in source:
+                    continue
+                self.assertIn('id="header-template-receipt"', source,
+                              f"{name} marks a receipt anchor with nowhere to "
+                              f"write the receipt")
+                self.assertIn("OGABoard.downloadReceipts()", source,
+                              f"{name} marks a receipt anchor and never wires it")
+
     def test_every_paste_surface_names_the_template_endpoint(self):
         for name, kind in self.SURFACES.items():
             with self.subTest(template=name):
@@ -4310,7 +4376,7 @@ class ARefusedConcentrationIsCountedAtTheSaveTests(TestCase):
     def test_the_save_names_what_it_dropped(self):
         from pipeline.services import bulk_antibodies
         rows = bulk_antibodies.parse(self.ROWS)
-        result = bulk_antibodies.apply(rows, False)
+        result = bulk_antibodies.apply(rows)
         dropped = result["no_concentration"]
         self.assertEqual([d["catalogue"] for d in dropped], ["A-ELP3-R8D"])
         self.assertEqual(dropped[0]["typed"], "3 mM",
@@ -4529,12 +4595,23 @@ class AReportDoesNotAssertAProcedureNobodyRanTests(TestCase):
         self.assertIn("IP", grouped)
         self.assertEqual([s.pk for s in grouped["IP"]], [self.ip_real.pk])
 
-    def test_a_comment_someone_typed_counts_as_written_on(self):
-        """Consistent with `session_import._has_result`, whose column list
-        includes `comments`. Somebody wrote something; it is not a blank row."""
+    def test_a_comment_alone_does_not_make_it_a_run_session(self):
+        """This pinned the opposite until run 19: a typed comment counted as
+        "written on", consistent with `session_import._has_result`. Then the
+        sessions board's Add panel put its per-row NOTES into `comments` at
+        *planning* time, and a session nobody had run read "2 results — every
+        row has something recorded" the moment it was created. A row cannot say
+        whether its comment was written before or after the blot, and the
+        error that misleads is the planned one reading as done — so a comment
+        is not a reading anywhere (`session_board.NOT_A_READING`), and this
+        report keeps not naming a procedure that has no reading behind it. A
+        reading beside the comment still counts."""
         from pipeline.models import WbResult
         WbResult.objects.using(DB).filter(session_id=self.wb_blank.pk).update(
             comments="faint band, repeat next week")
+        self.assertNotIn("WB", self._grouped())
+        WbResult.objects.using(DB).filter(session_id=self.wb_blank.pk).update(
+            signal="faint band")
         self.assertIn("WB", self._grouped())
 
     def test_the_written_draft_does_not_name_the_unrun_procedure(self):
@@ -5381,9 +5458,12 @@ class ACNumberIsNeverInventedTests(TestCase):
         from pipeline.services import bulk_cell_lines as bulkcl
         CellLine.objects.using(DB).create(name="HAP1", genotype="WT",
                                           site_id=self.site.pk)
+        # The gene exists first: this paste no longer creates one (owner,
+        # 5 Sep 2026), and what is under test here is the C-number.
+        Target.objects.using(DB).create(gene_name="STMN2")
         rows = bulkcl.parse(
             f"{self.HEADER}\nHAP1 STMN2 KO\tSTMN2\tKO\tHAP1\tC-RUN11-01\tLeicester")
-        out = bulkcl.apply(rows, create_targets=True, member=self.member)
+        out = bulkcl.apply(rows, member=self.member)
         self.assertEqual(len(out["created"]), 1)
         self.assertEqual([d["typed"] for d in out["no_c_number"]], ["C-RUN11-01"])
         line = CellLine.objects.using(DB).get(name="HAP1 STMN2 KO")
@@ -7338,3 +7418,337 @@ class AnUploadedSheetIsHeaderLedNotGuessedAtTests(TestCase):
         self.assertEqual(len(rows), 2, rows)
         self.assertEqual(sorted(r["catalogue"] for r in rows),
                          ["ARP54321_P050", "ab138501"])
+
+
+class AParentOfTheWrongBackgroundIsRefusedEverywhereTests(TestCase):
+    """Run 19 pasted `HAP1 | STMN2 | KO | parent HeLa` and read *parent "HeLa"
+    is your site's line — new*. The tester stopped because it re-read the brief,
+    not because the app said anything; the row would have been written.
+
+    `backfill_cell_line_parents` had refused exactly this since 4 Sep — a wild
+    type is not enough, it has to be a wild type *of that background* — but the
+    check lived in the command and nowhere else. So the paste door and the
+    identity dialog, the two surfaces a person actually uses, would link a HAP1
+    knockout to a HeLa parental, and every session planned against it afterwards
+    would read the mismatched control as the matched one. One reader now
+    (`cell_lines.wrong_background`), asked by all three.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        self.target = Target.objects.using(DB).create(gene_name="STMN2")
+        self.hap1 = CellLine.objects.using(DB).create(
+            name="HAP1", genotype="WT", site_id=self.site.pk)
+        self.hela = CellLine.objects.using(DB).create(
+            name="HeLa", genotype="WT", site_id=self.site.pk)
+        # Leicester's parentals were imported without C-numbers and nothing
+        # backfills one; `pre_save` numbers a fresh row, so take them off again.
+        CellLine.objects.using(DB).filter(
+            pk__in=[self.hap1.pk, self.hela.pk]).update(c_number=None)
+
+    def _plan(self, name, parent):
+        from pipeline.models import Member
+        from pipeline.services import bulk_cell_lines
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        rows = bulk_cell_lines.parse(
+            "name\tgene\tgenotype\tparent\tclone\n"
+            f"{name}\tSTMN2\tKO\t{parent}\tA1\n")
+        return bulk_cell_lines.plan(rows, member=member)[0]
+
+    def test_the_paste_door_blocks_a_hela_parent_on_a_hap1_knockout(self):
+        item = self._plan("HAP1", "HeLa")
+        self.assertEqual(item["status"], "blocked", item["note"])
+        self.assertIn("Looks wrong", item["note"])
+        self.assertIn("HAP1 knockout does not come from a HeLa", item["note"])
+        # A blocked row is not about to be numbered either.
+        self.assertFalse(item["will_be_numbered"])
+
+    def test_the_refusal_names_the_wild_type_it_should_have_named(self):
+        """Leicester's parentals carry no C-number, so the hint has to name the
+        line by name — "no wild type on file" would be false here and would
+        send somebody to add a second HAP1."""
+        note = self._plan("HAP1", "HeLa")["note"]
+        self.assertIn("name it as HAP1", note)
+
+    def test_a_numbered_parental_is_offered_by_number(self):
+        from pipeline.models import CellLineVial
+        CellLineVial.objects.using(DB).create(
+            cell_line=self.hap1, c_number=15, site_id=self.site.pk)
+        note = self._plan("HAP1", "HeLa")["note"]
+        self.assertIn("The HAP1 wild type on file is C-15", note)
+
+    def test_the_right_parent_still_goes_through(self):
+        item = self._plan("HAP1", "HAP1")
+        self.assertEqual(item["status"], "create", item["note"])
+        self.assertIn("your site's line", item["note"])
+
+    def test_a_decorated_name_is_judged_by_its_background(self):
+        """`HAP1 STMN2 KO` is a HAP1 — the label's decoration is not part of
+        the cell line, so it must neither pass a HeLa nor refuse a HAP1."""
+        self.assertEqual(self._plan("HAP1 STMN2 KO", "HAP1")["status"], "create")
+        self.assertEqual(self._plan("HAP1 STMN2 KO", "HeLa")["status"], "blocked")
+
+    def test_the_save_writes_nothing_for_the_blocked_row(self):
+        from pipeline.models import Member
+        from pipeline.services import bulk_cell_lines
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        rows = bulk_cell_lines.parse(
+            "name\tgene\tgenotype\tparent\tclone\nHAP1\tSTMN2\tKO\tHeLa\tA1\n")
+        bulk_cell_lines.apply(rows, member=member)
+        self.assertFalse(CellLine.objects.using(DB)
+                         .filter(genotype="KO", target_id=self.target.pk).exists())
+
+    def test_the_identity_dialog_refuses_the_same_link(self):
+        ko = CellLine.objects.using(DB).create(
+            name="HAP1", genotype="KO", target_id=self.target.pk,
+            site_id=self.site.pk, parent_line_id=self.hap1.pk, clone="A1")
+        resp = self.client.post(
+            "/pipeline/cell-lines/board/identity/save/",
+            {"cell_line_id": ko.pk, "name": "HAP1", "gene": "STMN2",
+             "genotype": "KO", "clone": "A1", "parent": "HeLa"})
+        self.assertEqual(resp.status_code, 400, resp.content[:300])
+        self.assertIn("Looks wrong", resp.json()["error"])
+        ko.refresh_from_db(using=DB)
+        self.assertEqual(ko.parent_line_id, self.hap1.pk)
+
+    def test_one_reader_for_all_three_surfaces(self):
+        base = Path(settings.BASE_DIR)
+        for rel in ("pipeline/services/bulk_cell_lines.py",
+                    "pipeline/services/identity.py",
+                    "pipeline/management/commands/backfill_cell_line_parents.py"):
+            self.assertIn("wrong_background(", (base / rel).read_text(), rel)
+
+
+class ANoteIsNotAReadingTests(TestCase):
+    """Run 19 created a session from the sessions board's Add panel with a NOTES
+    value on each antibody row and, before typing a single reading, the board
+    read **"2 results — every row in this session has something recorded"**.
+    The notes had landed in the result rows' `comments`, and `is_reading` took
+    any result column as a measurement. A comment rides beside the readings; it
+    does not make a row one — on the board, in the workbook importer and in the
+    report, from one list."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        from pipeline.models import Antibody, Company, ExperimentSession, Member, WbResult
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        self.target = Target.objects.using(DB).create(gene_name="STMN2")
+        company = Company.objects.using(DB).create(name="Abcam")
+        self.ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="AB-RUN19-01", site_id=self.site.pk)
+        self.session = ExperimentSession.objects.using(DB).create(
+            target_id=self.target.pk, procedure_type="WB", date="2026-09-05",
+            site_id=self.site.pk, experimenter_id=member.pk)
+        self.row = WbResult.objects.using(DB).create(
+            session_id=self.session.pk, antibody_id=self.ab.pk,
+            comments="test at 1/1000 [COWORK RUN19]")
+
+    def test_the_board_does_not_count_a_commented_row_as_read(self):
+        from pipeline.services import session_board
+        self.assertEqual(session_board.reading_counts([self.session.pk]), {})
+
+    def test_a_reading_beside_the_comment_still_counts(self):
+        from pipeline.services import session_board
+        self.row.signal = "band in WT, absent in KO"
+        self.row.save(using=DB)
+        self.assertEqual(session_board.reading_counts([self.session.pk]),
+                         {self.session.pk: 1})
+
+    def test_the_report_agrees(self):
+        from pipeline.services.report_generator import _readings_in
+        self.assertEqual(_readings_in(self.session), 0)
+
+    def test_the_workbook_importer_agrees(self):
+        from pipeline.services import session_import
+        row = {"comments": "only a note"}
+        self.assertFalse(session_import._has_result(row, "WB"))
+        self.assertTrue(session_import._has_result({"signal": "band"}, "WB"))
+
+    def test_comments_are_still_a_result_column(self):
+        """Not a reading, but still drawn, exported and editable."""
+        from pipeline.services import session_board
+        self.assertIn("comments", session_board.result_field_names("WB"))
+        self.assertNotIn("comments", session_board.reading_fields("WB"))
+
+
+class AZeroIsNotAboutToBeUpdatedTests(SimpleTestCase):
+    """*"0 already known (will be updated)"* — run 19 read the suffix over a
+    zero on both spreadsheet doors. Three surfaces print the line; all three
+    now hedge only when there is something to hedge about."""
+
+    def test_no_surface_prints_the_suffix_unconditionally(self):
+        base = Path(settings.BASE_DIR)
+        for rel in ("pipeline/static/pipeline/board.js",
+                    "pipeline/templates/pipeline/cell_line_board.html",
+                    "pipeline/templates/pipeline/antibody_board.html"):
+            src = (base / rel).read_text()
+            # The rendered line, not a comment quoting the old wording.
+            self.assertNotIn("} already known (will be updated)", src, rel)
+            self.assertIn("already known${s.update ? ' (will be updated)' : ''}", src, rel)
+
+
+class TheStepFormSaysWhereAntibodiesGetOnTests(TestCase):
+    """The three-step form asks for no antibodies, and the results drawer on
+    the session it makes said "add the antibodies to the session first" — with
+    nowhere to do that. Run 19 planned session 627 that way and had to read the
+    guide to find the sessions board's Add panel. The place antibodies get onto
+    a session that has none is its bench sheet, and both pages now say so."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+
+    def test_the_form_says_antibodies_are_not_chosen_here(self):
+        html = self.client.get("/pipeline/session/new/").content.decode()
+        self.assertIn("Antibodies are not chosen here", html)
+        self.assertIn("+ Record a session", html)
+        self.assertIn("bench sheet", html)
+        self.assertNotIn("session detail page", html)
+
+    def test_the_drawer_points_at_the_bench_sheet_not_at_nothing(self):
+        html = self.client.get("/pipeline/sessions/board/").content.decode()
+        self.assertNotIn("add the antibodies to the session first", html)
+        self.assertIn("picking list", html)
+
+
+class ARecordedSheetSaysWhatItNumberedTests(SimpleTestCase):
+    """Run 20 walked the picking-list bench sheet end to end, A-8 and A-9 were
+    issued to exactly the two rows it wrote on — and it could not quote the
+    receipt, because there wasn't one to quote. It filed that as its own
+    driver's fault. It was ours, twice over.
+
+    **The bench-sheet branch never called `saveNotes`.** Recording a sheet is
+    one of the three doors that issues an A-number; the run-19 fix reached the
+    workbook receipt and the gene page's panel and missed this one — the
+    "seven call sites" failure the composed writer exists to prevent.
+
+    **And the receipt was destroyed by the redraw.** Both branches ended
+    `await openResults(id)`, which replaces the whole drawer body, so the
+    message was written into an element that the very next line threw away.
+    A save that wrote and announced nothing is this file's worst shape, and it
+    is why the run reasonably concluded the message was merely transient.
+
+    Ordering assertions rather than a browser test: what has to hold is that
+    the receipt is written *after* the await, and that is a fact about the
+    source's order that a browser would confirm more slowly and no response
+    test can see at all.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.src = (Path(settings.BASE_DIR)
+                   / "pipeline/templates/pipeline/session_board.html").read_text()
+        cls.handler = cls.src[cls.src.index("const staged = benchRows.get(id);"):]
+        cls.handler = cls.handler[:cls.handler.index("async function openResults")]
+
+    def test_both_doors_name_the_numbers_they_issued(self):
+        """The workbook branch and the bench-sheet branch, not one of them."""
+        self.assertEqual(self.handler.count("OGABoard.saveNotes(d)"), 2,
+                         "each branch of the commit handler must name what it numbered")
+
+    def test_the_receipt_is_drawn_after_the_redraw_that_would_wipe_it(self):
+        redraw = self.handler.index("await openResults(id)")
+        drawn = self.handler.index("fresh.innerHTML = receipt")
+        self.assertLess(redraw, drawn,
+                        "the receipt is written before openResults replaces the body, "
+                        "so the save announces itself to nobody")
+
+    def test_the_element_is_re_queried_rather_than_reused(self):
+        """The `out` the handler started with is gone after the redraw; writing
+        to it puts the receipt into a detached node, which looks identical to
+        not writing one at all."""
+        tail = self.handler[self.handler.index("await openResults(id)"):]
+        self.assertIn('drawerBody.querySelector(`.bench-out', tail)
+
+    def test_the_receipt_scrolls_itself_into_view(self):
+        self.assertIn("OGABoard.bringIntoView(fresh)", self.handler)
+
+
+class ARefusalNamesOnlyControlsOnThisPanelTests(TestCase):
+    """*"tick “Add the gene as a new target if it isn't one yet” above"* — on a
+    panel whose only two tick boxes are Overwrite and Give new rows an A-number.
+    Run 20 read that on the antibodies **Upload** panel, went looking for the
+    control and found nothing.
+
+    The first fix told the planners which surface was asking. The owner then
+    settled the wider question underneath it: **a target is added on the targets
+    doors and nowhere else** (5 Sep 2026), so both Add panels lost the box too
+    and there is one sentence again, naming no control and pointing at the
+    board. This pins that no surface offers or names it.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+
+    def _upload(self, kind, body, filename="rows.csv"):
+        f = io.BytesIO(body.encode())
+        f.name = filename
+        return self.client.post(f"/pipeline/import/upload/{kind}/", {"file": f})
+
+    def test_the_antibodies_upload_does_not_name_a_missing_tick(self):
+        resp = self._upload("antibodies",
+                            "gene,catalogue,company\nZZZZZZ,AB-1,Abcam\n")
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        note = " ".join(i["note"] for i in resp.json()["items"])
+        self.assertIn("not in the pipeline yet", note)
+        self.assertNotIn("tick", note, note)
+        self.assertIn("target board", note)
+
+    def test_the_cell_lines_upload_does_not_either(self):
+        resp = self._upload("cell-lines",
+                            "name,gene,genotype,parent\nHAP1,ZZZZZZ,KO,HAP1\n")
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        note = " ".join(i["note"] for i in resp.json()["items"])
+        self.assertIn("not in the pipeline yet", note)
+        self.assertNotIn("tick", note, note)
+
+    def test_the_add_panels_say_the_same_thing_as_the_uploads(self):
+        """One sentence, because there is one way through."""
+        from pipeline.services import bulk_antibodies, bulk_cell_lines
+        ab = bulk_antibodies.plan(
+            bulk_antibodies.parse("gene\tcatalogue\tcompany\nZZZZZZ\tAB-1\tAbcam\n", ""))[0]
+        cl = bulk_cell_lines.plan(
+            bulk_cell_lines.parse("name\tgene\tgenotype\nHAP1\tZZZZZZ\tKO\n"))[0]
+        for note in (ab["note"], cl["note"]):
+            self.assertIn("target board", note)
+            self.assertNotIn("tick", note, note)
+
+    def test_no_panel_offers_the_control_any_more(self):
+        base = Path(settings.BASE_DIR) / "pipeline/templates/pipeline"
+        for page in ("antibody_board.html", "cell_line_board.html", "data_io.html"):
+            src = (base / page).read_text()
+            self.assertNotIn("create-targets", src, page)
+            self.assertNotIn("createtargets", src, page)
+            self.assertNotIn("create_targets", src, page)
+
+
+class APlannedSessionIsNotAnEmptyOneTests(SimpleTestCase):
+    """The workbook preview warned *"1 of them still planned with no results"*
+    about a session that had two results and one status. `_existing_sessions`
+    selects on `status` alone, and the sentence claimed something about
+    readings that the query never asked — the same planned-versus-recorded
+    confusion the progress strip and the results column were fixed for, in a
+    third place (run 20).
+
+    The warning's job is *"you may have meant to fill that one in"*, which is
+    just as true of a planned session that has readings. So it says what it
+    knows and stops."""
+
+    def test_the_guard_does_not_claim_a_session_is_empty(self):
+        src = (Path(settings.BASE_DIR)
+               / "pipeline/templates/pipeline/_bench_workbook_upload.html").read_text()
+        self.assertIn("still", src)
+        self.assertNotIn("planned</span> with no results", src)

@@ -36,6 +36,7 @@ apart from the rest.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from unittest import mock
 from urllib.parse import urlencode
 
 from django.core.cache import cache
@@ -998,13 +999,30 @@ class TheReadFeedsNeedNoKeyTests(APIFeedTestCase):
         self.assertEqual(body['consumer_type'], 'manufacturer')
 
     def test_the_anonymous_ceiling_still_applies(self):
-        """Open is not unmetered. `check_anonymous` is 30/minute per caller."""
-        for _ in range(api_throttle.ANON_BURST_LIMIT + 5):
-            response = self._keyless('api:genes_feed')
-            if response.status_code == 429:
-                break
-        else:
-            self.fail("A keyless caller can read the feed without any limit.")
+        """Open is not unmetered. `check_anonymous` is 30/minute per caller.
+
+        **The clock is pinned, because the window is wall-clock.**
+        `check_anonymous` counts into `int(now // BURST_WINDOW)`, so a loop of
+        35 requests that crosses a minute boundary splits them between two
+        windows and neither reaches 31 — the test then fails while the throttle
+        is working perfectly. Any split leaving **5 to 30** requests in the
+        first window does it, which is 26 of the 36 possible splits, and the
+        loop crosses a boundary roughly as often as its own duration divided by
+        sixty. It went red once on 5 Sep 2026, on a change that touched no part
+        of this, and cost a merge.
+
+        Freezing `time.time` removes the boundary rather than the coverage: the
+        counter still has to reach 31 for a 429, and the cache is cleared first
+        so an earlier test in the same process cannot lend this one its hits.
+        """
+        cache.clear()
+        with mock.patch('core.api_throttle.time.time', return_value=1_757_000_000.0):
+            for _ in range(api_throttle.ANON_BURST_LIMIT + 5):
+                response = self._keyless('api:genes_feed')
+                if response.status_code == 429:
+                    break
+            else:
+                self.fail("A keyless caller can read the feed without any limit.")
 
 
 class HeadIsAnsweredNotRefusedTests(APIFeedTestCase):

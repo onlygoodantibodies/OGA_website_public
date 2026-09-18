@@ -120,11 +120,11 @@ def _t_target_report(gene: str) -> dict:
     return d
 
 
-def _t_antibodies_by_recommendation(gene: str, application: str,
-                                    recommended: bool = True) -> dict:
-    rows, truncated = _portal().antibodies_by_recommendation(
-        application, recommended=bool(recommended), gene=gene)
-    return {"count": len(rows), "truncated": truncated,
+def _t_antibodies_by_support(gene: str, application: str,
+                             support: str = "supportive") -> dict:
+    rows, truncated = _portal().antibodies_by_support(
+        application, support=support, gene=gene)
+    return {"count": len(rows), "truncated": truncated, "support": support,
             "antibodies": [_slim_antibody(r) for r in rows]}
 
 
@@ -272,7 +272,8 @@ _DATA_TOOLS = [
         "name": "list_targets",
         "description": ("List the public genes (targets) OGA has characterised. Returns gene + "
                         "protein/UniProt identity only. only_with_recommendations keeps genes "
-                        "with at least one recommended antibody."),
+                        "with at least one antibody whose data is supportive for some "
+                        "application (the parameter keeps its older name)."),
         "input_schema": {"type": "object", "properties": {
             "only_with_recommendations": {"type": "boolean"}}, "required": []},
         "fn": _t_list_targets,
@@ -281,23 +282,31 @@ _DATA_TOOLS = [
         "name": "target_report",
         "description": ("Full public report for ONE gene: the target, its published antibodies "
                         "with per-application assessment + KO-controlled evidence, a supplier "
-                        "summary, and report DOIs. Use this to explain, factually, what OGA "
-                        "recommends for a gene and why."),
+                        "summary, and report DOIs. Use this to explain, factually, what the "
+                        "characterisation data shows for a gene and why."),
         "input_schema": {"type": "object", "properties": {
             "gene": {"type": "string"}}, "required": ["gene"]},
         "fn": _t_target_report,
     },
     {
-        "name": "antibodies_by_recommendation",
-        "description": ("Within ONE gene, the antibodies (not) recommended for an application. "
-                        "gene is REQUIRED. application is one of WB, IP, IF, FC. Set "
-                        "recommended=false for the tested-but-not-recommended ones (with the "
-                        "supporting KO-controlled evidence)."),
+        "name": "antibodies_by_support",
+        "description": ("Within ONE gene, the antibodies at one support level for an "
+                        "application. gene is REQUIRED. application is one of WB, IP, IF, FC. "
+                        "support is one of: supportive (the data supports it); "
+                        "limited_support (tested, not supported overall, and the antibody was "
+                        "still seen to do what the application is for); not_supportive "
+                        "(tested, nothing on-target seen); not_tested (nobody has run it \u2014 "
+                        "NOT a negative result). Ask for one rung at a time: there is no "
+                        "boolean form, because a yes/no answer cannot separate limited_support "
+                        "from not_supportive."),
         "input_schema": {"type": "object", "properties": {
             "gene": {"type": "string"},
             "application": {"type": "string", "enum": ["WB", "IP", "IF", "FC"]},
-            "recommended": {"type": "boolean"}}, "required": ["gene", "application"]},
-        "fn": _t_antibodies_by_recommendation,
+            "support": {"type": "string",
+                        "enum": ["supportive", "limited_support",
+                                 "not_supportive", "not_tested"]}},
+            "required": ["gene", "application"]},
+        "fn": _t_antibodies_by_support,
     },
     {
         "name": "antibody_validation",

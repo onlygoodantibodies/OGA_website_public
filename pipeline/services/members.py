@@ -162,8 +162,15 @@ def row_for(member, pipe_user, login) -> dict:
                  or (f"{pipe_user.first_name} {pipe_user.last_name}".strip()
                      if pipe_user else "")),
         "display_name": member.display_name or "",
-        "site": member.site.short_code if member.site_id else "",
-        "site_name": member.site.name if member.site_id else "",
+        # The **name**, as every other board's site cell holds — and as the
+        # filter above the grid and the picker inside it both offer. It was the
+        # short code, with the name sitting unread in a `site_name` key beside
+        # it, so the cell said `OTT` under a filter saying `Ontario`; once the
+        # cell became a `<select>` the mismatch was no longer cosmetic, since a
+        # picker whose options do not include the current value draws it as
+        # "not a listed value". `sites.resolve` reads either spelling, so
+        # nothing about what can be saved changes.
+        "site": member.site.name if member.site_id else "",
         "role": member.role or "",
         # pipeline_db — the access half
         "is_active": bool(member.is_active),
@@ -303,6 +310,63 @@ LOGIN_FIELDS = {"email"}
 EDITABLE_FIELDS = MEMBER_FIELDS | LOGIN_FIELDS
 
 
+#: Every spelling of a role that anything should accept, mapped to the stored
+#: code. Built from the model's own choices, so a role added there is readable
+#: here without a second edit.
+def _role_spellings() -> dict:
+    out = {}
+    for code, label in Member.Role.choices:
+        out[code.lower()] = code
+        out[str(label).lower()] = code
+    return out
+
+
+def role_from(value) -> tuple[str, str]:
+    """``(code, refusal)`` for a typed or pasted role — **either spelling**.
+
+    The board's cell is a `<select>` showing *Administrator*; the Add panel's
+    grid is a text box serialised to TSV, so it offers the same words and they
+    have to read back. Before this the two surfaces named the same five roles
+    differently — display names on the board, codes in the panel — which run 18
+    found by comparing the two screens (F3). One fact, two vocabularies, on one
+    page.
+
+    Blank is not a refusal here; the callers decide whether a role is required.
+    """
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return "", ""
+    code = _role_spellings().get(text.lower())
+    if code:
+        return code, ""
+    return "", (f"'{text}' is not a role. The roles are: "
+                + ", ".join(f"{label} ({code})" for code, label in Member.Role.choices))
+
+
+def cell_choices() -> dict:
+    """What the people board's cells may hold.
+
+    Both are closed and both were bare text boxes, on the page that decides who
+    can reach the pipeline at all. `set_field` already refuses an unknown role
+    by name and `sites.strict_id` an unknown site — so the grid was offering a
+    mistake and reporting it after the save, on the one board where the
+    consequence of a wrong value is somebody unable to sign in.
+
+    The **Add people** panel had the same gap in a worse form: its intro listed
+    the roles in prose (*"Roles: admin, pi, coordinator…"*) beside a blank
+    column, which is a limited set described rather than offered. `views/
+    user_board.py` hands the same lists to that panel's `suggestions`.
+    """
+    from pipeline.services import vocabulary
+
+    return {
+        "site": vocabulary.sites(),
+        "role": {"strict": True,
+                 "values": [{"value": v, "label": label}
+                            for v, label in Member.Role.choices]},
+    }
+
+
 def set_field(member_id, field, value, *, actor_username=""):
     """Save one cell. Returns the fresh ``Member``. Raises ``Refused``.
 
@@ -329,11 +393,9 @@ def set_field(member_id, field, value, *, actor_username=""):
                 raise Refused("Everybody needs a site — it is what their records "
                               "are filed under.")
         elif field == "role":
-            valid = dict(Member.Role.choices)
-            key = str(value).strip().lower()
-            if key not in valid:
-                raise Refused(f"'{value}' is not a role. The roles are: "
-                              + ", ".join(f"{v} ({l})" for v, l in Member.Role.choices))
+            key, refusal = role_from(value)
+            if refusal or not key:
+                raise Refused(refusal or "Everybody needs a role.")
             member.role = key
         elif field == "is_active":
             member.is_active = _as_bool(value)
@@ -434,20 +496,20 @@ def plan(rows) -> list[dict]:
     """Read-only: what creating these would do, per row, before anything writes."""
     from pipeline.services import sites as site_svc
     items = []
-    roles = dict(Member.Role.choices)
     for r in rows:
         username = (r.get("username") or "").strip()
         note, status = "", "create"
         site = site_svc.resolve(r.get("site", ""))
-        role = (r.get("role") or "").strip().lower()
+        role, role_refusal = role_from(r.get("role"))
 
         if not username:
             status, note = "blocked", "needs a username — it is what links the two halves"
         elif site is None:
             status, note = "blocked", site_svc.refusal(r.get("site", "") or "(blank)")
-        elif role not in roles:
-            status, note = "blocked", ("needs a role: "
-                                       + ", ".join(f"{v}" for v, _ in Member.Role.choices))
+        elif not role:
+            status, note = "blocked", (role_refusal or
+                                       ("needs a role: " + ", ".join(
+                                           f"{label}" for _c, label in Member.Role.choices)))
         elif 0 < len((r.get("password") or "").strip()) < 8:
             status, note = "blocked", ("a typed password needs at least 8 characters — "
                                        "leave it blank to have one generated")

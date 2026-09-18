@@ -54,7 +54,9 @@ DB = "pipeline_db"
 # so a reader of an old snapshot can tell what it was reasonable to expect.
 # 2 since 13 Aug 2026: ``PendingPublicationImage`` joined, when the figure
 # cropper stopped writing straight to the public site.
-FORMAT_VERSION = 2
+# 3 since 28 Aug 2026: ``AntibodyOutcome`` joined — the two-axis judgement made
+# from a published figure, which exists nowhere else once it is made.
+FORMAT_VERSION = 3
 
 # Everything the lab authors, in dependency order — the order a restore would
 # want, and the order that reads sensibly in a diff.
@@ -65,7 +67,8 @@ CAPTURED = [
     "Antibody", "InventoryLocation", "Sample",
     "ProtocolTemplate",
     "ExperimentSession", "WbResult", "IpResult", "IfResult", "FcResult",
-    "Report", "PublicationImage", "PendingPublicationImage", "FileAttachment",
+    "Report", "PublicationImage", "PendingPublicationImage", "AntibodyOutcome",
+    "FileAttachment",
     "ManufacturerContact", "ReagentRequestBatch", "ReagentRequest", "Shipment",
 ]
 

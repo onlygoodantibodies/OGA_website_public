@@ -51,7 +51,45 @@ async function click(level) {
 console.log("clicking the green tile repeatedly (should advance, then wrap):");
 await click("green"); await click("green"); await click("green"); await click("green"); await click("green");
 console.log("other levels:");
-await click("red"); await click("amber"); await click("grey");
+await click("red"); await click("blue"); await click("grey");
 console.log("a level with no marks:");
 await click("mixed");
+
+/* WORTH A LOOK lists REAGENTS; the tiles above it count MARKS.
+ *
+ * This fixture names `ab109535` four times, which is what a methods section or
+ * a supplier catalogue looks like — and the unfiltered list printed it four
+ * times under a tile reading 4. On a real Thermo Fisher catalogue page that was
+ * `MA1-510` six times under a tile reading 7: a count and the list it totals
+ * disagreeing on one screen, which reads as the panel being broken rather than
+ * as it being right about two different things.
+ *
+ * Checked through the real message the popup sends, on the real page, because
+ * the dedup lives inside content.js's `notifySummary` and there is nothing to
+ * import. */
+const summary = await sw.evaluate(({ tabId }) =>
+  chrome.tabs.sendMessage(tabId, { type: "oga:get-summary" }), { tabId });
+const names = (summary.concerns || []).map((c) => c.name);
+const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+console.log("worth a look:", JSON.stringify(names));
+let failed = false;
+if (dupes.length) {
+  console.log(`  FAIL one reagent listed more than once: ${[...new Set(dupes)].join(", ")}`);
+  failed = true;
+} else {
+  console.log("  ok   each reagent is listed once");
+}
+// And every entry has to be sayable: `concernLine` branches on `kind`, and an
+// entry carrying neither a failed application nor a wrong-target block would
+// print a bare "not supportive" with nothing after it.
+for (const c of summary.concerns || []) {
+  if (c.kind === "wrong-target") continue;
+  if (!(c.failed || []).length && !(c.passed || []).length) {
+    console.log(`  FAIL ${c.name} is in the list with nothing to say about it`);
+    failed = true;
+  }
+}
+if (!failed) console.log("  ok   every entry names what it is about");
+
 await ctx.close(); server.close();
+if (failed) process.exit(1);

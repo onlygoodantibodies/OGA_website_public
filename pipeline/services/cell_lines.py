@@ -64,6 +64,35 @@ _BARE_KO = re.compile(r"\s+KO\s*$", re.I)
 # hundreds.
 _MAX_LISTED = 12
 
+# A trailing clone, appended by `label()`. Two shapes, because the lab writes the
+# word both ways: `clone` as a separator before the value (`… KO clone 2.3`,
+# split on in `_clone_readings`), and `clone` as the first word *of* the value
+# (`… KO Clone2 (C2)`, below). Undone as separate variants rather than one clever
+# pattern — `_name_variants` tries them in order and the first that matches a
+# real row wins, so a wrong split simply finds nothing instead of the wrong line.
+_CLONE_WORD = re.compile(r"^(?P<stem>.+?)\s+(?P<clone>clone\S.*)$", re.I)
+
+
+def clone_suffix(line) -> str:
+    """How a clone is printed after the line's name, or `""`.
+
+    **Printed verbatim.** `clone` is written eleven different ways on live —
+    `2.3`, `C11`, `Clone#8`, `Clone 2 (C2)`, `no22`, `Guide B9, 1X, Clone D` —
+    and normalising them into one house style is the presentation-rewrites-a-value
+    mistake this file records twice already (the µ that CSS upper-cased, the
+    received date a refusal put back in the wrong spelling). The only thing added
+    is the word `clone`, and only when the value does not already open with it,
+    so `Clone2 (C2)` is not drawn as `clone Clone2 (C2)`.
+    """
+    clone = (getattr(line, "clone", "") or "").strip()
+    # `NA` is the Access placeholder for "not recorded", the same shape as `NA`
+    # in a gene column — 15 KO rows carry it. It is not a clone, so it is not a
+    # name, and a label reading `… KO clone NA` would make an absence look like
+    # an identity.
+    if not clone or clone.upper() == "NA":
+        return ""
+    return clone if clone[:5].lower() == "clone" else f"clone {clone}"
+
 
 def label(line) -> str:
     """What this line is, then whose — the sessions board's own rendering.
@@ -71,6 +100,16 @@ def label(line) -> str:
     Duplicated from `session_board._line_label` deliberately *not*: that one
     imports from here now, so a change to how a line is named changes it
     everywhere at once, including the refusals below.
+
+    **The clone is part of what the line is**, so it is part of the name. A gene
+    and a background define the knockout; the clone says *which* knockout — a
+    different single-cell origin, often a different guide. Two clones of one KO
+    at one bench rendered the same string, which is `_told_apart`'s problem
+    arriving on every screen at once rather than only in a refusal.
+
+    A line with no clone recorded renders exactly as it did before, which is what
+    keeps every stored label, bookmark and pasted sheet on the 300-odd clone-less
+    knockouts working unchanged.
     """
     if line is None:
         return ""
@@ -83,6 +122,9 @@ def label(line) -> str:
         # knockouts of one parental are then the same string. Naming the gene is
         # the point; saying KO twice is not.
         text = f"{_BARE_KO.sub('', text)} {gene} KO"
+    suffix = clone_suffix(line)
+    if suffix:
+        text = f"{text} {suffix}"
     where = getattr(getattr(line, "site", None), "name", "")
     return f"{text}{SITE_SEP}{where}" if where else text
 
@@ -106,8 +148,49 @@ def split_label(value):
     return raw, ""
 
 
+def _clone_readings(name: str):
+    """`[(stem, implied_clone)]` — the ways a trailing clone could have been added.
+
+    `(name, None)` first and always: **the most literal reading wins**, which is
+    what keeps a stored name that contains the word from being taken apart.
+    `Jurkat, clone E6-1` is a real parental on file — ATCC's own clone
+    designation, part of the name — and splitting it would look for a line called
+    `Jurkat,`. It never gets that far while the line carries no clone of its own,
+    because the literal reading matches a real row and `candidates` stops at the
+    first variant that finds anything.
+
+    **But that row can carry a clone, and then both are true at once.** McGill
+    holds `Jurkat, clone E6-1` as a SLIT1 knockout of clone D16, so `label()`
+    renders `Jurkat, clone E6-1 SLIT1 KO clone D16` — two `clone`s in one string,
+    and a single split takes the *first*, which asks for a line called `Jurkat,`
+    and finds nothing. So every separator is tried, **rightmost first**, because
+    the rightmost is the one `label()` appended. The leftward readings stay in
+    the list underneath: a clone value that itself contains the word (live holds
+    `Guide B9, 1X, Clone D`) is only found by splitting further left.
+    """
+    out = [(name, None)]
+    # Rightmost first — `label()` appends the clone at the end, so that reading
+    # is the one that is nearly always right, and the rest are fallbacks that
+    # cost nothing because a wrong split simply matches no row.
+    for m in reversed(list(re.finditer(r"\s+clone\s+", name, re.I))):
+        stem, clone = name[:m.start()].strip(), name[m.end():].strip()
+        if stem and clone:
+            out.append((stem, clone))
+    m = _CLONE_WORD.match(name)
+    if m:
+        out.append((m.group("stem").strip(), m.group("clone").strip()))
+    seen, ordered = set(), []
+    for stem, clone in out:
+        key = (stem.lower(), (clone or "").lower())
+        if key not in seen:
+            seen.add(key)
+            ordered.append((stem, clone))
+    return ordered
+
+
 def _name_variants(name: str):
-    """`[(stored_name, implied_genotype, implied_gene)]`, most literal first.
+    """`[(stored_name, implied_genotype, implied_gene, implied_clone)]`, most
+    literal first.
 
     A knockout is very often stored under its parental's bare name with the gene
     in `target`, so the label `HAP1 ELP3 KO` has to find the row called `HAP1`;
@@ -121,16 +204,23 @@ def _name_variants(name: str):
     and every other gene's knockout that shares the name — which is the exact
     confusion the decoration exists to remove. So a variant that came from
     stripping ` <GENE> KO` only ever matches knockouts of that gene.
+
+    The clone is stripped **outside** that, because it is appended outside it:
+    `label()` builds `<name> <GENE> KO clone <clone>`, so the clone comes off
+    first and each reading is then undecorated on its own. A label carrying no
+    clone produces exactly the variants it always did.
     """
-    out = [(name, None, None)]
-    m = _KO_SUFFIX.match(name)
-    if m:
-        stem, gene = m.group("name").strip(), m.group("gene").strip()
-        out.append((stem, "KO", gene))
-        out.append((f"{stem} KO", "KO", gene))
+    out = []
+    for stem, clone in _clone_readings(name):
+        out.append((stem, None, None, clone))
+        m = _KO_SUFFIX.match(stem)
+        if m:
+            base, gene = m.group("name").strip(), m.group("gene").strip()
+            out.append((base, "KO", gene, clone))
+            out.append((f"{base} KO", "KO", gene, clone))
     seen, ordered = set(), []
     for v in out:
-        key = (v[0].lower(), v[1], (v[2] or "").lower())
+        key = (v[0].lower(), v[1], (v[2] or "").lower(), (v[3] or "").lower())
         if v[0] and key not in seen:
             seen.add(key)
             ordered.append(v)
@@ -226,6 +316,208 @@ def format_batches(numbers) -> str:
     return ", ".join(out)
 
 
+def _clone_group_key(line):
+    """What makes two rows clones of the same knockout: the gene, the background
+    and the bench. Not the clone itself, which is the thing that tells them
+    apart, and not the parent line, which several rows legitimately leave blank.
+    """
+    return ((line.name or "").strip().lower(), line.target_id, line.site_id)
+
+
+def clones_of(line, db: str = DB) -> list:
+    """Every clone on file of the same knockout, this one included.
+
+    **A gene and a background define the knockout; a clone is one instance of
+    it** — a separate single-cell origin, often a separate guide. That is the
+    level the database had no room for: `clone` was one text field on one row,
+    so a bench with seven clones of `HCT116 ACSL5 KO` could record one of them
+    and nothing said the other six existed. Asked for by name (Sara, 3 Sep 2026:
+    *"I couldn't see all the clones associated with a KO cell line"*).
+
+    Wild types are excluded on purpose and it is the same rule as everywhere else
+    in this file: a WT has no gene, one parental serves every knockout made from
+    it, and grouping the 140 of them by name would answer a different question.
+    """
+    if line is None or (getattr(line, "genotype", "") or "").upper() != "KO":
+        return []
+    name, target_id, site_id = _clone_group_key(line)
+    qs = _base_queryset(db).filter(name__iexact=name, genotype="KO")
+    qs = (qs.filter(target_id=target_id) if target_id
+          else qs.filter(target__isnull=True))
+    qs = qs.filter(site_id=site_id) if site_id else qs.filter(site__isnull=True)
+    # By clone, so a picker and a page list them in the same order, and by pk
+    # last so the order is total — two rows can share a blank clone while the
+    # split that gave them one is still being worked through.
+    return list(qs.order_by("clone", "c_number", "pk"))
+
+
+def clone_counts(lines, db: str = DB) -> dict:
+    """`{cell_line_id: clones of that knockout on file}` — one query, not one
+    per row.
+
+    The board draws this on every knockout it lists, and `clones_of` per row is
+    the N+1 `tests_cell_line_board.py` already caught once on `batch_numbers`
+    (37 queries for 32 lines). Only the names actually drawn are asked about, so
+    the query is bounded by the page rather than by the table.
+    """
+    ko = [cl for cl in lines if (getattr(cl, "genotype", "") or "").upper() == "KO"]
+    if not ko:
+        return {}
+    names = {(cl.name or "").strip().lower() for cl in ko}
+    tally = {}
+    for name, target_id, site_id in (
+            CellLine.objects.using(db)
+            .filter(genotype="KO", name__in=[cl.name for cl in ko])
+            .values_list("name", "target_id", "site_id")):
+        key = ((name or "").strip().lower(), target_id, site_id)
+        if key[0] in names:
+            tally[key] = tally.get(key, 0) + 1
+    return {cl.pk: tally.get(_clone_group_key(cl), 1) for cl in ko}
+
+
+def clone_note(line, total=None) -> str:
+    """What a row says about its siblings: `clone 2.3 · 1 of 7 clones`.
+
+    Two facts that are easy to run together and are not the same. A row with a
+    clone and no siblings says only what it is; a row with siblings says how many
+    there are, because **a cell showing one of several looks like an answer** —
+    the rule `services/storage.py` holds for an antibody kept in two boxes. A
+    knockout with siblings and *no* clone recorded is the state the Access merge
+    left behind, and it says so rather than drawing an empty cell.
+    """
+    if line is None:
+        return ""
+    suffix = clone_suffix(line)
+    if total is None:
+        total = len(clones_of(line)) or 1
+    if total <= 1:
+        return suffix
+    if not suffix:
+        return f"not recorded · one of {total} clones"
+    return f"{suffix} · 1 of {total} clones"
+
+
+def parent_label(line) -> str:
+    """What the PARENT cell says: the linked line, and the batch it was recorded as.
+
+    **The link and the reference are two facts and the cell was drawing one.**
+    `parent_line.name if parent_line_id else parental_line_name` showed the
+    C-number until a row was linked and the bare name afterwards — so
+    `backfill_cell_line_parents` linking 156 rows replaced `C-16` with `HeLa` on
+    every one of them, losing the freeze-down batch off the screen at the exact
+    moment the row got better. Which HeLa is the whole question: the name covers
+    17 parental stocks from five sources, and the C-number is the only thing that
+    says which.
+
+    So both, and neither twice — a row recorded as `HAP1` and linked to HAP1 says
+    it once. A row carrying text that resolved to nothing says so rather than
+    reading like a link, because those 17 are a worklist and an unlinked
+    reference drawn plainly is indistinguishable from a working one.
+    """
+    if line is None:
+        return ""
+    recorded = (getattr(line, "parental_line_name", "") or "").strip()
+    parent = getattr(line, "parent_line", None) if line.parent_line_id else None
+    if parent is None:
+        return f"{recorded} — not linked" if recorded else ""
+    name = (parent.name or "").strip()
+    if not recorded or recorded.lower() == name.lower():
+        return name
+    return f"{name} · {recorded}"
+
+
+# ── A parent has to be a wild type *of that background* ─────────────────────
+#
+# `HeLa FUS KO → HAP1`, `U2OSn UBQLN2 KO → HCT116`, `HCT116 CSNK2A1 KO →
+# HEK293T`: fourteen links the first dry run of `backfill_cell_line_parents`
+# would have written, every one resolving to *a* wild type and none to a wild
+# type of the knockout's own cell line. That check lived in the command, so the
+# nineteenth field test pasted `HAP1 | STMN2 | KO | parent HeLa` on the cell
+# lines board and read *parent "HeLa" is your site's line — new*: the paste
+# door asked whether the parent was a wild type and never whether it was the
+# right one, and a mismatched control is read as the matched one by every
+# session planned afterwards. One reader now, asked by the command, the paste
+# preview and the identity dialog.
+
+def background(name: str, gene: str = "") -> str:
+    """The cell line a name is a knockout *of*: `HAP1 ELP3 KO` → `HAP1`,
+    `SW620 KO` → `SW620`, `HAP1` → `HAP1`.
+
+    A knockout is usually stored under its parental's bare name with the gene in
+    `target`, but the Access-era rows and a pasted label both carry the
+    decoration `label()` adds, so it is undone here — trailing `KO` first, then
+    the trailing gene symbol when the caller knows it.
+    """
+    # `label()` appends ` <GENE> KO` and then ` clone <x>`, so the clone comes
+    # off only where it follows the KO — a wild type genuinely named
+    # `U2OSn clone FM109` keeps its name, and stays distinct from `U2OSn`.
+    text = re.sub(r"\s+KO(\s+clone\s+.*)?$", "", (name or "").strip(), flags=re.I)
+    g = (gene or "").strip()
+    if g:
+        text = re.sub(rf"\s+{re.escape(g)}$", "", text, flags=re.I)
+    return text.strip()
+
+
+def parental_hint(name: str, site_id=None, db: str = DB) -> str:
+    """`The HeLa wild type on file is C-15 — may be that.` — what to name instead.
+
+    "Not a HeLa" describes the check; it does not tell a reader what to do, and
+    the thing they need next is almost always on file already: the wild type of
+    that background, at that bench. Its numbers come from `batch_numbers`, which
+    folds a line's own C-number together with its freeze-down batches; two or
+    three are listed and the rest counted, because this is a hint and not an
+    inventory. A parental that carries no C-number at all — every one of
+    Leicester's eight, on 5 Sep 2026 — is named by name, since "no wild type on
+    file" would be false and would send somebody to add a second one. Where the
+    background really has no wild type, it says so, so a suggestion never names
+    a row that is not there.
+    """
+    bg = (name or "").strip()
+    if not bg:
+        return ""
+    wts = list(CellLine.objects.using(db)
+               .prefetch_related("vials")
+               .filter(genotype=CellLine.Genotype.WILD_TYPE, name__iexact=bg,
+                       site_id=site_id))
+    if not wts:
+        return (f"No {bg} wild type is on file at this bench, so there is "
+                f"nothing to point it at.")
+    numbers = sorted({n for wt in wts for n in batch_numbers(wt, db=db)})
+    if not numbers:
+        return (f"The {bg} wild type on file at this bench carries no C-number "
+                f"— name it as {wts[0].name}.")
+    shown = ", ".join(f"C-{n}" for n in numbers[:3])
+    rest = len(numbers) - 3
+    more = f" (and {rest} more of its batches)" if rest > 0 else ""
+    one = len(numbers) == 1
+    return (f"The {bg} wild type on file is {shown}{more} — "
+            f"may be {'that' if one else 'one of those'}.")
+
+
+def wrong_background(name: str, parent, *, gene: str = "", site_id=None,
+                     db: str = DB) -> str:
+    """`""` when `parent` is a wild type of the same cell line as a knockout
+    called `name`; otherwise the sentence to refuse the link with.
+
+    **The name match is exact.** `HEK293` and `HEK293T` are different cell
+    lines and no prefix rule separates that pair from `U2OSn` and `U2OSn clone
+    FM109`, which are one — so both go to a person. Refusing a link that is
+    right costs one edit in a dialog; writing one that is wrong costs an
+    experiment. Only a wild-type parent is judged here: a parent that is not a
+    wild type at all is a different refusal, and its caller already has it.
+    """
+    if parent is None or parent.genotype != CellLine.Genotype.WILD_TYPE:
+        return ""
+    mine = background(name, gene)
+    theirs = background(parent.name or "")
+    if not mine or mine.casefold() == theirs.casefold():
+        return ""
+    where = site_id if site_id is not None else getattr(parent, "site_id", None)
+    return (f"Looks wrong: {parent.name} is a wild type, but a {mine} knockout "
+            f"does not come from a {parent.name}. "
+            f"{parental_hint(mine, site_id=where, db=db)}")
+
+
 def candidates(value, *, genotype=None, db: str = DB) -> list:
     """Every line a typed value could mean, before site preference is applied.
 
@@ -244,12 +536,19 @@ def candidates(value, *, genotype=None, db: str = DB) -> list:
     # "matches 2 cell lines" about a string that names exactly one. The most
     # literal reading of what somebody typed is the reading they meant.
     found = []
-    for stored, want_genotype, want_gene in _name_variants(name):
+    for stored, want_genotype, want_gene, want_clone in _name_variants(name):
         qs = _base_queryset(db).filter(name__iexact=stored)
         if want_genotype:
             qs = qs.filter(genotype=want_genotype)
         if want_gene:
             qs = qs.filter(target__gene_name__iexact=want_gene)
+        if want_clone:
+            # Named the clone, so it is asking for that clone and not for its
+            # siblings. A label with **no** clone deliberately does not filter:
+            # `HCT116 ACSL5 KO` now answers to seven rows, and seven is the
+            # honest answer — `ambiguous_message` lists them and asks, which is
+            # this module's whole rule about a name that matches more than one.
+            qs = qs.filter(clone__iexact=want_clone)
         hits = list(qs)
         if hits:
             found = hits

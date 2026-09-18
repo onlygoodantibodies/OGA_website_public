@@ -1,0 +1,710 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Judge outcomes — YCharOS Pipeline{% endblock %}
+
+{% block extra_head %}
+<style>
+  .out-tool {
+    --navy: #0b406d; --blue: #0070c4; --mid: #36a8f5; --pale: #e0effe;
+    --border: #e2e8f0; --muted: #777; --green: #16a34a; --green-bg: #dcfce7;
+    --amber: #d97706; --amber-bg: #fef3c7; --red: #dc2626; --red-bg: #fee2e2;
+    --grey-bg: #f9fafb;
+    color: #333;
+  }
+  .out-tool select { font-family: inherit; font-size: 0.85rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; min-width: 260px; }
+  .out-tool select:focus { outline: none; border-color: var(--mid); box-shadow: 0 0 0 3px rgba(54,168,245,0.15); }
+
+  .out-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .out-stat { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; color: var(--muted); }
+  .out-stat b { color: var(--navy); font-weight: 700; }
+
+  #out-filter-bar { padding: 12px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .gene-stats { font-size: 0.82rem; color: var(--muted); }
+  .gaps-only { font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+  {% comment %}Scoped to the one element it is for, and no `!important`.
+  A bare `.hidden { display: none !important }` on Set recommendations beat the
+  chrome's own `hidden md:flex` and emptied the entire navigation bar — every
+  link present in the markup and none of it visible, which is why the
+  source-level chrome test passed (twentieth field test).{% endcomment %}
+  #out-preview.out-hidden { display: none; }
+  #out-banner.out-hidden { display: none; }
+  .out-hidden { display: none; }
+
+  #out-grid { padding: 8px 0 40px; display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+  .empty-state { grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--muted); font-size: 0.95rem; }
+
+  .out-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .out-card.is-gap { border-color: var(--amber); }
+  .out-card.is-conflict { border-color: var(--red); }
+  .out-head { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .cat-num { font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+  .gene-tag { font-size: 0.78rem; font-weight: 600; background: var(--pale); color: var(--blue); padding: 2px 8px; border-radius: 4px; margin-left: 6px; }
+  .out-meta { font-size: 0.76rem; color: var(--muted); margin-top: 4px; }
+  .meta-sep { margin: 0 3px; opacity: 0.4; }
+
+  .fig-wrap { position: relative; background: var(--grey-bg); border-bottom: 1px solid var(--border); }
+  .fig-wrap img { display: block; width: 100%; max-height: 260px; object-fit: contain; cursor: zoom-in; }
+  .fig-none { padding: 28px 14px; text-align: center; color: var(--muted); font-size: 0.8rem; }
+  .fig-zoom { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.92); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; line-height: 1; padding: 4px 6px; cursor: pointer; }
+
+  .axis-row { padding: 8px 14px; border-top: 1px solid #f1f5f9; }
+  .axis-name { font-size: 0.78rem; font-weight: 600; color: var(--navy); display: block; margin-bottom: 5px; }
+  .axis-btns, .rec-btns { display: flex; gap: 5px; }
+  .axis-btns button, .rec-btns button { flex: 1; font-family: inherit; font-size: 0.78rem; padding: 5px 4px; border: 1px solid var(--border); border-radius: 5px; background: #fff; color: #555; cursor: pointer; }
+  .axis-btns button:hover:not(:disabled), .rec-btns button:hover:not(:disabled) { border-color: var(--mid); }
+  .axis-btns button:disabled { cursor: default; opacity: 0.75; }
+  .axis-btns button.on-yes, .rec-btns button.on-yes { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
+  .axis-btns button.on-no, .rec-btns button.on-no { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
+  .axis-btns button.on-unclear { background: #f3f4f6; border-color: #9ca3af; color: #4b5563; font-weight: 700; }
+  .axis-btns button.on-no_selective_signal { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
+  .axis-btns button.on-selective { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+  .axis-btns button.on-strongly_selective { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
+  .axis-why { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+  .axis-why.conflict { color: var(--amber); font-weight: 600; }
+
+  .ratio-block { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 6px; background: var(--grey-bg); border: 1px solid var(--border); }
+  .ratio-block .ratio-num { font-size: 1.25rem; font-weight: 700; color: var(--navy); }
+  .ratio-block .ratio-band { font-size: 0.78rem; font-weight: 600; }
+  .ratio-block .ratio-scale { font-size: 0.7rem; color: var(--muted); flex-basis: 100%; }
+  .ratio-block.band-no_selective_signal { background: var(--red-bg); border-color: #fecaca; }
+  .ratio-block.band-no_selective_signal .ratio-band { color: var(--red); }
+  .ratio-block.band-selective { background: var(--amber-bg); border-color: #fde68a; }
+  .ratio-block.band-selective .ratio-band { color: var(--amber); }
+  .ratio-block.band-strongly_selective { background: var(--green-bg); border-color: #bbf7d0; }
+  .ratio-block.band-strongly_selective .ratio-band { color: var(--green); }
+  /* A measurement on file that no band is derived from. Dashed and muted so it
+     cannot be read as the number a verdict rests on — that nothing has been
+     decided from it yet is the whole reason the card is showing it. */
+  .ratio-block.unused { background: transparent; border-style: dashed; }
+  .ratio-block.unused.mismatch { border-color: var(--amber); }
+  .ratio-block.unused .ratio-num, .ratio-block.unused .ratio-band { color: var(--muted); }
+  .conflict-note {
+    padding: 8px 14px; font-size: 0.76rem; line-height: 1.35;
+    background: var(--amber-bg); color: #7c4a03;
+    border-top: 1px solid #fde68a; border-bottom: 1px solid #fde68a;
+  }
+  .verdict-bar { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 0.78rem; background: var(--grey-bg); }
+  .verdict-bar b { color: var(--navy); }
+  .rec-chip { font-size: 0.7rem; font-weight: 600; padding: 2px 7px; border-radius: 3px; background: var(--green-bg); color: var(--green); }
+  .rec-chip.off { background: #f3f4f6; color: #999; }
+  /* The recommendation, set here. Deliberately drawn as the axis buttons are:
+     it is the same kind of act on the same figure, and a control that looks
+     like a different sort of thing reads as belonging to a different page. */
+  .rec-row { margin-top: 7px; }
+  .rec-row .rec-label { font-size: 0.7rem; color: #6b7280; display: block; margin-bottom: 3px; }
+
+  #out-banner { margin: 10px 0; padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; background: var(--red-bg); color: #7f1d1d; border: 1px solid #fecaca; }
+  #out-banner.ok { background: var(--green-bg); color: #14532d; border-color: #bbf7d0; }
+
+  #out-preview { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+  #out-preview img { max-width: 94vw; max-height: 84vh; background: #fff; }
+  #out-preview p { color: #fff; margin-top: 12px; font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="out-tool max-w-7xl mx-auto px-4 py-6">
+
+  <h1 class="text-2xl font-bold" style="color:#0b406d">Judge outcomes</h1>
+  <p class="text-sm text-gray-600 mt-1 mb-4" style="max-width:64rem">
+    A recommendation is one yes/no. The bench recorded more, and each
+    application asks its own questions: a western blot has two —
+    <b>detects the target</b> is the band being there, <b>selective</b> is
+    nothing else being there with it — while immunofluorescence has one measured
+    number and immunoprecipitation one call. Most of the dataset sits in between
+    the two verdicts a boolean can hold.
+    {% comment %}A page must say what a control does before somebody presses it,
+    and this one writes to a table nothing public reads yet. Saying so here is
+    the difference between a scientist judging freely and a scientist worrying
+    they have just changed the website.{% endcomment %}
+    Nothing here changes the public site: the recommendations shown on each card
+    stay in charge until the browser extension and the API are built to carry
+    this.
+  </p>
+
+  <div class="out-stats">
+    <div class="out-stat">Figures: <b id="stat-total">—</b></div>
+    <div class="out-stat">Still to judge: <b id="stat-gaps">—</b></div>
+    <div class="out-stat">Judged this visit: <b id="stat-changes">0</b></div>
+  </div>
+
+  {% if gene_note %}<p class="out-stat" style="margin-top:10px">{{ gene_note }}</p>{% endif %}
+
+  <div id="out-filter-bar">
+    <select id="out-app" aria-label="Application">
+      {% for a in applications %}
+      <option value="{{ a.code }}"{% if a.code == application %} selected{% endif %}>{{ a.label }}</option>
+      {% endfor %}
+    </select>
+    <select id="out-gene" aria-label="Gene">
+      <option value="">— Select a gene —</option>
+    </select>
+    <label class="gaps-only">
+      <input type="checkbox" id="out-gaps-only" checked>
+      Only show what is still to judge
+    </label>
+    <span class="gene-stats" id="out-gene-stats"></span>
+  </div>
+
+  <div id="out-banner" class="out-hidden" role="alert"></div>
+
+  <div id="out-grid">
+    <div class="empty-state">Pick a gene above. The list is ordered by how much is left to judge.</div>
+  </div>
+
+  <div id="out-preview" class="out-hidden" role="dialog" aria-modal="true" aria-label="Enlarged figure">
+    <img id="out-preview-img" src="" alt="Enlarged western blot figure">
+    <p id="out-preview-caption"></p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+'use strict';
+
+const CSRF = '{{ csrf_token }}';
+const URL_GENES = "{% url 'pipeline:outcome_genes' %}";
+const URL_ANTIBODIES = "{% url 'pipeline:outcome_antibodies' %}";
+const URL_SAVE = "{% url 'pipeline:outcome_save' %}";
+const URL_RECOMMEND = "{% url 'pipeline:outcome_recommend' %}";
+/* Resolved server-side to the target's own spelling, so `?gene=trpa1` and the
+   eight mis-cased symbols still select the right option. Empty when nothing was
+   asked for or the request could not be honoured — and in that second case the
+   page is already showing a note saying which of the two it was. */
+const WANTED_GENE = '{{ requested_gene|escapejs }}';
+
+/* Which axes are drawn comes from the server, per application — a page that
+   kept its own list would offer a control the writer refuses. */
+let AXES = ['detects', 'selective'];
+let axisLabels = {};
+let verdictLabels = {};
+let axisValues = {};
+let conflictsView = false;
+let worklistNote = '';
+let thresholds = {floor: '1.5', strong: '2.6'};
+let application = '{{ application|escapejs }}';
+/* A value no gene can have, so the picker can offer the conflicts worklist
+   without a second control. */
+const CONFLICTS = '\u0000conflicts';
+const REVIEW = '\u0000review';
+const UNUSED = '\u0000unused';
+let antibodies = [];
+let changeCount = 0;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
+
+/* A message the reader cannot see is the same as no message, and a refused save
+   that shows nothing reads as an accepted one. */
+function banner(text, isError) {
+  const el = document.getElementById('out-banner');
+  el.textContent = text;
+  el.classList.remove('out-hidden');
+  el.classList.toggle('ok', !isError);
+  el.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+}
+function clearBanner() { document.getElementById('out-banner').classList.add('out-hidden'); }
+
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('out-gene').addEventListener('change', loadGene);
+  /* Changing application changes which genes have figures at all, so the whole
+     picker is rebuilt — carrying the gene across when it has some. */
+  document.getElementById('out-app').addEventListener('change', async () => {
+    application = document.getElementById('out-app').value;
+    const keep = document.getElementById('out-gene').value;
+    await loadGenes(keep);
+  });
+  document.getElementById('out-gaps-only').addEventListener('change', renderGrid);
+  document.getElementById('out-preview').addEventListener('click', closePreview);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+  await loadGenes(WANTED_GENE);
+});
+
+async function loadGenes(wanted) {
+  const sel = document.getElementById('out-gene');
+  let data;
+  try {
+    const resp = await fetch(URL_GENES + '?app=' + encodeURIComponent(application));
+    if (!resp.ok) throw new Error('read failed');
+    data = await resp.json();
+  } catch (err) {
+    /* A failed read is not an empty result: an empty picker under "0 figures"
+       reads as a database with nothing in it. */
+    banner('Could not load the gene list. Nothing has been changed — try again.', true);
+    return;
+  }
+
+  sel.innerHTML = '<option value="">— Select a gene —</option>';
+  /* The conflicts are their own job and they span every gene, so they sit at
+     the top of the picker rather than being found a gene at a time. Absent
+     when there are none, so the option never offers an empty list. */
+  if (data.conflict_total) {
+    const opt = document.createElement('option');
+    opt.value = CONFLICTS;
+    opt.textContent = '\u26a0 Recommendation disagrees with the data — '
+      + data.conflict_total + ' across every gene';
+    sel.appendChild(opt);
+  }
+  /* The second list, and a different question: every row here is drawing the
+     amber it should, so this is for confirming the negative is still the one
+     you would make in front of the figure. */
+  if (data.review_total) {
+    const opt = document.createElement('option');
+    opt.value = REVIEW;
+    opt.textContent = '\u25c6 Limited support — not recommended, on-target signal — '
+      + data.review_total + ' across every gene';
+    sel.appendChild(opt);
+  }
+  /* The third: a session measured a ratio no band is derived from, and what
+     the record says about the antibody is not what that number says. Only the
+     disagreements — two sources agreeing is nothing to look at. */
+  if (data.unused_total) {
+    const opt = document.createElement('option');
+    opt.value = UNUSED;
+    opt.textContent = '\u25cb Ratio on file disagrees with what is recorded \u2014 '
+      + data.unused_total + ' across every gene';
+    sel.appendChild(opt);
+  }
+  data.genes.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.name;
+    opt.textContent = g.name + ' — ' + g.gap_count + ' to judge of ' + g.antibody_count;
+    sel.appendChild(opt);
+  });
+  document.getElementById('stat-total').textContent = data.total_antibodies;
+  document.getElementById('stat-gaps').textContent = data.total_gaps;
+
+  if (wanted) {
+    sel.value = wanted;
+    if (sel.value === wanted) {
+      await loadGene();
+      return;
+    }
+    /* The server has already checked this gene is one of them for the
+       application it was asked about, so a value that does not match here is a
+       real answer — this application has no figures for it — not a normal miss.
+       A picker left on its placeholder says neither. */
+    document.getElementById('out-grid').innerHTML =
+      '<div class="empty-state">' + esc(wanted) + ' has no published '
+      + esc(document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase())
+      + ' figures. Pick another gene, or switch application.</div>';
+    document.getElementById('out-gene-stats').textContent = '';
+    return;
+  }
+  await loadGene();
+}
+
+async function loadGene() {
+  const gene = document.getElementById('out-gene').value;
+  const grid = document.getElementById('out-grid');
+  clearBanner();
+  if (!gene) {
+    antibodies = [];
+    grid.innerHTML = '<div class="empty-state">Pick a gene above. The list is ordered by how much is left to judge.</div>';
+    document.getElementById('out-gene-stats').textContent = '';
+    return;
+  }
+
+  let data;
+  try {
+    const WORKLIST = {[CONFLICTS]: 'conflicts', [REVIEW]: 'review',
+                      [UNUSED]: 'unused'};
+    const query = WORKLIST[gene]
+      ? '?' + WORKLIST[gene] + '=1&app=' + encodeURIComponent(application)
+      : '?gene=' + encodeURIComponent(gene) + '&app=' + encodeURIComponent(application);
+    const resp = await fetch(URL_ANTIBODIES + query);
+    if (!resp.ok) throw new Error('read failed');
+    data = await resp.json();
+  } catch (err) {
+    antibodies = [];
+    grid.innerHTML = '<div class="empty-state">Could not read ' + esc(gene) + '. Try again.</div>';
+    banner('Could not read ' + gene + ' — nothing has been changed.', true);
+    return;
+  }
+
+  antibodies = data.antibodies;
+  conflictsView = !!data.conflicts_view;
+  worklistNote = data.worklist_note || '';
+  AXES = data.axes || AXES;
+  axisLabels = data.axis_labels || axisLabels;
+  verdictLabels = data.verdict_labels || verdictLabels;
+  axisValues = data.axis_values || {};
+  thresholds = data.thresholds || thresholds;
+  showGeneStats(data.summary);
+  renderGrid();
+}
+
+/* Verbs agree with counts, and counts are often 1. A conflict is named
+   separately because filling something in is not what resolves one. */
+function showGeneStats(s) {
+  if (conflictsView) {
+    /* The sentence is the server's: the two worklists count different things,
+       and the words that fit one are a false claim about the other. */
+    document.getElementById('out-gene-stats').textContent =
+      s.total + ' ' + worklistNote;
+    return;
+  }
+  const bits = [s.total + ' figure' + (s.total === 1 ? '' : 's'),
+                s.judged + ' judged',
+                s.gaps + ' to go'];
+  if (s.conflicts) {
+    /* Only the ones still waiting on somebody. A settled disagreement is still
+       drawn on its card, and counting it here again would point at rows with
+       nothing left to do on them. */
+    bits.push(s.conflicts + ' where the runs disagree');
+  }
+  document.getElementById('out-gene-stats').textContent = bits.join(' · ');
+}
+
+function renderGrid() {
+  const grid = document.getElementById('out-grid');
+  /* Every row on the conflicts list is there because somebody has to look at
+     it, and most of them already carry an answer — filtering to "still to
+     judge" would empty the screen you just asked for. */
+  const gapsOnly = !conflictsView
+    && document.getElementById('out-gaps-only').checked;
+  if (!antibodies.length) {
+    grid.innerHTML = '<div class="empty-state">No published western blot figures for this gene.</div>';
+    return;
+  }
+  const shown = gapsOnly ? antibodies.filter(a => a.is_gap) : antibodies;
+  if (!shown.length) {
+    /* A control that hides everything must say what it hid, or an empty grid
+       reads as a gene with no figures. */
+    grid.innerHTML = '<div class="empty-state">Everything on this gene has been judged — '
+      + antibodies.length + ' figure' + (antibodies.length === 1 ? '' : 's')
+      + '. Untick “only show what is still to judge” to see them.</div>';
+    return;
+  }
+  grid.innerHTML = shown.map(renderCard).join('');
+}
+
+function renderCard(ab) {
+  const fig = ab.image_url
+    ? '<div class="fig-wrap">'
+      + '<button type="button" class="fig-zoom" data-zoom="' + ab.id + '"'
+      + ' aria-label="Enlarge the figure for ' + esc(ab.name) + '">⤢</button>'
+      + '<img src="' + esc(ab.image_url) + '" loading="lazy" data-zoom="' + ab.id + '"'
+      + ' alt="Figure for ' + esc(ab.name) + '">'
+      + '</div>'
+    : '<div class="fig-none">The figure could not be loaded.</div>';
+
+  return '<div class="out-card' + (ab.is_gap ? ' is-gap' : '') + '" id="out-card-' + ab.id + '">'
+    + '<div class="out-head">'
+    + '<span class="cat-num">' + esc(ab.name) + '</span>'
+    + '<span class="gene-tag">' + esc(ab.gene) + '</span>'
+    + '<div class="out-meta">'
+    + (ab.rrid ? '<span>' + esc(ab.rrid) + '</span><span class="meta-sep">·</span>' : '')
+    + '<span>' + esc(ab.supplier || '') + '</span>'
+    + '<span class="meta-sep">·</span><span>' + esc(ab.clonality || '') + '</span>'
+    + '</div></div>'
+    + fig
+    + renderConflict(ab)
+    + AXES.map(axis => renderAxis(ab, axis)).join('')
+    + renderVerdict(ab)
+    + '</div>';
+}
+
+function renderAxis(ab, axis) {
+  const a = ab.axes[axis];
+  const measured = a.ratio !== null && a.ratio !== undefined;
+  /* Every axis is judgeable here, including one the bench answered and one a
+     ratio decided. Nothing is disabled and nothing is filtered out: a control
+     that is merely absent is a change the reader concludes cannot be made, and
+     making every change from this screen is the point of it. What was
+     overridden is printed under the buttons, never hidden. */
+  const opts = axisValues[axis] || [];
+  const btns = '<div class="axis-btns">' + opts.map(o =>
+    '<button type="button" data-ab="' + ab.id + '" data-axis="' + axis + '"'
+    + ' data-value="' + esc(o.value) + '"'
+    + (a.value === o.value ? ' class="on-' + esc(o.value) + '"' : '')
+    + '>' + esc(o.label) + '</button>'
+  ).join('') + '</div>';
+
+  let ratioBlock = '';
+  if (measured) {
+    /* The number, the band it falls in and the cut-offs that separate them,
+       together — a band printed on its own is a verdict the reader cannot
+       check. The band shown is the measured one even when a judgement has
+       overridden it; the note below says which is in force. */
+    const measuredBand = a.overridden ? null : a.band;
+    ratioBlock = '<div class="ratio-block' + (measuredBand ? ' band-' + esc(measuredBand) : '') + '">'
+      + '<span class="ratio-num">' + esc(a.ratio) + '</span>'
+      + '<span class="ratio-band">' + esc(measuredBand ? (verdictLabels[measuredBand] || measuredBand) : 'measured') + '</span>'
+      + '<span class="ratio-scale">WT/KO at the best concentration · '
+      + 'under ' + esc(thresholds.floor) + ' not selective, '
+      + esc(thresholds.strong) + ' and over strongly selective</span>'
+      + '</div>';
+  } else if (a.unused_ratio) {
+    /* A measurement no band is derived from, because the row names no best
+       concentration. Drawn with the same cut-offs so it can be read, and
+       deliberately with no band beside it: placing it is the judgement, and
+       the buttons under this are where a person makes it. */
+    const sits = a.unused_band
+      ? (verdictLabels[a.unused_band] || a.unused_band) + ' \u2014 not used'
+      : 'not used';
+    ratioBlock = '<div class="ratio-block unused'
+      + (a.ratio_mismatch ? ' mismatch' : '') + '">'
+      + '<span class="ratio-num">' + esc(a.unused_ratio) + '</span>'
+      + '<span class="ratio-band">' + esc(sits) + '</span>'
+      + '<span class="ratio-scale">WT/KO'
+      + (a.unused_runs > 1 ? ', middle of ' + a.unused_runs + ' runs' : '')
+      + ' \u00b7 the row names no best concentration \u00b7 under '
+      + esc(thresholds.floor) + ' not selective, '
+      + esc(thresholds.strong) + ' and over strongly selective</span>'
+      + '</div>';
+  }
+
+  const said = '“' + esc(a.raw) + '”';
+  const across = a.runs > 1 ? ' across ' + a.runs + ' runs' : '';
+  let why = '', cls = 'axis-why';
+  if (a.overridden && measured) {
+    cls += ' conflict';
+    why = 'The measured ratio puts this in a different band. Your judgement is '
+        + 'what stands; the ratio is unchanged.';
+  } else if (a.overridden) {
+    cls += ' conflict';
+    why = 'Recorded at the bench as ' + said + across
+        + '. Your judgement is what stands; the runs are unchanged.';
+  } else if (a.settled) {
+    /* The disagreement is kept — a card that stopped printing it would make a
+       judged row look like an agreed one. */
+    why = 'The runs disagreed — recorded as ' + said + across
+        + '. Settled here from the figure; the runs are unchanged.';
+  } else if (a.conflict && !measured) {
+    cls += ' conflict';
+    why = 'The runs disagree — recorded as ' + said + across
+        + '. Judge it from the figure.';
+  } else if (a.conflict && measured) {
+    cls += ' conflict';
+    why = 'The bench call ' + said + ' disagrees with the measured ratio. The '
+        + 'ratio is what this band uses.';
+  } else if (measured) {
+    why = 'Measured' + (a.runs > 1 ? ' across ' + a.runs + ' runs' : '') + '.';
+  } else if (a.session_value) {
+    why = 'Recorded at the bench as ' + said + across + '.';
+  } else if (a.no_best_concentration && a.unused_ratio) {
+    /* The measurement is on file and nothing is derived from it — 637 of the
+       1,817 live IF rows. Say the number, say why it is not in force, and
+       leave the decision on this screen: reading it into the band
+       automatically would have moved 24 public cards with nobody deciding. */
+    why = 'A ratio was measured, but the row names no best concentration, so '
+        + 'no band is derived from it. Place it yourself from the figure, or '
+        + 'set the best concentration on the sessions board.';
+  } else if (a.no_best_concentration) {
+    /* Never invent a value; leave a named gap. Both concentrations were
+       measured and neither is named best, and the obvious stand-in — the
+       higher of the two — is what the lab named best only 58% of the time. */
+    why = 'Both concentrations were measured and there is no best concentration '
+        + 'named, so there is no telling which ratio belongs to this antibody. '
+        + 'Judge it from the figure, or set the best concentration on the '
+        + 'sessions board.';
+  } else if (a.needs_grade) {
+    why = 'A session recorded a specific signal (' + said + ') but no best '
+        + 'concentration, so there is no ratio to grade it by. Grade it from '
+        + 'the figure.';
+  } else if (a.raw) {
+    why = 'A session recorded ' + said + ', which is not a yes or a no. Judge '
+        + 'it from the figure.';
+  } else if (a.source === 'review') {
+    why = 'Judged here from the figure.';
+  } else {
+    why = 'Nothing recorded.';
+  }
+  /* Appended rather than a branch of its own, because the disagreement is true
+     alongside whatever else the row is doing — a judged row must keep saying
+     that the judgement is what stands, and still say the ratio contradicts it.
+     `ratio_mismatch` is the server's, so the page is not deciding this twice. */
+  if (a.ratio_mismatch) {
+    cls += ' conflict';
+    why += ' The ratio on file sits in '
+         + esc(verdictLabels[a.unused_band] || a.unused_band).toLowerCase()
+         + ', which is not what is recorded here \u2014 the two cannot both be '
+         + 'right. Settle it from the figure.';
+  }
+
+  return '<div class="axis-row">'
+    + '<span class="axis-name">' + esc(axisLabels[axis] || axis) + '</span>'
+    + ratioBlock + btns
+    + '<div class="' + cls + '" id="why-' + ab.id + '-' + axis + '">' + why + '</div>'
+    + '</div>';
+}
+
+/* What the two sides say, on the rows where they disagree. Drawn above the
+   axes rather than under them: it is the reason the card is on this list, and a
+   reader who scrolls past it judges the figure without knowing why they were
+   sent to it. */
+function renderConflict(ab) {
+  if (!ab.conflict_direction) return '';
+  const app = document.getElementById('out-app').selectedOptions[0].textContent;
+  const a = ab.axes[AXES[0]] || {};
+  const measured = (a.ratio !== null && a.ratio !== undefined)
+    ? ' (measured ratio ' + esc(a.ratio) + ')' : '';
+  /* All three end on this page now — both halves are set from the card below,
+     so a note that sent the reader somewhere else would be sending them away
+     from the control. */
+  const TEXT = {
+    flagged_but_not_capable:
+      'Recommended for ' + esc(app) + ', but the recorded data says it did not'
+      + measured + '. Judge the figure, or take the recommendation off below.',
+    /* Supportive and not selective is a real, publishable state — the gene page
+       prints it in as many words — so this asks rather than corrects. It earns
+       a standing list because it is the pair that most often turns out to be a
+       rating nobody has looked at since. */
+    supportive_but_not_selective:
+      'Recommended for ' + esc(app) + ', and recorded as not selective. That is '
+      + 'a publishable answer — the gene page says "Supportive \u2014 but not '
+      + 'selective" \u2014 so this is a check, not a correction. Does the blot '
+      + 'agree?',
+    /* Everything this application records is positive and the verdict is still
+       negative. Worded as a question rather than a correction: a judgement can
+       rest on something no column holds. */
+    strongest_but_not_flagged:
+      'The evidence here is as strong as ' + esc(app) + ' records' + measured
+      + ', and it is not recommended. Deliberate? If not, set it below.',
+  };
+  const text = TEXT[ab.conflict_direction];
+  if (!text) return '';
+  return '<div class="conflict-note">' + text + '</div>';
+}
+
+function renderVerdict(ab) {
+  const app = document.getElementById('out-app').selectedOptions[0].textContent;
+  const words = ab.verdict
+    ? (verdictLabels[ab.verdict] || ab.verdict)
+    : (AXES.length > 1 ? 'Both answers needed before this reads as anything.'
+                       : 'Nothing judged yet.');
+  const on = v => ' class="' + (ab.recommended === v ? (v ? 'on-yes' : 'on-no') : '') + '"';
+  const button = (v, label) =>
+    '<button type="button" data-rec="' + ab.id + '" data-rec-value="' + v + '"'
+    + on(v) + '>' + esc(label) + '</button>';
+  return '<div class="verdict-bar" id="verdict-' + ab.id + '">'
+    + '<b>' + esc(words) + '</b>'
+    + '<div class="rec-row">'
+    + '<span class="rec-label">Recommended for ' + esc(app) + '?</span>'
+    + '<div class="rec-btns">'
+    + button(true, 'Recommended') + button(false, 'Not recommended')
+    + '</div></div></div>';
+}
+
+/* One delegated listener rather than an inline handler per button: a catalogue
+   number carrying an apostrophe would close the string in an inline one. */
+document.addEventListener('click', async e => {
+  const zoom = e.target.closest('[data-zoom]');
+  if (zoom) { openPreview(Number(zoom.dataset.zoom)); return; }
+  const rec = e.target.closest('button[data-rec]');
+  if (rec && !rec.disabled) { await saveRecommendation(rec); return; }
+  const btn = e.target.closest('.axis-btns button');
+  if (btn && !btn.disabled) await save(btn);
+});
+
+/* The recommendation half. Same shape as `save` and deliberately not folded
+   into it: the two write different fields through different endpoints, and one
+   function taking a flag for which would be a branch in the middle of a write
+   path. What they DO share is `applySaved` — the card must redraw the same way
+   whichever half moved, or the conflict note goes stale on one of them. */
+async function saveRecommendation(btn) {
+  const id = Number(btn.dataset.rec);
+  const value = btn.dataset.recValue === 'true';
+  const ab = antibodies.find(a => a.id === id);
+  if (!ab || ab.recommended === value) return;
+
+  let data, resp;
+  try {
+    resp = await fetch(URL_RECOMMEND, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({antibody_id: id, value: value,
+                            application: application}),
+    });
+    data = await resp.json();
+  } catch (err) {
+    banner('That did not save — the page could not reach the server. Nothing has been changed.', true);
+    return;
+  }
+  if (!resp.ok) {
+    banner(data.error || 'That did not save. Nothing has been changed.', true);
+    return;
+  }
+  applySaved(ab, data);
+  changeCount++;
+  document.getElementById('stat-changes').textContent = changeCount;
+  clearBanner();
+}
+
+/* Redraw one card from what the save returned, never a refetch of the grid:
+   the server's answer is the row, and a refetch would move cards under
+   somebody mid-judgement. */
+function applySaved(ab, data) {
+  ab.axes = data.axes;
+  ab.verdict = data.verdict;
+  ab.is_gap = data.is_gap;
+  if ('recommended' in data) ab.recommended = data.recommended;
+  ab.conflict_direction = data.conflict_direction;
+  const card = document.getElementById('out-card-' + ab.id);
+  if (card) card.outerHTML = renderCard(ab);
+}
+
+async function save(btn) {
+  const id = Number(btn.dataset.ab);
+  const axis = btn.dataset.axis;
+  const ab = antibodies.find(a => a.id === id);
+  if (!ab) return;
+  /* Pressing the answer that is already set clears it — the way back out of a
+     mis-click, without a second control to say "actually, nothing". */
+  const value = (ab.axes[axis].value === btn.dataset.value) ? '' : btn.dataset.value;
+
+  let data, resp;
+  try {
+    resp = await fetch(URL_SAVE, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      /* The application rides in the body. Without it the server checks the
+         judgement against the wrong figures and refuses. */
+      body: JSON.stringify({antibody_id: id, axis: axis, value: value,
+                            application: application}),
+    });
+    data = await resp.json();
+  } catch (err) {
+    banner('That did not save — the page could not reach the server. Nothing has been changed.', true);
+    return;
+  }
+  if (!resp.ok) {
+    banner(data.error || 'That did not save. Nothing has been changed.', true);
+    return;
+  }
+
+  const wasGap = ab.is_gap;
+  applySaved(ab, data);
+  if (value) { changeCount++; document.getElementById('stat-changes').textContent = changeCount; }
+
+  if (wasGap !== ab.is_gap) {
+    const gaps = antibodies.filter(a => a.is_gap).length;
+    const conflicts = antibodies.filter(a => AXES.some(x => a.axes[x].conflict)).length;
+    showGeneStats({total: antibodies.length, judged: antibodies.length - gaps,
+                   gaps: gaps, conflicts: conflicts});
+    const el = document.getElementById('stat-gaps');
+    const n = Number(el.textContent);
+    if (!Number.isNaN(n)) el.textContent = ab.is_gap ? n + 1 : n - 1;
+  }
+  clearBanner();
+}
+
+function openPreview(id) {
+  const ab = antibodies.find(a => a.id === id);
+  if (!ab || !ab.image_url) return;
+  document.getElementById('out-preview-img').src = ab.image_url;
+  document.getElementById('out-preview-caption').textContent =
+    ab.name + ' — ' + ab.gene + ' western blot';
+  document.getElementById('out-preview').classList.remove('out-hidden');
+}
+function closePreview() {
+  document.getElementById('out-preview').classList.add('out-hidden');
+  document.getElementById('out-preview-img').src = '';
+}
+</script>
+{% endblock %}

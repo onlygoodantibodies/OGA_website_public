@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Check a paper's antibodies with your AI — Only Good Antibodies</title>
-  <meta name="description" content="Connect the Only Good Antibodies database to Claude, ChatGPT, or any MCP-capable assistant so it can read a manuscript or preprint and flag which antibodies are independently knockout-validated — with per-application results. An early prototype.">
+  <meta name="description" content="Connect the Only Good Antibodies database to Claude, ChatGPT, or any MCP-capable assistant so it can read a manuscript or preprint and flag which antibodies are independently knockout-controlled — with per-application results — and which specificity controls the paper shows for them. An early prototype.">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -69,17 +69,18 @@
      methods section, it checks every antibody the paper cites against independent,
      knockout-controlled characterisation data from YCharOS (produced to community
      consensus protocols) — and tells you how each one performed, application by
-     application.</p>
+     application. Ask, and it also reports which specificity controls the paper itself
+     shows for those antibodies.</p>
 </section>
 
 <div class="ait-wrap">
 
   {% comment %}
-  The page's one caveat box, and the connector hands back recommendations —
-  "recommended / not recommended / not tested" per application, below — so it is
-  owed the same sentence the gene page and the portal carry. A reader may never
-  open a page of ours: they connect the server once and read the verdicts inside
-  their own assistant.
+  The page's one caveat box, and the connector hands back a result per
+  application — "Supportive / Limited support / Not supportive / Not tested",
+  below — so it is owed the same sentence the gene page and the portal carry. A
+  reader may never open a page of ours: they connect the server once and read
+  the results inside their own assistant.
   {% endcomment %}
   <div class="ait-note">
     <strong>⚗️ This is an early prototype.</strong> It works today and we use it ourselves,
@@ -112,13 +113,40 @@
           The paper itself stays with your assistant — only the reagents it found are sent
           to OGA.</li>
       <li><strong>Read the result.</strong> Every antibody it can identify (by catalogue
-          number or RRID) comes back grouped as <em>recommended / not recommended / not
-          tested / not in the dataset</em>, each with its per-application result
-          (WB / IP / IF / FC), RRID, and report DOI. Genes named in the paper are checked too.</li>
+          number or RRID) comes back with its per-application result
+          (WB / IP / IF / FC) — <em>Supportive</em>, <em>Limited support</em>,
+          <em>Not supportive</em> or <em>Not tested</em> — plus RRID and report DOI.
+          Antibodies we hold nothing on are listed separately as <em>not in the dataset</em>,
+          which is not a mark against them. Genes named in the paper are checked too.</li>
     </ol>
     <div class="ait-try"><strong>Try this:</strong> <code>“Summarise this preprint, then use
-      the OGA tools to check whether the antibodies it uses are knockout-validated: [paste
+      the OGA tools to check whether the antibodies it uses are knockout-controlled: [paste
       the text or a link].”</code></div>
+  </div>
+
+  <div class="ait-section">
+    <h2>And whether the paper controlled them</h2>
+    <p>Whether an antibody works in general and whether <em>this</em> paper showed it working
+       are two different questions, and the second is the one that decides whether you can
+       rely on the figure in front of you. Ask your assistant to check the controls and it
+       reports, antibody by antibody, what specificity control the paper actually shows for
+       that target — and which figures it covers.</p>
+    <div class="ait-what">
+      <div><strong>Three answers, not two.</strong> A control can be <em>demonstrated</em> (the
+        paper removes the target and says this antibody was read out against it),
+        <em>present but not linked</em> (the control is there, but the text does not establish
+        that this antibody was the one tested against it), or <em>absent</em>. The middle one is
+        common, and it is not the same as an uncontrolled paper.</div>
+      <div><strong>It reads the text, not the images.</strong> It works from the methods and the
+        figure legends, quotes what it found, and points you at the panel. Whether the control
+        worked is yours to see.</div>
+      <div><strong>It reaches past our dataset.</strong> An antibody nobody has knockout-tested
+        can still be well controlled in the paper you are reading — and one with supportive
+        characterisation data, used without a control here, still leaves that figure resting on
+        the reagent alone.</div>
+    </div>
+    <div class="ait-try"><strong>Try this:</strong> <code>“Which specificity controls does this
+      paper show for its antibodies, and which figures do they cover?”</code></div>
   </div>
 
   <div class="ait-section">
@@ -173,7 +201,7 @@
 
   <div class="ait-note" style="background:#eefaf4;border-color:#bfe6d4;">
     <strong>Not ready to connect an assistant?</strong> You can still use OGA in your browser:
-    browse any gene's independently validated antibodies across the site, or use the
+    browse any gene's independently characterised antibodies across the site, or use the
     <a href="{% url 'selector:tool' %}">Selection Tool</a> to pick an antibody and its
     controls for your target — no connector needed.
   </div>
@@ -193,5 +221,7 @@
   </div>
 
 </div>
+{% include 'core/footer.html' %}
+
 </body>
 </html>

@@ -447,6 +447,40 @@ def board_page(*, page=1, per_page=board_page_svc.DEFAULT_PER_PAGE, locate=None,
             "located": (bool(located) if locate else None)}
 
 
+def cell_choices() -> dict:
+    """What each target cell may hold — for the board **and** for a gene's own
+    page, which is the whole point of it living here.
+
+    The two surfaces edit the same fields through the same patch endpoint, and
+    until now the gene page built these lists in its template while the board
+    built nothing at all: `granting_agency`, `project`, `site` and
+    `essential_gene` were pickers on `/pipeline/target/<pk>/` and bare text
+    boxes on the board one click away. One fact, two controls, which is the
+    split this codebase keeps paying for — so there is one function and both
+    read it.
+
+    `site` is closed because `sites.strict_id` refuses anything else, with a
+    blank option since clearing it is how an allocation is withdrawn. Funders
+    and projects are **created on demand** by the same writer the board uses, so
+    theirs are reminders and not rules — narrowing them would make a new funder
+    unrecordable. `essential_gene` holds `NO` 213 times, `YES` 8 and `slightly`
+    5 on live (1 Sep 2026): a convention, not an enum, so the three are offered
+    and anything else is still typeable.
+    """
+    from pipeline.services import vocabulary
+
+    return {
+        "site": vocabulary.sites(blank="— none —"),
+        "granting_agency": {"values": list(
+            GrantingAgency.objects.using(DB).order_by("name")
+            .values_list("name", flat=True))},
+        "project": {"values": list(
+            Project.objects.using(DB).order_by("name")
+            .values_list("name", flat=True))},
+        "essential_gene": {"values": ["YES", "NO", "slightly"]},
+    }
+
+
 def filter_options() -> dict:
     labels = (TargetClassification.objects.using(DB)
               .values_list("label", flat=True).distinct().order_by("label"))

@@ -1,0 +1,42 @@
+[
+  {
+    "file": "01_supportive_IF_RAB8A_6975.png",
+    "title": "Supportive data \u2014 and the image behind it",
+    "note": "Cell Signaling 6975: the data supports western blot, immunoprecipitation and immunofluorescence under the consensus protocols, shown with the wild-type and RAB8A-knockout immunofluorescence the result came from.",
+    "frame": "Independent, knockout-controlled antibody characterisation data generated to community consensus protocols. Antibody performance is assay- and sample-dependent; this adds context, particularly where a manuscript provides no context-specific validation of its own.",
+    "capture": "01_supportive_IF_RAB8A_6975.webp",
+    "capture_sha256": "c031cddd8863fa4a2d4e74df66e4525b2c2d4c860e6db7ae61f5750522c02a87"
+  },
+  {
+    "file": "02_limited_support_ab237703.png",
+    "title": "The result is per application, not per antibody",
+    "note": "ab237703 gives limited support by western blot \u2014 it detects the target \u2014 and supportive results for immunoprecipitation and immunofluorescence.",
+    "frame": "Independent, knockout-controlled antibody characterisation data generated to community consensus protocols. Antibody performance is assay- and sample-dependent; this adds context, particularly where a manuscript provides no context-specific validation of its own.",
+    "capture": "02_limited_support_ab237703.webp",
+    "capture_sha256": "99ba84e95c9c8b4e0872a8ba2730bb99e80bf5861f276ccc31a5324601dd0835"
+  },
+  {
+    "file": "03_not_supportive_A7131.png",
+    "title": "Data not supportive under the consensus protocols",
+    "note": "A7131 was tested by western blot against a PINK1 knockout and gave no selective signal \u2014 characterisation context this paper does not provide for itself. The page does not say which application it was used for, so every result is shown.",
+    "frame": "Independent, knockout-controlled antibody characterisation data generated to community consensus protocols. Antibody performance is assay- and sample-dependent; this adds context, particularly where a manuscript provides no context-specific validation of its own.",
+    "capture": "03_not_supportive_A7131.webp",
+    "capture_sha256": "95ad23b534e644e6c531e6d7f520c0eef062dc926e9efbc1226141c4d52b911e"
+  },
+  {
+    "file": "05_page_summary_panel.png",
+    "title": "Every antibody on the page, added up",
+    "note": "The toolbar panel counts the marks \u2014 two supportive, two limited support, none not supportive, three with characterised alternatives \u2014 and lists one line per reagent worth a look.",
+    "frame": "Independent, knockout-controlled antibody characterisation data generated to community consensus protocols. Antibody performance is assay- and sample-dependent; this adds context, particularly where a manuscript provides no context-specific validation of its own.",
+    "capture": "05_page_summary_panel.webp",
+    "capture_sha256": "dd20dbec9a376edc00e1820209a0e7670ec22f4128b165b07f47a2192d054862"
+  },
+  {
+    "file": "06_no_catalogue_number_A2164.png",
+    "title": "Not tested? The alternatives are",
+    "note": "A2164 is not in the dataset, so the card leads with what is: NR3C1 has knockout-controlled antibodies to use instead, and the target was read from the text beside the catalogue number.",
+    "frame": "Independent, knockout-controlled antibody characterisation data generated to community consensus protocols. Antibody performance is assay- and sample-dependent; this adds context, particularly where a manuscript provides no context-specific validation of its own.",
+    "capture": "06_no_catalogue_number_A2164.webp",
+    "capture_sha256": "19deda91c03c404ac2779408725103bc46906723b9c50279ac9aadcf84e5de57"
+  }
+]

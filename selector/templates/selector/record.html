@@ -43,38 +43,7 @@
   </div>
 </div>
 
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>Quick Links</h4>
-      <a href="{% url 'home' %}">Home</a>
-      <a href="{% url 'about' %}">About Us</a>
-      <a href="{% url 'roadmap' %}">Roadmap</a>
-      <a href="{% url 'publications' %}">Publications</a>
-      <a href="{% url 'news' %}">News</a>
-      <a href="{% url 'contact' %}">Contact</a>
-    </div>
-    <div class="footer-column">
-      <h4>Contact Us</h4>
-      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-      <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-    </div>
-    <div class="footer-column">
-      <h4>Follow Us</h4>
-      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-        <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-      </a>
-      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-        <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-      </a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    <button onclick="window.scrollTo({top:0,behavior:'smooth'});" class="back-to-top">Back to Top</button>
-  </div>
-</footer>
+{% include 'core/footer.html' %}
 
 </body>
 </html>

@@ -164,7 +164,7 @@ class TheGenePageAgreesWithTheHomePageTests(HeadlineCountsTestCase):
         url = reverse("antibody_table", kwargs={"gene_name": "ALPHA"})
         plain = self.client.get(url).content.decode()
         filtered = self.client.get(url, {"host": "Rabbit"}).content.decode()
-        title = "knockout-validated results for 3 antibodies"
+        title = "knockout-controlled results for 3 antibodies"
         self.assertIn(title, plain)
         self.assertIn(title, filtered)
 

@@ -1,0 +1,150 @@
+# Build the Europe PMC annotation files from the citation snapshot and the
+# extension index; optionally send them; read back what the platform said.
+#
+# Run it from the Actions tab -> "Europe PMC annotations" -> Run workflow.
+# Nothing is scheduled and nothing runs on a push. Same bargain as
+# `citation-dois.yml`: `core/europepmc_annotations.py` runs with a bare python3
+# on any checkout, and this buys not needing a checkout, a terminal and an hour
+# of somebody's laptop -- the runner has the repository, the network and Python.
+#
+# THREE ACTIONS, and only one of them publishes anything:
+#
+#   build              fetch, report, write the files, hand them back as an
+#                      Actions artifact. A blank provider is a dry run that
+#                      writes nothing. Uploads nothing to Europe PMC.
+#   build-and-submit   the same, then put the one file into Europe PMC's
+#                      `submissions` storage. THIS IS THE ACT THAT PUBLISHES --
+#                      every annotation on their platform is public domain by
+#                      its ground rules. Needs the two repository secrets below.
+#   results            fetch what the platform said about a submission (its
+#                      Result_ and Log_ files), or list every result on file.
+#
+# Secrets (Settings -> Secrets and variables -> Actions), from the email Europe
+# PMC sends with the provider id:
+#   EUROPEPMC_STORAGE_USER       the storage username
+#   EUROPEPMC_STORAGE_PASSWORD   the storage password
+# They reach the script through the environment and never the command line.
+name: Europe PMC annotations
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        required: true
+        default: build
+        type: choice
+        options:
+          - build
+          - build-and-submit
+          - results
+      email:
+        description: >-
+          Contact address, sent to Europe PMC in the User-Agent. They ask for one
+          so they can reach whoever is making the requests.
+        required: false
+        default: ""
+        type: string
+      provider:
+        description: >-
+          The provider id Europe PMC assigned (annotations@europepmc.org). Leave
+          blank for a dry run that fetches, reports what it would write, and
+          writes nothing. Required for build-and-submit.
+        required: false
+        default: ""
+        type: string
+      limit:
+        description: "Only this many papers (0 = every paper with a public OGA record). For a trial."
+        required: false
+        default: "0"
+        type: string
+      submission:
+        description: >-
+          results only: the file name that was submitted (from the build log or
+          the artifact). Blank lists everything in the results folder.
+        required: false
+        default: ""
+        type: string
+
+# One at a time, and a second press WAITS rather than killing the first: this is
+# part-way through thousands of requests to somebody else's API.
+concurrency:
+  group: europepmc-annotations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    # Roughly 10,000 open-access full texts at three requests a second is an
+    # hour; the default six is headroom, not an estimate.
+    timeout-minutes: 360
+    env:
+      EUROPEPMC_STORAGE_USER: ${{ secrets.EUROPEPMC_STORAGE_USER }}
+      EUROPEPMC_STORAGE_PASSWORD: ${{ secrets.EUROPEPMC_STORAGE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The build is standard library only, deliberately. The storage driver is
+      # installed only for the two actions that talk to the storage.
+      - name: Install the storage driver
+        if: ${{ inputs.action != 'build' }}
+        run: pip install minio
+
+      - name: Refuse to submit without a provider id
+        if: ${{ inputs.action == 'build-and-submit' && inputs.provider == '' }}
+        run: |
+          echo "::error::build-and-submit needs the provider id Europe PMC assigned."
+          exit 1
+
+      - name: Refuse to submit without an email
+        if: ${{ inputs.action != 'results' && inputs.email == '' }}
+        run: |
+          echo "::error::Give a contact address; Europe PMC asks for one on every request."
+          exit 1
+
+      # Europe PMC's answers survive between runs, so a run that timed out does
+      # not re-ask for what it already has. The full texts are the bulk of it.
+      - name: Restore the Europe PMC cache
+        if: ${{ inputs.action != 'results' }}
+        uses: actions/cache@v4
+        with:
+          path: europepmc_annotations/cache
+          key: europepmc-annotations-${{ github.run_id }}
+          restore-keys: europepmc-annotations-
+
+      # FIRST, and it fails the job: one paper end to end, printed, so a changed
+      # response shape is seen before thousands of requests are spent on it.
+      - name: Check the API shape on one paper
+        if: ${{ inputs.action != 'results' }}
+        run: python3 core/europepmc_annotations.py --check --email "${{ inputs.email }}"
+
+      - name: Build
+        if: ${{ inputs.action != 'results' }}
+        run: |
+          python3 core/europepmc_annotations.py \
+            --email "${{ inputs.email }}" \
+            --limit "${{ inputs.limit }}" \
+            ${{ inputs.provider != '' && format('--apply --provider "{0}"', inputs.provider) || '' }} \
+            ${{ inputs.action == 'build-and-submit' && '--submit' || '' }}
+
+      - name: Hand back the files
+        if: ${{ inputs.action != 'results' && inputs.provider != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: europepmc-annotations-run-${{ github.run_number }}
+          path: |
+            europepmc_annotations/*.jsonl
+            europepmc_annotations/*.tar.gz
+          if-no-files-found: error
+
+      - name: What the platform said
+        if: ${{ inputs.action == 'results' }}
+        run: python3 core/europepmc_annotations.py --results ${{ inputs.submission }}

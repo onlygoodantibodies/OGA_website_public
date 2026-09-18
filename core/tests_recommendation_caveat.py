@@ -1,9 +1,10 @@
 """Every public surface that shows a recommendation says what one covers.
 
 Owner's instruction, 12 Aug 2026: wherever a recommendation is shown, a caveat
-has to explain that antibody performance is protocol and sample dependent, and
-that OGA's results neither validate nor invalidate experiments in other assay
-systems or sample types — **once per page**, not more.
+has to explain what that result does and does not cover — **once per page**, not
+more. The words are `recommendations.SCOPE_NOTE`'s and have been reworded three
+times since; asserting the constant rather than a copy of it is what lets them
+be.
 
 Both halves are asserted, and the second is the one that needs a test. A missing
 caveat is silent: the page renders, the verdicts are drawn, and nothing on
@@ -105,6 +106,25 @@ class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
             with self.subTest(page=name):
                 self.assertEqual(1, visible_text(page).count(CAVEAT))
 
+    def test_the_gene_page_says_what_immunofluorescence_depends_on(self):
+        """The four-column table is where a reader meets an ICC-IF verdict.
+
+        A different claim from `SCOPE_NOTE` and drawn from a different constant
+        (`APPLICATION_FACT`), so the once-per-page rule above does not cover it
+        — but it fails the same silent way: the loop renders nothing at all if
+        `application_facts` never reaches the context, and a page with a caveat
+        missing looks exactly like a page that was never owed one.
+
+        The **fact**, not the whole of `APPLICATION_SCOPE`: its other half ends
+        "the gene page says which", which on the gene page points at itself.
+        Asserted as absent too, or dropping it would be undone by the next
+        person who tidied the include back in.
+        """
+        page = self.client.get(
+            reverse("antibody_table", args=["SNCA"])).content.decode()
+        self.assertIn(R.APPLICATION_FACT["ICC-IF"], page)
+        self.assertNotIn("the gene page says which", page)
+
     def test_the_caveat_states_both_facts(self):
         """The constant is the one writer, so this is the only place they live.
 
@@ -114,8 +134,60 @@ class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
         second is stated in **both** directions: a pass here is not a licence
         for another assay system, and a fail here is not a mark against
         somebody's working IHC.
+
+        The owner did reword it, on 11 Sep 2026, and this is what moved: the
+        dependence names the **assay** as well as the protocol and the sample,
+        and "do not validate or invalidate experiments in other assay systems
+        or sample types" became "may differ and needs its own controls". Both
+        directions survive in *may differ*, so what is pinned now is that the
+        sentence still says performance may be different in the reader's own
+        context and still tells them what to do about it — the half the old
+        wording never had.
         """
         note = R.SCOPE_NOTE.lower()
-        self.assertIn("protocol and sample dependent", note)
-        self.assertIn("validate or invalidate", note)
-        self.assertIn("assay systems or sample types", note)
+        self.assertIn("assay, protocol and sample dependent", note)
+        self.assertIn("your own experimental context", note)
+        self.assertIn("may differ", note)
+        self.assertIn("its own controls", note)
+
+    def test_the_clause_about_the_readers_own_experiment_is_emphasised(self):
+        """Owner, 11 Sep 2026, highlighting exactly those words on the page.
+
+        Two halves, and the first is the one that needs a test. `SCOPE_EMPHASIS`
+        is a *fragment* of `SCOPE_NOTE`, so a rewording of the note that no
+        longer contains it makes `_emphasised` fall through and print the
+        sentence whole — correct, complete, and silently no longer emphasised.
+        Nothing on the page could tell you that had happened.
+
+        The second half is that the bold actually reaches a rendered page, which
+        a constant on its own does not prove: the partial has to read
+        `scope_note_html` and not `scope_note`.
+        """
+        self.assertIn(R.SCOPE_EMPHASIS, R.SCOPE_NOTE)
+        emphasised = f"<strong>{R.SCOPE_EMPHASIS}</strong>"
+        for name, page in self.pages():
+            if name == "api reference":
+                continue
+            with self.subTest(page=name):
+                self.assertIn(emphasised, page)
+
+    def test_every_page_says_where_to_plan_those_controls(self):
+        """"Needs its own controls" with nowhere to click is half a message.
+
+        The Framework is OGA's own answer to the sentence, and the link lives
+        in `_recommendation_caveat.html` beside it so every surface drawing the
+        caveat draws the way there. A page whose link went missing would read
+        exactly like one that never offered it.
+
+        `/data-access/api/` is the exception, for the reason it is an exception
+        to everything here: it is rendered from `API.md`, which is hand-written
+        prose read on GitHub as often as on the site, so its link is absolute
+        and this assertion would be about the hostname rather than the page.
+        It carries one, and the sentence itself is asked of it above.
+        """
+        framework = reverse("validation_framework")
+        for name, page in self.pages():
+            if name == "api reference":
+                continue
+            with self.subTest(page=name):
+                self.assertIn(f'href="{framework}"', page)

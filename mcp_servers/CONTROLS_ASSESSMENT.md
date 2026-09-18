@@ -74,7 +74,7 @@ beside `CONTROLS_RUBRIC_VERSION` in `common/controls_rubric.py`.
 
 | | **External** | **In-manuscript** |
 |---|---|---|
-| Question | Has OGA/YCharOS KO-validated this antibody? | Did *this paper* control this antibody, in *this figure*? |
+| Question | Has OGA/YCharOS characterised this antibody against knockout controls? | Did *this paper* control this antibody, in *this figure*? |
 | Source | OGA database (ground truth) | The manuscript (model judgement) |
 | Nature | Deterministic fact | Fallible judgement (~86% accurate) |
 | Tool | `check_manuscript`, `antibody_validation` | `scan_controls` |

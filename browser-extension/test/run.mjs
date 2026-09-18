@@ -24,7 +24,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 const wantBrowser = process.argv.includes("--browser") || Boolean(process.env.CHROMIUM_PATH);
 
-const ALWAYS = ["matcher.test.mjs", "paper.test.mjs", "pages.test.mjs"];
+const ALWAYS = ["matcher.test.mjs", "paper.test.mjs", "pages.test.mjs", "card.test.mjs",
+                "confusions.test.mjs", "popup.test.mjs",
+                "vocabulary.test.mjs"];
 const BROWSER = ["e2e.mjs", "tabs.mjs", "focus.mjs", "modal.mjs", "settings.mjs", "vendor.mjs"];
 
 // xvfb-run, when there is no display. Chrome will not load an extension

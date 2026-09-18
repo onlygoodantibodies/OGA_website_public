@@ -1,728 +1,2941 @@
 {
- "aliases": {
-  "a1at": "SERPINA1",
-  "acid sphingomyelinase": "SMPD1",
-  "alpha-1-antitrypsin": "SERPINA1",
-  "alsin": "ALS2",
-  "amyloid precursor protein": "APP",
-  "amyloid-beta precursor protein": "APP",
-  "angiogenin": "ANG",
-  "annexin a11": "ANXA11",
-  "apoe": "APOE",
-  "apolipoprotein e": "APOE",
-  "ataxin-2": "ATXN2",
-  "ataxin-3": "ATXN3",
-  "beclin 1": "BECN1",
-  "beclin-1": "BECN1",
-  "calpain-2": "CAPN2",
-  "calponin-3": "CNN3",
-  "cathepsin b": "CTSB",
-  "cathepsin h": "CTSH",
-  "caveolin-1": "CAV1",
-  "ck1 alpha": "CSNK1A1",
-  "ck2 alpha": "CSNK2A1",
-  "cu/zn sod": "SOD1",
-  "cyclin f": "CCNF",
-  "cyclin-f": "CCNF",
-  "dap12": "TYROBP",
-  "dardarin": "LRRK2",
-  "dj-1": "PARK7",
-  "dj1": "PARK7",
-  "dynamin-1": "DNM1",
-  "dystroglycan": "DAG1",
-  "erk2": "MAPK1",
-  "f-spondin": "SPON1",
-  "fetuin-b": "FETUB",
-  "galactocerebrosidase": "GALC",
-  "galectin-1": "LGALS1",
-  "gcase": "GBA1",
-  "gef-h1": "ARHGEF2",
-  "gelsolin": "GSN",
-  "glucocerebrosidase": "GBA1",
-  "glucocorticoid receptor": "NR3C1",
-  "hamartin": "TSC1",
-  "hnrnp a1": "HNRNPA1",
-  "hnrnp a2/b1": "HNRNPA2B1",
-  "hnrnpa1": "HNRNPA1",
-  "huntingtin": "HTT",
-  "kif5a": "Kif5a",
-  "kinesin heavy chain isoform 5a": "Kif5a",
-  "limp-2": "SCARB2",
-  "limp2": "SCARB2",
-  "m-csf": "CSF1",
-  "matrilysin": "MMP7",
-  "matrin 3": "MATR3",
-  "matrin-3": "MATR3",
-  "mda5": "IFIH1",
-  "midkine": "MDK",
-  "moesin": "MSN",
-  "munc18": "STXBP1",
-  "munc18-1": "STXBP1",
-  "netrin-1": "NTN1",
-  "nrf2": "NFE2L2",
-  "optineurin": "OPTN",
-  "osteoactivin": "GPNMB",
-  "p62": "SQSTM1",
-  "p97": "VCP",
-  "parkin": "PRKN",
-  "peroxiredoxin-1": "PRDX1",
-  "peroxiredoxin-6": "PRDX6",
-  "pgrn": "GRN",
-  "plcg2": "PLCG2",
-  "plectin": "PLEC",
-  "pleiotrophin": "PTN",
-  "pmca1": "ATP2B1",
-  "profilin 1": "PFN1",
-  "profilin-1": "PFN1",
-  "progranulin": "GRN",
-  "prosaposin": "PSAP",
-  "rho gdi": "ARHGDIA",
-  "rhogdi1": "ARHGDIA",
-  "ro52": "TRIM21",
-  "seh": "EPHX2",
-  "senataxin": "SETX",
-  "sequestosome 1": "SQSTM1",
-  "sequestosome-1": "SQSTM1",
-  "ship-1": "INPP5D",
-  "ship1": "INPP5D",
-  "sigma-1 receptor": "SIGMAR1",
-  "soluble epoxide hydrolase": "EPHX2",
-  "spastin": "SPAST",
-  "spatacsin": "SPG11",
-  "sting": "STING1",
-  "superoxide dismutase 1": "SOD1",
-  "synaptotagmin-1": "SYT1",
-  "syndecan-4": "SDC4",
-  "syntaxin-4": "STX4",
-  "syntenin-1": "SDCBP",
-  "tdp 43": "TARDBP",
-  "tdp-43": "TARDBP",
-  "tdp43": "TARDBP",
-  "tg2": "TGM2",
-  "tia-1": "TIA1",
-  "transglutaminase 2": "TGM2",
-  "trif": "TICAM1",
-  "tuberin": "TSC2",
-  "ubiquilin 2": "UBQLN2",
-  "ubiquilin-2": "UBQLN2",
-  "vegfr-1": "FLT1",
-  "vegfr1": "FLT1"
- },
- "ambiguous_catalogue": [],
- "ambiguous_clones": [],
- "antibodies": {
-  "AB_10679421": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 1
-   },
-   "c": "monoclonal",
-   "cl": "671834",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MAB7778.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MAB7778.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MAB7778.png"
-   },
-   "ind": true,
-   "n": "MAB7778",
-   "p": "https://www.rndsystems.com/products/human-mouse-rat-tdp-43-tardbp-antibody-671834_mab7778",
-   "s": "Bio-Techne",
-   "src": "YCharOS"
+  "aliases": {
+    "a1at": "SERPINA1",
+    "acid sphingomyelinase": "SMPD1",
+    "alpha-1-antitrypsin": "SERPINA1",
+    "alsin": "ALS2",
+    "amyloid precursor protein": "APP",
+    "amyloid-beta precursor protein": "APP",
+    "angiogenin": "ANG",
+    "annexin a11": "ANXA11",
+    "apoe": "APOE",
+    "apolipoprotein e": "APOE",
+    "ataxin-2": "ATXN2",
+    "ataxin-3": "ATXN3",
+    "beclin 1": "BECN1",
+    "beclin-1": "BECN1",
+    "calpain-2": "CAPN2",
+    "calponin-3": "CNN3",
+    "cathepsin b": "CTSB",
+    "cathepsin h": "CTSH",
+    "caveolin-1": "CAV1",
+    "ck1 alpha": "CSNK1A1",
+    "ck2 alpha": "CSNK2A1",
+    "cu/zn sod": "SOD1",
+    "cyclin f": "CCNF",
+    "cyclin-f": "CCNF",
+    "dap12": "TYROBP",
+    "dardarin": "LRRK2",
+    "dj-1": "PARK7",
+    "dj1": "PARK7",
+    "dynamin-1": "DNM1",
+    "dystroglycan": "DAG1",
+    "erk2": "MAPK1",
+    "f-spondin": "SPON1",
+    "fetuin-b": "FETUB",
+    "galactocerebrosidase": "GALC",
+    "galectin-1": "LGALS1",
+    "gcase": "GBA1",
+    "gef-h1": "ARHGEF2",
+    "gelsolin": "GSN",
+    "glucocerebrosidase": "GBA1",
+    "glucocorticoid receptor": "NR3C1",
+    "hamartin": "TSC1",
+    "hnrnp a1": "HNRNPA1",
+    "hnrnp a2/b1": "HNRNPA2B1",
+    "hnrnpa1": "HNRNPA1",
+    "huntingtin": "HTT",
+    "kif5a": "Kif5a",
+    "kinesin heavy chain isoform 5a": "Kif5a",
+    "limp-2": "SCARB2",
+    "limp2": "SCARB2",
+    "m-csf": "CSF1",
+    "matrilysin": "MMP7",
+    "matrin 3": "MATR3",
+    "matrin-3": "MATR3",
+    "mda5": "IFIH1",
+    "midkine": "MDK",
+    "moesin": "MSN",
+    "munc18": "STXBP1",
+    "munc18-1": "STXBP1",
+    "netrin-1": "NTN1",
+    "nrf2": "NFE2L2",
+    "optineurin": "OPTN",
+    "osteoactivin": "GPNMB",
+    "p62": "SQSTM1",
+    "p97": "VCP",
+    "parkin": "PRKN",
+    "peroxiredoxin-1": "PRDX1",
+    "peroxiredoxin-6": "PRDX6",
+    "pgrn": "GRN",
+    "plcg2": "PLCG2",
+    "plectin": "PLEC",
+    "pleiotrophin": "PTN",
+    "pmca1": "ATP2B1",
+    "profilin 1": "PFN1",
+    "profilin-1": "PFN1",
+    "progranulin": "GRN",
+    "prosaposin": "PSAP",
+    "rho gdi": "ARHGDIA",
+    "rhogdi1": "ARHGDIA",
+    "ro52": "TRIM21",
+    "seh": "EPHX2",
+    "senataxin": "SETX",
+    "sequestosome 1": "SQSTM1",
+    "sequestosome-1": "SQSTM1",
+    "ship-1": "INPP5D",
+    "ship1": "INPP5D",
+    "sigma-1 receptor": "SIGMAR1",
+    "soluble epoxide hydrolase": "EPHX2",
+    "spastin": "SPAST",
+    "spatacsin": "SPG11",
+    "sting": "STING1",
+    "superoxide dismutase 1": "SOD1",
+    "synaptotagmin-1": "SYT1",
+    "syndecan-4": "SDC4",
+    "syntaxin-4": "STX4",
+    "syntenin-1": "SDCBP",
+    "tdp 43": "TARDBP",
+    "tdp-43": "TARDBP",
+    "tdp43": "TARDBP",
+    "tg2": "TGM2",
+    "tia-1": "TIA1",
+    "transglutaminase 2": "TGM2",
+    "trif": "TICAM1",
+    "tuberin": "TSC2",
+    "ubiquilin 2": "UBQLN2",
+    "ubiquilin-2": "UBQLN2",
+    "vegfr-1": "FLT1",
+    "vegfr1": "FLT1"
   },
-  "AB_10859634": {
-   "a": {
-    "FC": 0,
-    "IF": 1,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "EPR5810",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab109535.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab109535.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab109535.png"
-   },
-   "ind": true,
-   "n": "ab109535",
-   "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr5810-ab109535",
-   "s": "Abcam",
-   "src": "YCharOS"
+  "ambiguous_catalogue": [],
+  "ambiguous_clones": [],
+  "antibodies": {
+    "AB_10679421": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 1
+      },
+      "c": "monoclonal",
+      "cl": "671834",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MAB7778.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MAB7778.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MAB7778.png"
+      },
+      "ind": true,
+      "n": "MAB7778",
+      "p": "https://www.rndsystems.com/products/human-mouse-rat-tdp-43-tardbp-antibody-671834_mab7778",
+      "s": "Bio-Techne",
+      "src": "YCharOS"
+    },
+    "AB_10859634": {
+      "a": {
+        "FC": 0,
+        "IF": 1,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "EPR5810",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab109535.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab109535.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab109535.png"
+      },
+      "ind": true,
+      "n": "ab109535",
+      "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr5810-ab109535",
+      "s": "Abcam",
+      "src": "YCharOS"
+    },
+    "AB_11005586": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 2
+      },
+      "c": "monoclonal",
+      "cl": "3H8",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__NBP1-92695.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__NBP1-92695.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__NBP1-92695.png"
+      },
+      "ind": true,
+      "n": "NBP1-92695",
+      "p": "https://www.novusbio.com/products/tdp-43-tardbp-antibody-3h8_nbp1-92695",
+      "s": "Bio-Techne",
+      "src": "YCharOS"
+    },
+    "AB_2200505": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 1
+      },
+      "c": "polyclonal",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__12892-1-AP.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__12892-1-AP.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__12892-1-AP.png"
+      },
+      "ind": true,
+      "n": "12892-1-AP",
+      "p": "https://www.ptglab.com/products/TARDBP-Antibody-12892-1-AP.htm",
+      "s": "Proteintech",
+      "src": "YCharOS"
+    },
+    "AB_2633110": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "1HCLC",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__711051.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__711051.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__711051.png"
+      },
+      "ind": true,
+      "n": "711051",
+      "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-1HCLC-Recombinant-Superclonal/711051",
+      "s": "Thermo Fisher Scientific",
+      "src": "YCharOS"
+    },
+    "AB_2735390": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 2
+      },
+      "c": "monoclonal",
+      "cl": "GT733",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MA5-27828.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MA5-27828.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MA5-27828.png"
+      },
+      "ind": true,
+      "n": "MA5-27828",
+      "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-GT733-Monoclonal/MA5-27828",
+      "s": "Thermo Fisher Scientific",
+      "src": "YCharOS"
+    },
+    "AB_2800143": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "D9R3L",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__89789.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__89789.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__89789.png"
+      },
+      "ind": true,
+      "n": "89789",
+      "p": "https://www.cellsignal.com/products/primary-antibodies/tdp43-d9r3l-rabbit-monoclonal-antibody/89789",
+      "s": "Cell Signaling Technology",
+      "src": "YCharOS"
+    },
+    "AB_2809904": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "JM51-10",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MA5-32627.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MA5-32627.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MA5-32627.png"
+      },
+      "ind": true,
+      "n": "MA5-32627",
+      "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-JM51-10-Recombinant-Monoclonal/MA5-32627",
+      "s": "Thermo Fisher Scientific",
+      "src": "YCharOS"
+    },
+    "AB_2862616": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__A19123.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__A19123.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__A19123.png"
+      },
+      "ind": true,
+      "n": "A19123",
+      "p": "https://abclonal.com/catalog-antibodies/TDP43TARDBPRabbitmAb/A19123",
+      "s": "ABclonal",
+      "src": "YCharOS"
+    },
+    "AB_2882933": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__80001-1-RR.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__80001-1-RR.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__80001-1-RR.png"
+      },
+      "ind": true,
+      "n": "80001-1-RR",
+      "p": "https://www.ptglab.com/products/TDP-43-Antibody-80001-1-RR.htm",
+      "s": "Proteintech",
+      "src": "YCharOS"
+    },
+    "AB_2882934": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__80002-1-RR.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__80002-1-RR.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__80002-1-RR.png"
+      },
+      "ind": true,
+      "n": "80002-1-RR",
+      "p": "https://www.ptglab.com/products/TDP-43-Antibody-80002-1-RR.htm",
+      "s": "Proteintech",
+      "src": "YCharOS"
+    },
+    "AB_2888198": {
+      "a": {
+        "FC": 0,
+        "IF": 1,
+        "IP": 1,
+        "WB": 1
+      },
+      "c": "monoclonal",
+      "cl": "GT225",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__GTX630196.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__GTX630196.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__GTX630196.png"
+      },
+      "ind": true,
+      "n": "GTX630196",
+      "p": "https://www.genetex.com/Product/Detail/TDP43-antibody-GT225/GTX630196",
+      "s": "GeneTex",
+      "src": "YCharOS"
+    },
+    "AB_2888199": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 2
+      },
+      "c": "monoclonal",
+      "cl": "GT733",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__GTX630197.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__GTX630197.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__GTX630197.png"
+      },
+      "ind": true,
+      "n": "GTX630197",
+      "p": "https://www.genetex.com/Product/Detail/TDP43-antibody-GT733/GTX630197",
+      "s": "GeneTex",
+      "src": "YCharOS"
+    },
+    "AB_292057": {
+      "a": {
+        "FC": 0,
+        "IF": 1,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "E2G6G",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__89718.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__89718.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__89718.png"
+      },
+      "ind": true,
+      "n": "89718",
+      "p": "https://www.cellsignal.com/products/primary-antibodies/tdp43-e2g6g-rabbit-monoclonal-antibody/89718",
+      "s": "Cell Signaling Technology",
+      "src": "YCharOS"
+    },
+    "AB_2920620": {
+      "a": {
+        "FC": 0,
+        "IF": 1,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "monoclonal",
+      "cl": "DB9",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "mouse",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab254166.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab254166.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab254166.png"
+      },
+      "ind": true,
+      "n": "ab254166",
+      "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-db9-ab254166",
+      "s": "Abcam",
+      "src": "YCharOS"
+    },
+    "AB_2920621": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "EPR5811",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab133547.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab133547.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab133547.png"
+      },
+      "ind": true,
+      "n": "ab133547",
+      "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr5811-ab133547",
+      "s": "Abcam",
+      "src": "YCharOS"
+    },
+    "AB_2920622": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 1,
+        "WB": 2
+      },
+      "c": "recombinant",
+      "cl": "EPR18554",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab190963.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab190963.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab190963.png"
+      },
+      "ind": true,
+      "n": "ab190963",
+      "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr18554-ab190963",
+      "s": "Abcam",
+      "src": "YCharOS"
+    },
+    "AB_615042": {
+      "a": {
+        "FC": 0,
+        "IF": 2,
+        "IP": 2,
+        "WB": 2
+      },
+      "c": "polyclonal",
+      "doi": "https://doi.org/10.12688/f1000research.131852.1",
+      "g": "TARDBP",
+      "h": "rabbit",
+      "img": {
+        "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__10782-2-AP.png",
+        "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__10782-2-AP.png",
+        "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__10782-2-AP.png"
+      },
+      "ind": true,
+      "n": "10782-2-AP",
+      "p": "https://www.ptglab.com/products/TARDBP-Antibody-10782-2-AP.htm",
+      "s": "Proteintech",
+      "src": "YCharOS"
+    }
   },
-  "AB_11005586": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 2
-   },
-   "c": "monoclonal",
-   "cl": "3H8",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__NBP1-92695.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__NBP1-92695.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__NBP1-92695.png"
-   },
-   "ind": true,
-   "n": "NBP1-92695",
-   "p": "https://www.novusbio.com/products/tdp-43-tardbp-antibody-3h8_nbp1-92695",
-   "s": "Bio-Techne",
-   "src": "YCharOS"
+  "application_scope": {
+    "IF": "Immunofluorescence results are fixation and permeabilisation dependent."
   },
-  "AB_2200505": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 1
-   },
-   "c": "polyclonal",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__12892-1-AP.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__12892-1-AP.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__12892-1-AP.png"
-   },
-   "ind": true,
-   "n": "12892-1-AP",
-   "p": "https://www.ptglab.com/products/TARDBP-Antibody-12892-1-AP.htm",
-   "s": "Proteintech",
-   "src": "YCharOS"
+  "catalogue": {
+    "10782-2-ap": "AB_615042",
+    "12892-1-ap": "AB_2200505",
+    "711051": "AB_2633110",
+    "80001-1-rr": "AB_2882933",
+    "80002-1-rr": "AB_2882934",
+    "89718": "AB_292057",
+    "89789": "AB_2800143",
+    "a19123": "AB_2862616",
+    "ab109535": "AB_10859634",
+    "ab133547": "AB_2920621",
+    "ab190963": "AB_2920622",
+    "ab254166": "AB_2920620",
+    "gtx630196": "AB_2888198",
+    "gtx630197": "AB_2888199",
+    "ma5-27828": "AB_2735390",
+    "ma5-32627": "AB_2809904",
+    "mab7778": "AB_10679421",
+    "nbp1-92695": "AB_11005586"
   },
-  "AB_2633110": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "1HCLC",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__711051.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__711051.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__711051.png"
-   },
-   "ind": true,
-   "n": "711051",
-   "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-1HCLC-Recombinant-Superclonal/711051",
-   "s": "Thermo Fisher Scientific",
-   "src": "YCharOS"
+  "clones": {
+    "1hclc": "AB_2633110",
+    "3h8": "AB_11005586",
+    "671834": "AB_10679421",
+    "d9r3l": "AB_2800143",
+    "db9": "AB_2920620",
+    "e2g6g": "AB_292057",
+    "epr18554": "AB_2920622",
+    "epr5810": "AB_10859634",
+    "epr5811": "AB_2920621",
+    "gt225": "AB_2888198",
+    "gt733": "AB_2735390",
+    "jm51-10": "AB_2809904"
   },
-  "AB_2735390": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 2
-   },
-   "c": "monoclonal",
-   "cl": "GT733",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MA5-27828.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MA5-27828.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MA5-27828.png"
-   },
-   "ind": true,
-   "n": "MA5-27828",
-   "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-GT733-Monoclonal/MA5-27828",
-   "s": "Thermo Fisher Scientific",
-   "src": "YCharOS"
+  "conditions_qualifier": "in the conditions tested",
+  "counts": {
+    "antibodies": 18,
+    "clones": 12,
+    "genes": 159,
+    "genes_with_antibody_records": 1
   },
-  "AB_2800143": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "D9R3L",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__89789.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__89789.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__89789.png"
-   },
-   "ind": true,
-   "n": "89789",
-   "p": "https://www.cellsignal.com/products/primary-antibodies/tdp43-d9r3l-rabbit-monoclonal-antibody/89789",
-   "s": "Cell Signaling Technology",
-   "src": "YCharOS"
-  },
-  "AB_2809904": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "JM51-10",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__MA5-32627.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__MA5-32627.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__MA5-32627.png"
-   },
-   "ind": true,
-   "n": "MA5-32627",
-   "p": "https://www.thermofisher.com/antibody/product/TDP-43-Antibody-clone-JM51-10-Recombinant-Monoclonal/MA5-32627",
-   "s": "Thermo Fisher Scientific",
-   "src": "YCharOS"
-  },
-  "AB_2862616": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__A19123.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__A19123.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__A19123.png"
-   },
-   "ind": true,
-   "n": "A19123",
-   "p": "https://abclonal.com/catalog-antibodies/TDP43TARDBPRabbitmAb/A19123",
-   "s": "ABclonal",
-   "src": "YCharOS"
-  },
-  "AB_2882933": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__80001-1-RR.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__80001-1-RR.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__80001-1-RR.png"
-   },
-   "ind": true,
-   "n": "80001-1-RR",
-   "p": "https://www.ptglab.com/products/TDP-43-Antibody-80001-1-RR.htm",
-   "s": "Proteintech",
-   "src": "YCharOS"
-  },
-  "AB_2882934": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__80002-1-RR.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__80002-1-RR.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__80002-1-RR.png"
-   },
-   "ind": true,
-   "n": "80002-1-RR",
-   "p": "https://www.ptglab.com/products/TDP-43-Antibody-80002-1-RR.htm",
-   "s": "Proteintech",
-   "src": "YCharOS"
-  },
-  "AB_2888198": {
-   "a": {
-    "FC": 0,
-    "IF": 1,
-    "IP": 1,
-    "WB": 1
-   },
-   "c": "monoclonal",
-   "cl": "GT225",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__GTX630196.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__GTX630196.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__GTX630196.png"
-   },
-   "ind": true,
-   "n": "GTX630196",
-   "p": "https://www.genetex.com/Product/Detail/TDP43-antibody-GT225/GTX630196",
-   "s": "GeneTex",
-   "src": "YCharOS"
-  },
-  "AB_2888199": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 2
-   },
-   "c": "monoclonal",
-   "cl": "GT733",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__GTX630197.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__GTX630197.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__GTX630197.png"
-   },
-   "ind": true,
-   "n": "GTX630197",
-   "p": "https://www.genetex.com/Product/Detail/TDP43-antibody-GT733/GTX630197",
-   "s": "GeneTex",
-   "src": "YCharOS"
-  },
-  "AB_292057": {
-   "a": {
-    "FC": 0,
-    "IF": 1,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "E2G6G",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__89718.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__89718.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__89718.png"
-   },
-   "ind": true,
-   "n": "89718",
-   "p": "https://www.cellsignal.com/products/primary-antibodies/tdp43-e2g6g-rabbit-monoclonal-antibody/89718",
-   "s": "Cell Signaling Technology",
-   "src": "YCharOS"
-  },
-  "AB_2920620": {
-   "a": {
-    "FC": 0,
-    "IF": 1,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "monoclonal",
-   "cl": "DB9",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "mouse",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab254166.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab254166.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab254166.png"
-   },
-   "ind": true,
-   "n": "ab254166",
-   "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-db9-ab254166",
-   "s": "Abcam",
-   "src": "YCharOS"
-  },
-  "AB_2920621": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "EPR5811",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab133547.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab133547.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab133547.png"
-   },
-   "ind": true,
-   "n": "ab133547",
-   "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr5811-ab133547",
-   "s": "Abcam",
-   "src": "YCharOS"
-  },
-  "AB_2920622": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 1,
-    "WB": 2
-   },
-   "c": "recombinant",
-   "cl": "EPR18554",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__ab190963.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__ab190963.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__ab190963.png"
-   },
-   "ind": true,
-   "n": "ab190963",
-   "p": "https://www.abcam.com/en-us/products/primary-antibodies/tdp43-antibody-epr18554-ab190963",
-   "s": "Abcam",
-   "src": "YCharOS"
-  },
-  "AB_615042": {
-   "a": {
-    "FC": 0,
-    "IF": 2,
-    "IP": 2,
-    "WB": 2
-   },
-   "c": "polyclonal",
-   "doi": "https://doi.org/10.12688/f1000research.131852.1",
-   "g": "TARDBP",
-   "h": "rabbit",
-   "img": {
-    "IF": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IF__10782-2-AP.png",
-    "IP": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_IP__10782-2-AP.png",
-    "WB": "https://onlygoodantibodies.co.uk/media/experiments/TARDBP_WB__10782-2-AP.png"
-   },
-   "ind": true,
-   "n": "10782-2-AP",
-   "p": "https://www.ptglab.com/products/TARDBP-Antibody-10782-2-AP.htm",
-   "s": "Proteintech",
-   "src": "YCharOS"
+  "generated": "2026-07-24T19:49:52Z",
+  "genes": [
+    "ACE",
+    "ACSL5",
+    "ADNP",
+    "ALS2",
+    "ANG",
+    "ANXA11",
+    "APOE",
+    "APP",
+    "ARHGDIA",
+    "ARHGEF2",
+    "ARID1A",
+    "ARID1B",
+    "ARID2",
+    "ATP2B1",
+    "ATXN2",
+    "ATXN3",
+    "BECN1",
+    "C9orf72",
+    "CAMK2D",
+    "CAPN2",
+    "CAV1",
+    "CCNF",
+    "CD44",
+    "CDK5",
+    "CHCHD10",
+    "CHMP2B",
+    "CNN3",
+    "CSF1",
+    "CSNK1A1",
+    "CSNK2A1",
+    "CTHRC1",
+    "CTSB",
+    "CTSH",
+    "DAG1",
+    "DDX1",
+    "DLAT",
+    "DNM1",
+    "DYRK1A",
+    "ECE1",
+    "EPHX2",
+    "FCER1G",
+    "FETUB",
+    "FIG4",
+    "FLT1",
+    "FUS",
+    "GALC",
+    "GBA1",
+    "GLE1",
+    "GNAQ",
+    "GPNMB",
+    "GRN",
+    "GSN",
+    "HNRNPA1",
+    "HNRNPA2B1",
+    "HNRNPH2",
+    "HTRA1",
+    "HTT",
+    "IFIH1",
+    "INPP5D",
+    "ITCH",
+    "Kif5a",
+    "LGALS1",
+    "LRP1",
+    "LRRK2",
+    "MAPK1",
+    "MATR3",
+    "MDH1",
+    "MDK",
+    "ME1",
+    "MMP7",
+    "MSN",
+    "NDUFS2",
+    "NEK1",
+    "NFE2L2",
+    "NLRP3",
+    "NR3C1",
+    "NTN1",
+    "OPTN",
+    "PARK7",
+    "PC",
+    "PFN1",
+    "PINK1",
+    "PKN2",
+    "PLCG2",
+    "PLEC",
+    "PPP2R5D",
+    "PRDX1",
+    "PRDX6",
+    "PRKN",
+    "PSAP",
+    "PTN",
+    "QPRT",
+    "RAB10",
+    "RAB13",
+    "RAB14",
+    "RAB1A",
+    "RAB1B",
+    "RAB27A",
+    "RAB27B",
+    "RAB35",
+    "RAB3A",
+    "RAB5A",
+    "RAB5B",
+    "RAB5C",
+    "RAB6A",
+    "RAB7A",
+    "RAB8A",
+    "RXRA",
+    "S1PR1",
+    "SCARB2",
+    "SCD1",
+    "SDC4",
+    "SDCBP",
+    "SERPINA1",
+    "SETX",
+    "SFRP1",
+    "SIGMAR1",
+    "SLC19A1",
+    "SLC25A11",
+    "SLC27A2",
+    "SLC29A1",
+    "SLC2A6",
+    "SLC37A4",
+    "SLIT1",
+    "SLIT2",
+    "SMOC1",
+    "SMPD1",
+    "SOD1",
+    "SPAST",
+    "SPG11",
+    "SPON1",
+    "SQSTM1",
+    "STAT5B",
+    "STING1",
+    "STX4",
+    "STXBP1",
+    "SYK",
+    "SYT1",
+    "TAF15",
+    "TARDBP",
+    "TBK1",
+    "TGFBR2",
+    "TGM2",
+    "TIA1",
+    "TICAM1",
+    "TMEM106B",
+    "TMEM175",
+    "TREM2",
+    "TRIM21",
+    "TSC1",
+    "TSC2",
+    "TUBA4A",
+    "TYROBP",
+    "UBQLN2",
+    "USP30",
+    "VAPB",
+    "VCP",
+    "VGF",
+    "VPS35"
+  ],
+  "protocols_url": "https://www.nature.com/articles/s41596-024-01095-8",
+  "schema": 1,
+  "scope": "Results are based on consensus protocols. Antibody performance is protocol and sample dependent, and these results do not validate or invalidate experiments in other assay systems or sample types.",
+  "scope_short": "Result from consensus protocols. Antibody performance is protocol and sample dependent.",
+  "source": "https://onlygoodantibodies.co.uk",
+  "target_confusions": {
+    "antibodies": {
+      "#3179": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#3179",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "#3192": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#3192",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "#5683": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#5683",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "14-6773-81": {
+        "id": "14-6773-81",
+        "kind": "beta-galactosidase",
+        "supplier": "Thermo Fisher Scientific"
+      },
+      "20582-1-ap": {
+        "id": "20582-1-AP",
+        "kind": "perk-for-p-erk",
+        "supplier": "Proteintech"
+      },
+      "24390-1-ap": {
+        "id": "24390-1-AP",
+        "kind": "perk-for-p-erk",
+        "supplier": "Proteintech"
+      },
+      "3179": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#3179",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "3192": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#3192",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "5683": {
+        "cues": [
+          "cell signaling",
+          "cell signalling",
+          "cst"
+        ],
+        "id": "#5683",
+        "kind": "perk-for-p-erk",
+        "supplier": "Cell Signaling Technology",
+        "supplier_required": true
+      },
+      "a-11132": {
+        "cues": [
+          "invitrogen",
+          "life technologies",
+          "molecular probes",
+          "thermo"
+        ],
+        "id": "A-11132",
+        "kind": "beta-galactosidase",
+        "supplier": "Thermo Fisher Scientific",
+        "supplier_required": true
+      },
+      "a18196": {
+        "id": "A18196",
+        "kind": "perk-for-p-erk",
+        "supplier": "ABclonal"
+      },
+      "ab116": {
+        "id": "ab116",
+        "kind": "beta-galactosidase",
+        "supplier": "Abcam"
+      },
+      "ab151303": {
+        "id": "ab151303",
+        "kind": "p16-ink4a",
+        "supplier": "Abcam"
+      },
+      "ab192591": {
+        "id": "ab192591",
+        "kind": "perk-for-p-erk",
+        "supplier": "Abcam"
+      },
+      "ab217322": {
+        "id": "ab217322",
+        "kind": "perk-for-p-erk",
+        "supplier": "Abcam"
+      },
+      "ab229912": {
+        "id": "ab229912",
+        "kind": "perk-for-p-erk",
+        "supplier": "Abcam"
+      },
+      "ab4761": {
+        "id": "ab4761",
+        "kind": "beta-galactosidase",
+        "supplier": "Abcam"
+      },
+      "ab51243": {
+        "id": "ab51243",
+        "kind": "p16-ink4a",
+        "statement": "This antibody (ab51243) is specific to the p16 ARC protein [\u2026] There is no observed cross reactivity to the CDKN2A/p16INK4a protein.",
+        "supplier": "Abcam"
+      },
+      "ab616": {
+        "id": "ab616",
+        "kind": "beta-galactosidase",
+        "supplier": "Abcam"
+      },
+      "ab65142": {
+        "id": "ab65142",
+        "kind": "perk-for-p-erk",
+        "supplier": "Abcam"
+      },
+      "ab79483": {
+        "id": "ab79483",
+        "kind": "perk-for-p-erk",
+        "supplier": "Abcam"
+      },
+      "ab9361": {
+        "id": "ab9361",
+        "kind": "beta-galactosidase",
+        "supplier": "Abcam"
+      },
+      "ab986": {
+        "cues": [
+          "chemicon",
+          "emd",
+          "merck",
+          "millipore",
+          "upstate"
+        ],
+        "id": "AB986",
+        "kind": "beta-galactosidase",
+        "supplier": "Merck Millipore",
+        "supplier_required": true
+      },
+      "ap0886": {
+        "id": "AP0886",
+        "kind": "perk-for-p-erk",
+        "supplier": "ABclonal"
+      },
+      "gtx129275": {
+        "id": "GTX129275",
+        "kind": "perk-for-p-erk",
+        "supplier": "GeneTex"
+      },
+      "ma5-15705": {
+        "id": "MA5-15705",
+        "kind": "perk-for-p-erk",
+        "supplier": "Thermo Fisher Scientific"
+      },
+      "pa5-40294": {
+        "id": "PA5-40294",
+        "kind": "perk-for-p-erk",
+        "supplier": "Thermo Fisher Scientific"
+      },
+      "pa5-99447": {
+        "id": "PA5-99447",
+        "kind": "perk-for-p-erk",
+        "supplier": "Thermo Fisher Scientific"
+      },
+      "sc-166760": {
+        "id": "sc-166760",
+        "kind": "p16-ink4a",
+        "supplier": "Santa Cruz Biotechnology"
+      },
+      "sc-377400": {
+        "id": "sc-377400",
+        "kind": "perk-for-p-erk",
+        "supplier": "Santa Cruz Biotechnology"
+      },
+      "sc-65670": {
+        "id": "sc-65670",
+        "kind": "beta-galactosidase",
+        "supplier": "Santa Cruz Biotechnology"
+      },
+      "sc-7383": {
+        "id": "sc-7383",
+        "kind": "p-erk-for-perk",
+        "supplier": "Santa Cruz Biotechnology"
+      }
+    },
+    "kinds": {
+      "beta-galactosidase": {
+        "declared": "lacZ (E. coli beta-galactosidase)",
+        "declared_protein": "E. coli beta-galactosidase",
+        "mistaken": "GLB1 (mammalian beta-galactosidase)",
+        "mistaken_papers": 54,
+        "mistaken_protein": "mammalian beta-galactosidase",
+        "short": "This is an antibody to the Escherichia coli LacZ beta-galactosidase used in reporter systems. It is not an antibody to the mammalian GLB1 enzyme behind senescence-associated beta-galactosidase. The two share a name and a substrate, and about 20% sequence identity \u2014 no better than chance.",
+        "source": "Do bacteria grow old as we do? \u2014 Sholto David, For Better Science, 21 July 2026",
+        "url": "https://forbetterscience.com/2026/07/21/do-bacteria-grow-old-as-we-do/"
+      },
+      "p-erk-for-perk": {
+        "declared": "MAPK1/MAPK3 (phosphorylated ERK1/2)",
+        "declared_protein": "phosphorylated ERK1/2",
+        "mistaken": "EIF2AK3 (PERK)",
+        "mistaken_papers": 2,
+        "mistaken_protein": "PERK",
+        "papers_only": true,
+        "short": "This is an antibody to phosphorylated ERK1/2, the growth-signalling kinases written p-ERK or pERK. It is not an antibody to PERK (EIF2AK3), the endoplasmic reticulum kinase of the unfolded protein response. The confusion runs both ways, and this is the rarer direction.",
+        "source": "PERK vs p-ERK: Another Antibody Confusion! \u2014 Sholto David, Sholto's Substack, 25 August 2026",
+        "url": "https://sholto.substack.com/p/perk-vs-p-erk-another-antibody-confusion"
+      },
+      "p16-ink4a": {
+        "declared": "ARPC5 (p16-ARC)",
+        "declared_protein": "p16-ARC",
+        "mistaken": "CDKN2A (p16-INK4a)",
+        "mistaken_papers": 317,
+        "mistaken_protein": "p16-INK4a",
+        "short": "This is an antibody to ARPC5, also called p16-ARC \u2014 a subunit of the actin-related protein 2/3 complex. It is not an antibody to p16-INK4a, the CDKN2A tumour suppressor and senescence marker usually meant by \"p16\". The two proteins share a name and a molecular weight and nothing else.",
+        "source": "Mind over Antibody \u2014 Sholto David, For Better Science, 2 June 2026",
+        "url": "https://forbetterscience.com/2026/06/02/mind-over-antibody/"
+      },
+      "perk-for-p-erk": {
+        "declared": "EIF2AK3 (PERK)",
+        "declared_protein": "PERK",
+        "mistaken": "MAPK1/MAPK3 (phosphorylated ERK1/2)",
+        "mistaken_papers": 187,
+        "mistaken_protein": "phosphorylated ERK1/2",
+        "papers_only": true,
+        "short": "This is an antibody to PERK (EIF2AK3), the endoplasmic reticulum kinase that coordinates the unfolded protein response. It is not an antibody to phosphorylated ERK1/2, the growth-signalling kinases written p-ERK or pERK. The two are unrelated proteins whose abbreviations differ by a hyphen, and they run at different sizes: PERK at about 125 kDa, ERK1/2 as the familiar double band near 42 and 44 kDa.",
+        "source": "PERK vs p-ERK: Another Antibody Confusion! \u2014 Sholto David, Sholto's Substack, 25 August 2026",
+        "url": "https://sholto.substack.com/p/perk-vs-p-erk-another-antibody-confusion"
+      }
+    },
+    "papers": {
+      "10.1002/1878-0261.12565": {
+        "ab151303": "mistaken"
+      },
+      "10.1002/adfm.202006454": {
+        "ab192591": "mistaken"
+      },
+      "10.1002/adhm.202203056": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/advs.202001950": {
+        "sc-166760": "mistaken"
+      },
+      "10.1002/advs.202404311": {
+        "a-11132": "mistaken"
+      },
+      "10.1002/advs.202512407": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/advs.202514343": {
+        "ab51243": "as_declared"
+      },
+      "10.1002/ame2.70165": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/bab.1874": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/bdr2.2484": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/brb3.2466": {
+        "ab229912": "mistaken"
+      },
+      "10.1002/brb3.71334": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/cac2.12605": {
+        "#3192": "mistaken"
+      },
+      "10.1002/cbf.70211": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/cbin.11751": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/cbin.12026": {
+        "ab192591": "mistaken"
+      },
+      "10.1002/iid3.523": {
+        "ab192591": "mistaken"
+      },
+      "10.1002/iid3.851": {
+        "ab229912": "mistaken"
+      },
+      "10.1002/ijc.32311": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/iub.1979": {
+        "ab217322": "mistaken"
+      },
+      "10.1002/jbm.a.36244": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/jbmr.3921": {
+        "ab616": "mistaken"
+      },
+      "10.1002/jbmr.4770": {
+        "ab616": "mistaken"
+      },
+      "10.1002/jbt.70208": {
+        "ab229912": "mistaken"
+      },
+      "10.1002/jbt.70437": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/jbt.70551": {
+        "ab229912": "mistaken"
+      },
+      "10.1002/jcb.26135": {
+        "20582-1-ap": "mistaken"
+      },
+      "10.1002/jcb.27268": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/jcb.27435": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/jcb.28713": {
+        "ab9361": "mistaken"
+      },
+      "10.1002/jcb.28750": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/jcb.29232": {
+        "ab192591": "mistaken"
+      },
+      "10.1002/jcb.29701": {
+        "pa5-40294": "mistaken"
+      },
+      "10.1002/jcla.23624": {
+        "ab151303": "mistaken"
+      },
+      "10.1002/jcp.26574": {
+        "ab192591": "mistaken"
+      },
+      "10.1002/jcp.29188": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/jcp.29351": {
+        "ab65142": "mistaken"
+      },
+      "10.1002/jcp.29930": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/jcp.70020": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/jgm.3395": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/jlb.3ma0321-745r": {
+        "sc-166760": "mistaken"
+      },
+      "10.1002/jmv.28480": {
+        "ab151303": "mistaken"
+      },
+      "10.1002/jnr.70054": {
+        "sc-166760": "not_checked"
+      },
+      "10.1002/jper.22-0445": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/mc.70027": {
+        "ab51243": "not_checked"
+      },
+      "10.1002/mco2.475": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/mco2.70086": {
+        "ab51243": "mistaken"
+      },
+      "10.1002/ptr.70080": {
+        "#3192": "mistaken"
+      },
+      "10.1002/ptr.7813": {
+        "ab192591": "mistaken"
+      },
+      "10.1007/s00011-023-01843-8": {
+        "ab9361": "mistaken"
+      },
+      "10.1007/s00011-024-01892-7": {
+        "ab9361": "mistaken"
+      },
+      "10.1007/s00109-017-1591-8": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s00109-024-02447-3": {
+        "ap0886": "mistaken"
+      },
+      "10.1007/s00198-021-06061-8": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s00210-023-02880-0": {
+        "ab192591": "mistaken"
+      },
+      "10.1007/s00262-023-03481-9": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s00535-025-02341-w": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s10103-024-03987-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s10266-026-01362-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s10495-023-01827-3": {
+        "ab51243": "as_declared"
+      },
+      "10.1007/s10522-024-10151-5": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s10522-025-10231-0": {
+        "sc-65670": "mistaken"
+      },
+      "10.1007/s10565-026-10172-5": {
+        "ab616": "mistaken"
+      },
+      "10.1007/s10856-020-06454-x": {
+        "ab229912": "mistaken"
+      },
+      "10.1007/s11010-025-05235-w": {
+        "ab229912": "mistaken"
+      },
+      "10.1007/s11010-025-05346-4": {
+        "sc-377400": "mistaken"
+      },
+      "10.1007/s11033-023-09101-0": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s11064-021-03391-1": {
+        "ab65142": "mistaken"
+      },
+      "10.1007/s11064-025-04510-y": {
+        "sc-65670": "mistaken"
+      },
+      "10.1007/s11357-021-00487-y": {
+        "ab9361": "mistaken"
+      },
+      "10.1007/s12011-023-03841-7": {
+        "gtx129275": "mistaken"
+      },
+      "10.1007/s12011-024-04064-0": {
+        "sc-7383": "mistaken"
+      },
+      "10.1007/s12031-024-02191-w": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s12035-022-02743-4": {
+        "ab192591": "mistaken"
+      },
+      "10.1007/s12195-021-00714-8": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s12265-022-10211-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1007/s12672-023-00656-9": {
+        "ab229912": "mistaken"
+      },
+      "10.1007/s13273-022-00278-2": {
+        "ab151303": "mistaken"
+      },
+      "10.1007/s13577-020-00463-2": {
+        "ab65142": "mistaken"
+      },
+      "10.1007/s13577-021-00655-4": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.aanat.2020.151606": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.actbio.2023.08.039": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.acthis.2021.151728": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.anireprosci.2021.106701": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.archger.2021.104460": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.atherosclerosis.2024.117483": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.bbadis.2019.05.017": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.bbadis.2026.168187": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.bbamcr.2024.119768": {
+        "a-11132": "mistaken"
+      },
+      "10.1016/j.bbrc.2010.11.084": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.bbrc.2019.09.062": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.bbrc.2025.152513": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.bcp.2022.114935": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.bcp.2026.117772": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.bioadv.2026.214718": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.biocel.2018.04.021": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.biomaterials.2026.124287": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.biopha.2018.11.029": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.biopha.2020.109851": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.biopha.2020.109935": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.biopha.2022.113656": {
+        "ab192591": "mistaken",
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.biopha.2023.115080": {
+        "#3192": "mistaken"
+      },
+      "10.1016/j.biopha.2023.116100": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.brainresbull.2020.10.006": {
+        "ab192591": "mistaken"
+      },
+      "10.1016/j.canlet.2018.04.038": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.canlet.2019.02.004": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.canlet.2021.09.017": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.canlet.2021.12.021": {
+        "ap0886": "mistaken"
+      },
+      "10.1016/j.cbi.2019.06.029": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.cbi.2022.110258": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ccell.2017.04.005": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ccell.2019.03.003": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.cej.2020.128125": {
+        "ab79483": "mistaken"
+      },
+      "10.1016/j.cell.2016.11.052": {
+        "ab986": "mistaken"
+      },
+      "10.1016/j.cellsig.2022.110327": {
+        "ab51243": "not_checked",
+        "ab9361": "mistaken"
+      },
+      "10.1016/j.cellsig.2025.111778": {
+        "#3192": "mistaken"
+      },
+      "10.1016/j.cellsig.2026.112516": {
+        "#3192": "mistaken"
+      },
+      "10.1016/j.celrep.2020.01.106": {
+        "ab51243": "as_declared"
+      },
+      "10.1016/j.celrep.2021.109639": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.celrep.2022.111266": {
+        "ab51243": "as_declared"
+      },
+      "10.1016/j.chemosphere.2024.142138": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.clinre.2019.10.007": {
+        "ab4761": "mistaken"
+      },
+      "10.1016/j.devcel.2025.03.008": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ebiom.2019.06.049": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ecoenv.2024.116884": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ecoenv.2025.117987": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ejphar.2018.11.001": {
+        "ab79483": "mistaken"
+      },
+      "10.1016/j.ejphar.2019.172748": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ejphar.2023.176298": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ejphar.2024.176459": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ejphar.2024.176865": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ejphar.2025.178043": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.envint.2024.108489": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.envres.2025.122632": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.exger.2019.110805": {
+        "sc-166760": "not_checked"
+      },
+      "10.1016/j.exger.2022.111829": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.exger.2023.112330": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.exger.2024.112359": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.exger.2024.112408": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.freeradbiomed.2021.04.003": {
+        "sc-166760": "not_checked"
+      },
+      "10.1016/j.freeradbiomed.2021.12.010": {
+        "ab616": "mistaken"
+      },
+      "10.1016/j.freeradbiomed.2023.06.017": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.freeradbiomed.2023.12.028": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.freeradbiomed.2024.12.043": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.freeradbiomed.2025.05.416": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.freeradbiomed.2025.08.049": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.gene.2022.146348": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.gene.2023.147920": {
+        "pa5-99447": "mistaken"
+      },
+      "10.1016/j.gene.2025.149632": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.heliyon.2021.e06134": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.heliyon.2023.e18245": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.heliyon.2024.e29364": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ijbiomac.2019.02.003": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.ijbiomac.2023.126778": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ijbiomac.2024.134600": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.ijbiomac.2025.141573": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.ijbiomac.2025.149009": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.immuni.2016.09.013": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.intimp.2020.106497": {
+        "ab192591": "mistaken"
+      },
+      "10.1016/j.intimp.2023.110961": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2023.111262": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2024.112746": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2024.112948": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2024.113471": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2025.114476": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2025.114700": {
+        "#3179": "mistaken"
+      },
+      "10.1016/j.intimp.2025.114871": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.intimp.2025.115554": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.isci.2024.110045": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jare.2023.04.014": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jbc.2025.110904": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jcmgh.2026.101731": {
+        "a-11132": "mistaken"
+      },
+      "10.1016/j.jep.2025.119886": {
+        "#3192": "mistaken"
+      },
+      "10.1016/j.jgr.2025.05.001": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jgr.2025.05.007": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jhazmat.2023.131891": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.jhazmat.2024.135103": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jhazmat.2024.135159": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.jhazmat.2025.140351": {
+        "ab151303": "not_checked"
+      },
+      "10.1016/j.jid.2025.03.044": {
+        "ab9361": "mistaken"
+      },
+      "10.1016/j.jjcc.2025.06.011": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.jnutbio.2022.109063": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.job.2023.10.001": {
+        "sc-166760": "not_checked"
+      },
+      "10.1016/j.jot.2022.06.002": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jot.2023.11.006": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.jot.2024.08.012": {
+        "ab616": "mistaken"
+      },
+      "10.1016/j.jot.2024.10.011": {
+        "ab616": "mistaken"
+      },
+      "10.1016/j.jrras.2025.101878": {
+        "ab51243": "as_declared"
+      },
+      "10.1016/j.jsbmb.2021.105831": {
+        "sc-166760": "not_checked"
+      },
+      "10.1016/j.kint.2019.06.021": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.lddd.2026.100331": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.lddd.2026.100338": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.lfs.2019.117086": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.lfs.2020.118993": {
+        "#5683": "mistaken"
+      },
+      "10.1016/j.mad.2023.111775": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.mad.2023.111803": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.mad.2025.112067": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.metabol.2009.04.002": {
+        "sc-7383": "mistaken"
+      },
+      "10.1016/j.molimm.2019.12.009": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.neulet.2023.137397": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.neuroscience.2021.12.035": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.omtn.2020.08.020": {
+        "ab79483": "mistaken"
+      },
+      "10.1016/j.omtn.2020.10.012": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.omtn.2023.03.002": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.phymed.2025.156787": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.phymed.2025.157609": {
+        "sc-166760": "mistaken"
+      },
+      "10.1016/j.placenta.2016.04.016": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.placenta.2018.06.307": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.placenta.2026.02.015": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.prmcm.2023.100288": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.redox.2012.11.004": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.redox.2020.101727": {
+        "ab4761": "mistaken"
+      },
+      "10.1016/j.redox.2022.102537": {
+        "ab151303": "mistaken"
+      },
+      "10.1016/j.redox.2025.103939": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.redox.2026.104157": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.stem.2018.06.001": {
+        "sc-166760": "mistaken"
+      },
+      "10.1016/j.taap.2025.117616": {
+        "ab229912": "mistaken"
+      },
+      "10.1016/j.tice.2024.102398": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.tice.2025.102763": {
+        "ab51243": "not_checked"
+      },
+      "10.1016/j.tice.2026.103415": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.tranon.2024.101992": {
+        "a18196": "mistaken"
+      },
+      "10.1016/j.urology.2019.01.052": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.yexcr.2022.113403": {
+        "ap0886": "mistaken"
+      },
+      "10.1016/j.yexmp.2020.104571": {
+        "ab65142": "mistaken"
+      },
+      "10.1016/j.ygeno.2023.110573": {
+        "ab51243": "mistaken"
+      },
+      "10.1016/j.ymthe.2022.12.002": {
+        "ab51243": "mistaken"
+      },
+      "10.1021/acsomega.3c10274": {
+        "ab229912": "mistaken"
+      },
+      "10.1038/cddis.2017.169": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/cr.2016.148": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/jhg.2011.126": {
+        "ab51243": "as_declared"
+      },
+      "10.1038/jid.2013.290": {
+        "sc-377400": "mistaken"
+      },
+      "10.1038/nm.3750": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/onc.2015.186": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/onc.2017.125": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/onc.2017.235": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s12276-020-00545-z": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s12276-021-00662-3": {
+        "ab151303": "mistaken"
+      },
+      "10.1038/s41368-021-00116-6": {
+        "sc-166760": "mistaken"
+      },
+      "10.1038/s41374-018-0178-5": {
+        "sc-166760": "mistaken"
+      },
+      "10.1038/s41375-020-01077-1": {
+        "#3192": "mistaken"
+      },
+      "10.1038/s41388-021-01753-1": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41392-022-00886-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41401-022-00977-5": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41401-023-01153-z": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41401-025-01691-8": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41417-018-0053-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-020-03341-9": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-021-03416-1": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-021-03791-9": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-021-03800-x": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-021-03867-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-021-04321-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-022-05217-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-023-05843-8": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41419-023-06326-6": {
+        "ab116": "mistaken"
+      },
+      "10.1038/s41420-021-00546-5": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41420-025-02650-2": {
+        "a-11132": "mistaken"
+      },
+      "10.1038/s41420-025-02746-9": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41420-026-03011-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41467-021-26993-3": {
+        "ab116": "mistaken"
+      },
+      "10.1038/s41467-022-30391-8": {
+        "sc-166760": "as_declared"
+      },
+      "10.1038/s41467-024-53675-7": {
+        "ab9361": "mistaken"
+      },
+      "10.1038/s41514-026-00334-4": {
+        "a-11132": "mistaken"
+      },
+      "10.1038/s41586-019-0885-0": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41598-018-26996-z": {
+        "#3192": "mistaken"
+      },
+      "10.1038/s41598-018-27209-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41598-019-43689-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41598-019-55709-3": {
+        "ab9361": "mistaken"
+      },
+      "10.1038/s41598-020-74874-4": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41598-021-91501-y": {
+        "ab616": "mistaken"
+      },
+      "10.1038/s41598-024-53400-w": {
+        "ab9361": "mistaken"
+      },
+      "10.1038/s41598-024-79284-4": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s41598-026-43064-z": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s42003-020-01538-4": {
+        "sc-166760": "as_declared"
+      },
+      "10.1038/s42003-025-07524-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s43587-023-00479-x": {
+        "a-11132": "mistaken"
+      },
+      "10.1038/s44161-022-00181-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/s44303-025-00078-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1038/srep34578": {
+        "ab51243": "mistaken"
+      },
+      "10.1039/c7ra13406a": {
+        "ab65142": "mistaken"
+      },
+      "10.1039/d0tb00595a": {
+        "ab79483": "mistaken"
+      },
+      "10.1039/d4fo05325g": {
+        "#3192": "mistaken"
+      },
+      "10.1039/d5tb01165e": {
+        "ab51243": "not_checked"
+      },
+      "10.1042/bsr20170710": {
+        "ab51243": "mistaken"
+      },
+      "10.1042/bsr20190112": {
+        "ab51243": "mistaken"
+      },
+      "10.1042/bsr20190749": {
+        "ab79483": "mistaken"
+      },
+      "10.1074/jbc.ra119.010648": {
+        "sc-166760": "mistaken"
+      },
+      "10.1074/jbc.ra119.010734": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/08941939.2019.1672839": {
+        "ab192591": "mistaken"
+      },
+      "10.1080/10715762.2022.2037582": {
+        "ab51243": "not_checked"
+      },
+      "10.1080/10715762.2024.2446337": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/13880209.2021.1986076": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/13880209.2022.2035773": {
+        "ab192591": "mistaken"
+      },
+      "10.1080/15384101.2017.1361066": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/15384101.2019.1593647": {
+        "ab192591": "mistaken"
+      },
+      "10.1080/15384101.2019.1618124": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/15384101.2021.1992853": {
+        "ab229912": "mistaken"
+      },
+      "10.1080/15384101.2021.2010170": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/15384101.2024.2316493": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/15548627.2023.2274205": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/15548627.2024.2353548": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/17435889.2024.2393074": {
+        "ab151303": "mistaken"
+      },
+      "10.1080/21655979.2021.1980645": {
+        "ab192591": "mistaken"
+      },
+      "10.1080/21655979.2021.2000283": {
+        "#3192": "mistaken"
+      },
+      "10.1080/21655979.2022.2027172": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/21655979.2022.2084495": {
+        "ab51243": "mistaken"
+      },
+      "10.1080/21691401.2019.1703730": {
+        "ab151303": "mistaken"
+      },
+      "10.1089/ars.2024.0602": {
+        "ab51243": "not_checked"
+      },
+      "10.1089/ars.2024.0784": {
+        "ab616": "mistaken"
+      },
+      "10.1089/jop.2022.0117": {
+        "sc-166760": "not_checked"
+      },
+      "10.1089/rej.2022.0061": {
+        "ab51243": "not_checked"
+      },
+      "10.1089/scd.2017.0271": {
+        "ab151303": "not_checked"
+      },
+      "10.1089/thy.2024.0102": {
+        "#3192": "mistaken"
+      },
+      "10.1093/abbs/gmab112": {
+        "ab51243": "mistaken"
+      },
+      "10.1093/alcalc/agx006": {
+        "ab51243": "mistaken"
+      },
+      "10.1093/gerona/glad278": {
+        "ab51243": "mistaken"
+      },
+      "10.1093/gerona/glae059": {
+        "ab51243": "mistaken"
+      },
+      "10.1093/jnen/nlz002": {
+        "ab51243": "as_declared"
+      },
+      "10.1093/jrr/rrac059": {
+        "ab51243": "mistaken"
+      },
+      "10.1093/rheumatology/keab725": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.201701518r": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.202200046r": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.202200406rr": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.202302103rrr": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.202402382r": {
+        "ab51243": "mistaken"
+      },
+      "10.1096/fj.202403269r": {
+        "ab51243": "not_checked"
+      },
+      "10.1097/ec9.0000000000000097": {
+        "ab51243": "not_checked"
+      },
+      "10.1097/fjc.0000000000001394": {
+        "ab51243": "not_checked"
+      },
+      "10.1097/j.pain.0000000000002807": {
+        "sc-65670": "mistaken"
+      },
+      "10.1097/wnr.0000000000001082": {
+        "ab79483": "mistaken"
+      },
+      "10.1111/1759-7714.13027": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.12778": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.13279": {
+        "ab9361": "mistaken"
+      },
+      "10.1111/acel.13454": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.13686": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.13760": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.70031": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/acel.70180": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/bph.15908": {
+        "ab217322": "mistaken"
+      },
+      "10.1111/bph.16156": {
+        "ab9361": "mistaken"
+      },
+      "10.1111/cas.14205": {
+        "ab51243": "as_declared"
+      },
+      "10.1111/cas.14827": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/cas.15402": {
+        "#3192": "mistaken"
+      },
+      "10.1111/cns.13390": {
+        "ab229912": "mistaken"
+      },
+      "10.1111/exd.15006": {
+        "ab51243": "not_checked"
+      },
+      "10.1111/febs.14087": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/febs.14749": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/hepr.13344": {
+        "ab65142": "mistaken"
+      },
+      "10.1111/jcmm.15212": {
+        "ab79483": "mistaken"
+      },
+      "10.1111/jcmm.15256": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/jcmm.17681": {
+        "ap0886": "mistaken"
+      },
+      "10.1111/jcmm.70507": {
+        "ab51243": "mistaken"
+      },
+      "10.1111/jdi.14327": {
+        "ab229912": "mistaken"
+      },
+      "10.1111/jnc.70164": {
+        "sc-65670": "mistaken"
+      },
+      "10.1111/jre.12863": {
+        "sc-166760": "not_checked"
+      },
+      "10.1111/php.12858": {
+        "ab51243": "not_checked"
+      },
+      "10.1111/php.14015": {
+        "ab51243": "not_checked"
+      },
+      "10.1126/sciadv.adr5867": {
+        "sc-166760": "mistaken"
+      },
+      "10.1128/mbio.00598-15": {
+        "sc-166760": "as_declared"
+      },
+      "10.1128/mbio.03441-25": {
+        "a-11132": "mistaken"
+      },
+      "10.1128/mcb.00059-21": {
+        "ab229912": "mistaken"
+      },
+      "10.1128/mcb.01101-15": {
+        "ab51243": "not_checked"
+      },
+      "10.1139/bcb-2018-0126": {
+        "ab51243": "not_checked",
+        "ab9361": "mistaken"
+      },
+      "10.1142/s0192415x20500676": {
+        "ab51243": "not_checked"
+      },
+      "10.1142/s0192415x24500952": {
+        "ab51243": "not_checked"
+      },
+      "10.1152/ajpcell.00520.2019": {
+        "ab51243": "mistaken"
+      },
+      "10.1152/ajpcell.00571.2023": {
+        "ab51243": "mistaken"
+      },
+      "10.1152/ajplung.00212.2024": {
+        "ab51243": "mistaken"
+      },
+      "10.1152/ajplung.00355.2017": {
+        "ab51243": "mistaken"
+      },
+      "10.1152/ajplung.00441.2018": {
+        "a-11132": "mistaken"
+      },
+      "10.1155/2018/4934861": {
+        "ab65142": "mistaken"
+      },
+      "10.1155/2019/6769789": {
+        "ab192591": "mistaken"
+      },
+      "10.1155/2020/4252047": {
+        "ab51243": "mistaken"
+      },
+      "10.1155/2020/7151946": {
+        "ab51243": "mistaken"
+      },
+      "10.1155/2021/3843145": {
+        "ab151303": "mistaken"
+      },
+      "10.1155/2021/8884922": {
+        "ab51243": "mistaken"
+      },
+      "10.1155/2021/9969842": {
+        "ab9361": "mistaken"
+      },
+      "10.1155/2022/1200602": {
+        "sc-166760": "mistaken"
+      },
+      "10.1155/2022/3888798": {
+        "ab229912": "mistaken"
+      },
+      "10.1155/2022/8033353": {
+        "ab51243": "mistaken"
+      },
+      "10.1155/2022/9312971": {
+        "ab151303": "mistaken"
+      },
+      "10.1155/2023/5093941": {
+        "ab51243": "mistaken"
+      },
+      "10.1155/2024/6693292": {
+        "#3192": "mistaken"
+      },
+      "10.1158/0008-5472.can-10-2177": {
+        "ab616": "mistaken"
+      },
+      "10.1158/0008-5472.can-21-0399": {
+        "ab51243": "mistaken"
+      },
+      "10.1158/2326-6066.cir-16-0358": {
+        "ab51243": "mistaken"
+      },
+      "10.1159/000463386": {
+        "ab151303": "not_checked"
+      },
+      "10.1159/000492096": {
+        "ab51243": "mistaken"
+      },
+      "10.1159/000503583": {
+        "ab192591": "mistaken"
+      },
+      "10.1167/iovs.14-15913": {
+        "ab51243": "mistaken"
+      },
+      "10.1167/iovs.61.6.28": {
+        "ab79483": "mistaken"
+      },
+      "10.1172/jci.insight.140109": {
+        "ab51243": "mistaken"
+      },
+      "10.1172/jci.insight.187392": {
+        "ab65142": "mistaken"
+      },
+      "10.1177/0972753120950057": {
+        "sc-377400": "mistaken"
+      },
+      "10.1177/1535370218794915": {
+        "sc-166760": "not_checked"
+      },
+      "10.1177/1947601909358105": {
+        "ab616": "mistaken"
+      },
+      "10.1177/20417314241312563": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s10020-025-01189-3": {
+        "#3179": "mistaken",
+        "#3192": "mistaken"
+      },
+      "10.1186/s11658-026-00879-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12865-023-00539-2": {
+        "ab229912": "mistaken"
+      },
+      "10.1186/s12885-019-5425-7": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12891-025-09105-w": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12903-024-04549-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12903-025-05927-1": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12906-024-04387-4": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12931-019-1165-0": {
+        "ab51243": "mistaken",
+        "ab65142": "mistaken"
+      },
+      "10.1186/s12935-021-01910-2": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12935-025-03770-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12944-025-02553-2": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12951-022-01367-z": {
+        "ab151303": "mistaken"
+      },
+      "10.1186/s12951-023-01894-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12951-024-02561-x": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s12989-023-00546-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13008-024-00120-2": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13018-023-03571-5": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13018-023-03835-0": {
+        "ab51243": "as_declared"
+      },
+      "10.1186/s13018-023-04085-w": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13020-025-01154-6": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13046-019-1486-3": {
+        "sc-166760": "mistaken"
+      },
+      "10.1186/s13046-021-01994-8": {
+        "ab79483": "mistaken"
+      },
+      "10.1186/s13075-022-02949-w": {
+        "ab229912": "mistaken"
+      },
+      "10.1186/s13195-023-01202-z": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-020-01922-1": {
+        "ma5-15705": "mistaken"
+      },
+      "10.1186/s13287-020-02084-w": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-021-02215-x": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-022-03031-7": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-023-03350-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-024-04041-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s13287-025-04653-3": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s40170-025-00398-y": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s40478-018-0573-6": {
+        "ab9361": "mistaken"
+      },
+      "10.1186/s40659-022-00379-1": {
+        "ab51243": "mistaken"
+      },
+      "10.1186/s41232-021-00154-x": {
+        "#3192": "mistaken"
+      },
+      "10.1186/s43094-025-00784-9": {
+        "ab151303": "mistaken"
+      },
+      "10.12182/20200560504": {
+        "ab51243": "mistaken"
+      },
+      "10.1242/bio.054304": {
+        "sc-166760": "as_declared"
+      },
+      "10.1242/dev.196519": {
+        "#3192": "mistaken"
+      },
+      "10.1242/jcs.227801": {
+        "ab51243": "mistaken"
+      },
+      "10.1242/jcs.259738": {
+        "ab51243": "mistaken"
+      },
+      "10.1248/bpb.b18-00646": {
+        "ab192591": "mistaken"
+      },
+      "10.1248/bpb.b18-00951": {
+        "ab192591": "mistaken"
+      },
+      "10.1262/jrd.2014-081": {
+        "ab51243": "mistaken"
+      },
+      "10.12659/msm.922029": {
+        "ab51243": "mistaken"
+      },
+      "10.12659/msm.922673": {
+        "ab51243": "mistaken"
+      },
+      "10.12659/msm.926492": {
+        "ab51243": "mistaken"
+      },
+      "10.1302/2046-3758.132.bjr-2023-0146.r2": {
+        "ab51243": "mistaken"
+      },
+      "10.13386/j.issn1002-0306.2024050308": {
+        "ab51243": "mistaken"
+      },
+      "10.1371/journal.pone.0178375": {
+        "ab151303": "mistaken"
+      },
+      "10.1371/journal.pone.0309807": {
+        "ab229912": "mistaken"
+      },
+      "10.14336/ad.2024.0201": {
+        "ab616": "mistaken"
+      },
+      "10.14670/hh-18-276": {
+        "ab65142": "mistaken"
+      },
+      "10.1515/biol-2021-0098": {
+        "ab192591": "mistaken"
+      },
+      "10.1515/hsz-2018-0469": {
+        "ab151303": "not_checked"
+      },
+      "10.1515/med-2022-0578": {
+        "ab79483": "mistaken"
+      },
+      "10.15586/aei.v51i4.879": {
+        "ab229912": "mistaken"
+      },
+      "10.15857/ksep.2021.30.2.213": {
+        "ab51243": "mistaken"
+      },
+      "10.1590/1414-431x20186839": {
+        "sc-166760": "mistaken"
+      },
+      "10.18388/abp.2020_5528": {
+        "ab192591": "mistaken"
+      },
+      "10.18632/aging.101050": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.101732": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.101761": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.103186": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.103450": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.103637": {
+        "ab9361": "mistaken"
+      },
+      "10.18632/aging.103863": {
+        "ab65142": "mistaken"
+      },
+      "10.18632/aging.103910": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.202850": {
+        "sc-166760": "mistaken"
+      },
+      "10.18632/aging.203514": {
+        "ab65142": "mistaken"
+      },
+      "10.18632/aging.203949": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/aging.204709": {
+        "ab65142": "mistaken"
+      },
+      "10.18632/oncotarget.10087": {
+        "ab65142": "mistaken"
+      },
+      "10.18632/oncotarget.10279": {
+        "sc-377400": "mistaken"
+      },
+      "10.18632/oncotarget.15116": {
+        "ab51243": "mistaken"
+      },
+      "10.18632/oncotarget.17778": {
+        "ab9361": "mistaken"
+      },
+      "10.21037/atm.2018.11.48": {
+        "#3192": "mistaken"
+      },
+      "10.21037/jtd-24-710": {
+        "ab151303": "mistaken"
+      },
+      "10.21037/tcr-20-1132": {
+        "ab65142": "mistaken"
+      },
+      "10.2147/cmar.s192529": {
+        "ab65142": "mistaken"
+      },
+      "10.2147/cmar.s211020": {
+        "ab79483": "mistaken"
+      },
+      "10.2147/dddt.s223581": {
+        "ab65142": "mistaken"
+      },
+      "10.2147/dddt.s404710": {
+        "ab51243": "mistaken"
+      },
+      "10.2147/jir.s544852": {
+        "ab51243": "mistaken"
+      },
+      "10.2147/ott.s194986": {
+        "#3192": "mistaken"
+      },
+      "10.2147/ott.s227758": {
+        "ab51243": "mistaken"
+      },
+      "10.2147/ott.s246278": {
+        "ab192591": "mistaken"
+      },
+      "10.2147/ott.s250412": {
+        "20582-1-ap": "mistaken"
+      },
+      "10.2174/1567205018666210608103831": {
+        "ab51243": "mistaken"
+      },
+      "10.21926/obm.genet.2504313": {
+        "#5683": "mistaken"
+      },
+      "10.22038/ijbms.2019.30224.7287": {
+        "ab51243": "mistaken"
+      },
+      "10.22514/ejgo.2023.028": {
+        "ab79483": "mistaken"
+      },
+      "10.22514/sv.2024.160": {
+        "ab79483": "mistaken"
+      },
+      "10.2337/db17-1330": {
+        "ab51243": "not_checked"
+      },
+      "10.2478/aite-2025-0019": {
+        "ab192591": "mistaken"
+      },
+      "10.26355/eurrev_201806_15257": {
+        "ab51243": "mistaken"
+      },
+      "10.26355/eurrev_201907_18329": {
+        "ab192591": "mistaken"
+      },
+      "10.26355/eurrev_201910_19155": {
+        "ab192591": "mistaken"
+      },
+      "10.26355/eurrev_202005_21311": {
+        "ab192591": "mistaken"
+      },
+      "10.26355/eurrev_202009_22805": {
+        "ab51243": "mistaken"
+      },
+      "10.26355/eurrev_202010_23187": {
+        "ab51243": "mistaken"
+      },
+      "10.31083/fbl33488": {
+        "ab229912": "mistaken"
+      },
+      "10.3233/cbm-182222": {
+        "ab51243": "mistaken"
+      },
+      "10.32604/biocell.2021.014602": {
+        "ab51243": "mistaken"
+      },
+      "10.33549/physiolres.934314": {
+        "#3192": "mistaken"
+      },
+      "10.3389/fcell.2021.622287": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fcell.2021.628463": {
+        "ab151303": "mistaken"
+      },
+      "10.3389/fcell.2025.1479960": {
+        "sc-166760": "mistaken"
+      },
+      "10.3389/fimmu.2021.635076": {
+        "ab79483": "mistaken"
+      },
+      "10.3389/fimmu.2023.1185921": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fimmu.2025.1592737": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fmed.2025.1627412": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fnagi.2023.1162747": {
+        "sc-65670": "mistaken"
+      },
+      "10.3389/fnmol.2017.00079": {
+        "#5683": "mistaken"
+      },
+      "10.3389/fonc.2020.00380": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fonc.2022.1001126": {
+        "gtx129275": "mistaken"
+      },
+      "10.3389/fonc.2022.872432": {
+        "ab151303": "mistaken"
+      },
+      "10.3389/fonc.2023.1097513": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fonc.2025.1609215": {
+        "ab229912": "mistaken"
+      },
+      "10.3389/fphar.2019.00320": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fphar.2021.791889": {
+        "ab229912": "mistaken"
+      },
+      "10.3389/fphar.2022.1033919": {
+        "ab51243": "mistaken"
+      },
+      "10.3389/fphar.2025.1548660": {
+        "sc-166760": "mistaken"
+      },
+      "10.3389/fphar.2025.1672818": {
+        "ab229912": "mistaken"
+      },
+      "10.3389/fphys.2021.690109": {
+        "ab65142": "mistaken"
+      },
+      "10.3390/biology12010042": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/biom11101429": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/biom14030329": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/biom14111476": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/biomedicines10071468": {
+        "sc-65670": "mistaken"
+      },
+      "10.3390/cancers13184730": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/cells13151292": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/cells14040249": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/cells14120853": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/cells14181451": {
+        "20582-1-ap": "mistaken"
+      },
+      "10.3390/cimb48050451": {
+        "#5683": "mistaken"
+      },
+      "10.3390/ijms17101683": {
+        "sc-377400": "mistaken"
+      },
+      "10.3390/ijms20236093": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms21186888": {
+        "ab151303": "mistaken"
+      },
+      "10.3390/ijms21228820": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms22073721": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms22179323": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms231911639": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms232112820": {
+        "ab65142": "mistaken"
+      },
+      "10.3390/ijms24065091": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms24097786": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms242216168": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms25073872": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/ijms26209900": {
+        "14-6773-81": "mistaken"
+      },
+      "10.3390/ijms27020916": {
+        "20582-1-ap": "mistaken"
+      },
+      "10.3390/medicina59071316": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/molecules27185783": {
+        "ab4761": "mistaken"
+      },
+      "10.3390/nu15071627": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/nutraceuticals3020020": {
+        "sc-65670": "mistaken"
+      },
+      "10.3390/ph19040604": {
+        "ab51243": "mistaken"
+      },
+      "10.3390/v16091443": {
+        "24390-1-ap": "mistaken"
+      },
+      "10.34133/space.0104": {
+        "sc-166760": "mistaken"
+      },
+      "10.3724/abbs.2024027": {
+        "ab51243": "mistaken"
+      },
+      "10.37796/2211-8039.1392": {
+        "sc-166760": "mistaken"
+      },
+      "10.3892/br.2022.1513": {
+        "#3179": "mistaken"
+      },
+      "10.3892/etm.2016.3034": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/etm.2016.3386": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/etm.2016.3857": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/etm.2017.5062": {
+        "#5683": "mistaken"
+      },
+      "10.3892/etm.2018.5858": {
+        "#3192": "mistaken"
+      },
+      "10.3892/etm.2018.6274": {
+        "ab192591": "mistaken",
+        "ab79483": "mistaken"
+      },
+      "10.3892/etm.2019.7223": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/etm.2020.8735": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/etm.2020.9022": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2020.9212": {
+        "ab217322": "mistaken"
+      },
+      "10.3892/etm.2020.9292": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2020.9457": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2021.10548": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2021.10746": {
+        "ab79483": "mistaken"
+      },
+      "10.3892/etm.2022.11396": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2022.11482": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2023.11793": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/etm.2024.12590": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ijmm.2015.2402": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/ijmm.2017.2918": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/ijmm.2018.3917": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ijmm.2018.3929": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/ijmm.2018.4005": {
+        "ab9361": "mistaken"
+      },
+      "10.3892/ijmm.2019.4074": {
+        "ab51243": "mistaken",
+        "ab9361": "mistaken"
+      },
+      "10.3892/ijmm.2021.4909": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ijmm.2021.5059": {
+        "ab229912": "mistaken"
+      },
+      "10.3892/ijo.2012.1390": {
+        "ab51243": "as_declared"
+      },
+      "10.3892/ijo.2019.4783": {
+        "ab151303": "mistaken"
+      },
+      "10.3892/ijo.2019.4816": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/mmr.2015.4034": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/mmr.2015.4088": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/mmr.2015.4219": {
+        "sc-377400": "mistaken"
+      },
+      "10.3892/mmr.2017.7480": {
+        "#3192": "mistaken"
+      },
+      "10.3892/mmr.2017.8175": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/mmr.2018.8535": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/mmr.2018.9273": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/mmr.2018.9625": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/mmr.2019.10212": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/mmr.2019.10677": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/mmr.2019.9946": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/mmr.2021.12000": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/mmr.2021.12493": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/mmr.2021.12514": {
+        "ab192591": "mistaken",
+        "ab229912": "mistaken"
+      },
+      "10.3892/mmr.2025.13722": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ol.2016.4288": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ol.2017.5679": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/ol.2017.6432": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/ol.2017.6535": {
+        "ab151303": "mistaken"
+      },
+      "10.3892/ol.2017.7712": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ol.2018.9268": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ol.2019.10430": {
+        "ab51243": "mistaken"
+      },
+      "10.3892/ol.2020.11251": {
+        "ab65142": "mistaken"
+      },
+      "10.3892/ol.2020.11687": {
+        "ab192591": "mistaken"
+      },
+      "10.3892/ol.2020.11956": {
+        "ab229912": "mistaken"
+      },
+      "10.3892/ol.2021.13154": {
+        "#3179": "mistaken"
+      },
+      "10.3892/or.2012.1720": {
+        "ab79483": "mistaken"
+      },
+      "10.3892/or.2018.6700": {
+        "ab51243": "mistaken"
+      },
+      "10.3906/biy-1610-40": {
+        "ab51243": "mistaken"
+      },
+      "10.3969/j.issn.2096-3882.2023.11.004": {
+        "ab51243": "not_checked"
+      },
+      "10.4062/biomolther.2023.232": {
+        "ab51243": "mistaken"
+      },
+      "10.4062/biomolther.2025.190": {
+        "ab51243": "mistaken"
+      },
+      "10.4103/ijpm.ijpm_48_23": {
+        "ab51243": "mistaken"
+      },
+      "10.4149/gpb_2019018": {
+        "ab51243": "mistaken"
+      },
+      "10.4149/gpb_2022026": {
+        "ab229912": "mistaken"
+      },
+      "10.4161/cbt.18942": {
+        "ab51243": "mistaken"
+      },
+      "10.4251/wjgo.v15.i9.1567": {
+        "ab151303": "mistaken"
+      },
+      "10.4314/tjpr.v22i8.7": {
+        "ab229912": "mistaken"
+      },
+      "10.5114/aoms/172158": {
+        "ab51243": "as_declared"
+      },
+      "10.5603/fhc.110087": {
+        "ab229912": "mistaken"
+      },
+      "10.5603/fhc.a2023.0007": {
+        "ab51243": "mistaken"
+      },
+      "10.7150/ijbs.29404": {
+        "ab192591": "mistaken"
+      },
+      "10.7150/ijbs.78785": {
+        "ab616": "mistaken"
+      },
+      "10.7150/ijms.55406": {
+        "ab65142": "mistaken"
+      },
+      "10.7150/ijms.90591": {
+        "ab51243": "mistaken"
+      },
+      "10.7150/jca.79475": {
+        "ab51243": "as_declared"
+      },
+      "10.7150/thno.100991": {
+        "ab51243": "mistaken"
+      },
+      "10.7150/thno.112608": {
+        "#3192": "mistaken"
+      },
+      "10.7150/thno.17853": {
+        "ab51243": "mistaken"
+      },
+      "10.7150/thno.48080": {
+        "ab51243": "mistaken"
+      },
+      "10.7554/elife.52570": {
+        "ab51243": "mistaken"
+      },
+      "10.7554/elife.57393": {
+        "ab9361": "mistaken"
+      },
+      "10.7554/elife.65910": {
+        "ab51243": "as_declared"
+      },
+      "10.7717/peerj.20433": {
+        "ab9361": "mistaken"
+      },
+      "pmid:32194908": {
+        "#3192": "mistaken"
+      },
+      "pmid:34873488": {
+        "ab229912": "mistaken"
+      },
+      "pmid:36105027": {
+        "ab229912": "mistaken"
+      },
+      "pmid:36915767": {
+        "#3179": "mistaken"
+      }
+    },
+    "schema": 1
   }
- },
- "catalogue": {
-  "10782-2-ap": "AB_615042",
-  "12892-1-ap": "AB_2200505",
-  "711051": "AB_2633110",
-  "80001-1-rr": "AB_2882933",
-  "80002-1-rr": "AB_2882934",
-  "89718": "AB_292057",
-  "89789": "AB_2800143",
-  "a19123": "AB_2862616",
-  "ab109535": "AB_10859634",
-  "ab133547": "AB_2920621",
-  "ab190963": "AB_2920622",
-  "ab254166": "AB_2920620",
-  "gtx630196": "AB_2888198",
-  "gtx630197": "AB_2888199",
-  "ma5-27828": "AB_2735390",
-  "ma5-32627": "AB_2809904",
-  "mab7778": "AB_10679421",
-  "nbp1-92695": "AB_11005586"
- },
- "clones": {
-  "1hclc": "AB_2633110",
-  "3h8": "AB_11005586",
-  "671834": "AB_10679421",
-  "d9r3l": "AB_2800143",
-  "db9": "AB_2920620",
-  "e2g6g": "AB_292057",
-  "epr18554": "AB_2920622",
-  "epr5810": "AB_10859634",
-  "epr5811": "AB_2920621",
-  "gt225": "AB_2888198",
-  "gt733": "AB_2735390",
-  "jm51-10": "AB_2809904"
- },
- "counts": {
-  "antibodies": 18,
-  "clones": 12,
-  "genes": 159,
-  "genes_with_antibody_records": 1
- },
- "generated": "2026-07-24T19:49:52Z",
- "genes": [
-  "ACE",
-  "ACSL5",
-  "ADNP",
-  "ALS2",
-  "ANG",
-  "ANXA11",
-  "APOE",
-  "APP",
-  "ARHGDIA",
-  "ARHGEF2",
-  "ARID1A",
-  "ARID1B",
-  "ARID2",
-  "ATP2B1",
-  "ATXN2",
-  "ATXN3",
-  "BECN1",
-  "C9orf72",
-  "CAMK2D",
-  "CAPN2",
-  "CAV1",
-  "CCNF",
-  "CD44",
-  "CDK5",
-  "CHCHD10",
-  "CHMP2B",
-  "CNN3",
-  "CSF1",
-  "CSNK1A1",
-  "CSNK2A1",
-  "CTHRC1",
-  "CTSB",
-  "CTSH",
-  "DAG1",
-  "DDX1",
-  "DLAT",
-  "DNM1",
-  "DYRK1A",
-  "ECE1",
-  "EPHX2",
-  "FCER1G",
-  "FETUB",
-  "FIG4",
-  "FLT1",
-  "FUS",
-  "GALC",
-  "GBA1",
-  "GLE1",
-  "GNAQ",
-  "GPNMB",
-  "GRN",
-  "GSN",
-  "HNRNPA1",
-  "HNRNPA2B1",
-  "HNRNPH2",
-  "HTRA1",
-  "HTT",
-  "IFIH1",
-  "INPP5D",
-  "ITCH",
-  "Kif5a",
-  "LGALS1",
-  "LRP1",
-  "LRRK2",
-  "MAPK1",
-  "MATR3",
-  "MDH1",
-  "MDK",
-  "ME1",
-  "MMP7",
-  "MSN",
-  "NDUFS2",
-  "NEK1",
-  "NFE2L2",
-  "NLRP3",
-  "NR3C1",
-  "NTN1",
-  "OPTN",
-  "PARK7",
-  "PC",
-  "PFN1",
-  "PINK1",
-  "PKN2",
-  "PLCG2",
-  "PLEC",
-  "PPP2R5D",
-  "PRDX1",
-  "PRDX6",
-  "PRKN",
-  "PSAP",
-  "PTN",
-  "QPRT",
-  "RAB10",
-  "RAB13",
-  "RAB14",
-  "RAB1A",
-  "RAB1B",
-  "RAB27A",
-  "RAB27B",
-  "RAB35",
-  "RAB3A",
-  "RAB5A",
-  "RAB5B",
-  "RAB5C",
-  "RAB6A",
-  "RAB7A",
-  "RAB8A",
-  "RXRA",
-  "S1PR1",
-  "SCARB2",
-  "SCD1",
-  "SDC4",
-  "SDCBP",
-  "SERPINA1",
-  "SETX",
-  "SFRP1",
-  "SIGMAR1",
-  "SLC19A1",
-  "SLC25A11",
-  "SLC27A2",
-  "SLC29A1",
-  "SLC2A6",
-  "SLC37A4",
-  "SLIT1",
-  "SLIT2",
-  "SMOC1",
-  "SMPD1",
-  "SOD1",
-  "SPAST",
-  "SPG11",
-  "SPON1",
-  "SQSTM1",
-  "STAT5B",
-  "STING1",
-  "STX4",
-  "STXBP1",
-  "SYK",
-  "SYT1",
-  "TAF15",
-  "TARDBP",
-  "TBK1",
-  "TGFBR2",
-  "TGM2",
-  "TIA1",
-  "TICAM1",
-  "TMEM106B",
-  "TMEM175",
-  "TREM2",
-  "TRIM21",
-  "TSC1",
-  "TSC2",
-  "TUBA4A",
-  "TYROBP",
-  "UBQLN2",
-  "USP30",
-  "VAPB",
-  "VCP",
-  "VGF",
-  "VPS35"
- ],
- "schema": 1,
- "source": "https://onlygoodantibodies.co.uk"
 }

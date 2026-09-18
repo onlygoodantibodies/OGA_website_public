@@ -68,6 +68,29 @@ function check(name, fn) {
   try { fn(); passed++; } catch (err) { failures.push(`${name}\n    ${err.message}`); }
 }
 
+/**
+ * Wait until the mark count stops moving, instead of guessing how long a scan
+ * takes.
+ *
+ * The scan is idle-callback driven and its cost tracks the size of the index,
+ * so any fixed wait here is a clock standing in for a fact: adding the PERK
+ * lists took the bundled fixture from 40 KB to 75 KB and a 1600ms wait
+ * elsewhere in this suite stopped being enough on a CI runner. There is no
+ * single "finished" signal to wait for, so this waits for two equal readings
+ * in a row, which is the closest honest thing.
+ */
+async function settled(page, selector = "mark.oga-hl", quiet = 300, cap = 20000) {
+  const started = Date.now();
+  let last = -1;
+  for (;;) {
+    const now = await page.$$eval(selector, (els) => els.length);
+    if (now === last && now > 0) return now;
+    if (Date.now() - started > cap) return now;
+    last = now;
+    await page.waitForTimeout(quiet);
+  }
+}
+
 try {
   const page = await context.newPage();
   const consoleErrors = [];
@@ -75,8 +98,7 @@ try {
 
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("mark.oga-hl", { timeout: 15000 });
-  // Let the idle-callback scan settle.
-  await page.waitForTimeout(800);
+  await settled(page);
 
   const marks = await page.$$eval("mark.oga-hl", (els) =>
     els.map((el) => ({
@@ -126,14 +148,14 @@ try {
     assert.equal(m.cls, "oga-grey");
   });
 
-  check("untested antibody against a characterised target renders amber", () => {
-    const amber = marks.filter((m) => m.cls === "oga-amber" && m.inside === "p-if");
-    assert.ok(amber.length >= 1, `expected amber in the IF section, saw ${JSON.stringify(marks.filter(m => m.inside === "p-if"))}`);
+  check("untested antibody against a characterised target renders blue", () => {
+    const blue = marks.filter((m) => m.cls === "oga-blue" && m.inside === "p-if");
+    assert.ok(blue.length >= 1, `expected blue in the IF section, saw ${JSON.stringify(marks.filter(m => m.inside === "p-if"))}`);
   });
 
   check("target absent from the dataset stays grey", () => {
     const hits = marks.filter((m) => m.inside === "p-other");
-    assert.ok(!hits.some((m) => ["oga-green", "oga-red", "oga-amber"].includes(m.cls)),
+    assert.ok(!hits.some((m) => ["oga-green", "oga-red", "oga-blue"].includes(m.cls)),
       `Flotillin-1 should not be coloured: ${JSON.stringify(hits)}`);
   });
 
@@ -155,9 +177,9 @@ try {
   });
 
   check("a reagent named twice is marked once", () => {
-    const wbAmber = marks.filter((m) => m.inside === "p-wb" && m.cls === "oga-amber");
-    assert.equal(wbAmber.length, 0,
-      `"anti-TDP-43 antibody (Abcam ab109535)" is one reagent: ${JSON.stringify(wbAmber)}`);
+    const wbBlue = marks.filter((m) => m.inside === "p-wb" && m.cls === "oga-blue");
+    assert.equal(wbBlue.length, 0,
+      `"anti-TDP-43 antibody (Abcam ab109535)" is one reagent: ${JSON.stringify(wbBlue)}`);
   });
 
   check("highlights carry an accessible label", () => {
@@ -176,7 +198,13 @@ try {
     p.textContent = "Western blotting was also performed with 80002-1-RR (Proteintech).";
     document.body.appendChild(p);
   });
-  await page.waitForTimeout(1600);
+  // The assertion below is that a mark appears inside `#p-late`, so waiting for
+  // exactly that is the precondition and the claim at once. This was 1600ms and
+  // it was the first of this suite's fixed waits to fall over when the index
+  // grew.
+  await page.waitForSelector("#p-late mark.oga-hl", { timeout: 15000 })
+    .catch(() => {});   // left to the check, which names the failure properly
+  await settled(page);
 
   const after = await page.$$eval("mark.oga-hl", (els) =>
     els.map((el) => ({
@@ -205,7 +233,11 @@ try {
 
   const wbMark = page.locator("#p-wb mark.oga-hl", { hasText: "ab109535" }).first();
   await wbMark.hover();
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => {
+    const host = document.querySelector(".oga-card-host");
+    const el = host && host.shadowRoot && host.shadowRoot.querySelector(".card");
+    return Boolean(el) && el.style.display !== "none";
+  }, { timeout: 8000 }).catch(() => {});   // the read below reports it
 
   const card = await page.evaluate(() => {
     const host = document.querySelector(".oga-card-host");
@@ -224,9 +256,15 @@ try {
 
   check("card gives the per-application breakdown", () => {
     assert.ok(card.chips.length === 4, `expected 4 application chips, got ${card.chips.length}`);
-    assert.ok(card.chips.some((c) => /WB.*recommended/.test(c)));
-    assert.ok(card.chips.some((c) => /IP.*not recommended/.test(c)));
-    assert.ok(card.chips.some((c) => /FC.*not tested/.test(c)));
+    // The evidence frame, from 0.3.0: OGA characterises antibodies, it does not
+    // validate them, so a chip describes the data rather than issuing advice.
+    // The CODES behind these are unchanged — see the index's `a`.
+    // Anchored: "supportive" is a substring of "not supportive", so a loose
+    // match would pass on a chip saying the opposite of what it checks.
+    const chip = (re) => card.chips.some((c) => re.test(c.trim()));
+    assert.ok(chip(/^WB\s*supportive$/), card.chips.join(" | "));
+    assert.ok(chip(/^IP\s*not supportive$/), card.chips.join(" | "));
+    assert.ok(chip(/^FC\s*not tested$/), card.chips.join(" | "));
   });
 
   check("card states the provenance of the data", () => {
@@ -238,25 +276,29 @@ try {
     assert.ok(card.links.some((h) => h.includes("doi.org")), JSON.stringify(card.links));
   });
 
-  check("card offers the validation image", () => {
-    assert.ok(card.hasImage, "expected a validation figure in the card");
+  check("card offers the characterisation image", () => {
+    assert.ok(card.hasImage, "expected a characterisation figure in the card");
   });
 
-  // --- the amber card shows its working -------------------------------------
-  // Amber is the only verdict inferred rather than looked up, and it was 62 of
+  // --- the blue card shows its working -------------------------------------
+  // Blue is the only verdict inferred rather than looked up, and it was 62 of
   // the 239 marks the benchmark drew. The card has to say the target was read
   // off the page, quote the words it read, and still keep the dataset caveat.
   //
   // Where it says the target was read has moved. The headline now states what is
   // AVAILABLE — the reason the mark exists at all — and the provenance sits in
-  // the body, which is where "amber card quotes the text the target came from"
+  // the body, which is where "blue card quotes the text the target came from"
   // has always checked for it. Nothing was dropped; the two claims swapped
   // places, so the two checks below split accordingly.
 
-  await page.locator("#p-if mark.oga-amber").first().hover();
-  await page.waitForTimeout(400);
+  await page.locator("#p-if mark.oga-blue").first().hover();
+  await page.waitForFunction(() => {
+    const host = document.querySelector(".oga-card-host");
+    const el = host && host.shadowRoot && host.shadowRoot.querySelector(".card");
+    return Boolean(el) && el.style.display !== "none";
+  }, { timeout: 8000 }).catch(() => {});   // the read below reports it
 
-  const amberCard = await page.evaluate(() => {
+  const blueCard = await page.evaluate(() => {
     const host = document.querySelector(".oga-card-host");
     const el = host && host.shadowRoot && host.shadowRoot.querySelector(".card");
     if (!el || el.style.display === "none") return null;
@@ -267,45 +309,45 @@ try {
     };
   });
 
-  check("amber headline says what is available, not what is absent", () => {
-    assert.ok(amberCard, "no card appeared on hovering an amber mark");
+  check("blue headline says what is available, not what is absent", () => {
+    assert.ok(blueCard, "no card appeared on hovering an blue mark");
     // The mark's whole value is that characterised antibodies exist for this
     // target; the absence is the precondition, not the message. Leading with it
     // made the card read as a verdict on a reagent — and on OGA's own gene
     // pages, where "10 APP antibodies" is descriptive text and no product at
     // all, as an accusation about an antibody that does not exist.
-    assert.match(amberCard.verdict, /characterised antibodies available for/i);
-    assert.match(amberCard.verdict, /TARDBP/);
-    assert.doesNotMatch(amberCard.verdict, /not in the dataset/i);
+    assert.match(blueCard.verdict, /characterised antibodies available for/i);
+    assert.match(blueCard.verdict, /TARDBP/);
+    assert.doesNotMatch(blueCard.verdict, /not in the dataset/i);
   });
 
-  check("amber card quotes the text the target came from", () => {
+  check("blue card quotes the text the target came from", () => {
     // The target was READ off the page, not looked up, and the card still says
     // so — in the body now rather than the headline.
-    assert.match(amberCard.text, /taken from/i);
-    assert.match(amberCard.text, /TDP-43/, "the phrase that produced the gene is not quoted");
-    assert.match(amberCard.text, /TARDBP/, "the gene it resolved to is not named");
+    assert.match(blueCard.text, /taken from/i);
+    assert.match(blueCard.text, /TDP-43/, "the phrase that produced the gene is not quoted");
+    assert.match(blueCard.text, /TARDBP/, "the gene it resolved to is not named");
   });
 
-  check("amber card keeps the dataset caveat and does not hedge the claim", () => {
+  check("blue card keeps the dataset caveat and does not hedge the claim", () => {
     // The caveat is that *this* antibody is untested, so the reader does not
     // read "alternatives exist" as a result about the one in front of them. It
     // used to read "absence is not a verdict on quality"; the explanation went
     // on 7 Aug 2026 (untested is untested) and the word "verdict" with it, but
     // the claim itself is load-bearing and stays.
-    assert.match(amberCard.text, /has not been tested/i);
-    assert.doesNotMatch(amberCard.text, /verdict/i);
-    assert.doesNotMatch(amberCard.text, /\bmay have\b|\bmight have\b/i);
-    // Transparency, not a warning: the audit found 0 of 45 amber marks with a
+    assert.match(blueCard.text, /has not been tested/i);
+    assert.doesNotMatch(blueCard.text, /verdict/i);
+    assert.doesNotMatch(blueCard.text, /\bmay have\b|\bmight have\b/i);
+    // Transparency, not a warning: the audit found 0 of 45 blue marks with a
     // wrong gene, so the card shows its source and then states the claim.
-    assert.doesNotMatch(amberCard.text, /check it matches|not necessarily|if the target is right/i);
+    assert.doesNotMatch(blueCard.text, /check it matches|not necessarily|if the target is right/i);
   });
 
   check("the quoted phrase is escaped, not injected", () => {
     // target.raw is page-derived text going into innerHTML. The character
     // classes that capture it cannot currently produce markup, which is
     // exactly the kind of thing that stops being true quietly.
-    assert.ok(!/<script|onerror=/i.test(amberCard.html), "unescaped page text reached the card");
+    assert.ok(!/<script|onerror=/i.test(blueCard.html), "unescaped page text reached the card");
   });
 
   check("no uncaught page errors", () => {

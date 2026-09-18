@@ -4,28 +4,96 @@ function text(el, value) {
   document.getElementById(el).textContent = value;
 }
 
+/* One vocabulary across this panel and the hover card.
+ *
+ * This list said "not recommended" while the card said "not supportive", the
+ * tiles four centimetres above it said NOT SUPPORTIVE, and every page on the
+ * site had moved off the word: OGA characterises antibodies, it does not
+ * recommend or validate them, and a panel that recommends is making a different
+ * and stronger claim than the data does. It was the last surface still saying
+ * it, which is why it survived — nothing contradicted it except everything
+ * around it.
+ *
+ * `not supportive` and `supports` are `card.js::CODE_LABEL`'s words. They are
+ * not imported: the popup is its own document and loads only handoff.js and
+ * this file, and pulling card.js in to read one table would ship the whole
+ * hover card into a panel that never draws one. Kept honest by
+ * `popup.test.mjs`, which reads both files and compares them.
+ */
+function concernLine(c) {
+  const name = `<strong>${c.name}</strong>`;
+  // A declared-target notice is level `red` and is not a result. Nothing about
+  // it may read as a verdict: OGA has tested none of these products.
+  if (c.kind === "wrong-target") {
+    return `<li>${name} — an antibody to ${c.declared}, not to `
+      + `${c.mistakenFor}. Not an OGA result; open the mark for the review.</li>`;
+  }
+  const failed = (c.failed || []).join(", ");
+  const passed = (c.passed || []).join(", ");
+  // Both halves on a split verdict, in the card's own order. Printing only the
+  // failures turns "supports IP, not supportive for WB" into a flat negative.
+  if (passed && failed) {
+    return `<li>${name}${c.gene ? ` (${c.gene})` : ""} — supports ${passed}, `
+      + `not supportive for ${failed}</li>`;
+  }
+  return `<li>${name}${c.gene ? ` (${c.gene})` : ""} — not supportive`
+    + `${failed ? ` for ${failed}` : ""}</li>`;
+}
+
 function renderConcerns(concerns) {
   const host = document.getElementById("concerns");
   if (!concerns || !concerns.length) {
-    host.innerHTML = `<p class="empty">Nothing on this page is flagged as not recommended for the application it was used in.</p>`;
+    host.innerHTML = `<p class="empty">Nothing on this page is marked not supportive for the application it was used in.</p>`;
     return;
   }
-  const items = concerns.map((c) => {
-    const apps = (c.failed || []).join(", ");
-    return `<li><strong>${c.name}</strong>${c.gene ? ` (${c.gene})` : ""} — not recommended${apps ? ` for ${apps}` : ""}</li>`;
-  }).join("");
-  host.innerHTML = `<ul>${items}</ul>`;
+  host.innerHTML = `<ul>${concerns.map(concernLine).join("")}</ul>`;
+}
+
+/**
+ * How many of the red marks are not a result at all.
+ *
+ * The red tile's face says "not supportive" and a declared-target notice is
+ * level red, so a page citing one of the eleven products and nothing else drew
+ * `1 NOT SUPPORTIVE` where OGA has tested nothing. The tile's tooltip names
+ * both meanings of red; a tooltip is not the label, and a count is a claim
+ * about the page.
+ *
+ * Hidden at zero rather than drawn empty — on almost every page this is zero,
+ * and a blank line under the tally reads as a caveat that failed to load.
+ */
+function renderNotices(count) {
+  const el = document.getElementById("notices");
+  if (!el) return;
+  if (!count) { el.hidden = true; el.textContent = ""; return; }
+  const many = count !== 1;
+  el.textContent = `${count} of the red ${many ? "marks are" : "marks is"} a `
+    + `declared-target notice — the product is documented as an antibody to a `
+    + `different protein. Not an OGA test result.`;
+  el.hidden = false;
 }
 
 function render(summary) {
   const counts = summary.counts || {};
-  for (const level of ["green", "red", "mixed", "amber", "grey"]) {
+  for (const level of ["green", "yellow", "red", "mixed", "blue", "grey"]) {
     text("c-" + level, counts[level] || 0);
   }
   renderConcerns(summary.concerns);
+  renderNotices(summary.notices || 0);
   renderHandoff(summary);
   if (summary.indexGenerated) {
     text("stamp", "data " + String(summary.indexGenerated).slice(0, 10));
+  }
+  // Shown only when the index actually supplied it: an empty line under the
+  // tally reads as a caveat that failed to load, which is worse than none.
+  const scope = document.getElementById("scope");
+  if (scope) {
+    // Composed from the two served strings, never a bundled sentence: the card
+    // binds `conditions` inside a verdict, and a panel of counts has no verdict
+    // to bind it to, so it is restated as the lead of the caveat. "Results" is
+    // the only word here that is not served.
+    const lead = summary.conditions ? `Results ${summary.conditions}. ` : "";
+    scope.textContent = summary.scope ? lead + summary.scope : "";
+    scope.hidden = !summary.scope;
   }
 }
 
@@ -100,16 +168,34 @@ function wireTiles(tabId, counts) {
     button.addEventListener("click", () => {
       chrome.tabs.sendMessage(tabId, { type: "oga:focus", level }, (res) => {
         if (chrome.runtime.lastError || !res || !res.count) return;
-        hint.textContent = `${LEVEL_NAME[level]} — ${res.at} of ${res.count}`;
+        hint.textContent = `${tileName(button, level)} — ${res.at} of ${res.count}`;
       });
     });
   }
 }
 
-const LEVEL_NAME = {
-  green: "Recommended", red: "Not recommended", mixed: "Split verdict",
-  amber: "Alternatives exist", grey: "Application untested",
-};
+/**
+ * What to call a level in the hint: the tile's own visible label.
+ *
+ * There was a second table here — `LEVEL_NAME` — and it was wrong twice over.
+ * It said "Recommended" and "Not recommended" where the tile beneath the
+ * cursor said SUPPORTS and NOT SUPPORTIVE and the hover card said supportive
+ * and not supportive, so clicking a tile renamed its own verdict. And it had no
+ * `yellow` at all, the rung 0.3.1 was released for, so clicking the
+ * limited-support tile wrote `undefined — 1 of 2` into the hint. The same
+ * omission as `content.js::LEVEL_CLASS`, in the same release, one table over.
+ *
+ * Reading the label off the button removes both by construction: there is one
+ * string per level, in popup.html, and it is the one the reader just clicked.
+ * A level added later needs nothing here. The fallback is the level's own name,
+ * which is a poor word and still not `undefined`.
+ */
+function tileName(button, level) {
+  const label = button.querySelector("span");
+  const text = label && label.textContent.trim();
+  if (!text) return level;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];

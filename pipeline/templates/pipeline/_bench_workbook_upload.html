@@ -114,7 +114,7 @@ twice records the work twice.
       lines.push(`<li><span class="font-medium">${esc(s.procedure)} · ${esc(s.gene)}</span>
         already has ${e.total} session${e.total === 1 ? '' : 's'} on file${
           planned ? `, ${planned} of ${planned === 1 ? 'them' : 'them'} still
-            <span class="font-medium">planned</span> with no results` : ''}.
+            <span class="font-medium">planned</span>` : ''}.
         This records ${e.total === 1 ? 'a second one' : 'another'}.</li>`);
     });
     if (!lines.length) return '';
@@ -232,7 +232,8 @@ twice records the work twice.
           ${OGABoard.plural(d.sessions_created, 'session')} recorded${
             d.sessions_updated ? `, ${d.sessions_updated} filled in` : ''},
           ${OGABoard.plural(d.results_created, 'result')} added${
-            d.results_updated ? `, ${d.results_updated} updated` : ''}.</p>
+            d.results_updated ? `, ${d.results_updated} updated` : ''}.${
+            OGABoard.saveNotes(d)}</p>
         ${skipped.length ? `<p class="text-sm text-green-900 mt-1">${
           skipped.length} not matched, and left out:</p>
           <ul class="mt-1 text-xs text-green-900 list-disc list-inside space-y-0.5">${

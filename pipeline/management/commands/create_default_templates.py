@@ -403,7 +403,7 @@ class Command(BaseCommand):
                     'summary': 'Run gel, transfer, probe with a validated detection antibody, Veriblot secondary.',
                     'detail': (
                         'Run SM, UB, IP on 4-20% TG gel (3 antibodies per 12-well gel). '
-                        'Transfer and probe with a KO-validated detection antibody — '
+                        'Transfer and probe with a KO-controlled detection antibody — '
                         'ideally a recombinant antibody with high specificity from WB screening. '
                         'Use Veriblot secondary (Abcam ab131366) at 0.04 µg/mL to avoid heavy chain interference. '
                         'A successful IP: target enriched in IP lane, depleted from UB lane. '

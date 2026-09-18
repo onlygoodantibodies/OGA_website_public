@@ -37,6 +37,12 @@
       .da-value { font-weight: 700; white-space: nowrap; }
       .da-yes { color: #16a34a; }
       .da-no { color: #dc2626; }
+      /* The middle rung. Amber is its own state here, not a mark on the red:
+         "not supported overall, and the antibody still did what the
+         application is for" is a different finding from "nothing on-target was
+         seen", and the whole reason `oga_support` exists is that the older
+         three-value field could not tell a reader which one they had. */
+      .da-part { color: #b45309; }
       .da-none { color: #777; }
       .da-cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
     </style>
@@ -217,18 +223,59 @@ wget -i urls.txt -P images/</code></div>
     </section>
 
     <section class="card edu-content da-section">
-        <h2>What a recommendation means</h2>
-        <p>A recommendation is <strong>per application</strong> — a pass in
-           western blot says nothing about immunofluorescence.</p>
+        <h2>What a result means</h2>
+        <p>A result is <strong>per application</strong> — support in western
+           blot says nothing about immunofluorescence. Every antibody carries
+           <code>oga_support</code> with one of four values per application,
+           the same four rungs these pages print.</p>
         <table class="da-table">
-            <tr><th>Value</th><th>Means</th></tr>
-            <tr><td class="da-value da-yes">recommended</td>
-                <td>Recommended for that application in the conditions tested.</td></tr>
-            <tr><td class="da-value da-no">not_recommended</td>
-                <td>Tested and not recommended in the conditions tested.</td></tr>
+            <tr><th>Value</th><th>Printed as</th><th>Means</th></tr>
+            <tr><td class="da-value da-yes">supportive</td>
+                <td>Supportive</td>
+                <td>The characterisation data supports that application in the
+                    conditions tested.</td></tr>
+            <tr><td class="da-value da-part">limited_support</td>
+                <td>Limited support</td>
+                <td>Tested; the data does not support that application overall,
+                    and the antibody was still seen to do what the application
+                    is for.</td></tr>
+            <tr><td class="da-value da-no">not_supportive</td>
+                <td>Not supportive</td>
+                <td>Tested, and nothing on-target was seen.</td></tr>
             <tr><td class="da-value da-none">not_tested</td>
-                <td>Not tested for that application.</td></tr>
+                <td>Not tested</td>
+                <td>Nobody has run it.</td></tr>
         </table>
+        <p>Switch on <code>oga_support</code>; print <code>oga_display</code>,
+           which carries the words in the second column so you never have to
+           hard-code our wording.</p>
+
+        <h3>If you already read <code>oga_recommendations</code></h3>
+        <p>That field is older, has three values rather than four, and is
+           <strong>still on every response and staying there</strong>. What it
+           cannot do is express <code>limited_support</code>: that rung and
+           <code>not_supportive</code> both arrive as
+           <code>not_recommended</code>.</p>
+        <table class="da-table">
+            <tr><th>oga_support</th><th>oga_recommendations reports</th></tr>
+            <tr><td class="da-value da-yes">supportive</td>
+                <td class="da-value">recommended</td></tr>
+            <tr><td class="da-value da-part">limited_support</td>
+                <td class="da-value">not_recommended</td></tr>
+            <tr><td class="da-value da-no">not_supportive</td>
+                <td class="da-value">not_recommended</td></tr>
+            <tr><td class="da-value da-none">not_tested</td>
+                <td class="da-value">not_tested</td></tr>
+        </table>
+        <p>On the live dataset <code>limited_support</code> is
+           <strong>491 of the 1,833 negative results</strong>. So a client that
+           switches on <code>not_recommended</code> and prints “failed” is,
+           better than a quarter of the time, overstating what the data says
+           about a named commercial product. Nothing breaks if you change
+           nothing — every field you read today is unchanged — but the middle
+           rung stays invisible to you.
+           <a href="{% url 'api_reference' %}#3-what-a-result-means">The full
+           reference</a> has a two-line diff.</p>
         <div class="da-warn">
             <p>{% include 'core/_recommendation_caveat.html' %}</p>
         </div>
@@ -289,35 +336,7 @@ wget -i urls.txt -P images/</code></div>
 </section>
 
 <div class="footer-wrapper">
-    <footer class="footer footer-publications">
-        <div class="footer-container">
-            <div class="footer-column">
-                <h4>Quick Links</h4>
-                <a href="{% url 'home' %}">Home</a>
-                <a href="{% url 'about' %}">About Us</a>
-                <a href="{% url 'publications' %}">Publications</a>
-                <a href="{% url 'news' %}">News</a>
-                <a href="{% url 'contact' %}">Contact</a>
-            </div>
-
-            <div class="footer-column">
-                <h4>Contact Us</h4>
-                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" rel="noopener">Follow us on LinkedIn</a></p>
-                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" rel="noopener">Follow us on BlueSky</a></p>
-            </div>
-
-            <div class="footer-column">
-                <h4>Follow Us</h4>
-                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank" rel="noopener">
-                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-                </a>
-                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank" rel="noopener">
-                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-                </a>
-            </div>
-        </div>
-    </footer>
+    {% include 'core/footer.html' with footer_class="footer-publications" %}
 </div>
 </body>
 </html>

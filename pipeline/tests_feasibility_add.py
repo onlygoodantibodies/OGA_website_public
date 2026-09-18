@@ -63,8 +63,11 @@ class AUniProtIdIsAWayInTests(TestCase):
                                return_value={"found": True}) as by_gene:
             self.assertEqual(uniprot.lookup("P37840")["resolved_from"], "accession")
             self.assertEqual(uniprot.lookup("SNCA")["resolved_from"], "gene")
-        by_acc.assert_called_once_with("P37840")
-        by_gene.assert_called_once_with("SNCA")
+        # The deadline rides along with the string: a public page asks for a
+        # shorter one than a board's preview does, so `lookup` has to pass it on
+        # rather than let each half read the module constant for itself.
+        by_acc.assert_called_once_with("P37840", timeout=uniprot.TIMEOUT_SECONDS)
+        by_gene.assert_called_once_with("SNCA", timeout=uniprot.TIMEOUT_SECONDS)
 
     def test_an_accession_answers_with_the_symbol(self):
         """`lookup_accession` returned no `gene_name` at all, for anybody.

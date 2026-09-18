@@ -1,0 +1,73 @@
+{
+  "id": "beta-galactosidase",
+  "declared_target": {
+    "gene": "lacZ",
+    "protein": "E. coli beta-galactosidase",
+    "full_name": "Escherichia coli beta-galactosidase, the LacZ reporter enzyme"
+  },
+  "mistaken_for": {
+    "gene": "GLB1",
+    "protein": "mammalian beta-galactosidase",
+    "full_name": "lysosomal beta-galactosidase, read out as senescence-associated beta-galactosidase"
+  },
+  "short": "This is an antibody to the Escherichia coli LacZ beta-galactosidase used in reporter systems. It is not an antibody to the mammalian GLB1 enzyme behind senescence-associated beta-galactosidase. The two share a name and a substrate, and about 20% sequence identity — no better than chance.",
+  "explanation": "Senescence-associated beta-galactosidase is the endogenous mammalian enzyme encoded by GLB1. E. coli beta-galactosidase, encoded by lacZ, is the reporter enzyme used to read out gene activation. Both cleave X-Gal and both are called beta-galactosidase, which is where the confusion comes from — but human and E. coli beta-galactosidase align at about 20% identity, which is no better than a random sequence of the same composition, and around 50% is the usual rule of thumb for any chance of cross-reactivity. E. coli beta-galactosidase has closer homologues in the human proteome than human beta-galactosidase does, beta-glucuronidase among them. Published LacZ-negative controls show these antibodies giving no signal in wild-type mammalian tissue, which is what they are for.",
+  "papers_file": "beta_galactosidase_papers.csv",
+  "papers_source": "The list was compiled by searching for each product code, and the published spreadsheet is linked from the article. The article records each of these papers as having used the antibody against the mammalian enzyme; there is no separate per-paper verdict column, so every row is carried as such. Many rows also carry a PubPeer thread.",
+  "source": {
+    "title": "Do bacteria grow old as we do?",
+    "author": "Sholto David",
+    "publication": "For Better Science",
+    "url": "https://forbetterscience.com/2026/07/21/do-bacteria-grow-old-as-we-do/",
+    "date": "2026-07-21"
+  },
+  "antibodies": [
+    {
+      "identifier": "ab9361",
+      "supplier": "Abcam"
+    },
+    {
+      "identifier": "ab616",
+      "supplier": "Abcam"
+    },
+    {
+      "identifier": "ab4761",
+      "supplier": "Abcam"
+    },
+    {
+      "identifier": "ab116",
+      "supplier": "Abcam"
+    },
+    {
+      "identifier": "sc-65670",
+      "supplier": "Santa Cruz Biotechnology"
+    },
+    {
+      "identifier": "A-11132",
+      "supplier": "Thermo Fisher Scientific",
+      "supplier_required": "The shape of this number is not specific to one supplier, so it is only matched where the supplier is named beside it.",
+      "supplier_cues": [
+        "thermo",
+        "invitrogen",
+        "molecular probes",
+        "life technologies"
+      ]
+    },
+    {
+      "identifier": "14-6773-81",
+      "supplier": "Thermo Fisher Scientific"
+    },
+    {
+      "identifier": "AB986",
+      "supplier": "Merck Millipore",
+      "supplier_required": "Millipore's AB-prefixed numbers are typeset exactly like Abcam's, so this is only matched where the supplier is named beside it.",
+      "supplier_cues": [
+        "millipore",
+        "merck",
+        "chemicon",
+        "upstate",
+        "emd"
+      ]
+    }
+  ]
+}

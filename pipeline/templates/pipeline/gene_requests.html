@@ -65,6 +65,7 @@
         <tr>
           <th class="px-4 py-3">Gene</th>
           <th class="px-4 py-3">Requests</th>
+          <th class="px-4 py-3">Funding</th>
           <th class="px-4 py-3">Applications asked for</th>
           <th class="px-4 py-3">Who asked</th>
           <th class="px-4 py-3">Latest</th>
@@ -97,6 +98,30 @@
             {% endif %}
           </td>
           <td class="px-4 py-3 font-semibold text-gray-900">{{ row.count }}</td>
+          {% comment %}
+          Its own column because "is there money behind this gene" is the
+          question a prioritisation meeting asks first, and until now the only
+          answer was a chip beside each address in "Who asked" — so on a gene
+          with nine requests you read nine rows to find out. Both stay: this
+          says whether the gene has an offer at all, the chip says which person
+          made it. "2 of 5" rather than a bare "2", or the reader has to look
+          across to the count to know what the number is out of.
+          {% endcomment %}
+          <td class="px-4 py-3">
+            {% if row.funded_offers %}
+              <span class="inline-block rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                {{ row.funded_offers }} of {{ row.count }}</span>
+            {% else %}
+              {% comment %}
+              The opposite word, not a dash: a dash reads as "we did not ask"
+              when the truth is "we asked and nobody offered", and those are
+              different facts. Same chip shape as the funded case so the two
+              scan as one control with two states.
+              {% endcomment %}
+              <span class="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                none</span>
+            {% endif %}
+          </td>
           {% comment %}
           The tally already names a free-text "other" rather than counting it:
           `application_labels` swaps the generic word for what was typed, so a

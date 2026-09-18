@@ -146,7 +146,6 @@ def dataset_upload_commit(request):
     if not f:
         return JsonResponse({"ok": False, "error": "no file uploaded"}, status=400)
     apply_overwrites = request.POST.get("apply_overwrites") in ("true", "1", "on")
-    create_targets = request.POST.get("create_targets") in ("true", "1", "on")
 
     parsed = dataset.parse_upload(f)
     plan = dataset.plan_upload(parsed)
@@ -154,6 +153,6 @@ def dataset_upload_commit(request):
         return JsonResponse(plan, status=400)
     result = dataset.apply_upload(
         parsed, apply_overwrites=apply_overwrites,
-        create_targets=create_targets, member=_member(request))
+        member=_member(request))
     result["plan"] = plan
     return JsonResponse(result)

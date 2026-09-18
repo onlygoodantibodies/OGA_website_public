@@ -14,19 +14,24 @@ Reuses the cropper's building blocks so nothing drifts:
 """
 from __future__ import annotations
 
+import logging
+
 from django.db import transaction
 
 from pipeline.models import Target, Antibody
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import lab_numbers
+from pipeline.services import received as received_svc
 from pipeline.services import sites as site_svc
+from pipeline.services import storage as storage_svc
 from pipeline.services.cropper import db as cdb
 from pipeline.services.cropper import metadata as meta
 from pipeline.services.cropper.commit import _apply_metadata
 from pipeline.services import example_row
-from pipeline.services.targets import resolve_or_create_target
 
 DB = "pipeline_db"
+
+logger = logging.getLogger(__name__)
 
 
 def parse(text: str, default_gene: str = "", *, header_led: bool = False):
@@ -84,7 +89,7 @@ def _row_site(row, member):
     return site_id, (getattr(getattr(member, "site", None), "name", "") or ""), None
 
 
-def plan(rows, create_targets: bool = False, member=None):
+def plan(rows, member=None, *, number_now: bool = False):
     """Per-row: what would happen (update existing / create / create-target /
     blocked) plus the company-resolution status — read-only.
 
@@ -109,9 +114,18 @@ def plan(rows, create_targets: bool = False, member=None):
             status, note = "blocked", site_err
         elif target:
             status = "update" if existing else "create"
-        elif gene and create_targets:
-            status = "create-target"
         else:
+            # **A target is created on the targets doors and nowhere else**
+            # (owner, 5 Sep 2026). There was a `create-target` status here,
+            # reached when the panel's tick was on, and three things were wrong
+            # with it at once: no preview confirmed the symbol, so a typo became
+            # a permanent gene; the write called `resolve_or_create_target`
+            # *inside* the commit's transaction, holding PostgreSQL open for a
+            # 10 s UniProt call per new gene on a four-thread site; and neither
+            # of those is true of the door built for the job, which confirms the
+            # symbol and creates the row bare. So an unknown gene stops here and
+            # `add_target_url` carries the reader to the board that does it
+            # properly.
             status = "no-target"
         lot = (r.get("lot") or "").strip()
         ab_number, ab_note = _ab_number(r.get("ab_number"), site_id, site_name,
@@ -128,10 +142,25 @@ def plan(rows, create_targets: bool = False, member=None):
         items.append({
             "ab_number": ab_number,
             # A row that will be created, at a known bench, with the number
-            # column left blank — the rows the save is about to mint a number
-            # for. Not the number itself: see `summarize`.
+            # column left blank. Whether the save gives it a number is the
+            # bench's choice (`number_now`), so the check has to answer the
+            # question the tick actually asks — a preview that says "no
+            # A-number" over a ticked box is worse than saying nothing.
+            #
+            # It used to be `will_be_numbered`, and the save minted an A-number
+            # there and then. uOttawa stopped logging into the portal because of
+            # exactly that: the number decides which freezer box a vial goes in,
+            # and reagents arriving over weeks were being numbered in order of
+            # arrival, scattering each protein across five boxes. Measured 2 Sep
+            # 2026, McGill's 277 multi-antibody genes sit in 6.77 separate runs
+            # of numbers each. So numbering waits until somebody deals the set
+            # out (`services/renumber.py`), or until a session is planned
+            # (`lab_numbers.ensure_numbered`), whichever comes first. Cell lines
+            # are unchanged and still numbered on creation.
+            "will_be_unnumbered": (status == "create" and bool(site_id)
+                                   and ab_number is None and not number_now),
             "will_be_numbered": (status == "create" and bool(site_id)
-                                 and ab_number is None),
+                                 and ab_number is None and number_now),
             "row": r, "gene": gene, "catalogue": cat,
             "target_id": target.id if target else None,
             "target_gene": target.gene_name if target else "",
@@ -156,12 +185,14 @@ def plan(rows, create_targets: bool = False, member=None):
             # the URL is the way to the board where a gene actually belongs.
             "add_target_url": (_add_target_url(gene)
                                if status == "no-target" and gene else ""),
-            "note": _with_supplier_apps_note(
-                _with_concentration_note(
-                    note or _no_target_note(status, gene)
-                    or _identity_note(status, existing, lot),
-                    r.get("concentration")),
-                r.get("apps_raw")),
+            "note": _with_received_note(
+                _with_supplier_apps_note(
+                    _with_concentration_note(
+                        note or _no_target_note(status, gene)
+                        or _identity_note(status, existing, lot),
+                        r.get("concentration"), r.get("concentration_unit_from")),
+                    r.get("apps_raw")),
+                r.get("received")),
             # Carried on the item so `summarize` can *count* the rows whose
             # concentration will not be stored. The per-row note has said so
             # since run 6; nothing added it up, so the save summary was silent
@@ -240,8 +271,9 @@ def _concentration_error(raw) -> str:
     return err
 
 
-def _with_concentration_note(note, raw):
-    """Add a word about the concentration cell when it will not be stored.
+def _with_concentration_note(note, raw, unit_from=""):
+    """Add a word about the concentration cell when it will not be stored — or
+    when what will be stored is not the number in the cell.
 
     The number goes in without its unit — the column *is* µg/mL — so "1.0 mg/mL"
     used to be filed as 1, a thousandfold out, in silence. Converting it is the
@@ -249,23 +281,99 @@ def _with_concentration_note(note, raw):
     because the alternative is the same silence one step along. Not a refusal:
     an odd concentration is no reason to reject an otherwise good antibody row,
     and the rest of the row is still worth writing.
+
+    ``unit_from="heading"`` is the third case and the one nobody could see. A
+    sheet headed ``Concentration (mg/mL)`` means its cells are milligrams, so
+    ``0.498`` is stored as **498** — and the cell a person is looking at says
+    `0.498`, with the unit two rows up in the header. A conversion the reader
+    cannot see in the cell is exactly the kind a preview owes them, so this
+    names it whenever the arithmetic actually changes the number.
     """
     err = _concentration_error(raw)
+    if err:
+        return f"{note} · {err}" if note else err
+    said = _heading_unit_note(raw, unit_from)
+    if said:
+        return f"{note} · {said}" if note else said
+    return note
+
+
+def _heading_unit_note(raw, unit_from) -> str:
+    """"the heading says mg/mL, so 0.498 is stored as 498 µg/mL" — or ``""``.
+
+    Quiet when the unit came from the cell (the person typed it, so they know),
+    and quiet when the conversion leaves the number alone, which is every sheet
+    this app exports.
+    """
+    if unit_from != "heading":
+        return ""
+    text = str(raw or "").strip()
+    value, err = concentration_svc.parse(text)
+    if err or value is None:
+        return ""
+    digits, _err = concentration_svc.parse(
+        text.split(" ")[0] if " " in text else text)
+    if digits is None or digits == value:
+        return ""
+    unit = text.rsplit(" ", 1)[-1]
+    return (f"the heading says {unit}, so {_plain(digits)} is stored as "
+            f"{_plain(value)} {concentration_svc.STORED_UNIT}")
+
+
+def _plain(value) -> str:
+    """A Decimal as a scientist writes it — never in scientific notation.
+
+    `Decimal.normalize()` is the obvious way to drop trailing zeros and it
+    reaches for an exponent the moment there are any: `Decimal("500.0")`
+    normalises to `5E+2`, so the note read *"1 is stored as 1E+3 µg/mL"* — on
+    the one number the message exists to make checkable, and on the commonest
+    value in the sheet that prompted all of this (12 of uOttawa's 42
+    concentrations are a bare `1`). `format(d, "f")` is the fixed-point spelling
+    of the same value.
+    """
+    return format(value.normalize(), "f")
+
+
+def _with_received_note(note, raw):
+    """Say when the arrival date cell cannot be read, or is less precise than
+    it looks.
+
+    Same shape as the concentration note and for the same reason: the row is
+    still worth writing without the date, so this is a note rather than a
+    refusal — but a cell nobody could read must not go by in silence, or the
+    person finds out months later that the column is empty.
+
+    A month is **not** a defect and gets no note. ``Aug 2026`` is a real answer
+    and is stored as one (`services/received.py`); saying "this is only a
+    month" on every uOttawa row would be noise on the ordinary case.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return note
+    _when, _precision, err = received_svc.parse(text)
     if not err:
         return note
     return f"{note} · {err}" if note else err
 
 
 def _no_target_note(status, gene):
-    """Why a row with a gene was skipped, and the two ways out of it."""
+    """Why a row with a gene was skipped, and the way out of it.
+
+    **The way out is the target board, and it is the only one** (owner, 5 Sep
+    2026): a target is added on the targets doors, so this no longer offers a
+    tick that creates one from an antibody row. It named one for a while, which
+    was true on the Add panel and false on the Upload panel beside it — run 20
+    followed the sentence and found no such control. Both panels have lost the
+    box, so there is one sentence again and it points at the board; the row also
+    carries ``add_target_url`` as a link to it.
+    """
     if status != "no-target":
         return ""
     if not gene:
         return ("no gene on this row — an antibody is against something, so the "
                 "gene column decides which target it lands on")
-    return (f"gene '{gene}' is not in the pipeline yet — tick “Add the gene as a "
-            f"new target if it isn't one yet” above, or add it on the target "
-            f"board first")
+    return (f"gene '{gene}' is not in the pipeline yet — add it on the target "
+            f"board first, then bring this row back")
 
 
 def _add_target_url(gene: str) -> str:
@@ -299,7 +407,6 @@ def summarize(items) -> dict:
         "rows": len(items),
         "update": sum(1 for i in items if i["status"] == "update"),
         "create": sum(1 for i in items if i["status"] == "create"),
-        "create_target": sum(1 for i in items if i["status"] == "create-target"),
         "blocked": sum(1 for i in items if i["status"] == "no-target"),
         # An unrecognised site is its own refusal, counted apart from "no gene" so
         # the summary can say which thing to fix.
@@ -312,12 +419,18 @@ def summarize(items) -> dict:
         # concentration at all. The panel two along, for an unrecognised
         # spreadsheet column, has done this correctly since run 6.
         "no_concentration": sum(1 for i in items if i.get("concentration_dropped")),
-        # **A number the app gives a record is a thing the app did.** The first
-        # field test on A-numbers left the number column blank, got A-1, and
-        # said nothing in the preview or the save message mentioned that a lab
-        # reference had been minted. The check says one *will* be given and does
-        # not promise which — the value depends on what else lands in the same
-        # batch — and `apply` reports what was actually issued.
+        # **A number the app does *not* give a record is also a thing the app
+        # did**, and the same rule applies: say so. The check named a minted
+        # A-number from run 8's finding onwards; now it names the absence, and
+        # says where the numbers come from instead. Deliberately a different key
+        # from the cell lines' `will_be_numbered` — `board.js::labNumberNote` is
+        # one writer for both panels, and one key meaning opposite things on two
+        # boards is how a message ends up true of neither.
+        "will_be_unnumbered": sum(1 for i in items
+                                  if i.get("will_be_unnumbered")),
+        # The same count for a bench that ticked "give them numbers now" —
+        # McGill has always numbered on receipt and asked to keep doing it.
+        # `board.js::labNumberNote` reads both keys; only one is ever non-zero.
         "will_be_numbered": sum(1 for i in items if i.get("will_be_numbered")),
         "new_companies": sorted({i["row"].get("company", "") for i in items
                                  if i["company_status"] == "new" and i["row"].get("company")}),
@@ -328,8 +441,8 @@ def summarize(items) -> dict:
     }
 
 
-def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
-          lookup_rrids: bool = False):
+def apply(rows, member=None, overwrite: bool = False,
+          lookup_rrids: bool = False, number_now: bool = False):
     """Create/update antibodies (and, if asked, missing targets) in one
     transaction. Fills only blank fields by default, so re-pasting never clobbers
     data; overwrite=True lets non-empty values replace existing ones (the edited-
@@ -346,8 +459,8 @@ def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
     # per-row site — and therefore which rows it called new — was computed against
     # no site at all while the write used the member's. Preview and write have to
     # resolve the same vial or the preview is fiction.
-    items = plan(rows, create_targets, member=member)
-    out = {"created": [], "updated": [], "created_targets": [], "skipped": [],
+    items = plan(rows, member=member)
+    out = {"created": [], "updated": [], "skipped": [],
            "blocked": [], "rrids_filled": 0,
            # Rows written *without* the concentration they named, so the save can
            # repeat the refusal the preview gave. A warning that only appears
@@ -357,7 +470,7 @@ def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
            # is a thing the app did — and it goes on a freezer box — so the save
            # names each one rather than leaving the reader to find A-1 on the
            # board later and wonder where it came from.
-           "numbers_issued": []}
+           "numbers_issued": [], "left_unnumbered": 0}
     with transaction.atomic(using=DB):
         for it in items:
             r, gene, cat = it["row"], it["gene"], it["catalogue"]
@@ -369,15 +482,10 @@ def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
             target = (Target.objects.using(DB).filter(id=it["target_id"]).first()
                       if it["target_id"] else None)
             if target is None:
-                if gene and create_targets:
-                    # Enrich a newly-created target from UniProt (protein name,
-                    # accession, mass, synonyms) so it isn't a hollow stub.
-                    target, made = resolve_or_create_target(gene, member=member)
-                    if made:
-                        out["created_targets"].append(target.gene_name)
-                if target is None:
-                    out["skipped"].append(cat or gene or "(row)")
-                    continue
+                # Never created here — see `plan`. The row was previewed as
+                # `no-target` and is skipped, which is what the preview said.
+                out["skipped"].append(cat or gene or "(row)")
+                continue
             if not cat:
                 out["skipped"].append(gene or "(no catalogue)")
                 continue
@@ -392,15 +500,30 @@ def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
             ab = cdb.find_vial(target, r.get("company", ""), cat,
                                r.get("lot", ""), site_id)
             created = ab is None
-            issued_here = False
+            left_unnumbered = issued_here = False
             if created:
                 ab = Antibody(target=target, catalogue_number=cat, site_id=site_id)
-                # What the preview showed. A blank cell leaves this None, and
-                # the number is issued on save from this site's own run
-                # (`pipeline/signals.py`); a typed one is what the freezer box
-                # already says, so it wins.
+                # What the preview showed.
                 ab.ab_number = it.get("ab_number")
-                issued_here = ab.ab_number is None
+                # **Logging does not allocate by default, and the bench can
+                # say otherwise.** A typed number is what the freezer box
+                # already says and always wins. Otherwise the row stays blank
+                # unless `number_now` — the tick on the Add panel — in which
+                # case the `pre_save` signal mints this site's next, exactly as
+                # it did before 2 Sep 2026.
+                #
+                # Off by default because the two mistakes are not symmetrical:
+                # numbering when you did not want it puts arrival order onto the
+                # freezer and takes a renumbering to undo, while not numbering
+                # when you did is one press of Assign numbers — and happens
+                # anyway the moment a session is planned.
+                if ab.ab_number is None and not number_now:
+                    lab_numbers.withhold(ab)
+                    left_unnumbered = True
+                    issued_here = False
+                else:
+                    left_unnumbered = False
+                    issued_here = ab.ab_number is None
             elif it.get("ab_number") is not None and ab.ab_number is None:
                 # Fill-only-blank, like every other column: a vial already
                 # carrying a number keeps it, and a blank one takes what the
@@ -417,10 +540,22 @@ def apply(rows, create_targets: bool, member=None, overwrite: bool = False,
                 if _fill_rrid_from_registry(ab, cat, r.get("company", ""), target.gene_name or ""):
                     out["rrids_filled"] += 1
             ab.save(using=DB)
+            # Where the vial lives. After the save because a location is its own
+            # row and needs this one's pk — the same order `bulk_cell_lines`
+            # writes a vial's location in. Fill-only-blank and deduped, so
+            # re-uploading a sheet does not stack a second freezer, and silent
+            # when the row said nothing about storage, which is most rows.
+            storage_svc.write_row(ab, r, db=DB)
             if it.get("concentration_dropped"):
                 out["no_concentration"].append(
                     {"catalogue": ab.catalogue_number,
                      "typed": str(r.get("concentration") or "").strip()})
+            if created and left_unnumbered:
+                out["left_unnumbered"] += 1
+            # **A number the app gives a record is a thing the app did**, so the
+            # save names it — the finding that put this message here in the
+            # first place. Only for a number the *app* chose: one the reader
+            # typed is not news, they wrote it.
             if created and issued_here and ab.ab_number is not None:
                 out["numbers_issued"].append(
                     {"number": lab_numbers.label(ab.ab_number,
@@ -437,11 +572,22 @@ def _fill_rrid_from_registry(ab, catalogue: str, company: str, gene: str) -> boo
     """Best-effort: set ab.rrid (+ rrid_link, and supplier_url if blank) from a
     HIGH-confidence registry match. Returns True if it filled the RRID. Never
     raises — a registry hiccup just leaves the RRID blank."""
-    from pipeline.services import scicrunch
+    from pipeline.services import scicrunch, targets as targets_service
     from pipeline import rrid_utils
     try:
-        rrid, url, _note = scicrunch.resolve_rrid(catalogue, company, gene)
+        # Same alias list the backfill command passes, for the same reason: the
+        # registry names a gene by a synonym often enough that our primary
+        # symbol alone reads a match as a mismatch. Both doors, one behaviour.
+        aliases = (targets_service.registry_names(ab.target)
+                   if getattr(ab, "target_id", None) else [])
+        rrid, url, _note = scicrunch.resolve_rrid(catalogue, company, gene,
+                                                  aliases=aliases)
     except Exception:
+        # Deliberately broad: a registry hiccup must leave the RRID blank rather
+        # than fail an import. But it is LOGGED, because this same handler will
+        # swallow a programming error -- a signature that drifted, say -- and
+        # report it as "no RRID found", which no screen contradicts.
+        logger.exception("RRID lookup failed for %r (%s)", catalogue, company)
         return False
     if not rrid:
         return False

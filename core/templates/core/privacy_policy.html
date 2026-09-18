@@ -124,7 +124,7 @@
             <p>- <strong>The page you are reading never leaves your browser.</strong> The extension downloads a copy of our antibody data and compares it against the text of the page on your own device. No page content, page address, or any part of it is sent to us or to anyone else.</p>
             <p>- <strong>Identifying the paper also happens on your device.</strong> To show what a paper used an antibody for, the extension matches the paper’s title, DOI or PubMed identifier against a list it has already downloaded. Those identifiers are not sent to us.</p>
             <p>- <strong>There is no account, no analytics and no tracking in the extension.</strong> We cannot tell how many antibodies were marked for you, which ones, or on what.</p>
-            <p>What the extension does fetch from us is our own published data: two data files, refreshed about once a day, and the validation images shown when you open a card. Our server receives those requests the way any web server receives a request for a file — including your IP address — and they carry nothing about the paper you were reading or the antibodies on it. This is the same public data available on this website and through our data API.</p>
+            <p>What the extension does fetch from us is our own published data: two data files, refreshed about once a day, and the characterisation images shown when you open a card. Our server receives those requests the way any web server receives a request for a file — including your IP address — and they carry nothing about the paper you were reading or the antibodies on it. This is the same public data available on this website and through our data API.</p>
             <p>Your extension settings, and the copy of our data it keeps so it can work without going online for every page, are stored by your browser on your own device. We have no access to them, and uninstalling the extension removes them.</p>
             <p><strong>Site access.</strong> When you install it, the extension can read pages on the journal, preprint and repository sites it lists — that is where antibodies are cited. Two further kinds of access are switched off unless you turn them on yourself in its settings: supplier catalogue sites, so a recommendation is visible while you are ordering; and all websites, which exists only so the extension still works when your institution’s proxy rewrites journal addresses. Turning either on changes which pages are marked. It does not change any of the above — the matching still happens on your device, and nothing is transmitted.</p>
             <p>Where the extension offers a link — to a published report, a supplier’s product page, an RRID record, or to check a paper with your own AI tool — following it takes you to that site under its own privacy terms, as any link does.</p>
@@ -169,39 +169,7 @@
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-container">
-            <!-- Quick Links Column -->
-            <div class="footer-column">
-                <h4>Quick Links</h4>
-                <a href="{% url 'home' %}" class="active">Home</a>
-                <a href="{% url 'about' %}">About Us</a>
-                <a href="{% url 'publications' %}">Publications</a>
-                
-                <a href="{% url 'news' %}">News</a>
-                <a href="{% url 'contact' %}">Contact</a>
-            </div>
-
-            <!-- Contact Information Column -->
-            <div class="footer-column">
-                <h4>Contact Us</h4>
-                <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-                <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-                <p>BlueSky: <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">Follow us on BlueSky</a></p>
-            </div>
-
-            <!-- Social Media Column -->
-            <div class="footer-column">
-                <h4>Follow Us</h4>
-                <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">
-                    <img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon">
-                </a>
-                <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank">
-                    <img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon">
-                </a>
-            </div>
-        </div>
-    </footer>
+    {% include 'core/footer.html' %}
 
 </body>
 </html>

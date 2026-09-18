@@ -36,7 +36,7 @@ const CITATIONS_URL = "https://onlygoodantibodies.co.uk/extension/citations.json
 
 const DEFAULT_SETTINGS = {
   enabled: true,
-  showAmber: true,
+  showBlue: true,
   showGrey: true,
   patterns: false,      // colour-blind friendly line styles
   allSites: false,      // opt-in: needed for institutional proxy hostnames
@@ -181,7 +181,28 @@ async function getSettings() {
   } catch (err) {
     console.debug("[OGA] storage.local unavailable:", err.message);
   }
-  return { ...DEFAULT_SETTINGS, ...local, ...synced };
+  return migrate({ ...DEFAULT_SETTINGS, ...local, ...synced });
+}
+
+/**
+ * Carry a stored preference across a renamed key.
+ *
+ * `showAmber` became `showBlue` in 0.3.0, when amber was freed up to mean "not
+ * supportive, but it did the thing" and the alternatives offer moved to blue.
+ * A reader who had turned those marks OFF would silently have got them back:
+ * the old key stops being read, the new one falls to its `true` default, and
+ * nothing on any screen says the setting was dropped. That is the same shape as
+ * every other defect in this repo — a silent reversal nobody is shown.
+ *
+ * Read-only and one-directional: it never writes, so a downgrade to a signed
+ * 0.2.x build still finds its own key intact. `showAmber` is left in storage
+ * for that reason rather than tidied away.
+ */
+function migrate(settings) {
+  if (settings.showBlue === undefined && settings.showAmber !== undefined) {
+    return { ...settings, showBlue: settings.showAmber };
+  }
+  return settings;
 }
 
 async function setSettings(settings) {

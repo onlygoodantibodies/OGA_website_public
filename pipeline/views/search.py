@@ -90,7 +90,13 @@ def antibody_export(request):
     from pipeline.services import antibody_board as abboard
     from pipeline.views.antibody_board import _filters as _board_filters
 
-    qs = Antibody.objects.using(DB).select_related('target', 'company', 'site')
+    # `locations` prefetched because the sheet now carries the freezer and the
+    # box — without it `board_columns._storage_types` is one query per exported
+    # row, and this export is routinely the whole board. Same reason the
+    # cell-line export below prefetches `vials`.
+    qs = (Antibody.objects.using(DB)
+          .select_related('target', 'company', 'site')
+          .prefetch_related('locations'))
     fname = "antibodies"
 
     target_id = request.GET.get('target')

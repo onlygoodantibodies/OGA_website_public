@@ -574,3 +574,150 @@ def test_offline_backfill_makes_no_network_calls(clean, monkeypatch):
     labels = list(TargetClassification.objects.using(DB)
                   .values_list("label", flat=True))
     assert labels == ["RAB family"]      # the offline-derivable one
+
+
+# ── the gene check on the spreadsheet door ───────────────────────────────────
+#
+# The paste box and the single-gene Add have confirmed a symbol against UniProt
+# since the day `bulk_targets` was written; the *upload* went straight to a
+# write, and the panel above it said "the same check, the same preview". So a
+# typo on row 40 of a 590-row workbook became a permanent target with a
+# nomination hanging off it, and nothing on any screen contradicted it. These
+# pin the third door, which is the one nobody was watching.
+
+def _uniprot(monkeypatch, table):
+    """Stand in for the network. `table` maps GENE → lookup dict."""
+    from pipeline.services import bulk_targets
+
+    def fake(gene):
+        return table.get(gene.upper(), {"found": False, "error": "no such gene"})
+    monkeypatch.setattr(bulk_targets.uniprot, "lookup_gene", fake)
+
+
+def _found(gene):
+    return {"found": True, "gene_name": gene, "protein_name": f"{gene} protein",
+            "uniprot_id": f"P{abs(hash(gene)) % 99999:05d}", "mass_kda": 42.0,
+            "gene_synonyms": []}
+
+
+def _sheet(*genes):
+    return _carl_workbook([
+        ["NIH", "AMP-AD", "Funding available", "2020", "", "McGill", "", g,
+         "", "", "", "", "", "", "", "", "", "", "", ""] for g in genes])
+
+
+def test_preview_refuses_a_gene_uniprot_does_not_know(clean, monkeypatch):
+    from pipeline.services import target_list_io as tio
+    _uniprot(monkeypatch, {"SNCA": _found("SNCA")})
+
+    out = tio.plan(tio.parse_workbook(_upload(_sheet("SNCA", "ZZZZZZ"))),
+                   default_site="McGill")
+
+    assert out["confirmed_genes"] == ["SNCA"]
+    assert out["summary"]["new_targets"] == 1, "the bad symbol was previewed as a creation"
+    assert out["summary"]["genes_unknown"] == 1
+    bad = [i for i in out["items"] if i["gene"] == "ZZZZZZ"][0]
+    assert bad["target_action"] == "refused"
+    # Nothing on the row is written, not just the target — a nomination and a
+    # report both hang off one.
+    assert bad["nomination_action"] == "none"
+    assert bad["report_action"] == "none"
+    assert "check the spelling" in bad["gene_note"].lower()
+
+
+def test_an_unreachable_uniprot_is_unchecked_not_a_bad_spelling(clean, monkeypatch):
+    """`found=False` is two answers, and only one of them is the reader's fault."""
+    from pipeline.services import target_list_io as tio
+    _uniprot(monkeypatch, {"TRPA1": {"found": False, "unavailable": True,
+                                     "error": "proxy refused"}})
+
+    out = tio.plan(tio.parse_workbook(_upload(_sheet("TRPA1"))), default_site="McGill")
+
+    assert out["confirmed_genes"] == []
+    assert out["summary"]["genes_unchecked"] == 1
+    assert out["summary"]["genes_unknown"] == 0
+    note = out["items"][0]["gene_note"].lower()
+    assert "could not be reached" in note
+    assert "spelling" not in note, "an outage was reported as a typo"
+
+
+def test_a_gene_already_on_the_list_costs_no_lookup(clean, monkeypatch):
+    """The latency answer for a real workbook: it is nearly all updates."""
+    from pipeline.models import Target
+    from pipeline.services import target_list_io as tio
+    Target.objects.using(DB).create(gene_name="SNCA", protein_name="Alpha-synuclein")
+
+    def explode(gene):
+        raise AssertionError(f"looked up {gene}, which is already on the list")
+    from pipeline.services import bulk_targets
+    monkeypatch.setattr(bulk_targets.uniprot, "lookup_gene", explode)
+
+    out = tio.plan(tio.parse_workbook(_upload(_sheet("SNCA"))), default_site="McGill")
+    assert out["summary"]["existing_targets"] == 1
+    assert out["summary"]["genes_unchecked"] == 0
+
+
+def test_apply_will_not_create_a_gene_the_preview_did_not_confirm(clean, monkeypatch):
+    from pipeline.models import Target
+    from pipeline.services import target_list_io as tio
+    _uniprot(monkeypatch, {"SNCA": _found("SNCA")})
+
+    parsed = tio.parse_workbook(_upload(_sheet("SNCA", "ZZZZZZ")))
+    out = tio.apply(parsed, default_site="McGill", confirmed_genes={"SNCA"})
+
+    assert out["targets_created"] == ["SNCA"]
+    assert out["unconfirmed"] == ["ZZZZZZ"]
+    assert not Target.objects.using(DB).filter(gene_name="ZZZZZZ").exists()
+    # And nothing hung off the refused row either.
+    from pipeline.models import TargetNomination
+    assert TargetNomination.objects.using(DB).count() == 1
+
+
+def test_apply_with_no_confirmed_list_is_the_old_ungated_upsert(clean, monkeypatch):
+    """`None` means "no check was run" — what a management command asks for.
+
+    The *view* always passes a list, so the door a person presses is gated; this
+    keeps the service usable from a shell without a network.
+    """
+    from pipeline.models import Target
+    from pipeline.services import target_list_io as tio
+
+    out = tio.apply(tio.parse_workbook(_upload(_sheet("SNCA"))), default_site="McGill")
+    assert out["targets_created"] == ["SNCA"]
+    assert out["unconfirmed"] == []
+    assert Target.objects.using(DB).filter(gene_name="SNCA").exists()
+
+
+def test_the_budget_bounds_a_workbook_rather_than_the_row_count(clean, monkeypatch):
+    """A file with more new genes than the deadline allows must not hang.
+
+    The rest come back `unchecked`, which creates nothing and asks to be
+    previewed again — the cost of a slow UniProt is a second press, never a
+    gateway timeout part way through a write.
+    """
+    import time as _time
+
+    from pipeline.services import bulk_targets
+    from pipeline.services import target_list_io as tio
+
+    # A lookup that does **not** return instantly. `as_completed` yields futures
+    # that are already finished before it consults its timeout, so an instant
+    # mock proves nothing about the deadline — it just races it.
+    def slow(gene):
+        _time.sleep(0.2)
+        return _found(gene)
+    monkeypatch.setattr(bulk_targets.uniprot, "lookup_gene", slow)
+
+    parsed = tio.parse_workbook(_upload(_sheet(*[f"GENE{i}" for i in range(40)])))
+    started = _time.monotonic()
+    out = tio.plan(parsed, default_site="McGill", budget_seconds=0.0)
+    # The wall clock, not the recorded results: the failure this guards against
+    # is `shutdown(wait=True)` sitting there for the slowest call while the
+    # budget decides only what got written down.
+    assert _time.monotonic() - started < 0.2, "plan waited for the abandoned lookups"
+
+    s = out["summary"]
+    assert out["confirmed_genes"] == []
+    assert s["genes_unchecked"] == 40
+    assert s["new_targets"] == 0
+    assert all(i["target_action"] == "refused" for i in out["items"])

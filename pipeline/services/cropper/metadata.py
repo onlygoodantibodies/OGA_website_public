@@ -17,6 +17,10 @@ from __future__ import annotations
 
 import re
 
+# Stdlib-only, like this module: `services/concentration.py` imports nothing
+# from Django, so reading it here keeps the parser importable on its own.
+from pipeline.services import concentration as concentration_svc
+
 # Known vendors (spec §4). Matched as a substring of the line, longest first so
 # "Bio-Techne" wins over a bare token. Kept lowercase for comparison.
 KNOWN_VENDORS = [
@@ -42,6 +46,7 @@ HEADER_ALIASES = {
     "catalog number": "catalogue", "catalog no": "catalogue", "cat": "catalogue",
     "cat no": "catalogue", "cat. no.": "catalogue", "cat#": "catalogue", "product": "catalogue",
     "cat num": "catalogue", "cat number": "catalogue", "catalog num": "catalogue",
+    "catalogue no": "catalogue", "product number": "catalogue",
     "company": "company", "supplier": "company", "vendor": "company", "manufacturer": "company",
     "source": "company",
     "concentration": "concentration", "conc": "concentration", "concentration ugml": "concentration",
@@ -62,6 +67,14 @@ HEADER_ALIASES = {
     "comments": "comments", "comment": "comments", "notes": "comments",
     "note": "comments",
     "clonality": "clonality_raw", "clone type": "clonality_raw", "type": "clonality_raw",
+    # **In kind or purchased.** `Antibody.acquisition_method` has held this
+    # since the Access import and is filled on 3,261 of 3,261 rows — 3,034 in
+    # kind, 146 purchased, 81 unknown — and was drawn on no screen and in no
+    # sheet, so uOttawa asked for it believing the portal had never recorded it
+    # (4 Sep 2026). Same dark shape as the freezer box and the received date.
+    "acquisition": "acquisition_raw", "acquisition method": "acquisition_raw",
+    "in kind": "acquisition_raw", "in kind or purchased": "acquisition_raw",
+    "purchased or in kind": "acquisition_raw", "how acquired": "acquisition_raw",
     "host": "host", "host species": "host", "raised in": "host",
     "clone": "clone_id", "clone id": "clone_id", "clone number": "clone_id", "clone #": "clone_id",
     "lot": "lot", "lot number": "lot", "lot no": "lot", "lot #": "lot", "lot number ": "lot",
@@ -94,7 +107,96 @@ HEADER_ALIASES = {
     "applications": "apps_raw", "application": "apps_raw",
     "recommended applications": "apps_raw", "vendors recommended applications": "apps_raw",
     "validated applications": "apps_raw", "supplier applications": "apps_raw",
+    # **Where the vial is, and when it turned up.** Both facts have been in the
+    # database all along — 3,058 antibodies carry an `InventoryLocation` with a
+    # box and 2,841 a `received_date` — and neither was in any sheet, so the
+    # first bench to keep its own spreadsheet wrote columns for them and had
+    # them dropped in silence. `services/storage.py` and `services/received.py`
+    # are the readers.
+    #
+    # Two more of the same shape: `isotype` on 2,823
+    # antibodies and `species_reactivity` on 2,798. **Reactivity is a supplier
+    # claim**, like `supplier recommendations` beside it — what the datasheet
+    # says the antibody cross-reacts with, not something OGA tested — so the
+    # spellings people write it under are accepted and the sheet's own heading
+    # says whose claim it is.
+    "isotype": "isotype", "ig isotype": "isotype", "immunoglobulin": "isotype",
+    "reactivity": "species_reactivity",
+    "species reactivity": "species_reactivity",
+    "reactivity supplier": "species_reactivity",
+    "species": "species_reactivity", "cross reactivity": "species_reactivity",
+    "storage": "storage_type", "storage type": "storage_type",
+    "storage temp": "storage_type", "storage temperature": "storage_type",
+    "temperature": "storage_type", "temp": "storage_type",
+    "box": "box", "box number": "box", "freezer box": "box",
+    "freezer": "freezer", "position": "position", "pos": "position",
+    "slot": "position",
+    "received": "received", "received date": "received",
+    "date received": "received", "arrived": "received",
+    "arrival date": "received", "date of receipt": "received",
 }
+
+# ── reading a heading ────────────────────────────────────────────────────────
+#
+# `_norm_header` keeps `#` and `.`, so `Catalogue #` normalises to
+# `catalogue #` — which was in no alias above, while `cat#` and `catalogue
+# number` both were. That one gap is the whole reason uOttawa's first
+# spreadsheet uploaded as **0 rows out of 44**: `parse_table` drops every row
+# with no catalogue, and the catalogue column was there, spelled with a `#`.
+#
+# Two normalisers is the root of it, and they disagreed in exactly one way:
+# `services/workbook.py::norm` strips a trailing ` .:#` and this one keeps them.
+# So the sheet-picker recognised `Catalogue #` as the catalogue column, chose the
+# right tab on the strength of it, and handed the rows to a parser that then did
+# not know what that heading was. Everything upstream said the file was fine.
+#
+# Adding `catalogue #` to the map would fix that sheet and not the next one.
+# Punctuation is decoration on a heading — `Lot #`, `Clone #`, `Conc.`,
+# `Cat.No.` all mean what their unpunctuated spelling means — so the lookup
+# retries with `#` and `.` removed. It can only ever widen matching to headings
+# that already differ from a known alias by punctuation alone, and every alias
+# that *needs* its `#` (`ab #`, `a #`) has an unpunctuated twin above that means
+# the same field, so nothing changes meaning on the way through.
+
+
+def _depunctuate(h: str) -> str:
+    return re.sub(r"\s+", " ", (h or "").replace("#", " ").replace(".", " ")).strip()
+
+
+def header_field(h: str) -> str:
+    """Which parsed field a column heading names, or ``""``.
+
+    The one reader for that question — `_looks_like_header` and `_row_by_header`
+    both ask it, so a heading cannot count towards "this line is a header" and
+    then be ignored when the row under it is read.
+    """
+    norm = _norm_header(h)
+    return HEADER_ALIASES.get(norm) or HEADER_ALIASES.get(_depunctuate(norm)) or ""
+
+
+def heading_unit(h: str) -> str:
+    """The concentration unit a heading names, normalised, or ``""``.
+
+    `Concentration (mg/mL)` is a heading that says what its cells mean, and the
+    alias map above deliberately flattens all three unit spellings onto one
+    field — so the unit was read as part of the *name* and then thrown away,
+    and the bare numbers underneath were stored as µg/mL. A sheet of 42 stock
+    concentrations, every one a thousand times too low, and nothing on any
+    screen to catch it by: the exact failure `services/concentration.py` was
+    written to prevent, arriving through the heading instead of the cell.
+
+    A unit in the **cell** still wins — it is the more specific statement, and
+    it is what a mixed sheet needs.
+    """
+    text = (h or "")
+    inner = re.search(r"[\(\[]([^)\]]+)[\)\]]", text)
+    candidates = [inner.group(1)] if inner else []
+    candidates.append(re.sub(r"(?i)^\s*conc(entration)?\b", "", text))
+    for raw in candidates:
+        unit = concentration_svc.known_unit(raw)
+        if unit:
+            return unit
+    return ""
 
 
 def _apps_from(text: str):
@@ -135,6 +237,31 @@ def _apps_from(text: str):
 _RRID_RE = re.compile(r"AB_\d+", re.I)
 
 
+#: What a person might write for each acquisition method, folded to the stored
+#: code. The labels are here because a downloaded sheet shows what the *board*
+#: shows to a reader who then edits it, and `In Kind` coming back as an
+#: unrecognised value would be a round trip that loses the column it just
+#: displayed.
+_ACQUISITION = {
+    "in kind": "in_kind", "inkind": "in_kind", "gift": "in_kind",
+    "donated": "in_kind", "contributed": "in_kind",
+    "purchased": "purchased", "purchase": "purchased", "bought": "purchased",
+    "unknown": "unknown",
+}
+
+
+def parse_acquisition(raw: str) -> str:
+    """The stored acquisition code for a typed value, or "" if it says nothing.
+
+    `""` rather than `unknown`, because the two are different answers. A blank
+    cell means *this sheet does not say*, and must leave the stored value
+    alone; `unknown` is somebody recording that nobody knows. Collapsing them
+    would let a sheet with the column left empty overwrite 3,034 rows.
+    """
+    key = re.sub(r"[\s_-]+", " ", (raw or "").strip().lower())
+    return _ACQUISITION.get(key, "")
+
+
 def parse_clonality(raw: str):
     """(clonality_enum, is_recombinant) from a pasted clonality string.
     Only ever returns one of the four enum values (spec §4)."""
@@ -163,7 +290,7 @@ def _looks_like_header(line: str) -> bool:
     toks = _split(line)
     if not toks:
         return False
-    hits = sum(1 for t in toks if _norm_header(t) in HEADER_ALIASES)
+    hits = sum(1 for t in toks if header_field(t))
     return hits >= max(2, len(toks) // 2)
 
 
@@ -229,10 +356,22 @@ def _row_by_header(header, toks):
            "comments": "", "supplier_apps": [],
            "supplier_url": "", "discontinued": False}
     for h, t in zip(header, toks):
-        field = HEADER_ALIASES.get(_norm_header(h))
+        field = header_field(h)
         if not field or not t:
             continue
-        if field == "rrid":
+        if field == "concentration":
+            # A heading that names a unit means its cells are in that unit —
+            # unless a cell says otherwise, which is the more specific
+            # statement and wins. Carried as text on the value so one parser
+            # does the arithmetic and one preview can say what will be stored.
+            unit = heading_unit(h)
+            if unit and not concentration_svc.normalise_unit(
+                    re.sub(r"^[-+]?[\d.]+(?:[eE][-+]?\d+)?", "", t.strip())):
+                row["concentration"] = f"{t.strip()} {unit}"
+                row["concentration_unit_from"] = "heading"
+            else:
+                row["concentration"] = t
+        elif field == "rrid":
             m = _RRID_RE.search(t)
             row["rrid"] = m.group(0) if m else t
         elif field == "catalogue":
@@ -440,6 +579,17 @@ def _finalize(raw_rows):
         row.setdefault("comments", "")
         row.setdefault("gene", "")
         row.setdefault("site", "")
+        # Where the vial is and when it arrived — always present, so every
+        # reader downstream can ask without knowing which parse produced the
+        # row. The anchored (wrapped-PDF) walk never fills them: a freezer box
+        # is not in a published table, and guessing one would be inventing an
+        # answer about somebody's freezer.
+        for key in ("storage_type", "box", "freezer", "position", "received",
+                    "isotype", "species_reactivity"):
+            row.setdefault(key, "")
+        # In kind or purchased, read through the one reader so `In Kind` off a
+        # downloaded sheet and `in_kind` off the database mean the same thing.
+        row["acquisition"] = parse_acquisition(row.pop("acquisition_raw", ""))
         if row.get("lot", "").strip() in ("-", "n/a", "na"):
             row["lot"] = ""
         rows.append(row)

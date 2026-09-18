@@ -11,9 +11,12 @@ with at least one antibody carrying a published figure. That matters far more no
 the target board imports hundreds of not-yet-started targets.
 """
 from django.test import TestCase
+
+from core import recommendations as R
 from django.urls import reverse
 
-from pipeline.models import Antibody, Company, PublicationImage, Target
+from pipeline.models import (Antibody, AntibodyOutcome, Company,
+                             PublicationImage, Target)
 from pipeline.public import public_gene_names, public_targets, unpublished_targets
 
 DB = "pipeline_db"
@@ -222,6 +225,96 @@ class SameSetAsBeforeTests(TestCase):
                          ["LIVENOREC", "LIVETWOAB"])
 
 
+class OneColourPerCellTests(TestCase):
+    """Three states, one colour each, and never two on one cell.
+
+    Two defects, one after the other, both found on a live ATP2B1 page (owner,
+    29 Aug 2026). First `Supportive - strongly selective` carried the amber
+    modifier: the strongest result this dataset can record, marked in the
+    colour the site uses to say the data fell short. Then, with that fixed, red
+    and amber were still a couple of millimetres apart on one cell — a red
+    border with an amber edge inside it — and on a phone they read as one
+    thicker border.
+
+    So the verdict and its qualifier together pick **one** colour. Amber is its
+    own state, exactly *not supportive and yet it did the thing the application
+    is for*, and a supportive verdict stays green whatever its qualifier says:
+    "detects the target, but is not selective" is a real limitation, it belongs in the caption, and
+    colouring the cell otherwise would contradict the word printed under it.
+    """
+    databases = {"pipeline_db", "academy_db"}
+
+    @classmethod
+    def setUpTestData(cls):
+        company = Company.objects.create(name="Abcam")
+        target = Target.objects.create(gene_name="ATP2B1")
+        # Supportive on both, with qualifiers pointing opposite ways: the blot
+        # fell short on selectivity, the stain exceeded the bar.
+        cls.ab = Antibody.objects.create(
+            target=target, company=company, catalogue_number="ab190355",
+            wb_recommended=True, if_recommended=True)
+        for app in ("WB", "ICC-IF"):
+            PublicationImage.objects.create(
+                antibody=cls.ab, application_type=app,
+                image=f"pubs/atp2b1_{app}.png")
+        AntibodyOutcome.objects.create(
+            antibody=cls.ab, application_type="WB",
+            detects="yes", selective="no")
+        AntibodyOutcome.objects.create(
+            antibody=cls.ab, application_type="ICC-IF",
+            selective="strongly_selective")
+        # The amber case, on a second antibody: negative, and it did detect.
+        cls.amber = Antibody.objects.create(
+            target=target, company=company, catalogue_number="ab-amber")
+        PublicationImage.objects.create(
+            antibody=cls.amber, application_type="WB",
+            image="pubs/atp2b1_amber_WB.png")
+        AntibodyOutcome.objects.create(
+            antibody=cls.amber, application_type="WB", detects="yes")
+
+    def _body(self):
+        return self.client.get(reverse(
+            "antibody_table", kwargs={"gene_name": "ATP2B1"})).content.decode()
+
+    def test_a_supportive_cell_is_green_whichever_way_its_qualifier_points(self):
+        """Green stays green when the data falls short of it — the antibody IS
+        supported for the application — and the shortfall rides as a small
+        yellow tab rather than a repaint (owner, 29 Aug 2026)."""
+        body = self._body()
+        # Held back: green, plus the tab.
+        self.assertIn(
+            'class="experiment-box supportive has-caveat" data-app="wb"', body)
+        # Reinforced: green, and nothing else. The best result this records
+        # must not be marked as though something were wrong with it.
+        self.assertIn(
+            'class="experiment-box supportive" data-app="icc_if"', body)
+        # Both sentences are still there — it is only the colour that is one.
+        self.assertIn("Supportive — strongly selective", body)
+        self.assertIn("Supportive — detects the target, but is not selective", body)
+
+    def test_the_amber_cell_carries_the_qualifier_as_its_colour_not_a_tab(self):
+        """A tab as well would say one thing twice — and yellow-on-red is the
+        pair that could not be told apart in the first place."""
+        body = self._body()
+        self.assertIn('class="experiment-box qualified" data-app="wb"', body)
+        self.assertNotIn('qualified has-caveat', body)
+
+    def test_the_caveated_negative_owns_its_own_colour(self):
+        body = self._body()
+        self.assertIn('class="experiment-box qualified" data-app="wb"', body)
+        self.assertIn("Limited support — detects the target", body)
+
+    def test_no_cell_carries_two_states(self):
+        """The whole of the fix: amber inside a red border was the bug."""
+        body = self._body()
+        for pair in ('supportive qualified', 'not-supportive qualified',
+                     'qualified not-supportive'):
+            self.assertNotIn(f'class="experiment-box {pair}"', body)
+        # The tab is the one modifier, and only a supportive cell takes it.
+        for state in ('qualified', 'not-supportive'):
+            self.assertNotIn(f'class="experiment-box {state} has-caveat"', body)
+
+
 class TheVerdictsAreInThePageTests(TestCase):
     """The recommendations are in the HTML the server sends.
 
@@ -258,18 +351,33 @@ class TheVerdictsAreInThePageTests(TestCase):
         return self.client.get(
             reverse("antibody_table", kwargs={"gene_name": "SNCA"}))
 
-    def test_a_recommendation_is_in_the_html(self):
+    def test_a_verdict_is_in_the_html(self):
+        """The heading moved to the characterisation frame on 29 Aug 2026 — a
+        gene page describes evidence rather than issuing advice — but what this
+        pins is unchanged: the answer is in the document the server sent."""
         body = self._page().content.decode()
-        self.assertIn("Recommended Applications:", body)
+        self.assertIn(R.SUPPORTED_APPLICATIONS_LABEL, body)
         self.assertIn("Western Blot", body)
+        # And the per-cell answer, in words rather than only as a colour.
+        self.assertIn("Supportive", body)
 
-    def test_the_recommended_cell_is_marked_without_javascript(self):
+    def test_every_tested_cell_is_marked_without_javascript(self):
+        """Applied by the server. Its absence is what made the verdicts
+        invisible; `data-app="wb"` alone is not evidence of a verdict.
+
+        **A tested negative used to be unmarked**, which this test pinned: its
+        cell rendered `class="experiment-box"`, exactly like an application
+        nobody had run. So "tested and did not perform" and "not tested" — the
+        one distinction this dataset must never blur — were the same pixels, and
+        adding amber for the qualified case made the gap plain. Every tested
+        cell now says which of the three it is (owner, 29 Aug 2026).
+        """
         body = self._page().content.decode()
-        # The green wash, applied by the server. Its absence is what made the
-        # verdicts invisible; `data-app="wb"` alone is not evidence of a verdict.
-        self.assertIn('class="experiment-box recommended" data-app="wb"', body)
-        # IP was tested and not recommended, so its cell is not marked.
-        self.assertIn('class="experiment-box" data-app="ip"', body)
+        self.assertIn('class="experiment-box supportive" data-app="wb"', body)
+        self.assertIn('class="experiment-box not-supportive" data-app="ip"', body)
+        # Untested stays unmarked: the cell already carries a "No data
+        # available" image, and marking it would claim a result.
+        self.assertIn('class="experiment-box " data-app="fc"', body)
 
     def test_the_filter_can_still_find_the_row(self):
         # The client-side application filter reads this off the row now that

@@ -94,6 +94,13 @@ def session_board(request):
         # template and its paste parser.
         "new_columns": new_columns,
         "new_example": new_example,
+        # What each cell may hold — a `<select>` where the writer refuses
+        # anything else, a `<datalist>` where an unlisted value is legitimate.
+        # The cell-line boxes take the member's site, because which lines a
+        # slot may offer is a question about whose bench is asking
+        # (`services/cell_lines.py`), and answering it wrongly is how a
+        # session gets controlled against another site's line.
+        "cell_choices": board.cell_choices(site_id=site_id),
         "wt_options": cell_line_svc.picker_options(genotype="WT", site_id=site_id),
         "ko_options": cell_line_svc.picker_options(genotype="KO", site_id=site_id),
     })

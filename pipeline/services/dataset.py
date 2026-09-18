@@ -39,6 +39,7 @@ from pipeline.models import (Target, Antibody, CellLine, Report, Company,
                              InventoryLocation)
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import identity
+from pipeline.services import lab_numbers
 from pipeline.services.cropper import db as cdb
 from pipeline.services.cropper import metadata as meta
 from pipeline.services.cropper.commit import _apply_metadata
@@ -756,17 +757,16 @@ def plan_upload(parsed: dict) -> dict:
 
 
 def apply_upload(parsed: dict, apply_overwrites: bool = False,
-                 create_targets: bool = False, member=None) -> dict:
+                 member=None) -> dict:
     """Write the upsert in one transaction. Always applies gap-fills + creates;
     applies overwrites only when ``apply_overwrites`` is True. A blank cell never
     clears; absent rows are untouched; nothing is ever deleted."""
     if parsed.get("error"):
         return {"ok": False, "error": parsed["error"]}
 
-    from pipeline.services.targets import resolve_or_create_target
 
     out = {"ok": True, "antibodies_created": 0, "antibodies_updated": 0,
-           "reports_created": 0, "reports_updated": 0, "targets_created": [],
+           "reports_created": 0, "reports_updated": 0,
            "targets_updated": 0, "cell_lines_updated": 0, "samples_updated": 0,
            "assignments_updated": 0, "reagent_requests_updated": 0,
            "culture_events_updated": 0, "inventory_updated": 0,
@@ -784,18 +784,27 @@ def apply_upload(parsed: dict, apply_overwrites: bool = False,
                 if not (gene and cat):
                     out["skipped"].append(_label(gene, cat or "(antibody row)"))
                     continue
+                # **Resolved, never created** (owner, 5 Sep 2026): a target is
+                # added on the targets doors, so a sheet naming a gene this
+                # pipeline does not have skips the row and says so rather than
+                # minting the gene from an antibody column.
                 target = Target.objects.using(DB).filter(gene_name__iexact=gene).first()
                 if target is None:
-                    if create_targets:
-                        target, made = resolve_or_create_target(gene, member=member)
-                        if made:
-                            out["targets_created"].append(target.gene_name)
-                    if target is None:
-                        out["skipped"].append(_label(gene, cat))
-                        continue
+                    out["skipped"].append(_label(gene, cat))
+                    continue
                 ab = Antibody(target=target, catalogue_number=cat)
                 if member is not None and getattr(member, "site_id", None):
                     ab.site_id = member.site_id
+                # **Logging does not allocate**, and this is the second logging
+                # door — the whole-dataset sheet. It carries no `ab #` column at
+                # all, so before 2 Sep 2026 it minted the site's next A-number
+                # with nothing on any screen able to say which, which is run 8's
+                # finding on the other door and was never fixed on this one. The
+                # number now comes from Assign numbers (`services/renumber.py`)
+                # or from planning a session (`lab_numbers.ensure_numbered`).
+                # Two doors to one entity have to agree, or the rule is a rule
+                # for one surface.
+                lab_numbers.withhold(ab)
                 created = True
             _apply_metadata(ab, m, overwrite=apply_overwrites)
             # a new antibody's extras are all gap-fills; overwrites on an existing

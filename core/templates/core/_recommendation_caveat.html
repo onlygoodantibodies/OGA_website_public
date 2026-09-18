@@ -14,4 +14,21 @@ already has, and keeps its own look.
 **Once per page, never twice** (owner, 12 Aug 2026). A reader who meets the same
 caveat three times on one screen reads none of them — the reason `SCOPE_NOTE` is
 stated per surface rather than per row in the first place.
-{% endcomment %}{{ scope_note }} <a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">Read the protocols</a>.
+
+**The clause about the reader's own experiment is in bold** (owner, 11 Sep
+2026, highlighting exactly those words on the deployed page). The sentence
+carries four facts and a skim takes one; this is the one that is about their
+experiment rather than about ours. `scope_note_html` is `SCOPE_NOTE` with
+`SCOPE_EMPHASIS` wrapped — escaped in `context_processors`, since the constant
+itself travels into JSON where a tag would be a tag in a data field.
+
+**Two links, because the sentence now names two things to do** (11 Sep 2026).
+`SCOPE_NOTE` ends "needs its own controls", and a sentence that tells somebody
+to run controls without saying where the guidance is is half a message — the
+Framework is OGA's own answer to it (`/tools/validation-framework/`). It is a
+relative URL and every surface that includes this is served from this site, the
+embed card included: it renders in an iframe pointing here, so the link resolves
+to this host rather than to whoever embedded it. The API and the archive carry
+the sentence with no link at all, which is why the *sentence* has to stand
+alone.
+{% endcomment %}{{ scope_note_html }} <a href="{{ consensus_protocol_url }}" target="_blank" rel="noopener">Read the protocols</a>. <a href="{% url 'validation_framework' %}">Plan your own controls</a>.

@@ -89,6 +89,13 @@ urlpatterns = [
     path('antibodies/board/', views.antibody_board, name='antibody_board'),
     path('antibodies/board/rows/', views.antibody_board_rows, name='antibody_board_rows'),
     path('antibodies/board/patch/', views.antibody_board_patch, name='antibody_board_patch'),
+    # Renumbering is a whole-mapping operation, never a cell — see
+    # services/renumber.py. Two endpoints, because the preview must be
+    # readable before anything moves.
+    path('antibodies/board/renumber/', views.antibody_renumber_plan,
+         name='antibody_renumber_plan'),
+    path('antibodies/board/renumber/apply/', views.antibody_renumber_apply,
+         name='antibody_renumber_apply'),
     # Identity — catalogue, supplier, gene — is not an inline cell, because
     # retyping one in a grid makes the row a different antibody while every
     # result stays attached. It is a deliberate change that shows what would
@@ -213,4 +220,12 @@ urlpatterns = [
     path('recommendations/antibodies/', views.rec_antibodies, name='rec_antibodies'),
     path('recommendations/toggle/', views.rec_toggle, name='rec_toggle'),
     path('recommendations/withdraw/', views.rec_withdraw, name='rec_withdraw'),
+
+    # === Judge outcomes (two-axis verdict behind the recommendation) ===
+    path('outcomes/', views.outcomes, name='outcomes'),
+    path('outcomes/genes/', views.outcome_genes, name='outcome_genes'),
+    path('outcomes/antibodies/', views.outcome_antibodies, name='outcome_antibodies'),
+    path('outcomes/save/', views.outcome_save, name='outcome_save'),
+    path('outcomes/recommend/', views.outcome_recommend,
+         name='outcome_recommend'),
     ]

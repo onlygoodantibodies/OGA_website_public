@@ -58,7 +58,13 @@ ANTIBODY_IDENTITY = ("catalogue_number", "company", "gene")
 # typed cell would mint a second spelling of a vendor already on file) and the
 # board's footnote used to send people to the retired cell-line page to change it
 # — which meant nobody could change it at all.
-CELL_LINE_IDENTITY = ("name", "gene", "genotype", "parent", "company")
+# `clone` is here because a gene and a background define the *knockout* and the
+# clone says which one — a separate single-cell origin, often a separate guide.
+# Two clones of one KO are two lines, not one line with a note, so the clone is
+# on the same footing as the gene and the genotype: change it and the row
+# describes a different single-cell line while every session, vial and reading
+# recorded against it stays attached.
+CELL_LINE_IDENTITY = ("name", "gene", "genotype", "clone", "parent", "company")
 
 
 def _result_count(antibody) -> int:
@@ -110,6 +116,7 @@ def cell_line_identity(line) -> dict:
         "name": line.name or "",
         "gene": target_svc.gene_of(line.target) if line.target_id else "",
         "genotype": line.genotype or "",
+        "clone": line.clone or "",
         "parent": line.parent_line.name if line.parent_line_id else "",
         "company": line.company.name if line.company_id else "",
         "attached": attached_to_cell_line(line),
@@ -233,7 +240,7 @@ def change_antibody_identity(antibody, data) -> Antibody:
 
 
 def change_cell_line_identity(line, data) -> CellLine:
-    """Move a cell line to a different name, gene, genotype or parent."""
+    """Move a cell line to a different name, gene, genotype, clone or parent."""
     name = (data.get("name") or "").strip()
     if not name:
         raise Refused("A name is required — it is what every session that used "
@@ -279,9 +286,31 @@ def change_cell_line_identity(line, data) -> CellLine:
             raise Refused(f"There is no cell line called '{parent_name}'. The "
                           f"parent has to be a line already on file — name it "
                           f"({_PARENT_EG}) or give its C-number (C-48).")
-    if genotype == "KO" and parent is None:
+        # The same check the paste door and the backfill make, in the same
+        # words — a rule enforced on one surface is a rule for one surface.
+        wrong = cell_line_svc.wrong_background(
+            name, parent, gene=gene, site_id=line.site_id)
+        if wrong:
+            raise Refused(f"'{parent_name}' is {cell_line_svc.label(parent)}. {wrong}")
+    # **Refused only where the edit would *remove* a parent, not where one was
+    # never recorded.** The dialog pre-fills this box from the row, so a blank
+    # on a line that has a parent means somebody deleted it — a KO with its
+    # parental taken away stops meaning anything, and that is what this refuses.
+    #
+    # A blank on a line that never had one is a different fact, and refusing it
+    # made the dialog unusable on **385 of the 399 knockouts on file**: none of
+    # them has `parent_line` set (only 2 of 564 rows do — see
+    # `cell_lines.by_c_number`, which exists because the lab records parents as
+    # C-numbers this app could not read). Correcting a *clone* on any of those
+    # rows was refused for an unrelated blank the reader did not touch, on the
+    # one surface built for changing a clone. That is CLAUDE.md's own rule
+    # arriving backwards: a blank means "not written down", so it fills and
+    # leaves; it does not veto the rest of the form.
+    if genotype == "KO" and parent is None and line.parent_line_id:
         raise Refused("A knockout needs its parental line — a KO only means "
-                      "something alongside the wild type it came from.")
+                      "something alongside the wild type it came from. Name the "
+                      f"line it was made from ({_PARENT_EG}) or give its "
+                      f"C-number (C-48).")
 
     # Supplier. Blank is legitimate — a KO line made in-house was bought from
     # nobody — so a blank clears it rather than being refused. A name goes through
@@ -295,11 +324,56 @@ def change_cell_line_identity(line, data) -> CellLine:
                                       create=True, db=DB)
         company_id = company.pk if company else None
 
+    # The clone. Blank is legitimate and stays legitimate — 338 of the 399
+    # knockouts on file record none, and a wild type never has one, so this is
+    # never required. `NA` is the Access placeholder for "not recorded" and is
+    # read as blank, the same reading `gene` gets four lines up: storing it would
+    # make an absence look like an identity, and `clone_suffix` would then have
+    # to un-say it on every screen.
+    clone = (data.get("clone") or "").strip()
+    if clone.upper() == "NA":
+        clone = ""
+    if clone and genotype != "KO":
+        raise Refused(
+            "Only a knockout has a clone — it is which single-cell line the "
+            "knockout came from. A wild-type parental is recorded once and "
+            "serves every knockout made from it.")
+    if clone and _clone_taken(line, name, target, clone):
+        raise Refused(
+            f"There is already a {name} knockout on file at this site recorded "
+            f"as clone {clone}. Two rows for one clone split its vials and its "
+            f"readings between them, with both drawn as complete — open that "
+            f"row instead, or give this one the clone it actually is.")
+
     line.name = name
     line.genotype = genotype
     line.target_id = target.pk if target else None
-    line.parent_line_id = parent.pk if parent else None
+    line.clone = clone
+    # A blank never clears a stored parent: the only way to reach here with none
+    # is a row that had none, which the guard above has already established.
+    if parent is not None:
+        line.parent_line_id = parent.pk
     line.company_id = company_id
-    line.save(using=DB, update_fields=["name", "genotype", "target", "parent_line",
-                                       "company"])
+    line.save(using=DB, update_fields=["name", "genotype", "target", "clone",
+                                       "parent_line", "company"])
     return line
+
+
+def _clone_taken(line, name, target, clone) -> bool:
+    """Is another row already this clone of this knockout at this bench?
+
+    The same rule `unique_antibody_per_site_lot` gives the antibody dialog, but
+    checked rather than enforced: `CellLine` carries no unique constraint, and
+    adding one would be a migration against live PostgreSQL over a column 15 rows
+    still hold the string `NA` in. Checked **before** the save for the reason
+    CLAUDE.md records: on PostgreSQL a failed statement poisons the transaction,
+    so a handler that catches an IntegrityError cannot then run the query it
+    needs to explain itself.
+    """
+    qs = (CellLine.objects.using(DB)
+          .filter(genotype="KO", name__iexact=name, clone__iexact=clone)
+          .exclude(pk=line.pk))
+    qs = qs.filter(target_id=target.pk) if target else qs.filter(target__isnull=True)
+    qs = (qs.filter(site_id=line.site_id) if line.site_id
+          else qs.filter(site__isnull=True))
+    return qs.exists()

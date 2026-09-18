@@ -28,6 +28,12 @@
     question. What is below is the narrower and harder number: someone finished a
     lesson, built a plan, pulled the API. Read it as reach and engagement, never as
     how many people saw the site.</p>
+    <p class="mt-2"><strong>Browser-extension installs are not here either.</strong>
+    The extension fetches two files a day, which was the nearest thing to an install
+    count until Cloudflare began caching them at the edge on 30 Aug 2026 — so what
+    reaches this site now is whatever the edge did not absorb, and charting it would
+    draw the fix as a collapse in usage. Cloudflare's own analytics is where that
+    question goes.</p>
   </div>
 
   {% if failed_sections %}
@@ -93,6 +99,15 @@
         <div class="text-xs uppercase tracking-wide text-gray-500">with a key</div>
       </div>
     </div>
+    {% comment %}
+    The four numbers above are all-time and cannot say whether any of them is
+    still moving, which is the first thing anybody reading an impact case asks.
+    Same rows, drawn as a shape.
+    {% endcomment %}
+    <div class="mb-4">
+      {% include "pipeline/_usage_chart.html" with series=api.series busiest=api.busiest_day unit="requests" %}
+    </div>
+
     <p class="text-sm text-gray-600 mb-4">
       <strong>{{ api.organisations_active }}</strong> of
       <strong>{{ api.organisations }}</strong> active keys have ever called
@@ -101,6 +116,16 @@
       not one to fold into a total.
       <span class="block mt-1">Keyless callers are counted and deliberately never
       identified, so the keyless figure is requests, not organisations.</span>
+      {% if api.internal_keys %}
+      <span class="block mt-1"><strong>{{ api.internal_keys }} internal
+      key{{ api.internal_keys|pluralize }}</strong> — ours, for testing and demos —
+      {{ api.internal_keys|pluralize:"is,are" }} left out of every figure above,
+      and {{ api.internal_requests }} request{{ api.internal_requests|pluralize }}
+      with {{ api.internal_requests|pluralize:"it,them" }}. Excluded rather than
+      deleted, and printed here: our own exercising of the API is not reach, but a
+      total that swallowed it silently could not tell a quiet month from a counter
+      that had stopped.</span>
+      {% endif %}
     </p>
     <div class="grid lg:grid-cols-2 gap-6">
       <div>
@@ -133,6 +158,222 @@
         </table>
       </div>
     </div>
+  </section>
+  {% endif %}
+
+  {# ── The MCP connector ── #}
+  {% if mcp %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">The MCP connector</h2>
+    {% comment %}
+    Drawn apart from the API even though both are machines asking questions.
+    The API is a manufacturer's script syncing a dataset it holds a key for; the
+    connector is somebody's assistant answering a question about a paper in front
+    of them. Folding them into one "requests" total would answer neither.
+    {% endcomment %}
+    <p class="text-sm text-gray-600 mb-3">
+      Tool calls served by <a href="https://oga-mcp.onrender.com" class="text-ycharos-600 underline">the hosted MCP server</a>
+      — a reader's assistant looking an antibody up in the dataset. The server runs
+      as its own Render service and reports each call here, because its own log is
+      discarded after a week.
+    </p>
+
+    {% if not mcp.reporting %}
+      {% comment %}
+      The distinction the whole section turns on. With no token set nothing is
+      being written down, so an empty table means "not counting", not "not used"
+      — and those read identically unless the page says which one it is.
+      {% endcomment %}
+      <div class="mb-4 rounded border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-gray-700">
+        <p><strong>Nothing is being counted yet.</strong> Reporting is switched on by
+        setting <code>MCP_USAGE_TOKEN</code> to the same value on both Render services
+        — this site and <code>OGA_MCP</code> — plus <code>MCP_USAGE_URL</code> on
+        <code>OGA_MCP</code>. Until then an empty table below means nobody is writing
+        this down, not that nobody is calling.</p>
+      </div>
+    {% endif %}
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ mcp.calls }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">tool calls, all time</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ mcp.calls_recent }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ mcp.days }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">days with a call</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ mcp.clients }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">clients that named themselves</div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      {% include "pipeline/_usage_chart.html" with series=mcp.series busiest=mcp.busiest_day unit="calls" %}
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6 mb-3">
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Most-used tools</h3>
+        <table class="w-full text-sm">
+          {% for row in mcp.by_tool %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1 font-mono text-xs">{{ row.tool }}</td>
+              <td class="py-1 text-right font-semibold">{{ row.calls }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">No calls recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-gray-800 mb-2">Which client</h3>
+        <table class="w-full text-sm">
+          {% for row in mcp.by_client %}
+            <tr class="border-b border-gray-100">
+              <td class="py-1">{{ row.client|default:"— did not say —" }}</td>
+              <td class="py-1 text-right font-semibold">{{ row.calls }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="py-1 text-gray-500 italic">No calls recorded yet.</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+    <p class="text-sm text-gray-600">
+      <strong>A client is software, not a person.</strong> It is what the connecting
+      app calls itself — <code>claude-ai</code>, <code>claude-code</code>,
+      <code>chatgpt</code>. The server knows who signed in and deliberately never
+      sends that here, so this counts reach and holds no identities.
+      <span class="block mt-1"><strong>A call is a question asked.</strong> It is
+      counted before the tool runs, so a call that then failed is in these totals.
+      That is the honest direction for a usage number and the wrong one for a
+      reliability number, which this is not.</span>
+      {% if mcp.internal_calls %}
+      <span class="block mt-1"><strong>{{ mcp.internal_calls }} of our own
+      call{{ mcp.internal_calls|pluralize }}</strong> {{ mcp.internal_calls|pluralize:"is,are" }}
+      excluded from everything above. The connector marks a call as ours by matching
+      the caller against a list of our own sign-ins and sending a yes-or-no — it
+      never sends who, so this page can hold the distinction without holding an
+      identity. A call it cannot place counts as somebody else's.</span>
+      {% endif %}
+      <span class="block mt-1"><strong>Only the hosted server reports.</strong> Anyone
+      running the connector locally over stdio is invisible here, as is every call
+      made before {{ mcp.first_seen|date:"j M Y"|default:"reporting was switched on" }}.
+      The counter starts when it starts; it cannot see backwards.</span>
+    </p>
+  </section>
+  {% endif %}
+
+  {# ── Genes people asked for ── #}
+  {% if demand %}
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Genes people asked for</h2>
+    {% comment %}
+    Demand, deliberately drawn nowhere near the Portfolio's nomination totals.
+    A nomination is funded internal work; this is a stranger who could not find
+    their gene. `gene_request_models.py` is emphatic that merging the two would
+    put unfunded wishes into every "who is doing what" number on the site.
+    {% endcomment %}
+    <p class="text-sm text-gray-600 mb-3">
+      Every press of “nominate this gene” on the public site. This is
+      <em>demand</em> — what scientists outside the consortium say they need — and
+      never a commitment to do it. The
+      <a href="{% url 'pipeline:gene_requests' %}" class="text-ycharos-600 underline">requests page</a>
+      has each one in full.
+    </p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ demand.requests }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">requests, all time</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ demand.genes }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">distinct genes asked for</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ demand.with_funding }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">offering to help fund</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ demand.requests_recent }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
+      </div>
+    </div>
+
+    {% if demand.series %}
+    <div class="rounded border border-gray-200 bg-white p-4 mb-4">
+      <h3 class="text-sm font-bold text-gray-800 mb-2">By month</h3>
+      {% comment %}
+      Monthly, not daily: these arrive in ones and twos, and thirty mostly-empty
+      day tracks say less than one row per month. A month with none is drawn as
+      an empty track for the same reason the daily chart fills its zeros — and
+      the current month is marked "so far", because a month one day old is short
+      of days rather than short of demand and its bar reads as a collapse.
+      {% endcomment %}
+      <table class="w-full text-sm">
+        {% for row in demand.series %}
+          <tr class="border-b border-gray-100">
+            <td class="py-1 w-28 text-gray-600">{{ row.month|date:"M Y" }}{% if row.partial %}
+              {% comment %}
+              The current month is always short of days, not necessarily short
+              of requests. Unlabelled, its bar reads as a collapse in demand —
+              which is exactly how it was read on 1 Sep 2026, when September was
+              one day old.
+              {% endcomment %}
+              <span class="text-xs text-gray-400">so far</span>{% endif %}</td>
+            <td class="py-1">
+              <div class="h-2 w-full rounded bg-gray-100">
+                <div class="h-2 rounded bg-ycharos-500"
+                     style="width: {% widthratio row.n demand.busiest_month 100 %}%"></div>
+              </div>
+            </td>
+            <td class="py-1 w-10 text-right font-semibold">{{ row.n }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    <h3 class="text-sm font-bold text-gray-800 mb-2">Most-asked-for genes</h3>
+    <table class="w-full text-sm mb-3">
+      {% for row in demand.top %}
+        <tr class="border-b border-gray-100">
+          <td class="py-1 font-semibold">
+            {% if row.target_id %}
+              <a href="{% url 'pipeline:target_detail' row.target_id %}"
+                 class="text-ycharos-600 hover:underline">{{ row.gene|default:row.typed }}</a>
+            {% else %}
+              {{ row.gene|default:row.typed }}
+            {% endif %}
+          </td>
+          <td class="py-1 text-xs text-gray-500">
+            {% if row.funded_offers %}{{ row.funded_offers }} offering funding{% endif %}
+            {% if row.unchecked %}{% if row.funded_offers %} · {% endif %}{{ row.unchecked }} unconfirmed symbol{{ row.unchecked|pluralize }}{% endif %}
+          </td>
+          <td class="py-1 text-right font-semibold">{{ row.count }}</td>
+        </tr>
+      {% empty %}
+        <tr><td class="py-1 text-gray-500 italic">Nobody has asked for a gene yet.</td></tr>
+      {% endfor %}
+    </table>
+
+    <p class="text-sm text-gray-600">
+      <strong>Requests and genes are different numbers</strong> — one gene can be
+      asked for many times, and that repetition is the whole signal.
+      {% if demand.already_here %}
+        {{ demand.already_here }} of the {{ demand.requests }} name a gene that is
+        already on the target list, so {{ demand.already_here|pluralize:"that one is,those are" }}
+        not outstanding demand.
+      {% else %}
+        None of them names a gene that is already on the target list.
+      {% endif %}
+    </p>
   </section>
   {% endif %}
 
@@ -218,6 +459,11 @@
       not. Far ahead of <em>last in</em> means a script that still syncs for an
       organisation whose people have stopped opening the portal — which neither number
       shows on its own.</span>
+      {% if portal.internal_connects %}
+      <span class="block mt-1"><strong>{{ portal.internal_connects }} connect{{ portal.internal_connects|pluralize }}
+      on internal keys</strong> — ours, testing the portal — {{ portal.internal_connects|pluralize:"is,are" }}
+      not in the figures above.</span>
+      {% endif %}
       {% if portal.refused %}
       <span class="block mt-1"><strong>{{ portal.refused }} sign-in attempt{{ portal.refused|pluralize }}</strong>
       carried no usable key — missing, unknown, or belonging to a key that has been

@@ -94,11 +94,25 @@
 /* ── Print ── */
 .vrec-print-header { display: none; }
 @media print {
-  .header, .footer, .vrec-hero, .vrec-intro, .vrec-remove, .vrec-btn, .vrec-btn-add, .vrec-actions, .vrec-no-print { display: none !important; }
-  .vrec-print-header { display: block !important; text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #10428a; }
+  @page { margin: 1.4cm; }
+  /* .oga-subnav is the site-wide search bar from core/gene_search_bar.html.
+     It was never meant to be part of a printed record and nothing had hidden
+     it, so an empty search box printed above the title. */
+  .header, .footer, .oga-subnav, .vrec-hero, .vrec-intro, .vrec-remove, .vrec-btn, .vrec-btn-add, .vrec-actions, .vrec-no-print { display: none !important; }
+  .vrec-main { padding-top: 0; padding-bottom: 0; }
+  .vrec-print-header { display: block !important; text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #10428a; }
   .vrec-print-header h1 { font-size: 1.3rem; color: #10428a; margin: 0 0 4px; }
   .vrec-print-header p { font-size: .82rem; color: #888; margin: 0; }
-  .vrec-card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  /* One antibody card is six identity fields, the applications, and four
+     free-text boxes -- reliably more than the space left under the title, and
+     often more than a whole page. `break-inside: avoid` on the card could only
+     obey it by moving the card bodily to page 2, so a one-antibody record
+     printed its title alone on page 1 above a page of white space, which is
+     what the team review reported. Hold the small things together instead and
+     let a card flow across the break. */
+  .vrec-card { border: 1px solid #ccc; box-shadow: none; margin-bottom: 14px; padding: 14px 16px 6px; }
+  .vrec-card-head, .vrec-block-label { break-after: avoid; break-inside: avoid; }
+  .vrec-field, .vrec-apps label { break-inside: avoid; }
   body { background: #fff; }
 }
 </style>
@@ -175,13 +189,20 @@
       <div class="vrec-field full">
         <label>Application(s)</label>
         <div class="vrec-apps" data-f="apps">
-          <label><input type="checkbox" value="WB"> WB</label>
-          <label><input type="checkbox" value="IF / ICC"> IF / ICC</label>
-          <label><input type="checkbox" value="Flow"> Flow</label>
-          <label><input type="checkbox" value="IP"> IP</label>
-          <label><input type="checkbox" value="IHC"> IHC</label>
-          <label><input type="checkbox" value="ELISA"> ELISA</label>
-          <label><input type="checkbox" value="ChIP"> ChIP</label>
+          {% comment %}
+          The full name, then the abbreviation. The boxes were the bare
+          initials, which assumes the reader already knows the field -- and
+          this form is filled in by people documenting an antibody for the
+          first time. `value` stays the abbreviation, so the copied record and
+          the printed one keep the short forms a methods section is written in.
+          {% endcomment %}
+          <label><input type="checkbox" value="WB"> Western blot (WB)</label>
+          <label><input type="checkbox" value="IF / ICC"> Immunofluorescence / immunocytochemistry (IF / ICC)</label>
+          <label><input type="checkbox" value="Flow"> Flow cytometry</label>
+          <label><input type="checkbox" value="IP"> Immunoprecipitation (IP)</label>
+          <label><input type="checkbox" value="IHC"> Immunohistochemistry (IHC)</label>
+          <label><input type="checkbox" value="ELISA"> Enzyme-linked immunosorbent assay (ELISA)</label>
+          <label><input type="checkbox" value="ChIP"> Chromatin immunoprecipitation (ChIP)</label>
           <label><input type="checkbox" value="Other"> Other</label>
         </div>
       </div>
@@ -200,29 +221,7 @@
   </div>
 </template>
 
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>Quick Links</h4>
-      <a href="{% url 'home' %}">Home</a><a href="{% url 'about' %}">About Us</a><a href="{% url 'roadmap' %}">Roadmap</a>
-      <a href="{% url 'publications' %}">Publications</a><a href="{% url 'news' %}">News</a><a href="{% url 'contact' %}">Contact</a>
-    </div>
-    <div class="footer-column">
-      <h4>Contact Us</h4>
-      <p>Email: <a href="mailto:onlygoodantibodies@gmail.com">onlygoodantibodies@gmail.com</a></p>
-      <p>LinkedIn: <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank">Follow us on LinkedIn</a></p>
-    </div>
-    <div class="footer-column">
-      <h4>Follow Us</h4>
-      <a href="https://www.linkedin.com/company/onlygoodantibodies-community-and-forum/posts/?feedView=all" target="_blank"><img src="{% static 'core/linkedin-logo.webp' %}" alt="LinkedIn" class="social-icon"></a>
-      <a href="https://bsky.app/profile/oga-community.bsky.social" target="_blank"><img src="{% static 'core/bluesky.png' %}" alt="BlueSky" class="social-icon"></a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>&copy; {% now "Y" %} Only Good Antibodies Community. All Rights Reserved.</p>
-    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" class="back-to-top">Back to Top</button>
-  </div>
-</footer>
+{% include 'core/footer.html' %}
 
 <script>
 (function () {

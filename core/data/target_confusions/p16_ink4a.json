@@ -1,0 +1,39 @@
+{
+  "id": "p16-ink4a",
+  "declared_target": {
+    "gene": "ARPC5",
+    "protein": "p16-ARC",
+    "full_name": "actin-related protein 2/3 complex subunit 5"
+  },
+  "mistaken_for": {
+    "gene": "CDKN2A",
+    "protein": "p16-INK4a",
+    "full_name": "cyclin-dependent kinase inhibitor 2A"
+  },
+  "short": "This is an antibody to ARPC5, also called p16-ARC — a subunit of the actin-related protein 2/3 complex. It is not an antibody to p16-INK4a, the CDKN2A tumour suppressor and senescence marker usually meant by \"p16\". The two proteins share a name and a molecular weight and nothing else.",
+  "explanation": "Two unrelated proteins are abbreviated p16. p16-INK4a is the CDKN2A tumour suppressor, studied alongside p21 and p53 as a cell-cycle inhibitor and a marker of senescence and ageing. p16-ARC is ARPC5, a subunit of the actin-related protein 2/3 complex, with no known role in the cell cycle or ageing; ARPC5 is expressed at broadly similar levels across common cell lines, so a blot for it tends to track beta-actin and read like a loading control. The two are not structurally or functionally related, and an antibody raised against one is not expected to detect the other.",
+  "papers_file": "p16_ink4a_papers.csv",
+  "papers_source": "The list was compiled by searching Google Scholar for each product code, and the published spreadsheet is linked from the article. Only the DOI, the product code and the reviewer's verdict are carried here; the article and its own spreadsheet are the citable source.",
+  "source": {
+    "title": "Mind over Antibody",
+    "author": "Sholto David",
+    "publication": "For Better Science",
+    "url": "https://forbetterscience.com/2026/06/02/mind-over-antibody/",
+    "date": "2026-06-02"
+  },
+  "antibodies": [
+    {
+      "identifier": "ab51243",
+      "supplier": "Abcam",
+      "supplier_statement": "This antibody (ab51243) is specific to the p16 ARC protein […] There is no observed cross reactivity to the CDKN2A/p16INK4a protein."
+    },
+    {
+      "identifier": "ab151303",
+      "supplier": "Abcam"
+    },
+    {
+      "identifier": "sc-166760",
+      "supplier": "Santa Cruz Biotechnology"
+    }
+  ]
+}

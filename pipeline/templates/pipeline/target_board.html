@@ -88,8 +88,9 @@
        data-receipt="header-template-receipt"
        class="font-semibold text-ycharos-700 hover:underline">download the blank
     template</a>, fill in the gene column, and bring it back with
-    <span class="font-semibold">Upload a sheet</span>. Same check, same preview,
-    no row limit.
+    <span class="font-semibold">Upload a sheet</span>. Same check against UniProt,
+    same preview, no row limit — and unlike the panel below, each row carries its
+    own site, funder and project.
   </p>
   <p id="header-template-receipt" class="text-sm mb-3" role="status" aria-live="polite"></p>
 
@@ -176,8 +177,25 @@
     <span id="row-count" class="text-sm text-gray-500 ml-auto"></span>
   </form>
 
+  {% comment %}Where deleting a gene lives, said on the board that does not do
+  it. The three record boards each announce their gate (`OGABoard.geneGate`), and
+  this one announced nothing — so the 590-row list, which is where somebody looks
+  first, was the one page with no Delete and no sentence, and a control that is
+  simply absent is a feature a reader concludes does not exist. It is deliberately
+  not here: a control on each row is a control beside every gene nobody was
+  thinking about, and arriving at one gene's page is already the deliberate act.
+  Static rather than written by JS, because nothing about it changes with the
+  filters.{% endcomment %}
+  <p class="text-sm text-gray-500 -mt-2 mb-4">
+    Deleting a gene is on that gene's own page — click its name in the table
+    below. It is not on this list on purpose: a Delete on every row here sits
+    beside 589 genes you were not thinking about. The page shows everything that
+    would go with it before anything is removed.
+  </p>
+
   {# New entries, on the board rather than a page of their own #}
   {{ new_columns|json_script:"new-columns" }}
+  {{ cell_choices|json_script:"cell-choices" }}
   {{ new_example|json_script:"new-example" }}
   <div id="new-panel"></div>
 
@@ -258,8 +276,10 @@
       <a href="{% url 'pipeline:import_template' kind='targets' %}"
          data-receipt="upload-template-receipt"
          class="font-semibold text-ycharos-700 hover:underline">⬇ Blank Excel template</a>
-      <span class="text-gray-500">— one column, the gene symbol, with an example
-      row. Fill it in and put it back here.</span>
+      <span class="text-gray-500">— the gene, and the nomination columns that go
+      with it: site, funder, project, funded, date and comments. Only the gene is
+      required; a blank cell never clears anything. Fill it in and put it back
+      here.</span>
     </p>
     <p id="upload-template-receipt" class="text-sm" role="status" aria-live="polite"></p>
 
@@ -390,6 +410,33 @@
                 {nominationId: nom.id, label: 'site', empty: 'set site'});
   }
 
+  /* The UniProt accession, under the protein name. The board has carried it in
+   * every row payload since it was written and drew it nowhere, while the
+   * filter box above already advertises "Gene, protein, UniProt…" and searches
+   * the column (`services/find.py`) — so a search that matched on an accession
+   * landed on rows that would not show it, and there was no way to read off
+   * this page which protein a gene had actually been resolved to. Same shape as
+   * `essential_gene`: written by the workbook round trip and by UniProt
+   * enrichment, read by no screen.
+   *
+   * Read-only, deliberately, and not a `cell`: `_TARGET_FIELDS` does not accept
+   * a write to it, the column is UNIQUE, and retyping an accession makes the
+   * row a different protein while every session and antibody stays attached —
+   * the identity rule. Corrections go through the sheet, which flags a
+   * difference rather than overwriting it.
+   *
+   * Nothing is drawn when there is none, rather than a dash: on 28 Aug 2026 all
+   * 590 live targets carry an accession but one — the `NA` placeholder the wild
+   * types point at, which correctly has no protein. A gap here is a real gap,
+   * not the usual state. */
+  function uniprotLine(r) {
+    if (!r.uniprot) return '';
+    return `<span class="block text-xs text-gray-400 mt-0.5"><a
+      href="https://www.uniprot.org/uniprot/${encodeURIComponent(r.uniprot)}"
+      target="_blank" rel="noopener"
+      class="underline hover:text-gray-700">${esc(r.uniprot)}</a></span>`;
+  }
+
   /* The DOI cell moved to board.js — the gene's own page draws the same thing
    * now, and this repo has paid three times over for a preview rule that lived
    * in one template. The date under each DOI is new: a gene counts as completed
@@ -415,6 +462,7 @@
               folded into one list server-side, so this and the gene page cannot
               disagree about what a gene is also called. */''}
         <td class="px-3 py-2 text-gray-600 max-w-xs">${esc(r.protein)}
+          ${uniprotLine(r)}
           ${(r.other_names || []).length
             ? `<span class="block text-xs text-gray-400 mt-0.5">also known as ${
                  esc(r.other_names.join(', '))}</span>` : ''}</td>
@@ -464,8 +512,16 @@
 
   const errors = banner('board-error', 'board-error-text', 'board-error-close');
 
+  /* What each cell may hold — built by services/target_board.py::cell_choices,
+   * which a gene's own page reads too. These four fields were pickers there
+   * and bare text boxes here, through the same patch endpoint: one fact, two
+   * controls. Funders and projects stay loose because both are created on
+   * demand by the same writer, so narrowing them would make a new funder
+   * unrecordable. */
+  const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
+
   const board = OGABoard.create({
-    grid, filtersForm, errors, csrf,
+    grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
     urls: {rows: rowsUrl, patch: patchUrl},
@@ -520,13 +576,24 @@
   document.querySelectorAll('.close-upload').forEach(b => b.addEventListener('click', () => hide('upload-panel')));
 
   // Upload
-  function uploadBody() {
+  /* The genes the last preview confirmed against UniProt — what `Save` is
+   * allowed to create. The slow half runs in the preview and the write makes no
+   * outbound call, the same split the Add panel below uses. Cleared whenever a
+   * new file is chosen, so a second file cannot be saved under the first one's
+   * confirmations. */
+  let confirmedGenes = null;
+  function uploadBody(withConfirmations) {
     const fd = new FormData();
     fd.append('file', document.getElementById('upload-file').files[0]);
     fd.append('default_site', document.getElementById('default-site').value);
     fd.append('apply_overwrites', document.getElementById('apply-overwrites').checked ? 'true' : 'false');
+    if (withConfirmations) (confirmedGenes || []).forEach(g => fd.append('confirmed_genes', g));
     return fd;
   }
+  document.getElementById('upload-file').addEventListener('change', () => {
+    confirmedGenes = null;
+    document.getElementById('commit-btn').classList.add('hidden');
+  });
   // Same careful fetch the grid uses, reporting into the upload panel rather
   // than the page banner. Awaiting res.json() on an error page throws, which
   // once left "Reading…" on screen for ever and made a plain server error look
@@ -541,9 +608,15 @@
   document.getElementById('preview-btn').addEventListener('click', async () => {
     const out = document.getElementById('upload-result');
     if (!document.getElementById('upload-file').files[0]) { out.textContent = 'Choose a file first.'; return; }
-    const d = await postJson(previewUrl, uploadBody(), out, 'Reading the file…');
+    const d = await postJson(previewUrl, uploadBody(false), out,
+      'Reading the file and checking any new genes against UniProt…');
     if (!d) return;
+    confirmedGenes = d.confirmed_genes || [];
     const s = d.summary;
+    /* The rows that will not be created, and why — a count with no list under
+     * it invents the noun, and "3 genes not added" beside a 590-row file is
+     * unactionable without the symbols. */
+    const refused = d.items.filter(i => i.target_action === 'refused');
     const conflicts = d.items.filter(i => i.conflicts.length);
     out.innerHTML = `
       <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
@@ -551,12 +624,27 @@
           OGABoard.plural(s.rows, 'row')} read.</p>
         <ul class="mt-1 text-gray-700 list-disc list-inside">
           <li>${OGABoard.plural(s.new_targets, 'new target')}, ${s.existing_targets} already known</li>
+          ${s.genes_unknown || s.genes_unchecked ? `<li>${
+            s.genes_unknown ? `${OGABoard.plural(s.genes_unknown, 'gene')} UniProt does not recognise` : ''}${
+            s.genes_unknown && s.genes_unchecked ? ', and ' : ''}${
+            s.genes_unchecked ? `${OGABoard.plural(s.genes_unchecked, 'gene')} not checked in time` : ''
+            } — not created</li>` : ''}
           <li>${OGABoard.plural(s.new_nominations, 'new nomination')}${s.repeat_genes ? `, including ${OGABoard.plural(s.repeat_genes, 'repeat entry', 'repeat entries')} for a gene already in the file (kept as extra nominations)` : ''}</li>
           <li>Sites seen: ${s.sites.join(', ') || 'none'}</li>
           <li>${OGABoard.plural(s.conflicts, 'value')} ${s.conflicts === 1 ? 'disagrees' : 'disagree'} with the database</li>
         </ul>
         ${d.columns_missing.length ? `<p class="mt-2 text-xs text-gray-500">Columns not in the file: ${d.columns_missing.map(esc).join(', ')}</p>` : ''}
       </div>
+      ${refused.length ? `<div class="mt-3 border border-red-200 bg-red-50 rounded-lg p-3">
+        <p class="font-semibold text-red-900">Not created — ${OGABoard.plural(refused.length, 'gene')}:</p>
+        <ul class="mt-1 text-red-900 text-xs space-y-1 max-h-48 overflow-y-auto">
+          ${refused.slice(0, 40).map(i =>
+            `<li>row ${i.row}, <b>${esc(i.gene)}</b> — ${esc(i.gene_note)}</li>`).join('')}
+        </ul>
+        ${refused.length > 40 ? `<p class="mt-1 text-xs text-red-800">and ${refused.length - 40} more.</p>` : ''}
+        <p class="mt-2 text-xs text-red-800">Everything else in the file still saves.
+        Nothing on these rows is written — a nomination and a report both hang off a gene.</p>
+      </div>` : ''}
       ${conflicts.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
         <p class="font-semibold text-amber-900">Disagreements (left alone unless you tick the overwrite box):</p>
         <ul class="mt-1 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
@@ -567,12 +655,20 @@
   });
   document.getElementById('commit-btn').addEventListener('click', async () => {
     const out = document.getElementById('upload-result');
-    const d = await postJson(commitUrl, uploadBody(), out,
+    const d = await postJson(commitUrl, uploadBody(true), out,
       'Saving… this takes longer than the preview, please wait.');
     if (!d) return;
+    /* Say what was dropped **at the save**, not only at the check — the receipt
+     * is the only place a person sees what actually happened to those rows. */
+    const missed = d.unconfirmed || [];
     out.innerHTML = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
       Saved. ${d.targets_created.length} targets created, ${d.targets_updated} updated,
-      ${d.nominations_created} nominations added, ${d.reports_touched} reports updated.</div>`;
+      ${d.nominations_created} nominations added, ${d.reports_touched} reports updated.</div>
+      ${missed.length ? `<div class="mt-2 border border-red-200 bg-red-50 rounded-lg p-3 text-red-900 text-sm">
+        ${OGABoard.plural(missed.length, 'gene')} not created because UniProt did not
+        confirm ${missed.length === 1 ? 'it' : 'them'}: ${missed.slice(0, 30).map(esc).join(', ')}${
+        missed.length > 30 ? `, and ${missed.length - 30} more` : ''}.</div>` : ''}`;
+    confirmedGenes = null;
     document.getElementById('commit-btn').classList.add('hidden');
     load();
   });
@@ -621,7 +717,9 @@
             board takes a <b>spreadsheet</b>: download the blank template below,
             fill in the gene column, and bring it back with
             <b>Upload a sheet</b> — the same check, the same preview, no row
-            limit.</span>`,
+            limit. The sheet also has a column each for site, funder and project,
+            so one file can cover more than the single choice these boxes
+            make.</span>`,
     // One site, one funder, one project and one funded flag for the whole batch.
     // Owner's ask: a paste is normally one bench's and one grant's worth of
     // genes, and setting them on every row afterwards is the work this box
