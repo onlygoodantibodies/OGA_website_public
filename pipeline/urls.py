@@ -171,6 +171,8 @@ urlpatterns = [
     path('cropper/session/load/', views.cropper_session_load, name='cropper_session_load'),
     path('cropper/session/list/', views.cropper_session_list, name='cropper_session_list'),
     path('cropper/session/delete/', views.cropper_session_delete, name='cropper_session_delete'),
+    path('cropper/storage/', views.cropper_storage_manifest, name='cropper_storage_manifest'),
+    path('cropper/storage/clear/', views.cropper_storage_clear, name='cropper_storage_clear'),
     path('cropper/commit/', views.cropper_commit, name='cropper_commit'),
 
     # === Review queue (crops wait here; releasing is what publishes them) ===

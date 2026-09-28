@@ -4213,6 +4213,39 @@ class CropperAsksOnThePageInARealBrowserTests(_RealBrowserHarness):
         self.assertEqual(self._page_errors(), [])
 
 
+    def test_clear_storage_lists_asks_and_empties_in_one_press(self):
+        """The press is browser-side: the manifest drawn as a question with the
+        count on its button, the stamp posted back, the receipt after the
+        workspace is reset (which clears notices) — any of which could fail
+        with the server answering correctly."""
+        from django.core.files.base import ContentFile
+        from pipeline.models import CropperImage, CropperSession
+        User.objects.using("academy_db").filter(username="vera").update(is_superuser=True)
+        for gene in ("PARP1", "TP53"):
+            s = CropperSession.objects.using(DB).create(owner_username="riham", gene=gene)
+            im = CropperImage(session=s, name=f"{gene}.png")
+            im.image.save(f"{gene}.png", ContentFile(b"x"), save=False)
+            im.save(using=DB)
+        dialogs = []
+        self.page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/")
+        self.page.wait_for_load_state("networkidle")
+        self.page.click("#clearstorage")
+        self.page.wait_for_selector("#clearstorage-yes", timeout=20000)
+        asked = self.page.text_content("#sessionnotice")
+        self.assertIn("PARP1 — saved by riham", asked)
+        self.assertEqual(self.page.text_content("#clearstorage-yes"), "Delete 2 sessions")
+        self.assertEqual(CropperSession.objects.using(DB).count(), 2, "deleted before the press")
+        self.page.click("#clearstorage-yes")
+        self.page.wait_for_function(
+            "document.querySelector('#sessionnotice').textContent.includes('Cleared')", timeout=20000)
+        self.assertIn("2 saved sessions and 2 uploaded files deleted",
+                      self.page.text_content("#sessionnotice"))
+        self.assertFalse(CropperSession.objects.using(DB).exists())
+        self.assertEqual(dialogs, [], "a native dialog was opened")
+        self.assertEqual(self._page_errors(), [])
+
+
 class CropperKeepsTheWholeFigureInARealBrowserTests(_RealBrowserHarness):
     """Box 6 — "Whole figure on the gene's IHC page" — is the one place a
     figure's label, legend and antibodies for the IHC page are typed, and

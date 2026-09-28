@@ -202,6 +202,12 @@ it.{% endcomment %}
   <label for="sessionpick" style="position:absolute;left:-9999px">Resume a saved session</label>
   <select id="sessionpick" title="Resume a saved session" style="width:auto;max-width:220px"><option value="">— resume session —</option></select>
   <button id="delsession" class="sec" style="padding:5px 10px" title="Delete the selected saved session" disabled>🗑 Delete</button>
+  {% comment %}Every saved session and every upload no session holds, in one
+  press (owner, 28 Sep 2026; services/cropper/clear_storage.py). Superusers
+  only, because an unattached upload records no owner — so for anybody else the
+  button is drawn greyed with the reason beside it, not hidden.{% endcomment %}
+  <button id="clearstorage" class="sec" style="padding:5px 10px"{% if not request.user.is_superuser %} disabled{% endif %}>Clear storage…</button>
+  {% if not request.user.is_superuser %}<span id="clearstorage-why" class="hint">Clear storage needs an administrator account.</span>{% endif %}
   <button id="newsession" class="sec" style="padding:5px 10px">New session</button>
   <button id="save" class="sec" style="padding:5px 12px">Save session</button>
   <span id="savestatus" class="hint"></span>
@@ -381,6 +387,8 @@ const SAVE_URL = "{% url 'pipeline:cropper_session_save' %}";
 const LOAD_URL = "{% url 'pipeline:cropper_session_load' %}";
 const LIST_URL = "{% url 'pipeline:cropper_session_list' %}";
 const DELETE_URL = "{% url 'pipeline:cropper_session_delete' %}";
+const STORAGE_URL = "{% url 'pipeline:cropper_storage_manifest' %}";
+const STORAGE_CLEAR_URL = "{% url 'pipeline:cropper_storage_clear' %}";
 const COMMIT_URL = "{% url 'pipeline:cropper_commit' %}";
 const PARSE_URL = "{% url 'pipeline:cropper_parse_metadata' %}";
 const CSRF = "{{ csrf_token }}";
@@ -919,6 +927,48 @@ async function reallyDeleteSession(id){
   finally{ btn.disabled = !sel.value; }
 }
 $("#delsession").addEventListener("click", deleteSession);
+// Clear storage: a manifest first, drawn on the page, and a button carrying
+// the count — the server refuses a set that moved in between.
+async function clearStorage(){
+  let d;
+  try{ d=await askServer(STORAGE_URL,{},"read"); }
+  catch(e){ notice("#sessionnotice",{kind:"refusal", text:"Could not read the storage. "+e.message}); return; }
+  if(d.error){ notice("#sessionnotice",{kind:"refusal", text:d.error}); return; }
+  const n=d.sessions.length, k=d.orphans.length;
+  if(!n && !k){
+    notice("#sessionnotice",{kind:"info", text:"The cropper's storage is already empty."+
+      (d.too_new?` ${plural(d.too_new,"figure")} added in the last hour ${d.too_new===1?"is":"are"} left alone — ${d.too_new===1?"it may belong":"they may belong"} to a session being built now.`:"")});
+    return; }
+  const when=iso=>new Date(iso).toLocaleString();
+  const lines=["Clear the cropper's storage? This deletes, for everybody:"];
+  if(n){ lines.push(`${plural(n,"saved session")}:`);
+         d.sessions.forEach(s=>lines.push(`  · ${s.gene} — saved by ${s.owner}, ${plural(s.images,"figure")}, last saved ${when(s.updated_at)}`)); }
+  if(k){ lines.push(`${plural(k,"figure")} no session holds (added and never saved):`);
+         d.orphans.forEach(o=>lines.push(`  · ${o.name} — added ${when(o.created_at)}`)); }
+  lines.push(`${plural(d.files,"uploaded file")} in all. Crops and whole figures already in the review queue or on the public site are not affected.`);
+  lines.push("What is on this screen is cleared too — its figures are among those files.");
+  if(d.too_new) lines.push(`${plural(d.too_new,"figure")} added in the last hour ${d.too_new===1?"is":"are"} left alone — ${d.too_new===1?"it may belong":"they may belong"} to a session being built now.`);
+  const what=[n?plural(n,"session"):"", k?plural(k,"unsaved figure"):""].filter(Boolean).join(" and ");
+  notice("#sessionnotice",{kind:"consent", text:lines.join("\n"), buttons:[
+    {id:"clearstorage-yes", label:`Delete ${what}`, primary:true, onClick:()=>reallyClearStorage(d.stamp)},
+    {id:"clearstorage-no", label:"Keep them", onClick:()=>clearNotice("#sessionnotice")}]});
+}
+async function reallyClearStorage(stamp){
+  let d;
+  try{ d=await askServer(STORAGE_CLEAR_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify({stamp})},"write"); }
+  catch(e){ notice("#sessionnotice",{kind:"refusal", text:"Clearing did not complete. "+e.message+" Press Clear storage again to see what is left."}); loadSessionList(); return; }
+  if(d.error){ notice("#sessionnotice",{kind:"refusal", text:d.error}); loadSessionList(); return; }
+  // The session on screen may have been one of them; start clean, then say
+  // what happened (resetWorkspace clears notices, so the receipt comes after).
+  resetWorkspace();
+  const kept=d.files_not_deleted||[];
+  notice("#sessionnotice",{kind: kept.length?"refusal":"ok", text:
+    `Cleared: ${plural(d.sessions,"saved session")} and ${plural(d.files,"uploaded file")} deleted.`+
+    (kept.length?` ${plural(kept.length,"file")} could not be deleted from storage: ${kept.join(", ")}.`:"")+
+    (d.too_new?` ${plural(d.too_new,"figure")} added in the last hour ${d.too_new===1?"was":"were"} left alone.`:"")});
+  loadSessionList();
+}
+$("#clearstorage").addEventListener("click", clearStorage);
 // A new session starts from an empty workspace. Without it, typing the next
 // gene after a save reused the same session id and overwrote that record.
 function resetWorkspace(){

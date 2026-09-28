@@ -373,6 +373,38 @@ def cropper_session_delete(request):
     return JsonResponse({"deleted": True})
 
 
+NOT_ADMIN = ("Clearing the cropper's storage deletes everybody's saved sessions and "
+             "every figure no session holds, so it needs an administrator account. "
+             "Your own sessions can be deleted one at a time with 🗑 Delete.")
+
+
+@pipeline_member_required
+@require_GET
+def cropper_storage_manifest(request):
+    """What "Clear storage" would delete — see `services/cropper/clear_storage.py`."""
+    from pipeline.services.cropper import clear_storage
+    if not request.user.is_superuser:
+        return JsonResponse({"error": NOT_ADMIN}, status=403)
+    return JsonResponse(clear_storage.manifest())
+
+
+@pipeline_member_required
+@require_POST
+def cropper_storage_clear(request):
+    """Delete what the manifest listed, only if it is still exactly that set."""
+    from pipeline.services.cropper import clear_storage
+    if not request.user.is_superuser:
+        return JsonResponse({"error": NOT_ADMIN}, status=403)
+    try:
+        d = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "invalid JSON"}, status=400)
+    try:
+        return JsonResponse(clear_storage.clear(str(d.get("stamp") or "")))
+    except clear_storage.Refused as refusal:
+        return JsonResponse({"error": str(refusal)}, status=409)
+
+
 def _stale_note(summary) -> str:
     """What an empty save leaves behind from this session — whole figures it
     no longer declares, which only a save with something in it takes out of
