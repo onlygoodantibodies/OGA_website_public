@@ -70,6 +70,30 @@ def experimenters(db: str = DB):
             .order_by("display_name", "pk"))
 
 
+#: The heading the Access-era profiles sit under in an experimenter picker.
+IMPORTED_GROUP = "Imported from Access (old records, no login)"
+
+
+def experimenter_groups(db: str = DB):
+    """``experimenters``, split for a ``<select>``: people who sign in first,
+    then the Access-era profiles under a heading of their own.
+
+    One list, both kinds, because old sessions point at the imported profiles
+    and a filter or a correction must still reach them. The heading is the fix:
+    on 10 and 24 Sep 2026 Mickey (Congyao Zha, login `mickey`) filed three
+    sessions under `access_congyao_zha`, which the picker drew as a plain
+    "Congyao Zha" beside "Mickey" with nothing to say which was which.
+    """
+    imported = set(User.objects.using(db)
+                   .filter(username__startswith=IMPORTED_PREFIX)
+                   .values_list("pk", flat=True))
+    people, old = [], []
+    for m in experimenters(db):
+        (old if m.user_id in imported else people).append(m)
+    return [(label, group) for label, group in
+            (("People who sign in", people), (IMPORTED_GROUP, old)) if group]
+
+
 def for_request(request, db: str = DB):
     """The signed-in person's `Member` row, or `None`.
 

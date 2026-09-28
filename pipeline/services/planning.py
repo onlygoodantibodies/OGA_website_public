@@ -438,7 +438,7 @@ def if_plate_map_to_response(session):
 # ─────────────────────────────────────────────────────────────
 # Round-trip bench sheet — one downloadable sheet per session that
 # matches its procedure and reads back to record results (see
-# services/bench_results.py). One row per antibody for WB / IP / FC;
+# services/bench_results.py). One row per antibody for WB / IP / FC / IHC;
 # IF uses the plate map above (well-based).
 # ─────────────────────────────────────────────────────────────
 
@@ -452,7 +452,33 @@ BENCH_RESULT_COLUMNS = {
     'FC': [('concentration', 'Used concentration', 18), ('histogram_shift', 'Histogram shift', 22),
            ('median_fluorescence_wt', 'MFI WT', 11), ('median_fluorescence_ko', 'MFI KO', 11),
            ('gating_strategy', 'Gating strategy', 22)],
+    # IHC (26 Sep 2026). Its labels are its own on purpose: a heading only one
+    # procedure's sheet ships is what `bench_results.sheet_procedure` recognises
+    # a sheet by, so "Specific signal" (the IF plate map's one distinctive
+    # heading) is "Specific staining" here — sharing it would stop an IF plate
+    # map being recognised, and the refusal for one fed to a western blot with it.
+    'IHC': [('primary_ab_dilution', 'Used dilution', 12),
+            ('dilution_source', 'Dilution source', 18),
+            ('secondary_ab', 'Secondary / detection', 22),
+            ('slide_position', 'Slide / core', 11),
+            ('specific_signal', 'Specific staining', 22),
+            ('staining_location', 'Staining location', 18),
+            ('tissue_result', 'Tissue result', 22),
+            ('image_acquired_by', 'Image acquired by', 14),
+            ('image_analysed_by', 'Image analysed by', 14),
+            ('comments', 'Comments', 24)],
 }
+
+# The procedures whose bench sheet carries a **session conditions block** under
+# the antibody table: one row per condition, its label in column A and the value
+# in column B, with the form's example beside it in column D. IHC's run is
+# described by seventeen conditions and a row-per-antibody sheet has nowhere
+# else to put them — above the table would push the heading past where the
+# uploader looks for it, and a second tab is a tab `workbook.read` never picks.
+# `bench_results.parse` reads the block back by its labels. The other four keep
+# the sheets they have.
+CONDITIONS_BLOCK = {'IHC'}
+CONDITIONS_BLOCK_TITLE = 'Session conditions — fill in once for the whole run'
 
 # The stable key column that ties a row back to its antibody on upload.
 AB_KEY_HEADER = 'Ab#'
@@ -551,7 +577,7 @@ def _generate_antibody_bench_sheet(session, proc):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = {'WB': 'WB', 'IP': 'IP', 'FC': 'FC'}.get(proc, proc)
+    ws.title = {'WB': 'WB', 'IP': 'IP', 'FC': 'FC', 'IHC': 'IHC'}.get(proc, proc)
 
     proc_label = dict(session.ProcedureType.choices).get(proc, proc)
     # µg/mL, because that is what `Antibody.concentration` holds and what this
@@ -564,6 +590,11 @@ def _generate_antibody_bench_sheet(session, proc):
                ('Conc. (µg/mL)', 12), ('Clonality', 18), ('Clone', 12), ('Host', 10)]
     if proc == 'FC':
         id_cols.append(('Tube', 8))
+    if proc == 'IHC':
+        # What the supplier says for IHC, beside the dilution the bench used —
+        # the PPP2R5D legend's "1/100 as recommended by the supplier" is the
+        # sentence the two columns together let the report write.
+        id_cols.append(('Recommended dilution', 14))
     result_cols = BENCH_RESULT_COLUMNS[proc]
     headers = id_cols + [(lbl, w) for (_f, lbl, w) in result_cols]
 
@@ -594,12 +625,18 @@ def _generate_antibody_bench_sheet(session, proc):
         ]
         if proc == 'FC':
             base.append('')  # Tube — filled at bench
+        if proc == 'IHC':
+            recs = ab.supplier_recommended_dilutions
+            base.append(recs.get('IHC', '') if isinstance(recs, dict) else '')
         row_data = base + ['' for _ in result_cols]
         for col_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.font = DATA_FONT
             cell.border = THIN_BORDER
         row_idx += 1
+
+    if proc in CONDITIONS_BLOCK:
+        _write_conditions_block(ws, session, proc, row_idx + 1)
 
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
@@ -609,9 +646,41 @@ def _generate_antibody_bench_sheet(session, proc):
     return wb
 
 
+def _write_conditions_block(ws, session, proc, start_row):
+    """The session conditions block (see `CONDITIONS_BLOCK`).
+
+    Pre-filled with what the session already records, so the sheet is a round
+    trip like the workbook rather than a blank form: an unchanged value comes
+    back unchanged, and a blank cell never clears one (`bench_results.apply`
+    only writes the keys a sheet fills). The example sits in column D, greyed —
+    never in column B, because a prompt is not a value and the uploader reads
+    column B only.
+    """
+    from pipeline.views.session_entry import PROCEDURE_CONDITION_FIELDS
+    stored = dict(session.session_conditions or {})
+    title = ws.cell(row=start_row, column=1, value=CONDITIONS_BLOCK_TITLE)
+    title.font = Font(bold=True, size=11, name='Arial')
+    ws.merge_cells(start_row=start_row, start_column=1,
+                   end_row=start_row, end_column=4)
+    row = start_row + 1
+    for key, label, _type, placeholder in PROCEDURE_CONDITION_FIELDS.get(proc, []):
+        lab = ws.cell(row=row, column=1, value=label)
+        lab.font = HEADER_FONT
+        lab.fill = HEADER_FILL
+        lab.border = THIN_BORDER
+        val = ws.cell(row=row, column=2, value=str(stored.get(key, '') or ''))
+        val.font = DATA_FONT
+        val.border = THIN_BORDER
+        ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
+        ex = ws.cell(row=row, column=4, value=(placeholder or '').strip())
+        ex.font = Font(size=9, name='Arial', color='888888', italic=True)
+        row += 1
+
+
 def generate_bench_sheet(session):
     """The right bench sheet for a session's procedure. IF → the plate map;
-    WB/IP/FC → one row per antibody with fillable result columns."""
+    WB/IP/FC/IHC → one row per antibody with fillable result columns (IHC's
+    with a session conditions block under the table)."""
     proc = session.procedure_type
     if proc == 'IF':
         return generate_if_plate_map(session)

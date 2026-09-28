@@ -32,6 +32,7 @@ from pipeline.models import (
     Antibody,
     ExperimentSession,
     FcResult,
+    IhcResult,
     IfResult,
     IpResult,
     Member,
@@ -51,11 +52,16 @@ DB = 'pipeline_db'
 # ─────────────────────────────────────────────────────────────
 
 def _get_member_or_none(user):
-    """Return the Member profile for the logged-in user, or None."""
-    try:
-        return Member.objects.using(DB).select_related('site').get(user=user)
-    except Member.DoesNotExist:
-        return None
+    """Return the Member profile for the logged-in user, or None.
+
+    Matched by **username**, the way ``pipeline_member_required`` lets them in.
+    ``request.user`` is the ``academy_db`` login, and its pk is not the pk of
+    the matching ``pipeline_db`` user: ``get(user=user)`` compared the two,
+    so a member admitted by the gate was told "no pipeline member profile" —
+    or, where the numbers happened to land on somebody else, filed as them.
+    """
+    return (Member.objects.using(DB).select_related('site')
+            .filter(user__username=user.username).first())
 
 def _result_count(session):
     """Return total per-antibody result count across all procedure-specific tables."""
@@ -68,6 +74,8 @@ def _result_count(session):
         return session.if_results.using(DB).count()
     elif pt == 'FC':
         return session.fc_results.using(DB).count()
+    elif pt == 'IHC':
+        return session.ihc_results.using(DB).count()
     return 0
 
 def _merged_conditions(request, session):
@@ -123,6 +131,10 @@ PROCEDURE_CONDITION_FIELDS = {
         ('protein_loading_ug', 'Protein Loading (µg)', 'number', 'e.g. 20'),
         ('gel_chemistry', 'Gel Chemistry', 'text', 'e.g. 4-20% TG'),
         ('transfer_method', 'Transfer Method', 'text', 'e.g. wet'),
+        # Printed in the report's results, methods and Figure 1 legend, and had
+        # no field anywhere until the report's needs were declared in one place
+        # (`services/report_needs.py`) — so every WB draft said `[membrane]`.
+        ('membrane', 'Membrane', 'text', 'e.g. nitrocellulose'),
         ('blocking', 'Blocking', 'text', 'e.g. 5% milk in TBST'),
         ('secondary_antibody', 'Secondary Antibody', 'text', 'e.g. HRP anti-rabbit'),
         ('secondary_dilution', 'Secondary Dilution', 'text', 'e.g. 1:10000'),
@@ -134,6 +146,9 @@ PROCEDURE_CONDITION_FIELDS = {
         ('lysis_buffer', 'Lysis Buffer', 'text', 'e.g. IP buffer'),
         ('bead_type', 'Bead Type', 'text', 'e.g. Protein A/G'),
         ('protein_amount_mg', 'Protein Amount (mg)', 'number', 'e.g. 1.0'),
+        # The µg of antibody coupled to the beads — what the report's methods
+        # print. Not the bench sheet's per-row `Ab amount (µl)`, a volume.
+        ('antibody_amount_ug', 'Antibody Amount (µg)', 'number', 'e.g. 2.0'),
         ('detection_antibody', 'Detection Antibody', 'text', 'KO-controlled Ab for WB step'),
         ('detection_antibody_dilution', 'Detection Ab Dilution', 'text', 'e.g. 1:1000'),
         ('secondary_antibody', 'Secondary Antibody', 'text', 'e.g. anti-rabbit HRP'),
@@ -155,20 +170,86 @@ PROCEDURE_CONDITION_FIELDS = {
     ],
     'FC': [
         ('tracker_dyes', 'Tracker Dyes', 'text', 'e.g. CellTracker green/violet'),
+        # The report names the two dyes apart ("labelled with X or Y,
+        # respectively"), so it asks for them apart; `tracker_dyes` is kept for
+        # the sessions that already recorded both in one box.
+        ('tracker_dye_wt', 'WT Tracker Dye', 'text', 'e.g. CellTracker Green'),
+        ('tracker_dye_ko', 'KO Tracker Dye', 'text', 'e.g. CellTracker Violet'),
         ('fixation', 'Fixation', 'text', 'e.g. 4% PFA'),
         ('permeabilisation', 'Permeabilisation', 'text', 'e.g. 0.1% saponin'),
+        ('blocking', 'Blocking', 'text', 'e.g. 2% BSA'),
+        ('cell_count', 'Cells per Tube', 'text', 'e.g. 100,000'),
+        ('primary_concentration', 'Primary Ab Concentration (default)', 'text',
+         'e.g. 1 µg/mL'),
         ('flow_cytometer', 'Flow Cytometer', 'text', 'e.g. Attune NxT'),
         ('analysis_software', 'Analysis Software', 'text', 'e.g. FlowJo'),
         ('secondary_ab', 'Secondary Antibody', 'text', 'e.g. Alexa Fluor 647 anti-rabbit'),
         ('secondary_dilution', 'Secondary Dilution', 'text', 'e.g. 1:500'),
     ],
+    # IHC (26 Sep 2026, PLATFORM_ROADMAP #102), read off the PPP2R5D report's
+    # "Antibody screening by immunohistochemistry" methods — the examples are
+    # that report's own values. Every one optional; the ones the report's IHC
+    # methods paragraph prints are named by `report_needs.IHC` and warned
+    # about on the upload preview when blank. The three tissue fields are
+    # for a run that had tissue on the slide, and only then does the report
+    # (and so the warning) ask for them.
+    'IHC': [
+        ('fixation', 'Fixation', 'text', 'e.g. 10% NBF, 30 min'),
+        ('embedding', 'Embedding', 'text',
+         'e.g. histogel 1:1, Tissue-TEK VIP, Leica EG1150'),
+        ('section_format', 'Section format', 'text', 'e.g. TMA, 2 mm cores'),
+        ('section_thickness_um', 'Section thickness (µm)', 'text', 'e.g. 2'),
+        ('stainer', 'Stainer', 'text', 'e.g. BenchMark ULTRA (Roche)'),
+        ('antigen_retrieval', 'Antigen retrieval', 'text',
+         'e.g. CC1 Tris pH 8.0-8.5, 95 °C, 65 min'),
+        ('chromogen', 'Chromogen', 'text', 'e.g. DISCOVERY ChromoMap DAB, 8 min'),
+        ('counterstain', 'Counterstain', 'text', 'e.g. Hematoxylin'),
+        ('scanner', 'Scanner', 'text', 'e.g. Aperio slide scanner'),
+        ('objective', 'Objective', 'text', 'e.g. 20x'),
+        ('image_export_software', 'Image export software', 'text', 'e.g. NPD view'),
+        ('tissue_species', 'Tissue species', 'text',
+         'tissue on the slide only — e.g. mouse'),
+        ('tissue_organs', 'Tissue organs', 'text',
+         'tissue on the slide only — e.g. brain, lung, muscle'),
+        ('tissue_fixation', 'Tissue fixation', 'text',
+         'tissue on the slide only — e.g. 10% formalin, 48 h'),
+        ('mosaic_ratio', 'Mosaic ratio (WT:KO)', 'text', 'optional — e.g. 1:1'),
+        ('other_cell_lines', 'Other cell lines on the slide', 'text',
+         'optional — e.g. HEK293'),
+        ('slide_controls', 'Controls on the slide', 'text',
+         'e.g. H&E, rabbit secondary only, mouse secondary only'),
+    ],
 }
 
-# Appended rather than repeated four times: the vial applies to every procedure,
-# and a list written out four times is four lists that drift.
+# How a knockdown was done on the day, when the control line was one. The
+# line's own record (`CellLine.knockdown_*`) says what the reagent *is*; these
+# say what was done with it in this session — the concentration, the carrier,
+# how long the cells sat before harvest, and what the wild-type lane was
+# actually treated with, since a knockdown's honest control is a non-targeting
+# transfection and not an untouched flask. Optional on every procedure and
+# blank on a knockout session; the placeholder says so, because a box on every
+# session form that most sessions leave empty has to explain itself. Same home
+# as the vial fields, for the same reasons.
+KNOCKDOWN_CONDITION_FIELDS = [
+    ('kd_reagent', 'Knockdown reagent used', 'text',
+     'knockdown sessions only — e.g. Dharmacon L-012345-00 SMARTpool'),
+    ('kd_transfection_reagent', 'Transfection reagent', 'text',
+     'knockdown sessions only — e.g. Lipofectamine RNAiMAX'),
+    ('kd_concentration_nm', 'siRNA concentration (nM)', 'number',
+     'knockdown sessions only — e.g. 20'),
+    ('kd_hours_post_transfection', 'Hours post-transfection', 'number',
+     'knockdown sessions only — e.g. 72'),
+    ('kd_control', 'Non-targeting control', 'text',
+     'knockdown sessions only — what the WT lane was transfected with, e.g. D-001810-10'),
+]
+
+# Appended rather than repeated per procedure: the vial and the knockdown fields
+# apply to every procedure, and a list written out once per procedure is five
+# lists that drift.
 for _proc in PROCEDURE_CONDITION_FIELDS:
     PROCEDURE_CONDITION_FIELDS[_proc] = (
-        PROCEDURE_CONDITION_FIELDS[_proc] + VIAL_CONDITION_FIELDS)
+        PROCEDURE_CONDITION_FIELDS[_proc] + VIAL_CONDITION_FIELDS
+        + KNOCKDOWN_CONDITION_FIELDS)
 del _proc
 
 # Per-antibody result fields by procedure type.
@@ -207,6 +288,16 @@ RESULT_FIELDS = {
         ('median_fluorescence_ko', 'MFI KO', 'number', ''),
         ('gating_strategy', 'Gating Strategy', 'text', ''),
     ],
+    'IHC': [
+        ('specific_signal', 'Specific Staining', 'text', 'Core outcome'),
+        ('staining_location', 'Staining Location', 'text', 'e.g. cytoplasmic'),
+        ('primary_ab_dilution', 'Primary Ab Dilution', 'text', 'e.g. 1/100'),
+        ('dilution_source', 'Dilution Source', 'text', 'e.g. supplier-recommended'),
+        ('secondary_ab', 'Secondary / Detection', 'text',
+         'e.g. OmniMap anti-rabbit HRP'),
+        ('slide_position', 'Slide / Core', 'text', 'e.g. TMA core B3'),
+        ('tissue_result', 'Tissue Result', 'text', ''),
+    ],
 }
 
 # Map procedure type to result model class
@@ -215,6 +306,7 @@ RESULT_MODEL_MAP = {
     'IP': IpResult,
     'IF': IfResult,
     'FC': FcResult,
+    'IHC': IhcResult,
 }
 
 
@@ -225,7 +317,7 @@ RESULT_MODEL_MAP = {
 @pipeline_member_required
 def session_template_export(request):
     """Download a per-gene session template: one Excel workbook with a tab per
-    application (WB/IP/IF/FC), pre-filled from the DB + the member's site default
+    application (WB/IP/IF/FC/IHC), pre-filled from the DB + the member's site default
     protocol. ``?gene=SYMBOL``. Download-only; nothing is written."""
     from pipeline.services import session_template
 
@@ -347,6 +439,7 @@ def session_create(request):
         'fc_sub_choices': fc_sub_choices,
         'status_choices': status_choices,
         'experimenters': experimenters,
+        'experimenter_groups': member_svc.experimenter_groups(),
         'default_site_id': default_site_id,
         'default_experimenter_id': default_experimenter_id,
         'member': member,
@@ -522,6 +615,7 @@ def _rerender_form_with_errors(request, errors):
         'fc_sub_choices': ExperimentSession.FcSubProtocol.choices,
         'status_choices': ExperimentSession.SessionStatus.choices,
         'experimenters': experimenters,
+        'experimenter_groups': member_svc.experimenter_groups(),
         'default_site_id': member.site_id if member else None,
         'default_experimenter_id': member.pk if member else None,
         'member': member,

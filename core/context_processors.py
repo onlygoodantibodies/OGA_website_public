@@ -71,3 +71,12 @@ def recommendation_scope(request):
         'application_facts': [R.APPLICATION_FACT[app] for app in R.APPLICATIONS
                               if app in R.APPLICATION_FACT],
     }
+
+
+def search_index_version(request):
+    """``?v=`` for the search box's gene list — see
+    `OGA_website/edge_cache.py::INDEX_VERSION_KEY`. Two templates draw a search
+    box, and a value each view had to remember is the one somebody forgets."""
+    from OGA_website import edge_cache
+
+    return {'search_index_version': edge_cache.index_version()}

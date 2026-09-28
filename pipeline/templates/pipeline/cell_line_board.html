@@ -279,7 +279,7 @@
   const {esc, pill, banner} = OGABoard;
   const cell = (r, field, value, opts) => OGABoard.cell(r.id, field, value, null, opts);
 
-  const GENOTYPE_TONE = {WT: 'flat', KO: 'cool', other: 'flat'};
+  const GENOTYPE_TONE = {WT: 'flat', KO: 'cool', KD: 'warm', other: 'flat'};
 
   /* A tick's accessible name has to name the field it changes, not just say
    * "click to change" — three ticks in a row all reading "Click to change" tell
@@ -425,6 +425,23 @@
             {label: 'how the knockout was confirmed, or why it is not',
              empty: r.ko_validated ? 'how was it confirmed?' : 'why not? add a reason'})}</div>
       </td>
+      ${/* What a knockdown was made with, stacked in one cell the way Site /
+            status is: five facts a Data Note names apart, one glance on the
+            board. A knockout gets a dash rather than five prompts — a blank
+            that reads as "fill me in" on a row that must stay blank is the
+            wild type's empty gene cell all over again. */''}
+      <td class="px-3 py-2 text-xs">${r.genotype === 'KD' ? `
+        <div>${cell(r, 'knockdown_method', r.knockdown_method,
+            {label: 'knockdown method', empty: 'siRNA? shRNA?'})}</div>
+        <div class="mt-0.5">${cell(r, 'knockdown_supplier', r.knockdown_supplier,
+            {label: 'reagent supplier', empty: 'add supplier'})}</div>
+        <div class="mt-0.5">${cell(r, 'knockdown_catalogue', r.knockdown_catalogue,
+            {label: 'reagent catalogue number or pool ID', empty: 'add catalogue / pool ID'})}</div>
+        <div class="mt-0.5">${cell(r, 'knockdown_sequence', r.knockdown_sequence,
+            {label: 'target sequence', empty: 'add target sequence'})}</div>
+        <div class="mt-0.5">${cell(r, 'transfection_reagent', r.transfection_reagent,
+            {label: 'transfection reagent', empty: 'add transfection reagent'})}</div>`
+        : OGABoard.DASH}</td>
       ${/* Adherent or suspension. Beside the medium because the two are one
             question — how to culture this line — and first of the pair because
             it is the half you need before you thaw a vial. uOttawa asked for
@@ -447,6 +464,8 @@
         <div class="mt-1">${tick(r, 'received', r.received, 'received', 'vial received',
                                  'not received')}${
           tick(r, 'thawed', r.thawed, 'thawed', 'vial thawed', 'not thawed')}</div>
+        ${/* Who added and last saved the row — see pipeline/saved_by.py. */''}
+        ${r.provenance ? `<div class="text-xs text-gray-400 mt-1 whitespace-normal">${esc(r.provenance)}</div>` : ''}
       </td>
     </tr>`;
   }
@@ -531,6 +550,11 @@
               not the name.
               <span class="block mt-1">A <b>KO</b> line needs its <b>gene</b> and its
               <b>parent</b> — that pairing is what makes a knockout mean anything.</span>
+              <span class="block mt-1">A <b>KD</b> line is a knockdown — siRNA, shRNA,
+              CRISPRi — recorded as its own line so a session and a figure can say
+              that is what they were controlled against. It needs its <b>gene</b>
+              and its <b>parent</b> like a KO; the reagent, its catalogue number and
+              the transfection reagent go in the knockdown columns.</span>
               <span class="block mt-1">A <b>WT</b> parental line is recorded
               <b>once, with no gene</b>: one HAP1 WT serves every knockout made
               from it. Leave its gene blank, or write
@@ -555,6 +579,7 @@
             <option value="">None</option>
             <option value="WT">WT</option>
             <option value="KO">KO</option>
+            <option value="KD">KD (knockdown)</option>
           </select>
         </label>
       </div>`,
@@ -675,13 +700,14 @@
     query: board.query,
     fields: [
       {name: 'name', label: 'Name'},
-      {name: 'genotype', label: 'Genotype', options: ['WT', 'KO', 'other']},
+      {name: 'genotype', label: 'Genotype', options: ['WT', 'KO', 'KD', 'other'],
+       hint: 'KD is a knockdown — siRNA, shRNA, CRISPRi. What it was made with is edited in the grid, in the Knockdown column.'},
       {name: 'gene', label: 'Gene',
-       hint: 'A KO needs one. A WT parental line is recorded once with no gene — leave it blank.'},
+       hint: 'A KO or KD needs one. A WT parental line is recorded once with no gene — leave it blank.'},
       {name: 'clone', label: 'Clone',
        hint: 'Which single-cell clone this knockout is — often a different guide. The gene and the background say what was knocked out; this says which one. Blank if it was not recorded; only a KO has one.'},
       {name: 'parent', label: 'Parent line',
-       hint: 'The wild type a knockout was made from. Must be a line already on file.'},
+       hint: 'The wild type a knockout or knockdown was made from. Must be a line already on file.'},
       {name: 'company', label: 'Supplier',
        hint: 'Matched against the suppliers already on file, so one vendor never ends up under two spellings. Blank for a line made in-house.'},
     ],

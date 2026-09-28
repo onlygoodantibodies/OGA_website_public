@@ -19,9 +19,8 @@ extension does the same thing on a publisher's page: it finds a catalogue
 number, looks it up, and colours it with OGA's per-application characterisation
 result. This module produces the same marks for Europe PMC's reader — one row
 per article, one ``ann`` per printed identifier, one tag per ``ann`` naming the
-antibody and its four rungs and linking to the gene page on
-onlygoodantibodies.co.uk, which is public and needs no login (a ground rule of
-the platform).
+antibody and linking to its page on onlygoodantibodies.co.uk, which is public
+and needs no login (a ground rule of the platform).
 
 **It uses exactly the extension's inputs and never the database.** Which paper
 used which reagent comes from the citation snapshot
@@ -34,22 +33,36 @@ only searched for the reagents CiteAb already attributed to that paper, which is
 what lets this skip every proximity gate the extension needs when it is guessing
 from a blind page.
 
-TWO ROWS, BECAUSE THE FACT IS ABOUT THE PAPER AND THE TEXT ONLY SAYS WHERE
------------------------------------------------------------------------
-**Every paper gets a paper-level row** (``src: "MED"``, the PubMed id): one
-sentence-based annotation on the title, with one tag per antibody saying the
-paper used it, for what if CiteAb recorded that, and what OGA found. CiteAb's
-attribution is a fact about the whole paper, and the title is the one sentence
-every indexed article has — so this reaches the abstract-only majority, which is
-where a reader deciding whether to fetch the paper is standing.
+NAMED ENTITIES ONLY, AND THE NAME IS THE NAME (Europe PMC's review, 28 Sep 2026)
+------------------------------------------------------------------------------
+The first sample carried a sentence-based annotation on every paper's title,
+so that the abstract-only majority got one, with the verdicts written into the
+tag. Europe PMC's annotations team reviewed it and asked for two changes, both
+now the rule here:
 
-**An open-access paper gets a full-text row as well** (``src: "PMC"``, the PMC
-id): a named-entity annotation on each printed catalogue number, RRID or clone,
-quoting the article — ``exact`` is the identifier as typeset and
-``prefix``/``postfix`` its neighbours — so the mark lands in Methods where the
-reagent is. Catalogue numbers live in Methods, so this exists only where the
-text can be read; the report counts the papers that got the title alone and
-says why (no open-access full text, or open access but nothing printed).
+* **Named-entity annotations only.** Each annotation refers to an antibody, a
+  named entity, not to a sentence. So an annotation exists only where an
+  identifier of the antibody is printed — catalogue number, RRID or clone —
+  and it is anchored on those characters with a ``position`` and its
+  neighbours in the sentence.
+* **The tag's ``name`` is the canonical name of the antibody and nothing
+  else.** No applications, no verdicts, no comments: their schema has nowhere
+  for them, and everything else belongs on the page the tag links to. The
+  canonical spelling used here is the RRID citation form the literature
+  already uses — ``Proteintech Cat# 10782-2-AP, RRID:AB_2303286``.
+
+Where the identifiers are looked for is everything Europe PMC shows for the
+paper: the **title and abstract** for every paper (a ``src: "MED"`` row on the
+PubMed record), and the **full text** for an open-access paper as well (a
+``src: "PMC"`` row on the PMC record). A paper CiteAb says used the antibody
+but whose text prints no identifier anywhere Europe PMC holds — which is most
+of the abstract-only papers, since catalogue numbers live in Methods — gets
+nothing, and the report counts and lists it as such. That is the cost of the
+named-entity rule and it is stated rather than worked around.
+
+What the verdicts lose by leaving the tag, the link keeps: the gene page
+focused on the antibody is drawn from the live database, so the reader who
+clicks sees the current result, whatever the annotation's date.
 
 Three assumptions were made without seeing the platform's specifications, and
 the run's ``--check`` prints enough to judge each:
@@ -62,11 +75,12 @@ the run's ``--check`` prints enough to judge each:
   section vocabulary the page lists for ``src=PMC`` is the one full text has.
 * Preprints (``PPR`` ids, 3,006 of the snapshot's 29,207 papers) are left out
   and counted, because ``PPR`` is not on the page's list of sources. Ask.
+* The ``name`` is the RRID citation form. Their word was "canonical name"; if
+  they want the supplier's product name instead, that is one function.
 
-Nothing here is a verdict on a product. The tag names OGA's rungs in the words
-the site uses (``core/recommendations.py``) and the linked page carries the
-caveats; an annotation is a pointer to characterisation data, which is all the
-extension's mark ever was.
+Nothing here is a verdict on a product. The tag is the antibody's name and the
+linked page carries the result and its caveats; an annotation is a pointer to
+characterisation data, which is all the extension's mark ever was.
 """
 
 from __future__ import annotations
@@ -122,6 +136,9 @@ DEFAULT_SECTION = "Article"
 #: locator, and the sentence position plus the exact text do the locating.
 CONTEXT_CHARS = 40
 
+# The extension index's four keys, which this reads — not
+# `core/recommendations.py::APPLICATIONS`: the index carries no IHC yet, so an
+# annotation has no IHC result to state.
 APPLICATIONS = ("WB", "IP", "IF", "FC")
 
 # ---------------------------------------------------------------------------
@@ -223,25 +240,6 @@ def is_distinctive_clone(clone):
 
 
 # ---------------------------------------------------------------------------
-# The rungs — a mirror of how the extension's card reads the index's codes
-# (`card.js::CODE_LABEL` / `isLimited`), which is how `core/recommendations.py::
-# support()` is published to it. `core/tests_europepmc_annotations.py` pins
-# TEMPERING against `QUALIFIER_CODES` so this copy cannot drift.
-# ---------------------------------------------------------------------------
-
-CODE_WORDS = {0: "not tested", 1: "not supportive", 2: "supportive"}
-LIMITED_WORDS = "limited support"
-#: Qualifier codes that hold a negative back to the middle rung.
-TEMPERING = frozenset({"ns", "sd", "se", "si"})
-
-
-def rung(code, qualifier_code=None):
-    if code == 1 and qualifier_code in TEMPERING:
-        return LIMITED_WORDS
-    return CODE_WORDS.get(code, "")
-
-
-# ---------------------------------------------------------------------------
 # Reagents: what the snapshot says a paper used, joined to what the index knows.
 # ---------------------------------------------------------------------------
 
@@ -303,39 +301,30 @@ def lookup_keys(reagents):
     return keys
 
 
-def use_clause(reagent):
-    """What CiteAb records this paper used the antibody for, or that it does
-    not say. **A looked-up application may narrow a verdict and an ambiguous
-    one may not** — the rule the citation layer exists for — so an ambiguous
-    attribution names the use and not the application."""
-    if reagent["ambiguous"] or not (reagent["used_for"] or reagent["untested_terms"]):
-        return "used in this paper (application not recorded by CiteAb)"
-    clause = "used in this paper"
-    if reagent["used_for"]:
-        clause += " for " + ", ".join(reagent["used_for"])
-    if reagent["untested_terms"]:
-        clause += (" and for " if reagent["used_for"] else " for ") + \
-            ", ".join(reagent["untested_terms"]) + " (which OGA does not test)"
-    return clause
+def canonical_name(reagent):
+    """The antibody's name and nothing else — Europe PMC's rule for the tag.
+
+    The RRID citation form is the one canonical spelling the literature already
+    uses (``Proteintech Cat# 10782-2-AP, RRID:AB_2303286``), and it is what a
+    reader can paste into a search box. Every other fact — what the paper used
+    it for, what OGA found — belongs on the linked page, by the platform's
+    review of 28 Sep 2026; their schema has nowhere for it in ``name``.
+    """
+    head = " ".join(part for part in (
+        reagent["supplier"],
+        f"Cat# {reagent['catalogue']}" if reagent["catalogue"] else "",
+    ) if part)
+    return f"{head}, RRID:{reagent['rrid']}" if head else f"RRID:{reagent['rrid']}"
 
 
 def tag_for(reagent, base_url):
-    """One tag: the antibody, its four rungs, and the page that carries the
-    caveats. The URI is the gene page focused on this antibody (``?ab=``), which
-    is where the home page search sends a reader who types the same number."""
-    parts = [f"{reagent['gene']} antibody {reagent['catalogue'] or reagent['rrid']}"]
-    if reagent["supplier"]:
-        parts[0] += f" ({reagent['supplier']})"
-    parts.append(use_clause(reagent))
-    rungs = "; ".join(
-        f"{app} {rung(reagent['codes'].get(app, 0), reagent['qualifiers'].get(app))}"
-        for app in APPLICATIONS)
-    parts.append("OGA knockout-controlled characterisation: " + rungs)
-    if reagent["discontinued"]:
-        parts.append("supplier lists it as discontinued")
+    """One tag: the canonical name, and the page that carries everything else.
+    The URI is the gene page focused on this antibody (``?ab=``), which is
+    where the home page search sends a reader who types the same number, and
+    which is drawn from the live database on every visit."""
     focus = reagent["catalogue"] or reagent["rrid"]
     uri = f"{base_url.rstrip('/')}/antibodies/{quote(reagent['gene'], safe='')}/?{urlencode({'ab': focus})}"
-    return {"name": " · ".join(parts), "uri": uri}
+    return {"name": canonical_name(reagent), "uri": uri}
 
 
 # ---------------------------------------------------------------------------
@@ -560,22 +549,21 @@ def annotate(blocks, reagents, base_url):
     return anns, dropped
 
 
-def title_annotation(title, reagents, base_url):
-    """One sentence-based annotation on the title, one tag per antibody.
+_MARKUP_RE = re.compile(r"<[^>]+>")
 
-    CiteAb's attribution is a fact about the whole paper, not about a span of
-    it, and the title is the one sentence every indexed article has — so this
-    is the annotation every paper gets, whether or not Europe PMC holds its
-    full text. It carries no ``position`` and no prefix/postfix: those are the
-    named-entity fields, and the submission page's sentence-based example has
-    neither. ``exact`` is the title as Europe PMC returned it, since that is
-    the text the platform will look for.
-    """
-    title = re.sub(r"\s+", " ", title or "").strip()
-    if not title or not reagents:
-        return None
-    return {"exact": title, "section": "Title",
-            "tags": [tag_for(r, base_url) for r in reagents]}
+
+def abstract_blocks(record):
+    """``[(section, text)]`` for a PubMed record: the title and the abstract,
+    which is all Europe PMC shows for a paper it holds without full text.
+    A structured abstract arrives with HTML headings; the tags go, the words
+    stay. Same shape as ``sections_from_jats``'s output, so ``annotate``
+    reads both."""
+    out = []
+    for section, key in (("Title", "title"), ("Abstract", "abstract")):
+        text = re.sub(r"\s+", " ", _MARKUP_RE.sub(" ", record.get(key) or "")).strip()
+        if text:
+            out.append((section, text))
+    return out
 
 
 def row_for(src, article_id, provider, anns):
@@ -643,7 +631,7 @@ def fetch_text(url, email):
 
 
 def records_from(payload):
-    """``{pmid: {pmcid, open_access, title}}`` out of one search response — keyed on
+    """``{pmid: {pmcid, open_access, title, abstract}}`` out of one search response — keyed on
     the id we asked with, as ``citations_doi.dois_from`` is. THIS IS THE
     FUNCTION TO CHANGE if ``--check`` shows a different shape."""
     out = {}
@@ -655,6 +643,7 @@ def records_from(payload):
             "pmcid": (row.get("pmcid") or "").strip(),
             "open_access": str(row.get("isOpenAccess") or "").upper() == "Y",
             "title": (row.get("title") or "").strip(),
+            "abstract": (row.get("abstractText") or "").strip(),
         }
     return out
 
@@ -662,7 +651,7 @@ def records_from(payload):
 def search_records(pmids, email):
     query = "(" + " OR ".join(f"EXT_ID:{i}" for i in pmids) + ") AND SRC:MED"
     url = SEARCH_ENDPOINT + "?" + urlencode({"query": query, "format": "json",
-                                             "resultType": "lite", "pageSize": PAGE_SIZE})
+                                             "resultType": "core", "pageSize": PAGE_SIZE})
     return records_from(fetch_json(url, email))
 
 
@@ -732,8 +721,9 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
     """
     base_url = base_url or index.get("source") or "https://onlygoodantibodies.co.uk"
     left_out = {"preprint": [], "no_public_record": [], "not_in_europe_pmc": [],
-                "text_fetch_failed": []}
-    full_text = {"anchored": [], "no_open_access_full_text": [], "not_printed_in_text": []}
+                "text_fetch_failed": [], "identifier_not_printed": []}
+    where = {"abstract": [], "full_text": [], "no_open_access_full_text": [],
+             "open_access_not_printed": []}
     candidates = []
     for identifier, reagents in papers_with_reagents(artefact, index):
         if not reagents:
@@ -745,7 +735,9 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
     if limit:
         candidates = candidates[:limit]
 
-    unknown = [pmid for pmid, _ in candidates if pmid not in cache.records]
+    # A record cached before abstracts were kept is asked for again.
+    unknown = [pmid for pmid, _ in candidates
+               if "abstract" not in (cache.records.get(pmid) or {})]
     if unknown:
         say(f"Asking Europe PMC about {len(unknown):,} papers "
             f"({len(cache.records):,} already cached)...")
@@ -760,7 +752,8 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
         for pmid in batch:
             # A paper Europe PMC did not return at all is recorded as such, so
             # the next run does not ask again; there is nothing to anchor to.
-            cache.records[pmid] = found.get(pmid, {"pmcid": "", "open_access": False, "title": ""})
+            cache.records[pmid] = found.get(
+                pmid, {"pmcid": "", "open_access": False, "title": "", "abstract": ""})
         cache.save_records()
         sleep(delay)
 
@@ -770,54 +763,69 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
         if not record:
             left_out["text_fetch_failed"].append(pmid)
             continue
-        # Every paper: the attribution, on the title, on the abstract record.
-        paper_level = title_annotation(record.get("title"), reagents, base_url)
-        if paper_level is None:
+        if not (record.get("title") or record.get("abstract")):
             left_out["not_in_europe_pmc"].append(pmid)
             continue
-        rows.append(row_for("MED", pmid, provider, [paper_level]))
-        # Open-access full text: the printed identifiers as well, on the PMC
-        # record, which is the view a reader of the full text is on.
-        pmcid = record.get("pmcid")
-        if not (pmcid and record.get("open_access")):
-            full_text["no_open_access_full_text"].append(pmid)
-            continue
-        xml_text = cache.get_text(pmcid)
-        if xml_text is None:
-            try:
-                xml_text = fetch(pmcid, email)
-            except (HTTPError, URLError) as exc:
-                failures += 1
-                say(f"  {pmcid}: full text failed ({exc}); continuing")
-                left_out["text_fetch_failed"].append(pmid)
-                continue
-            cache.put_text(pmcid, xml_text)
-            sleep(delay)
-        try:
-            blocks = sections_from_jats(xml_text)
-        except ElementTree.ParseError:
-            left_out["text_fetch_failed"].append(pmid)
-            continue
-        anns, dropped = annotate(blocks, reagents, base_url)
+        annotated = False
+        # Every paper: the identifiers printed in the title or abstract, on
+        # the PubMed record, which is all Europe PMC shows without full text.
+        anns, dropped = annotate(abstract_blocks(record), reagents, base_url)
         contextless += dropped
-        if not anns:
-            full_text["not_printed_in_text"].append(pmid)
-            continue
-        full_text["anchored"].append(pmid)
-        rows.append(row_for("PMC", pmcid, provider, anns))
+        if anns:
+            rows.append(row_for("MED", pmid, provider, anns))
+            where["abstract"].append(pmid)
+            annotated = True
+        # Open-access full text: the identifiers printed anywhere in it, on
+        # the PMC record, which is the view a reader of the full text is on.
+        pmcid = record.get("pmcid")
+        if pmcid and record.get("open_access"):
+            xml_text = cache.get_text(pmcid)
+            if xml_text is None:
+                try:
+                    xml_text = fetch(pmcid, email)
+                except (HTTPError, URLError) as exc:
+                    failures += 1
+                    say(f"  {pmcid}: full text failed ({exc}); continuing")
+                    xml_text = None
+                else:
+                    cache.put_text(pmcid, xml_text)
+                    sleep(delay)
+            blocks = None
+            if xml_text is not None:
+                try:
+                    blocks = sections_from_jats(xml_text)
+                except ElementTree.ParseError:
+                    blocks = None
+            if blocks is None:
+                left_out["text_fetch_failed"].append(pmid)
+            else:
+                anns, dropped = annotate(blocks, reagents, base_url)
+                contextless += dropped
+                if anns:
+                    rows.append(row_for("PMC", pmcid, provider, anns))
+                    where["full_text"].append(pmid)
+                    annotated = True
+                else:
+                    where["open_access_not_printed"].append(pmid)
+        else:
+            where["no_open_access_full_text"].append(pmid)
+        if not annotated and pmid not in left_out["text_fetch_failed"]:
+            # CiteAb says the paper used it; nothing Europe PMC holds prints
+            # an identifier of it. Named-entity annotations need the characters.
+            left_out["identifier_not_printed"].append(pmid)
 
     busiest = max(((len(r["anns"]), r["id"]) for r in rows), default=(0, ""))
     report = {
         "papers_in_snapshot": len(artefact.get("by_pmid") or {}),
         "candidates": len(candidates),
-        "papers_annotated": sum(1 for r in rows if r["src"] == "MED"),
+        "papers_annotated": len(set(where["abstract"]) | set(where["full_text"])),
         "rows": len(rows),
         "annotations": sum(len(r["anns"]) for r in rows),
         # Named, because a total cannot show one paper carrying thousands: the
         # first run put 2,519 on one article and the total read as plausible.
         "most_annotated": {"id": busiest[1], "annotations": busiest[0]},
         "contextless_spans": contextless,
-        "full_text": full_text,
+        "where": where,
         "left_out": left_out,
         "failures": failures,
     }
@@ -828,14 +836,10 @@ def print_report(report, say=_say):
     say()
     say(f"  papers in the snapshot        {report['papers_in_snapshot']:>7,}")
     say(f"  with a public OGA record      {report['candidates']:>7,}  (PubMed ids only)")
-    say(f"  papers annotated on the title {report['papers_annotated']:>7,}  (src MED; every paper Europe PMC returned)")
-    full = report["full_text"]
-    say(f"  of which also in the text     {len(full['anchored']):>7,}  (src PMC; the printed identifiers)")
-    for reason, words_ in (("no_open_access_full_text", "no open-access full text, title only"),
-                           ("not_printed_in_text", "open access, but no identifier of the reagent printed — title only")):
-        ids = full[reason]
-        sample = ", ".join(ids[:5]) + (" …" if len(ids) > 5 else "")
-        say(f"    {len(ids):>7,}  {words_}" + (f"  [{sample}]" if ids else ""))
+    where = report["where"]
+    say(f"  papers annotated              {report['papers_annotated']:>7,}  (an identifier printed somewhere Europe PMC shows)")
+    say(f"    in the title or abstract    {len(where['abstract']):>7,}  (src MED)")
+    say(f"    in open-access full text    {len(where['full_text']):>7,}  (src PMC)")
     say(f"  rows                          {report['rows']:>7,}")
     say(f"  annotations                   {report['annotations']:>7,}")
     most = report.get("most_annotated") or {}
@@ -852,10 +856,17 @@ def print_report(report, say=_say):
         "no_public_record": "no antibody with a published OGA figure",
         "not_in_europe_pmc": "Europe PMC returned no record or no title for the PubMed id",
         "text_fetch_failed": "Europe PMC could not be asked, or the text could not be read — rerun",
+        "identifier_not_printed": ("CiteAb says the paper used it, but no identifier is printed in "
+                                   "any text Europe PMC holds — a named entity needs the characters"),
     }
     for reason, ids in report["left_out"].items():
         sample = ", ".join(ids[:5]) + (" …" if len(ids) > 5 else "")
         say(f"    {len(ids):>7,}  {words[reason]}" + (f"  [{sample}]" if ids else ""))
+        if reason == "identifier_not_printed" and ids:
+            no_full = len(set(ids) & set(where["no_open_access_full_text"]))
+            say(f"             of which {no_full:,} have no open-access full text, so only their "
+                f"title and abstract could be read; {len(ids) - no_full:,} are open access "
+                f"and still print none")
     if report["failures"]:
         say(f"  {report['failures']} request(s) failed; rerun to retry them")
 
@@ -1050,13 +1061,13 @@ def check(artefact, index, email, say=_say):
         say(f"\nNo record came back keyed on {pmid}. Compare against records_from().")
         return False
     base_url = index.get("source") or "https://onlygoodantibodies.co.uk"
-    paper_level = title_annotation(record.get("title"), reagents, base_url)
-    if paper_level is None:
-        say("\nThe record carries no title, so there is nothing to put the paper-level "
-            "annotation on. Compare against records_from().")
-        return False
-    say("\nThe paper-level row (every paper gets one):")
-    say(json.dumps(row_for("MED", pmid, "<provider>", [paper_level]), indent=2, ensure_ascii=False))
+    anns, dropped = annotate(abstract_blocks(record), reagents, base_url)
+    if anns:
+        say("\nThe PubMed-record row (identifiers printed in the title or abstract):")
+        say(json.dumps(row_for("MED", pmid, "<provider>", anns), indent=2, ensure_ascii=False))
+    else:
+        say("\nNo identifier of the reagent is printed in the title or abstract, so no "
+            "row on the PubMed record; that is the usual case.")
     if not (record["pmcid"] and record["open_access"]):
         say("\nThat paper has no open-access full text, so no in-text spans; the "
             "shape parsed. Run with --limit 20 to see a paper that has.")
@@ -1066,7 +1077,7 @@ def check(artefact, index, email, say=_say):
     say(f"\n{record['pmcid']}: {len(blocks)} blocks, sections "
         f"{sorted(set(s for s, _ in blocks))}")
     anns, dropped = annotate(blocks, reagents, base_url)
-    say("\nThe full-text row (open-access papers get this as well):")
+    say("\nThe PMC-record row (identifiers printed in the open-access full text):")
     say(json.dumps(row_for("PMC", record["pmcid"], "<provider>", anns), indent=2, ensure_ascii=False)[:6000])
     if dropped:
         say(f"\n{dropped} span(s) not annotated: an identifier alone in its sentence.")

@@ -41,6 +41,7 @@ from pipeline.models import (Antibody, CellLine, Company, ExperimentSession,
 from pipeline.services import cell_lines as cell_line_svc
 from pipeline.services import targets as target_svc
 from pipeline.services.cropper import db as cdb
+from core import recommendations as R
 
 # A parental line that really is on file, named in a refusal so the example
 # is one of this lab's own rows.
@@ -69,7 +70,8 @@ CELL_LINE_IDENTITY = ("name", "gene", "genotype", "clone", "parent", "company")
 
 def _result_count(antibody) -> int:
     total = 0
-    for rel in ("wb_results", "ip_results", "if_results", "fc_results"):
+    for rel in ("wb_results", "ip_results", "if_results", "fc_results",
+                "ihc_results"):
         manager = getattr(antibody, rel, None)
         if manager is not None:
             total += manager.count()
@@ -82,8 +84,9 @@ def attached_to_antibody(antibody) -> dict:
         "results": _result_count(antibody),
         "figures": PublicationImage.objects.using(DB)
                    .filter(antibody_id=antibody.pk).count(),
-        "recommended": any(getattr(antibody, f"{a}_recommended", False)
-                           for a in ("wb", "ip", "if", "fc")),
+        # Every OGA recommendation, IHC included — from the one list.
+        "recommended": any(getattr(antibody, f, False)
+                           for f in R.RECOMMENDATION_FIELDS),
     }
 
 
@@ -259,15 +262,16 @@ def change_cell_line_identity(line, data) -> CellLine:
     # point at (services/targets.py::NOT_APPLICABLE).
     if target_svc.is_not_applicable(gene):
         gene = ""
-    if genotype == "KO" and not gene:
-        raise Refused("A knockout line needs the gene that is knocked out — "
-                      "without it the line does not mean anything. If this is "
-                      "not a knockout, set the genotype to WT.")
+    if genotype in cell_line_svc.CONTROL_GENOTYPES and not gene:
+        word = cell_line_svc.control_word(genotype)
+        raise Refused(f"A {word} line needs the gene that is silenced — "
+                      f"without it the line does not mean anything. If this is "
+                      f"not a {word}, set the genotype to WT.")
     if genotype == "WT" and gene:
         raise Refused(
             "A wild-type parental line is recorded once, with no gene: one HAP1 "
             "WT serves every knockout made from it. Leave the gene blank, or set "
-            "the genotype to KO if this really is a knockout.")
+            "the genotype to KO (or KD for a knockdown) if this really is one.")
     target = _target_for(gene, allow_blank=True)
 
     parent_name = (data.get("parent") or "").strip()
@@ -289,7 +293,8 @@ def change_cell_line_identity(line, data) -> CellLine:
         # The same check the paste door and the backfill make, in the same
         # words — a rule enforced on one surface is a rule for one surface.
         wrong = cell_line_svc.wrong_background(
-            name, parent, gene=gene, site_id=line.site_id)
+            name, parent, gene=gene, site_id=line.site_id,
+            kind=cell_line_svc.control_word(genotype))
         if wrong:
             raise Refused(f"'{parent_name}' is {cell_line_svc.label(parent)}. {wrong}")
     # **Refused only where the edit would *remove* a parent, not where one was
@@ -306,8 +311,9 @@ def change_cell_line_identity(line, data) -> CellLine:
     # one surface built for changing a clone. That is CLAUDE.md's own rule
     # arriving backwards: a blank means "not written down", so it fills and
     # leaves; it does not veto the rest of the form.
-    if genotype == "KO" and parent is None and line.parent_line_id:
-        raise Refused("A knockout needs its parental line — a KO only means "
+    if genotype in cell_line_svc.CONTROL_GENOTYPES and parent is None and line.parent_line_id:
+        word = cell_line_svc.control_word(genotype)
+        raise Refused(f"A {word} needs its parental line — a {genotype} only means "
                       "something alongside the wild type it came from. Name the "
                       f"line it was made from ({_PARENT_EG}) or give its "
                       f"C-number (C-48).")

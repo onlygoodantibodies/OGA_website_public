@@ -430,7 +430,7 @@ def test_an_empty_ko_box_says_so_and_names_the_gene(lines):
     trpa1 = Target.objects.using(DB).create(gene_name="TRPA1", protein_name="TRPA1")
     try:
         opts = cell_lines.session_options(trpa1)
-        assert "No knockout line on file for TRPA1" in opts["ko_note"]
+        assert "No knockout or knockdown line on file for TRPA1" in opts["ko_note"]
         assert "cell lines board" in opts["ko_note"]
     finally:
         trpa1.delete()

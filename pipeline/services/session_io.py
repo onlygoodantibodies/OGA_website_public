@@ -58,7 +58,7 @@ COLUMN_TIPS = {
                  "readings typed on this line cannot be saved: add the antibody to the "
                  "session on the board first, then download this sheet again.",
     "gene": "The session's target. Read-only here.",
-    "procedure": "WB, IP, IF or FC. Read-only — the result columns depend on it.",
+    "procedure": "WB, IP, IF, FC or IHC. Read-only — the result columns depend on it.",
     "antibody": "The antibody this result is for. Read-only here.",
     "session_date": "The date the experiment was run (YYYY-MM-DD).",
     "session_experimenter": "Who ran it. Must match a member's name exactly.",
@@ -254,7 +254,7 @@ def plan(parsed: dict) -> dict:
     items, fills, conflicts, missing, dropped = [], 0, 0, 0, 0
     for record in parsed["rows"]:
         session = (ExperimentSession.objects.using(DB)
-                   .select_related("experimenter", "site", "cell_line_wt", "cell_line_ko")
+                   .select_related("experimenter__user", "site", "cell_line_wt", "cell_line_ko")
                    .filter(pk=record["session_id"]).first())
         if session is None:
             missing += 1

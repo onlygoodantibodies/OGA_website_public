@@ -607,19 +607,14 @@ class BoardScriptsParseTests(TestCase):
     # hundred lines of inline JavaScript that builds the whole field picker, and
     # it calls OGABoard for its download receipts, so it is a board surface
     # whatever its filename says.
-    # recommendations.html builds every card, every thumbnail and every inline
-    # handler in inline JS and does not use OGABoard at all, which is why it was
-    # not read as one of these — a stray brace there fails identically: 200, no
-    # cards, and nothing anywhere to say so.
     TEMPLATES = ("target_board.html", "antibody_board.html",
                  "cell_line_board.html", "session_board.html",
                  "target_detail.html", "_bench_workbook_upload.html",
                  "user_board.html", "cropper.html", "data_io.html",
-                 "recommendations.html", "review_queue.html",
-                 # outcomes.html is recommendations.html's shape exactly: every
-                 # card, every axis button and every redraw built in inline JS
-                 # with no OGABoard, so a stray brace gives 200, no cards, and
-                 # nothing anywhere to say so.
+                 "review_queue.html",
+                 # outcomes.html builds every card, every axis button and every
+                 # redraw in inline JS with no OGABoard, so a stray brace gives
+                 # 200, no cards, and nothing anywhere to say so.
                  "outcomes.html")
 
     def _inline_scripts(self, name):
@@ -6023,11 +6018,43 @@ class TheSignInPageDoesNotAdvertiseADeadRouteTests(TestCase):
         self.assertNotIn('value="None"', page,
                          "the sign-in form posts the string None as its redirect")
 
-        signed_in = self.client.post("/academy/login/",
+        signed_in = self.client.post(_form_action(page),
                                      {"login": "reader", "password": "pw12345"},
                                      follow=True)
         self.assertEqual(signed_in.status_code, 200)
         self.assertEqual(signed_in.redirect_chain[-1][0], "/academy/")
+
+    def test_a_wrong_pipeline_password_is_answered_on_the_pipeline_sign_in(self):
+        """A mistyped password must be refused on the page it was typed on.
+
+        The form posted to academy:login, which re-renders the Academy landing
+        page: a scientist signing in to the pipeline landed on the marketing
+        site, the error at the foot of a long page, and that page's form carries
+        no `next` — so the second, correct attempt signed them in to the
+        Academy. Posts wherever the form itself says, so a test cannot pass by
+        posting somewhere the page does not.
+        """
+        from django.contrib.auth import get_user_model
+
+        get_user_model().objects.create_user(username="reader", password="pw12345")
+        page = self.client.get(
+            "/accounts/login/", {"next": "/pipeline/start/"}).content.decode()
+        refused = self.client.post(
+            _form_action(page),
+            {"login": "reader", "password": "wrong", "next": "/pipeline/start/"})
+        body = refused.content.decode()
+        self.assertEqual(refused.status_code, 200)
+        self.assertIn("Sign in to the YCharOS Pipeline", body)
+        self.assertIn("alert-danger", body, "the refusal is not drawn")
+        self.assertIn('value="/pipeline/start/"', body,
+                      "the retry would lose the way back to the pipeline")
+
+
+def _form_action(page):
+    """The sign-in form's own action — what pressing Sign In posts to."""
+    import re
+
+    return re.search(r'<form method="post" action="([^"]+)"', page).group(1)
 
 
 class ThePortfolioSaysWhatEachTableCountsTests(TestCase):

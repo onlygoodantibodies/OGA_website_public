@@ -90,7 +90,11 @@ AMBIGUOUS = 16      # CiteAb's token maps to one of ours but does not say which
                     # preparation -- bare `IF` cannot tell ICC-IF from IHC-IF, and
                     # OGA's IF verdict is cultured cells only.
 UNTESTED_APP = 32   # the paper used it for something OGA does not test at all
-                    # (IHC above all, then ChIP, ELISA, PLA). The token is named
+                    # (IHC above all, then ChIP, ELISA, PLA). IHC stays here even
+                    # though OGA grades IHC on HAP1 cell pellets since 26 Sep
+                    # 2026: a paper's IHC is tissue, not pellets, and moving the
+                    # token would take the "used for IHC" sentence off every
+                    # extension install already in the field. The token is named
                     # on the record, because "used for IHC" is a usable sentence
                     # and "used for something we don't test" is not.
 

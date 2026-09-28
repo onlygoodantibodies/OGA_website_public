@@ -1,4 +1,4 @@
-"""Record an experiment session (WB/IP/IF/FC) + its per-antibody results.
+"""Record an experiment session (WB/IP/IF/FC/IHC) + its per-antibody results.
 
 This is the write-spine behind "explain my day at the bench in natural language
 and have it land in the pipeline": an LLM turns the narrative into a structured
@@ -14,7 +14,7 @@ writes.
 Payload shape (all name fields are resolved case-insensitively)::
 
     {
-      "procedure_type": "WB",              # WB | IP | IF | FC   (required)
+      "procedure_type": "WB",              # WB | IP | IF | FC | IHC   (required)
       "gene": "SNCA",                      # or "target_id": 12  (required)
       "date": "2026-01-15",                # required
       "experimenter": "sara",              # username; or "experimenter_id"; or the actor
@@ -38,22 +38,30 @@ from datetime import date as _date
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
+from pipeline import saved_by as saved_by_stamp
 from pipeline.models import (
     Antibody, CellLine, ExperimentSession, Member, Site, Target,
-    WbResult, IpResult, IfResult, FcResult,
+    WbResult, IpResult, IfResult, FcResult, IhcResult,
 )
 from pipeline.services import lab_numbers
+from pipeline.services.cell_lines import CONTROL
 from pipeline.services.targets import resolve_target
 
 DB = "pipeline_db"
 
-RESULT_MODEL_MAP = {"WB": WbResult, "IP": IpResult, "IF": IfResult, "FC": FcResult}
+# Five procedures. IHC joined the bench on 26 Sep 2026 (PLATFORM_ROADMAP #102)
+# with a result model but **no entry in APP_REC_FIELD**: its verdict is judged
+# by eye in Judge outcomes and the review queue, never written from a bench
+# payload, so a `selective` on an IHC result is refused by name in `_resolve`.
+RESULT_MODEL_MAP = {"WB": WbResult, "IP": IpResult, "IF": IfResult,
+                    "FC": FcResult, "IHC": IhcResult}
 APP_REC_FIELD = {"WB": "wb_recommended", "IP": "ip_recommended",
                  "IF": "if_recommended", "FC": "fc_recommended"}
 
 # Result fields we never accept from the payload (set by the system / relations).
 _RESULT_RESERVED = {"id", "session", "session_id", "antibody", "antibody_id",
-                    "access_id", "created_at", "updated_at"}
+                    "access_id", "created_at", "updated_at",
+                    *saved_by_stamp.FIELDS}
 
 
 def _result_field_names(procedure_type):
@@ -203,8 +211,11 @@ def _resolve(payload, member):
                                genotype="WT", site_id=site_pref)
     if e:
         errors.append(e)
+    # The second slot is the genetic control — a knockout or a knockdown —
+    # so it asks for either (`cell_lines.CONTROL`) and the resolver's label
+    # says which one it landed on.
     ko, e = _resolve_cell_line(payload.get("cell_line_ko"),
-                               genotype="KO", site_id=site_pref)
+                               genotype=CONTROL, site_id=site_pref)
     if e:
         errors.append(e)
 
@@ -236,6 +247,13 @@ def _resolve(payload, member):
         if unknown:
             errors.append(f"result[{i}] ({ab}): unknown {proc} fields {unknown}")
         selective = r.get("selective")
+        if isinstance(selective, bool) and proc not in APP_REC_FIELD:
+            errors.append(
+                f"result[{i}] ({ab}): 'selective' cannot be set from a {proc} "
+                f"session — its verdict is judged by eye on Judge outcomes or "
+                f"the review queue. Leave 'selective' out and record the "
+                f"readings only.")
+            selective = None
         results.append({"antibody": ab, "fields": fields, "selective": selective})
 
     resolved = {
@@ -255,8 +273,8 @@ def plan(payload, member=None) -> dict:
     resolved, errors = _resolve(payload, member)
     rec_changes = []
     for r in resolved.get("results", []):
-        if isinstance(r.get("selective"), bool):
-            field = APP_REC_FIELD[resolved["procedure_type"]]
+        field = APP_REC_FIELD.get(resolved["procedure_type"])
+        if field and isinstance(r.get("selective"), bool):
             ab = r["antibody"]
             if getattr(ab, field) != r["selective"]:
                 rec_changes.append({"antibody": str(ab), "field": field,
@@ -288,7 +306,7 @@ def apply(payload, member=None) -> dict:
 
     proc = resolved["procedure_type"]
     ResultModel = RESULT_MODEL_MAP[proc]
-    rec_field = APP_REC_FIELD[proc]
+    rec_field = APP_REC_FIELD.get(proc)
     created_results, rec_changes = [], []
 
     with transaction.atomic(using=DB):
@@ -324,7 +342,8 @@ def apply(payload, member=None) -> dict:
             row = ResultModel(session=session, antibody_id=ab.pk, **r["fields"])
             row.save(using=DB)
             created_results.append({"antibody": str(ab), "id": row.pk})
-            if isinstance(r.get("selective"), bool) and getattr(ab, rec_field) != r["selective"]:
+            if (rec_field and isinstance(r.get("selective"), bool)
+                    and getattr(ab, rec_field) != r["selective"]):
                 setattr(ab, rec_field, r["selective"])
                 ab.save(using=DB, update_fields=[rec_field])
                 rec_changes.append({"antibody": str(ab), "field": rec_field, "to": r["selective"]})

@@ -10,8 +10,8 @@
   two are read with none of that beside them — in a search result, in a link
   preview — and they must not move when a reader ticks a filter box.
   {% endcomment %}
-  <title>{{ gene_name }} antibody characterisation — knockout-controlled results for {{ published_total }} antibodies | Only Good Antibodies</title>
-  <meta name="description" content="Knockout-controlled characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  <title>{{ gene_name }} antibody characterisation — {{ control_phrase|lower }} results for {{ published_total }} antibodies | Only Good Antibodies</title>
+  <meta name="description" content="{{ control_phrase }} characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across {{ published_apps }}. Free to access via Only Good Antibodies (OGA).">
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
   {% comment %}
@@ -354,6 +354,22 @@ body {
    doing more work than that now: on this page it is the ONLY thing telling
    `Limited support` from `Not supportive`. */
 .experiment-caveat.supportive { color: #0b6b3a; font-weight: 600; }
+/* "knockdown control" under a figure whose legend names a knockdown. Same
+   box as the caveat, quieter: it qualifies the control, not the verdict. Only
+   drawn on a knockdown — the page heading already says knockout. */
+.experiment-control {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: #7a4a00;
+  max-width: 200px;
+  margin: 4px auto 0;
+  text-align: center;
+  font-style: italic;
+}
+/* The tissue link under an IHC result whose antibody is also in a
+   tissue figure on the gene's IHC page (owner, 26 Sep 2026). */
+.experiment-tissue { font-size: 0.72rem; text-align: center; margin: -6px auto 12px; }
+.experiment-tissue a { color: #10428a; font-weight: 600; }
 /* A caption UNDER the box, never inside it. `.experiment-box` is a fixed-height
    flex row, so a paragraph in there becomes a sibling column of the image: the
    blot is squeezed to half width and the sentence wraps to one word a line.
@@ -392,6 +408,8 @@ body {
 
 /* --- Click-to-zoom images --- */
 .experiment-box img.zoomable { cursor: zoom-in; }
+/* The example row's IHC cell has no example figure; it says it in words. */
+.experiment-example-text { margin: 0; padding: 10px; font-size: 13px; line-height: 1.4; color: #444; }
 
 .oga-lightbox {
   position: fixed;
@@ -486,6 +504,16 @@ body {
         </a>
         {% endif %}
 
+        {% comment %}The gene's tissue IHC — the most selective antibodies in
+        wild-type and knockout tissue, each legend as published — on a page of
+        its own; the HAP1 pellets are in the IHC column below. Drawn only when
+        that page exists (`services/ihc_figures.py::has_page`).{% endcomment %}
+        {% if ihc_page_url %}
+        <a href="{{ ihc_page_url }}" class="copy-btn ihc-page-link" style="text-decoration:none">
+           Tissue IHC →
+        </a>
+        {% endif %}
+
         {% if citation %}
         <div class="copy-citation-wrapper">
           <button id="copy-btn" class="copy-btn" title="{{ citation }}">
@@ -536,7 +564,7 @@ body {
   number is where a grammar slip costs most — it makes a careful reader distrust
   the number.
   {% endcomment %}
-  Knockout-controlled characterisation data for {{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:"y,ies" }} across WB, IP, ICC-IF and FC.{% if aliases %} Also known as: {{ aliases }}.{% endif %}
+  {{ control_phrase }} characterisation data for {{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:"y,ies" }}{% if drawn_apps %} across {{ drawn_apps }}{% endif %}.{% if aliases %} Also known as: {{ aliases }}.{% endif %}
 </p>
 
 {% comment %}
@@ -550,7 +578,7 @@ that could disagree.
 {% endcomment %}
 {% if hidden_discontinued %}
 <p class="oga-discontinued-note" role="status">
-  Not shown: {{ hidden_discontinued }} antibod{{ hidden_discontinued|pluralize:"y,ies" }} the supplier no longer sells. The knockout-controlled results still stand.
+  Not shown: {{ hidden_discontinued }} antibod{{ hidden_discontinued|pluralize:"y,ies" }} the supplier no longer sells. The {{ control_phrase|lower }} results still stand.
   {% comment %}
   Deliberately no tabindex/role: a <label> cannot be operated by Enter, so
   making it look focusable would be a keyboard dead end. The real tick box in
@@ -616,6 +644,7 @@ that could disagree.
           <option value="icc_if">ICC / IF</option>
           <option value="ip">Immunoprecipitation (IP)</option>
           <option value="fc">Flow Cytometry (FC)</option>
+          <option value="ihc">Immunohistochemistry (IHC)</option>
         </select>
       </div>
 
@@ -723,10 +752,7 @@ that could disagree.
                         <thead>
                             <tr>
                                 <th></th>
-                                <th class="header-label">WB</th>
-                                <th class="header-label">IP</th>
-                                <th class="header-label">ICC-IF</th>
-                                <th class="header-label">FC</th>
+                                {% for col in columns %}<th class="header-label">{{ col.label }}</th>{% endfor %}
                             </tr>
                         </thead>
                         <tbody>
@@ -736,10 +762,9 @@ that could disagree.
                                     <h3>High-performing Antibody</h3>
                                     <p>An example of a high-performing antibody.</p>
                                 </td>
-                                <td><div class="experiment-box"><img src="{% static 'core/WB-ideal.png' %}" alt="WB Image"></div></td>
-                                <td><div class="experiment-box"><img src="{% static 'core/Ideal-IP.png' %}" alt="IP Image"></div></td>
-                                <td><div class="experiment-box"><img src="{% static 'core/IF-Ideal.png' %}" alt="ICC-IF Image"></div></td>
-                                <td><div class="experiment-box"><img src="{% static 'core/FC-ideal.png' %}" alt="FC Image"></div></td>
+                                {% for col in columns %}
+                                <td><div class="experiment-box">{% if col.example_image %}<img src="{% static col.example_image %}" alt="{{ col.app }} Image">{% else %}<p class="experiment-example-text">{{ col.example_text }}</p>{% endif %}</div></td>
+                                {% endfor %}
                             </tr>
                         </tbody>
                     </table>
@@ -761,10 +786,7 @@ that could disagree.
                     <thead>
                         <tr>
                             <th></th>
-                            <th class="header-label">WB</th>
-                            <th class="header-label">IP</th>
-                            <th class="header-label">ICC-IF</th>
-                            <th class="header-label">FC</th>
+                            {% for col in columns %}<th class="header-label">{{ col.label }}</th>{% endfor %}
                         </tr>
                     </thead>
                     <tbody>
@@ -820,53 +842,23 @@ that could disagree.
 
 
 
-                            <!-- WB Experiment -->
+                            {% comment %}One cell per drawn column (`core/views.py::_gene_page_cells`) —
+                            the columns this gene has figures in, IHC included, so a gene nobody ran
+                            by flow has no column of "no data" down the page.{% endcomment %}
+                            {% for cell in antibody.cells %}
                             <td>
-                                <div class="experiment-box {{ antibody.states.WB }}{% if antibody.tabs.WB %} has-caveat{% endif %}" data-app="wb">
-                                    {% if antibody.experiments.WB %}
-                                        <img src="{{ antibody.experiments.WB }}" alt="WB Image" class="zoomable">
+                                <div class="experiment-box {{ cell.state }}{% if cell.tab %} has-caveat{% endif %}" data-app="{{ cell.filter_key }}">
+                                    {% if cell.image %}
+                                        <img src="{{ cell.image }}" alt="{{ cell.alt }}" class="zoomable">
                                     {% else %}
                                         <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
                                     {% endif %}
                                 </div>
-                                {% if antibody.caveats.WB %}<p class="experiment-caveat {{ antibody.states.WB }}">{{ antibody.caveats.WB }}</p>{% endif %}
+                                {% if cell.control == 'knockdown' %}<p class="experiment-control" title="The genetic control in this figure is a knockdown (siRNA/shRNA), not a knockout — the legend names the lines">knockdown control</p>{% endif %}
+                                {% if cell.caption %}<p class="experiment-caveat {{ cell.state }}">{{ cell.caption }}</p>{% endif %}
+                                {% if cell.tissue_url %}<p class="experiment-tissue"><a href="{{ cell.tissue_url }}">See tissue staining →</a></p>{% endif %}
                             </td>
-
-                            <!-- IP Experiment -->
-                            <td>
-                                <div class="experiment-box {{ antibody.states.IP }}{% if antibody.tabs.IP %} has-caveat{% endif %}" data-app="ip">
-                                    {% if antibody.experiments.IP %}
-                                        <img src="{{ antibody.experiments.IP }}" alt="IP Image" class="zoomable">
-                                    {% else %}
-                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
-                                    {% endif %}
-                                </div>
-                                {% if antibody.caveats.IP %}<p class="experiment-caveat {{ antibody.states.IP }}">{{ antibody.caveats.IP }}</p>{% endif %}
-                            </td>
-
-                            <!-- ICC-IF Experiment -->
-                            <td>
-                                <div class="experiment-box {{ antibody.states.ICC_IF }}{% if antibody.tabs.ICC_IF %} has-caveat{% endif %}" data-app="icc_if">
-                                    {% if antibody.experiments.ICC_IF %}
-                                        <img src="{{ antibody.experiments.ICC_IF }}" alt="ICC-IF Image" class="zoomable">
-                                    {% else %}
-                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
-                                    {% endif %}
-                                </div>
-                                {% if antibody.caveats.ICC_IF %}<p class="experiment-caveat {{ antibody.states.ICC_IF }}">{{ antibody.caveats.ICC_IF }}</p>{% endif %}
-                            </td>
-
-                            <!-- FC Experiment -->
-                            <td>
-                                <div class="experiment-box {{ antibody.states.FC }}{% if antibody.tabs.FC %} has-caveat{% endif %}" data-app="fc">
-                                    {% if antibody.experiments.FC %}
-                                        <img src="{{ antibody.experiments.FC }}" alt="FC Image" class="zoomable">
-                                    {% else %}
-                                        <img src="{% static 'core/Not_Available.png' %}" alt="No Data Available">
-                                    {% endif %}
-                                </div>
-                                {% if antibody.caveats.FC %}<p class="experiment-caveat {{ antibody.states.FC }}">{{ antibody.caveats.FC }}</p>{% endif %}
-                            </td>
+                            {% endfor %}
                         </tr>
                     </tbody>
                 </table>

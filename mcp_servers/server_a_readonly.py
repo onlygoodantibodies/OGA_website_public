@@ -158,8 +158,10 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
         NOT a request for this.
 
         Returns antibody hits grouped as recommended / not_recommended / not_tested
-        / not_in_dataset, each with its PER-APPLICATION verdict (WB/IP/IF/FC), RRID,
-        product link, report DOI and gene page URL.
+        / not_in_dataset, each with its PER-APPLICATION verdict (WB/IP/IF/FC, plus
+        IHC on HAP1 cell pellets in ``assessment``), RRID, product link, report DOI
+        and gene page URL. The grouping and ``applications`` use WB/IP/IF/FC only:
+        OGA's IHC is on cell pellets, never scored against a paper's tissue IHC.
 
         NEVER state or imply that an antibody or gene is absent from the dataset
         without calling this (or another OGA tool) first — memory is not evidence.
@@ -201,7 +203,9 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
         the dataset without calling a tool first; memory is not evidence.
 
         Each match is serialised exactly as the public data portal, plus:
-          * ``assessment``: per application (WB/IP/IF/FC), ``support`` is one of
+          * ``assessment``: per application (WB/IP/IF/FC/IHC — IHC is on FFPE
+            HAP1 cell pellets, NOT tissue, and its entry says so in ``sample``),
+            ``support`` is one of
             ``supportive``, ``limited_support`` (tested with KO controls, not
             supported overall, and the antibody was still seen to do what the
             application is for), ``not_supportive`` (tested, nothing on-target
@@ -288,9 +292,9 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
         """Within ONE gene, the antibodies at one support level for one application.
 
         ``gene`` is REQUIRED (this is a per-gene question, not a whole-database
-        list). ``application`` is one of WB, IP, IF (a.k.a. ICC-IF), FC —
-        results are per application, so never carry one application's result
-        over to another.
+        list). ``application`` is one of WB, IP, IF (a.k.a. ICC-IF), FC, IHC
+        (on HAP1 cell pellets, not tissue) — results are per application, so
+        never carry one application's result over to another.
 
         ``support`` is one of:
           * ``supportive`` — the characterisation data supports this application;

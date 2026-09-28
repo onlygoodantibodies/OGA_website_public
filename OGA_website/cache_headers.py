@@ -60,11 +60,21 @@ areas — and for those, saying "this does not vary by cookie" is the same claim
 the paragraph above already audited and accepted. `Accept-Encoding` stays: GZip
 needs it and Cloudflare honours it.
 
-**The freshness cost is stated, not hidden.** A gene page that gains a published
-figure can be up to `SHARED_MAX_AGE` out of date at the edge. An hour is the
-conservative starting point; raising it is the lever to pull if bandwidth is
-still high, and Cloudflare's *Purge Everything* is the escape hatch after a
-release that must be visible immediately.
+**The freshness cost is stated, not hidden — and since 18 Sep 2026 this module
+no longer sets it.** A gene page that gains a published figure used to be at
+most `SHARED_MAX_AGE` out of date at the edge. The `public html` Cloudflare
+Cache Rule now holds public pages for **7 days without revalidating**, set to
+keep nightly crawls off a four-thread origin, so it overrides the value below
+and `SHARED_MAX_AGE` governs only caches that do respect the origin. `MAX_AGE`
+still governs browsers and is unaffected.
+
+**What that leaves here is a header that no longer decides anything at the
+edge**, which is worth knowing before tuning it: raising `SHARED_MAX_AGE` to
+cut origin load would now change nothing, because the rule is already longer.
+The escape hatch after a release is `bin/cloudflare_purge.py`, run once the new
+instance is live — see the deploy chapter of CLAUDE.md, which also records that
+this docstring and that chapter have disagreed about Purge Everything since
+before the rule change, and that the disagreement is still open.
 """
 
 # Browsers. Short on purpose: a person who reloads a page because a number

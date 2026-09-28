@@ -204,14 +204,16 @@ def _apps_from(text: str):
     "Wb, IF" → ["WB", "IF"]. Abbreviations are matched as whole tokens so a clone
     id like "IPI-Slit1" never reads as "IP".
 
-    **IHC and ELISA are read here even though OGA does not test them.** This is
-    what the *supplier* says the antibody is for, and a supplier's datasheet
-    routinely claims more applications than the four OGA characterises. They
-    were not in this list, so a field test typing ``WB, IHC`` got WB stored and
-    IHC dropped without a word — and `Antibody.supplier_validated_ihc` has
-    existed as a column since the Access import, so nothing was gained by
-    losing it. The OGA verdict is still the four (`board_columns._APPS`); it is
-    a different question and stays a different list.
+    **IHC and ELISA are read here as the supplier's claim.** This is what the
+    *supplier* says the antibody is for, and a supplier's datasheet routinely
+    claims more applications than OGA characterises. They were not in this
+    list, so a field test typing ``WB, IHC`` got WB stored and IHC dropped
+    without a word — and `Antibody.supplier_validated_ihc` has existed as a
+    column since the Access import, so nothing was gained by losing it. OGA's
+    own verdict (five since IHC on HAP1 cell pellets, 26 Sep 2026 —
+    `review.RECOMMENDATION_FIELD`) is a different question and stays a
+    different list: a supplier's IHC claim is about tissue and is never read as
+    OGA's pellet result.
     """
     low = (text or "").lower()
     toks = set(re.findall(r"[a-z]+", low))

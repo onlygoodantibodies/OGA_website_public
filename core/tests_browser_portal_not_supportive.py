@@ -191,7 +191,7 @@ class NotSupportiveTabInARealBrowserTests(StaticLiveServerTestCase):
         card = '#notsupportive-content .ns-gene:first-of-type .ab-card'
         chips = self.page.query_selector_all(f'{card} .ns-chip')
         self.assertEqual([c.inner_text().split("\n")[0] for c in chips],
-                         ["WB", "IP", "ICC-IF", "FC"])
+                         ["WB", "IP", "ICC-IF", "FC", "IHC"])
         self.assertIn("Not tested", self.page.text_content(f'{card} .ns-chips'))
 
         # Every figure this antibody has is visible without touching anything.

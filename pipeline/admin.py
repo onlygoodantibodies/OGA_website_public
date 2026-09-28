@@ -16,7 +16,7 @@ from pipeline.models import (
     InventoryLocation,
     ManufacturerContact, ReagentRequestBatch, ReagentRequest, Shipment,
     ProtocolTemplate,
-    ExperimentSession, WbResult, IpResult, IfResult, FcResult,
+    ExperimentSession, WbResult, IpResult, IfResult, FcResult, IhcResult,
     FileAttachment,
 )
 
@@ -349,6 +349,14 @@ class FcResultInline(admin.TabularInline):
     raw_id_fields = ['antibody']
 
 
+class IhcResultInline(admin.TabularInline):
+    model = IhcResult
+    extra = 0
+    fields = ['antibody', 'specific_signal', 'staining_location',
+              'primary_ab_dilution', 'comments']
+    raw_id_fields = ['antibody']
+
+
 class FileAttachmentInline(admin.TabularInline):
     model = FileAttachment
     extra = 0
@@ -368,7 +376,8 @@ class ExperimentSessionAdmin(admin.ModelAdmin):
     ]
     raw_id_fields = ['target', 'experimenter', 'protocol_template', 'cell_line_wt', 'cell_line_ko']
     date_hierarchy = 'date'
-    inlines = [WbResultInline, IpResultInline, IfResultInline, FcResultInline, FileAttachmentInline]
+    inlines = [WbResultInline, IpResultInline, IfResultInline, FcResultInline,
+               IhcResultInline, FileAttachmentInline]
 
     def fc_sub_protocol_display(self, obj):
         """Only show FC sub-protocol for FC sessions."""
@@ -424,6 +433,17 @@ class FcResultAdmin(admin.ModelAdmin):
         'antibody__catalogue_number',
         'session__target__protein_name',
         'histogram_shift',
+    ]
+    raw_id_fields = ['session', 'antibody']
+
+
+@admin.register(IhcResult)
+class IhcResultAdmin(admin.ModelAdmin):
+    list_display = ['antibody', 'session', 'specific_signal', 'primary_ab_dilution']
+    search_fields = [
+        'antibody__catalogue_number',
+        'session__target__protein_name',
+        'specific_signal',
     ]
     raw_id_fields = ['session', 'antibody']
 

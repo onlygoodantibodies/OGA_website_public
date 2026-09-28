@@ -37,6 +37,8 @@ from __future__ import annotations
 
 from collections import Counter
 
+from pipeline import saved_by as saved_by_stamp
+
 DB = "pipeline_db"
 
 #: A field with more distinct values than this is not a vocabulary — it is free
@@ -94,7 +96,7 @@ def choices(model, field: str, **kw) -> dict:
 #: values they happen to have today. ``comments`` is prose — a datalist of
 #: whole sentences somebody else wrote is not a vocabulary, and offering one
 #: invites a person to file another run's note as their own.
-NEVER_SUGGEST = {"comments", "notes", "note"}
+NEVER_SUGGEST = {"comments", "notes", "note", *saved_by_stamp.FIELDS}
 
 
 def offerable(model, *, skip=(), **kw) -> dict:

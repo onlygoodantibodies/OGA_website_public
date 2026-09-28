@@ -160,7 +160,7 @@ class EveryRemainingPageStillRendersTests(TestCase):
             "/pipeline/targets/guide/", "/pipeline/antibodies/guide/",
             "/pipeline/cell-lines/guide/", "/pipeline/sessions/guide/",
             "/pipeline/targets/portfolio/", "/pipeline/feasibility/",
-            "/pipeline/data/", "/pipeline/recommendations/",
+            "/pipeline/data/", "/pipeline/outcomes/",
             "/pipeline/cropper/", "/pipeline/session/new/",
             f"/pipeline/target/{self.target.pk}/",
         ]

@@ -40,12 +40,18 @@ from django.db import transaction
 from pipeline.models import Company, Antibody
 
 CHILD_RELATIONS = ["wb_results", "ip_results", "if_results", "fc_results",
-                   "publication_images", "locations"]
+                   "ihc_results",
+                   "publication_images", "locations",
+                   # whole IHC figures — see services/duplicates.py
+                   "ihc_figure_links", "pending_ihc_figure_links"]
 SIMPLE_RELATIONS = [r for r in CHILD_RELATIONS if r != "publication_images"]
 
 NEVER_BACKFILL = {"id", "access_id", "created_at", "updated_at", "ab_number",
                   "company_id", "company"}
-OR_BOOL_FIELDS = {
+OR_BOOL_FIELDS = set(Antibody.RECOMMENDATION_FIELDS) | {
+    # Every OGA recommendation flag, from the model's own list so a sixth
+    # cannot be dropped by a merge (IHC joined on 26 Sep 2026) — unioned with
+    # the supplier's claims and the recombinant tick, never replaced by it.
     "wb_recommended", "ip_recommended", "if_recommended", "fc_recommended",
     "supplier_validated_wb", "supplier_validated_ip", "supplier_validated_if",
     "supplier_validated_ihc", "supplier_validated_elisa", "supplier_validated_fc",
@@ -199,6 +205,9 @@ class Command(BaseCommand):
                 with transaction.atomic(using="pipeline_db"):
                     if survivor.company_id != target_company:
                         survivor.company_id = target_company
+                    # One row per whole IHC figure per antibody.
+                    from pipeline.services.ihc_figures import merge_links
+                    merge_links(survivor, losers)
                     for rel in SIMPLE_RELATIONS:
                         for loser in losers:
                             getattr(loser, rel).update(antibody=survivor)

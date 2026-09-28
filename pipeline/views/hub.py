@@ -76,13 +76,12 @@ TASK_DEFS = [
     ("review", "Review queue",
      "Figures cropped and not yet on the website — check them, then release.",
      "pipeline:review_queue", "review"),
-    ("recommend", "Set recommendations", "Review a gene's figures and mark which antibodies are recommended.", "pipeline:recommendations", "recommend"),
-    # Added 28 Aug 2026. Sits beside Set recommendations because it is the same
-    # act at a finer grain — the two questions the single "recommended" bit
-    # flattens. Nothing public reads it yet; the boolean is still the verdict.
+    # Added 28 Aug 2026; since 25 Sep 2026 also the place every published
+    # figure's recommendation is set, and where a gene is withdrawn — Set
+    # recommendations retired into it.
     ("outcomes", "Judge outcomes",
-     "Detects the target, and selective for it — the two answers behind a "
-     "recommendation, judged from the figure.",
+     "Judge each published figure and set its recommendation — detects, "
+     "selective, and flow's background caveat — or withdraw a gene.",
      "pipeline:outcomes", "outcomes"),
     ("data_io", "Downloads & uploads", "Export the whole dataset, edit it, and upload the changes.", "pipeline:data_io", "io"),
     # Added 23 Aug 2026 with the public nomination form. It sits under "Across
@@ -119,7 +118,7 @@ PHASES = [
      "A gene's own page carries the same sessions with its bench sheets — search "
      "for the gene above to get there."),
     ("publish", "Publish what you found", "Crop the figures, review them, then release.",
-     ["publish", "review", "recommend", "outcomes"],
+     ["publish", "review", "outcomes"],
      "Cropping no longer publishes: the figures wait in the review queue until "
      "somebody releases them, which is the press that puts them on the public "
      "website. The gene's page generates a draft Data Note; a Zenodo deposit or "

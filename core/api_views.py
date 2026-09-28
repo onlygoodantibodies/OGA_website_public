@@ -58,12 +58,14 @@ from pipeline.models import (
 from .models import APIConsumer, ReviewedAntibody
 
 from . import api_throttle, api_usage
-from pipeline.public import (public_targets, published_antibodies,
+from pipeline.public import (control_word, is_verdict_application,
+                             public_targets, published_antibodies,
                              published_figures)
 # Clonality from the enum and `is_recombinant` together — see
 # pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
 
+from . import recommendations as R
 from .recommendations import (SCOPE_NOTE, curated_gene_ids,
                               recommendations_for, capability_axes,
                               describe_all as _describe_all,
@@ -316,9 +318,7 @@ def _target_has_recommendations(target):
     for a whole batch in one query, and the feeds use that.
     """
     return PipelineAntibody.objects.filter(target=target).filter(
-        Q(wb_recommended=True) | Q(ip_recommended=True)
-        | Q(if_recommended=True) | Q(fc_recommended=True)
-    ).exists()
+        R.any_recommendation_q()).exists()
 
 
 # ─────────────────────────────────────────────────────────
@@ -454,10 +454,19 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
     experiments = []
     tested_applications = set()
     for img in antibody.publication_images.all():
+        # The verdict applications only — all five since API 2.2.0 (IHC); a
+        # future figure-only application stays out until it has a verdict
+        # (`pipeline.public.published_figures`).
+        if not is_verdict_application(img.application_type):
+            continue
         tested_applications.add(img.application_type)
         experiments.append({
             'experiment_type': img.application_type,
             'experiment_type_display': img.get_application_type_display(),
+            # `knockout` or `knockdown` — what the figure's legend names as the
+            # genetic control. Additive (CLAUDE.md: nothing is ever removed);
+            # `null` on a figure released before the column existed.
+            'control': control_word(img.control_genotype) or None,
             # Derive from storage so it stays correct after the R2 flip:
             # local storage → '/media/…' (prefix BASE_URL); R2 → absolute URL already.
             'image_url': (
@@ -521,6 +530,8 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
             'ICC-IF': antibody.if_recommended,
             'IP': antibody.ip_recommended,
             'FC': antibody.fc_recommended,
+            # Since 2.2.0: immunohistochemistry on HAP1 cell pellets.
+            'IHC': antibody.ihc_recommended,
         }
         result['oga_recommendations'] = recommendations_for(
             antibody, tested_applications, bool(gene_rec_status))
@@ -556,6 +567,9 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
     else:
         embed_base = f'{BASE_URL}/embed/?catalogue={antibody.catalogue_number}'
 
+    # Four, not five: the embed card has no IHC view yet (owner, 26 Sep 2026),
+    # and `application=IHC` would silently draw the all-applications card.
+    # API.md says so.
     result['embed_urls'] = {
         'all': embed_base,
         'WB': f'{embed_base}&application=WB',
@@ -661,15 +675,13 @@ def antibodies_feed(request):
         'ICC-IF': 'if_recommended',
         'IP': 'ip_recommended',
         'FC': 'fc_recommended',
+        'IHC': 'ihc_recommended',
     }
     if app_filter and app_filter in app_field_map:
         qs = qs.filter(**{app_field_map[app_filter]: True})
 
     if recommended_only:
-        qs = qs.filter(
-            Q(wb_recommended=True) | Q(if_recommended=True)
-            | Q(ip_recommended=True) | Q(fc_recommended=True)
-        )
+        qs = qs.filter(R.any_recommendation_q())
 
     matched = qs.count()
 
@@ -855,8 +867,10 @@ def genes_feed(request):
         antibodies = [ab for ab in target.antibodies.all()
                       if ab.publication_images.all()]
         antibody_count = len(antibodies)
+        # Counted from the same figures `experiments[]` lists.
         experiment_count = sum(
-            len(ab.publication_images.all()) for ab in antibodies
+            1 for ab in antibodies for img in ab.publication_images.all()
+            if is_verdict_application(img.application_type)
         )
 
         f1000_link = _report_link_of(target)
@@ -872,16 +886,9 @@ def genes_feed(request):
 
         # Unconditional: these counts were withheld from anyone who was not a
         # manufacturer, and they are on the public gene pages already.
-        rec_summary = {'WB': 0, 'ICC-IF': 0, 'IP': 0, 'FC': 0}
-        for ab in antibodies:
-            if ab.wb_recommended:
-                rec_summary['WB'] += 1
-            if ab.if_recommended:
-                rec_summary['ICC-IF'] += 1
-            if ab.ip_recommended:
-                rec_summary['IP'] += 1
-            if ab.fc_recommended:
-                rec_summary['FC'] += 1
+        rec_summary = {
+            app: sum(1 for ab in antibodies if getattr(ab, R._FLAG[app]))
+            for app in R.APPLICATIONS}
         gene_data['recommendations_by_application'] = rec_summary
 
         results.append(gene_data)
@@ -974,7 +981,7 @@ def gene_detail(request):
             supplier_summary[supplier] = {'count': 0, 'recommended': 0}
         supplier_summary[supplier]['count'] += 1
         recs = serialised.get('recommendations', {})
-        if any(recs.get(app) for app in ['WB', 'ICC-IF', 'IP', 'FC']):
+        if any(recs.get(app) for app in R.APPLICATIONS):
             supplier_summary[supplier]['recommended'] += 1
 
     consumer_suppliers = []

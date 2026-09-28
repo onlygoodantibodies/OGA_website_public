@@ -37,14 +37,28 @@ unreadable one, or a subject nobody listed. Over-reporting our own exercising of
 the connector is the honest direction; filing a stranger's call as ours would
 delete real reach.
 
-**Point ``MCP_USAGE_URL`` at the ORIGIN, not the public hostname.** Live it is
-``https://oga-website.onrender.com/internal/mcp-usage/``. The public apex is
-proxied through Cloudflare with Bot Fight Mode on, and this posts from
-``urllib`` — so a report to ``onlygoodantibodies.co.uk`` is refused **403 at the
-edge**, never reaches Django, and appears in no origin log at all. Measured
-1 Sep 2026: every call logged ``report failed: HTTP Error 403`` while the site's
-access log had no such request in it. The origin address also keeps the shared
-token off the public edge and off a Cloudflare dashboard nothing in git can see.
+**Point ``MCP_USAGE_URL`` at Render's private network, not a public hostname.**
+Live it is ``http://oga-website:10000/internal/mcp-usage/`` — the website's
+internal name (its Render slug) and port. Neither public name will do:
+
+- The apex, ``onlygoodantibodies.co.uk``, is proxied through Cloudflare with Bot
+  Fight Mode on, and this posts from ``urllib`` — so a report there is refused
+  **403 at the edge**, never reaches Django, and appears in no origin log at all.
+  Measured 1 Sep 2026: every call logged ``report failed: HTTP Error 403`` while
+  the site's access log had no such request in it.
+- ``oga-website.onrender.com`` was the answer from 1 Sep until **27 Sep 2026**,
+  when the owner switched Render's public subdomain off so nothing could reach
+  the origin without passing Cloudflare. From that moment every report there
+  failed, and failed quietly, because a report is telemetry and is dropped.
+
+The private address never leaves Render: both services are on a paid plan in
+one region and workspace, which is what Render's private network needs. It
+is plain ``http`` because the private network carries no TLS, and that is the
+one ``http`` URL ``enabled`` accepts besides localhost — a **single-label**
+host, which only a private network's DNS can resolve, so a typo naming a public
+site over ``http`` still switches reporting off rather than sending the token in
+clear. The website must list the name in ``ALLOWED_HOSTS``, or Django refuses
+the report 400 before the view is reached.
 
 Off unless both ``MCP_USAGE_URL`` and ``MCP_USAGE_TOKEN`` are set — and off
 rather than insecure when that URL is not https, since a typo in an env var
@@ -59,6 +73,7 @@ import queue
 import sys
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 
 ENV_URL = "MCP_USAGE_URL"
@@ -93,17 +108,35 @@ _lock = threading.Lock()
 def enabled() -> bool:
     """Both halves set, and the URL one the token can safely be sent to.
 
-    A URL over plain http would put the shared token on the wire in clear on
-    every call, and a typo in an env var is exactly how that happens — so a
-    non-https URL switches reporting **off** rather than reporting insecurely.
-    Localhost is exempt: that is the local test of this file.
+    A URL over plain http to a public host would put the shared token on the
+    wire in clear on every call, and a typo in an env var is exactly how that
+    happens — so such a URL switches reporting **off** rather than reporting
+    insecurely. Two ``http`` hosts are exempt: localhost, which is the local
+    test of this file, and a single-label name such as ``oga-website``, which
+    resolves only on Render's private network and so never crosses the internet.
     """
     url = (os.environ.get(ENV_URL) or "").strip()
     if not url or not (os.environ.get(ENV_TOKEN) or "").strip():
         return False
-    return (url.startswith("https://")
-            or url.startswith("http://127.0.0.1")
-            or url.startswith("http://localhost"))
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme == "https":
+        return bool(parts.hostname)
+    if parts.scheme != "http" or not parts.hostname:
+        return False
+    return (parts.hostname in ("127.0.0.1", "localhost")
+            or _is_private_network_name(parts.hostname))
+
+
+def _is_private_network_name(host: str) -> bool:
+    """A bare service name — no dot, and not an IP address.
+
+    Render's private network names a service by its slug (``oga-website``), and
+    a name with no dot cannot be resolved by public DNS, so a URL that uses one
+    cannot send the token anywhere but this network. A dotted name is refused
+    even if it would resolve privately, because the rule has to be checkable
+    from the string alone.
+    """
+    return "." not in host and ":" not in host
 
 
 def internal_subjects() -> set:
@@ -197,15 +230,49 @@ def report(tool: str, client: str = "", internal: bool = False) -> None:
 def client_name(context) -> str:
     """The connecting client's own name, or ``""`` when it did not say.
 
+    **Two places a client names itself, and the hosted server can only read
+    one of them.** ``clientInfo`` arrives once, in the ``initialize`` request;
+    the hosted server runs ``stateless_http`` (see ``server_a_readonly``), so
+    every request gets a fresh session and the one that carries a tool call
+    has never seen an ``initialize`` — ``client_params`` is ``None`` and the
+    name is gone. From the day that went live, 573 of 609 external calls on
+    the impact page read *did not say*, including one researcher's 535-call
+    day through Claude. So a missing ``clientInfo`` falls back to the
+    ``User-Agent`` of the request carrying the call, which every HTTP client
+    sends on every request (``user_agent_name``).
+
     Every access here is defensive: the shape is the SDK's, a client may send
-    no ``clientInfo`` at all, and the whole point of this module is that it
-    cannot break the call it is measuring.
+    neither, and the whole point of this module is that it cannot break the
+    call it is measuring.
     """
     try:
         params = context.session.client_params
-        return (params.clientInfo.name or "").strip()
+        name = (params.clientInfo.name or "").strip()
+        if name:
+            return name
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return user_agent_name(
+            context.request_context.request.headers.get("user-agent"))
     except Exception:  # noqa: BLE001
         return ""
+
+
+def user_agent_name(header) -> str:
+    """The product name a ``User-Agent`` opens with — ``openai-mcp/1.0.0`` is
+    ``openai-mcp``. The version is dropped so one client is one row on the
+    impact page, not a row per release.
+
+    ``Mozilla/…`` answers ``""``: that token is every browser's and most
+    libraries' imitation of one, so it names nothing, and "did not say" is
+    the honest reading of it rather than a client called Mozilla.
+    """
+    token = (header or "").strip().split(" ", 1)[0]
+    name = token.split("/", 1)[0].strip()
+    if not name or name.lower() == "mozilla":
+        return ""
+    return name[:64]
 
 
 def instrument(mcp):

@@ -6,7 +6,7 @@ A specification is a promise about what the code does, and a hand-maintained one
 becomes a lie at the first commit nobody remembers to mirror into it. Everything
 here that is also a fact in the code is **read from the code**: the rate limits
 from ``api_throttle``, the recommendation values and their meanings from
-``recommendations``, the CSV column order from ``api_manifest``, the four
+``recommendations``, the CSV column order from ``api_manifest``, the five
 applications from ``recommendations.APPLICATIONS``. Change one of those and the published contract moves
 with it, in the same commit, without anybody remembering anything.
 
@@ -47,7 +47,16 @@ from .api_views import BASE_URL
 # were keyless, which is a population that cannot be told, surveyed, or checked
 # up on afterwards. The 2.0.0 note above rests on "nothing outside OGA held a
 # key"; that sentence is no longer true, so the licence it granted is spent.
-API_VERSION = '2.1.0'
+#
+# 2.2.0 on 26 Sep 2026: IHC — immunohistochemistry on HAP1 cell pellets, not
+# tissue — joins as a fifth application with OGA's verdict. New keys in
+# `oga_support`, `oga_display`, `oga_recommendations`, `oga_qualifiers` and
+# `recommendations`, and `IHC` as a new value of `experiment_type`, the
+# manifest's `application` and `?application=`. A new *enum value* is not as
+# invisible as a new key — a strictly generated client rejects one it has not
+# seen — which is why it is a version bump announced in API.md rather than a
+# silent widening. Nothing removed or renamed; `embed_urls` has no IHC key yet.
+API_VERSION = '2.2.0'
 
 _SERVER = f'{BASE_URL}/api/v1'
 
@@ -256,9 +265,21 @@ def _schemas():
             'type': 'object',
             'description': 'One published figure.',
             'properties': {
-                'experiment_type': {'type': 'string', 'enum': applications},
+                'experiment_type': {
+                    'type': 'string', 'enum': applications,
+                    'description': (
+                        '`IHC` since 2.2.0: immunohistochemistry on HAP1 cell '
+                        'pellets, not tissue.')},
                 'experiment_type_display': {'type': 'string',
                                             'example': 'Western Blot'},
+                'control': {
+                    'type': ['string', 'null'],
+                    'enum': ['knockout', 'knockdown', None],
+                    'description': 'The genetic control the figure\'s legend '
+                                   'names: a knockout line, or a knockdown '
+                                   '(siRNA/shRNA) of the gene. null on a figure '
+                                   'released before September 2026, which is '
+                                   'read as knockout on the gene page.'},
                 'image_url': {
                     'type': ['string', 'null'], 'format': 'uri',
                     'description': 'Public, permanent, no key required. Send a '
@@ -916,7 +937,7 @@ def _paths():
                     'One row per gene you have an antibody for — including '
                     'genes still being worked on, which is the case this '
                     'answers. Per gene: whether it has a public page, which of '
-                    'the four applications have published figures, which have '
+                    'the five applications have published figures, which have '
                     'figures of **yours** awaiting release, which sites have run '
                     'each procedure, and whether the report is published.\n\n'
                     'Every field is derived from records that exist rather than '

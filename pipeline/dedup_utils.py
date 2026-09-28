@@ -9,13 +9,20 @@ constraint, backfill blank survivor fields, then delete the losers.
 
 import re
 
+from pipeline import saved_by as saved_by_stamp
 from pipeline.models import Antibody
 
 CHILD_RELATIONS = ["wb_results", "ip_results", "if_results", "fc_results",
-                   "publication_images", "locations"]
+                   "ihc_results",
+                   "publication_images", "locations",
+                   # whole IHC figures — see services/duplicates.py
+                   "ihc_figure_links", "pending_ihc_figure_links"]
 SIMPLE_RELATIONS = [r for r in CHILD_RELATIONS if r != "publication_images"]
 
-OR_BOOL_FIELDS = {
+OR_BOOL_FIELDS = set(Antibody.RECOMMENDATION_FIELDS) | {
+    # Every OGA recommendation flag, from the model's own list so a sixth
+    # cannot be dropped by a merge (IHC joined on 26 Sep 2026) — unioned with
+    # the supplier's claims and the recombinant tick, never replaced by it.
     "wb_recommended", "ip_recommended", "if_recommended", "fc_recommended",
     "supplier_validated_wb", "supplier_validated_ip", "supplier_validated_if",
     "supplier_validated_ihc", "supplier_validated_elisa", "supplier_validated_fc",
@@ -24,7 +31,9 @@ OR_BOOL_FIELDS = {
 # company is set explicitly by callers; catalogue/lot are unique-key fields, so
 # backfilling a blank one from a loser can collide on the unique constraint.
 NEVER_BACKFILL = {"id", "access_id", "created_at", "updated_at", "ab_number",
-                  "company_id", "company", "catalogue_number", "lot_number"}
+                  "company_id", "company", "catalogue_number", "lot_number",
+                  # Who added the survivor is the survivor's own history.
+                  *saved_by_stamp.FIELDS}
 
 
 def normcat(s):
@@ -86,6 +95,9 @@ def apply_merge(survivor, losers, using, target_company_id=None):
     move_imgs, drop_imgs = plan_images(survivor, losers)
     backfill = plan_backfill(survivor, losers)
     moved = 0
+    # One row per whole IHC figure per antibody.
+    from pipeline.services.ihc_figures import merge_links
+    merge_links(survivor, losers)
     for rel in SIMPLE_RELATIONS:
         for l in losers:
             moved += getattr(l, rel).update(antibody=survivor)

@@ -15,6 +15,7 @@ from django.core.mail import send_mail, get_connection, EmailMessage
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
+from django.templatetags.static import static
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models import Count, F, Q
 from django.utils.http import urlencode
@@ -33,8 +34,11 @@ from pipeline.models import (
     PublicationImage, Report,
 )
 # One definition of "a gene the public site will show" — see pipeline/public.py.
-from pipeline.public import (headline_counts, public_targets,
-                             published_antibodies)
+from pipeline.public import (application_list,
+                             control_kinds as public_control_kinds,
+                             control_phrase, control_word,
+                             headline_counts, public_targets,
+                             published_antibodies, gene_page_figures)
 # What a vial's clonality is, from the enum and `is_recombinant` together —
 # neither column answers it alone. See pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
@@ -127,17 +131,27 @@ def _gene_jsonld(request, target, published_total, report_link):
     """
     aliases = [a.strip() for a in (target.aliases or '').split(',') if a.strip()]
 
+    # `control_phrase` rather than the word "knockout": a page whose figures
+    # were knockdown-controlled said knockout in its title, its description and
+    # its intro line, and the JSON-LD is the copy a search engine repeats.
+    kinds = public_control_kinds(target)
+    phrase = control_phrase(kinds)
+    # The applications this gene has figures in, not all five: "tested for
+    # flow cytometry" over a gene nobody ran by flow is the sentence a search
+    # engine repeats.
+    apps = gene_page_figures(target) or R.APPLICATIONS
+    techniques = [_APP_TECHNIQUE[app] for app in apps]
     doc = {
         '@context': 'https://schema.org',
         '@type': 'Dataset',
         'name': f'{target.gene_name} antibody characterisation — '
-                f'knockout-controlled results',
+                f'{phrase.lower()} results',
         'description': (
-            f'Knockout-controlled characterisation of '
+            f'{phrase} characterisation of '
             f'{published_total} commercially available {target.gene_name} '
-            f'antibodies, tested by YCharOS for western blot, '
-            f'immunoprecipitation, immunocytochemistry/immunofluorescence and '
-            f'flow cytometry under community consensus protocols. '
+            f'antibodies, tested by YCharOS for '
+            f'{application_list([t.lower() for t in techniques])} '
+            f'under community consensus protocols. '
             f'{R.SCOPE_NOTE}'),
         'url': request.build_absolute_uri(),
         'license': R.LICENCE_URL,
@@ -154,9 +168,10 @@ def _gene_jsonld(request, target, published_total, report_link):
         },
         'keywords': [target.gene_name] + aliases + [
             'antibody validation', 'antibody characterisation',
-            'knockout control', 'research reagent',
+        ] + [f'{control_word(k)} control' for k in sorted(kinds) or ['KO']] + [
+            'research reagent',
         ],
-        'measurementTechnique': [_APP_TECHNIQUE[app] for app in R.APPLICATIONS],
+        'measurementTechnique': techniques,
         # The value domain, once per variable and stated as the three values
         # rather than as three sentences — R.MEANINGS spells them out for a
         # person, and repeating that paragraph four times in one block is
@@ -187,30 +202,70 @@ def _gene_jsonld(request, target, published_total, report_link):
     return json.dumps(doc, ensure_ascii=False).replace('<', '\\u003c')
 
 
-# The four applications as the gene-page template spells them. `experiments` and
-# `recommended` are drawn in the same four cells, so they are keyed alike — a
+# The five applications as the gene-page template spells them. `experiments` and
+# `recommended` are drawn in the same cells, so they are keyed alike — a
 # green wash that had to be looked up under a different name than the image it
 # sits behind is how the two drift apart.
-_TEMPLATE_APP = {'WB': 'WB', 'IP': 'IP', 'ICC-IF': 'ICC_IF', 'FC': 'FC'}
+_TEMPLATE_APP = {'WB': 'WB', 'IP': 'IP', 'ICC-IF': 'ICC_IF', 'FC': 'FC',
+                 'IHC': 'IHC'}
 
-# The same four as the client-side application filter's `<option>` values.
-_FILTER_APP = {'WB': 'wb', 'IP': 'ip', 'ICC-IF': 'icc_if', 'FC': 'fc'}
+# The same five as the client-side application filter's `<option>` values.
+_FILTER_APP = {'WB': 'wb', 'IP': 'ip', 'ICC-IF': 'icc_if', 'FC': 'fc',
+               'IHC': 'ihc'}
 
 # What each is called in the "Recommended Applications:" line. These were in the
 # page's JavaScript; they are here now because the line is rendered on the
 # server, and R.APPLICATIONS decides the order — the order every OGA surface
 # prints them in, which this page was the odd one out on.
 _APP_LABEL = {'WB': 'Western Blot', 'IP': 'IP',
-              'ICC-IF': 'ICC / IF', 'FC': 'Flow Cytometry'}
+              'ICC-IF': 'ICC / IF', 'FC': 'Flow Cytometry', 'IHC': 'IHC'}
 
-# What the four applications are, spelled out for a machine reading the JSON-LD
+# What the five applications are, spelled out for a machine reading the JSON-LD
 # rather than for somebody who already knows the abbreviations.
 _APP_TECHNIQUE = {
     'WB': 'Western blot',
     'IP': 'Immunoprecipitation',
     'ICC-IF': 'Immunocytochemistry / immunofluorescence',
     'FC': 'Flow cytometry',
+    'IHC': 'Immunohistochemistry',
 }
+
+# The gene page's column headings, one per application.
+_COLUMN_LABEL = {'WB': 'WB', 'IP': 'IP', 'ICC-IF': 'ICC-IF', 'FC': 'FC',
+                 'IHC': 'IHC'}
+
+# What the example row shows in each column. IHC's (26 Sep 2026) is laid out
+# as the real crops are — WT, KO, then both cores at low power — with what each
+# panel is for written beside it, since the cores panel explained nothing on
+# its own. Drawn by `bin/draw_ihc_example.py`.
+_EXAMPLE_IMAGE = {'WB': 'core/WB-ideal.png', 'IP': 'core/Ideal-IP.png',
+                  'ICC-IF': 'core/IF-Ideal.png', 'FC': 'core/FC-ideal.png',
+                  'IHC': 'core/IHC-ideal.png'}
+# Words in place of a picture, for a column with no example figure.
+_EXAMPLE_TEXT = {}
+
+
+def _gene_page_cells(columns, experiments, states, tabs, captions, controls,
+                     tissue_url=''):
+    """One dict per drawn column, in order — what the template loops over.
+    ``tissue_url`` goes on the IHC cell only: the antibody's staining in
+    tissue, on the gene's IHC page, linked from under its HAP1 result."""
+    cells = []
+    for app in columns:
+        key = app.replace('-', '_')
+        image = experiments.get(key)
+        cells.append({
+            'app': app,
+            'alt': f'{app} Image',
+            'filter_key': _FILTER_APP.get(app, app.lower()),
+            'image': image,
+            'state': states.get(key, ''),
+            'tab': tabs.get(key, False),
+            'caption': captions.get(key, ''),
+            'control': controls.get(key, ''),
+            'tissue_url': tissue_url if app == 'IHC' else '',
+        })
+    return cells
 
 
 def _supplier_name(antibody):
@@ -223,9 +278,7 @@ def _supplier_name(antibody):
 def _target_has_recommendations(target):
     """True if any antibody for this target has any recommendation set."""
     return PipelineAntibody.objects.filter(target=target).filter(
-        Q(wb_recommended=True) | Q(ip_recommended=True)
-        | Q(if_recommended=True) | Q(fc_recommended=True)
-    ).exists()
+        R.any_recommendation_q()).exists()
 
 
 # ─────────────────────────────────────────────────────────
@@ -302,6 +355,45 @@ def robots_txt(request):
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
+# The icons a client asks for at the ROOT, whatever the page it came from said.
+#
+# Forty-five templates already carry `<link rel="icon">` and these requests
+# arrive regardless, because a root request does not read the page: iOS probes
+# the two apple-touch names when no `apple-touch-icon` link is present (none
+# is, anywhere), and link previewers and bots ask for /favicon.ico without
+# parsing any HTML first. Measured in the origin's access log, 19-20 Sep 2026:
+# every one a 404, several with the home page -- which does set an icon -- as
+# the referer.
+#
+# So this is answered at the root rather than by adding a tag to the chrome. A
+# template change cannot answer a request that never looked at a template, and
+# there are forty-five of them to keep in step if it could.
+ROOT_ICONS = {
+    'favicon.ico': 'core/up-logo.ico',
+    'apple-touch-icon.png': 'core/up-logo.png',
+    'apple-touch-icon-precomposed.png': 'core/up-logo.png',
+}
+
+
+def root_icon(request, name):
+    """Send a root icon request to the hashed static file that holds it.
+
+    **302, never 301.** The target carries a content hash, so its URL changes
+    whenever the image does. A permanent redirect would be cached by the
+    browser against the *old* hashed name and then 404 after the next deploy
+    that touches the file -- the stale-cache bug `OGA_website/storages.py`
+    exists to end, let back in through the front door.
+
+    The static URL is resolved per request rather than at import, so a process
+    that started before `collectstatic` ran cannot bake in the unhashed
+    fallback for its whole life.
+    """
+    try:
+        return HttpResponseRedirect(static(ROOT_ICONS[name]))
+    except KeyError:
+        raise Http404(f"No root icon called {name!r}.")
+
+
 def about(request):
     # The same reader the home page uses. This was a hand copy of the counting
     # expression, so the two hero numbers on About were a second implementation
@@ -319,6 +411,27 @@ def news_publications(request):
 
 def partners(request):
     return render(request, 'core/partners.html')
+
+
+def funder_page(request, slug):
+    """A curated funder page: the public genes that funder's programmes paid
+    for, with the reason on each row. The mapping lives in `core/funders.py`;
+    the genes come from `public_targets`, so nothing appears here before it
+    has a gene page to link to."""
+    from core import funders
+    from pipeline.public import control_noun
+
+    page = funders.PAGES.get(slug)
+    if page is None:
+        raise Http404("No such funder page")
+    rows = funders.rows_for(page)
+    return render(request, 'core/funder_page.html', {
+        'page': page,
+        'rows': rows,
+        'count': len(rows),
+        'antibody_total': sum(r.antibodies for r in rows),
+        'controls': control_noun(funders.control_kinds_for(page)),
+    })
 
 
 def contact(request):
@@ -691,6 +804,15 @@ def antibody_table(request, gene_name):
     # The capability behind each negative, for the whole page in one pass —
     # two queries per application, not two per antibody.
     gene_axes = R.capability_axes([ab.pk for ab in antibodies])
+    # The columns this gene has figures in — not all five, so a gene nobody
+    # ran by flow has no column of "no data" down the page.
+    columns = gene_page_figures(target) or R.APPLICATIONS
+    # Which antibodies are also stained in tissue on the gene's IHC page — the
+    # link under their HAP1 result. Only released figures ticked as tissue.
+    from pipeline.services.ihc_figures import tissue_anchors as _tissue_anchors
+    tissue_anchors = _tissue_anchors(target) if 'IHC' in columns else {}
+    ihc_page_path = (reverse('antibody_ihc', kwargs={'gene_name': target.gene_name})
+                     if tissue_anchors else '')
 
     antibody_data = []
     for ab in antibodies:
@@ -699,11 +821,18 @@ def antibody_table(request, gene_name):
         for img in ab.publication_images.all():
             pub_images[img.application_type] = img
 
-        experiments = {"WB": None, "IP": None, "ICC_IF": None, "FC": None}
+        experiments = {"WB": None, "IP": None, "ICC_IF": None, "FC": None,
+                       "IHC": None}
+        # Which kind of control each figure shows, keyed as `experiments` is.
+        # Only a knockdown is drawn (a small mark under the figure): the page's
+        # own heading says knockout, so marking every knockout would say it
+        # twice, and a blank is a figure that predates the column.
+        controls = {"WB": "", "IP": "", "ICC_IF": "", "FC": "", "IHC": ""}
         for app_type, img in pub_images.items():
             key = app_type.replace("-", "_")
             if img.image:
                 experiments[key] = img.image.url
+            controls[key] = control_word(img.control_genotype)
 
         description = {
             "rrid": ab.rrid or None,
@@ -755,8 +884,14 @@ def antibody_table(request, gene_name):
             "id": ab.id,
             "name": ab.catalogue_number,
             "experiments": experiments,
+            "controls": controls,
+            # The drawn columns, in order, each with everything its cell needs.
+            "cells": _gene_page_cells(
+                columns, experiments, states, tabs, captions, controls,
+                tissue_url=(f"{ihc_page_path}#{tissue_anchors[ab.pk]}"
+                            if ab.pk in tissue_anchors else '')),
             "description": description,
-            # Drawn in the four experiment cells, keyed as `experiments` is.
+            # Drawn in the experiment cells, keyed as `experiments` is.
             "recommended": recommended,
             # Same keys again: the colour family (which carries the qualifier
             # on a negative), the yellow tab (which carries it on a supportive
@@ -836,9 +971,26 @@ def antibody_table(request, gene_name):
     # and summed across the 159 genes it is exactly that headline.
     published_total = published_antibodies().filter(target=target).count()
 
+    # Which applications to name "across", for the same two readers: the gene's
+    # own for the meta description, the drawn rows' for the intro line under
+    # the filters. Never the four regardless — a heading naming an application
+    # no figure on the page shows is contradicted by the table beneath it.
+    published_apps = application_list(gene_page_figures(target))
+    drawn_apps = application_list(gene_page_figures(
+        antibody_ids=[row["id"] for row in antibody_data]))
+
+    # The IHC page, when there is one — asked of the reader the page itself
+    # uses, so the link is drawn only where it will not 404, and drawn in the
+    # banner rather than the IHC column: a gene whose only IHC material is a
+    # whole figure (a tissue figure nobody cropped) has no IHC column at all.
+    from pipeline.services.ihc_figures import has_page as has_ihc_page
+    ihc_page_url = (reverse('antibody_ihc', kwargs={'gene_name': target.gene_name})
+                    if has_ihc_page(target) else '')
+
     return render(request, "core/antibody_table.html", {
         # Individual context vars replace the old gene model object
         "gene_name": target.gene_name,
+        "ihc_page_url": ihc_page_url,
         "report_link": report_link,
         "report_label": report_label,
         # schema.org Dataset, in the <head> — see _gene_jsonld above.
@@ -851,8 +1003,23 @@ def antibody_table(request, gene_name):
         "citation": target.citation,
         "aliases": target.aliases,
         "cell_line_link": target.cell_line_link,
+        # "Knockout-controlled" / "Knockdown-controlled" / both — one writer
+        # for the title, the meta description and the intro line
+        # (`pipeline/public.py::control_phrase`).
+        "control_phrase": control_phrase(public_control_kinds(target)),
         # Data
         "antibody_data": antibody_data,
+        # The per-application facts under the table (`R.APPLICATION_FACT`),
+        # for the columns drawn only: "results are on HAP1 cell pellets" on a
+        # gene with no IHC column names an application the page does not show.
+        # Overrides the context processor's list of every application.
+        "application_facts": [R.APPLICATION_FACT[app] for app in columns
+                              if app in R.APPLICATION_FACT],
+        # The columns drawn, with their example cell (the "Example" row).
+        "columns": [{"app": app, "label": _COLUMN_LABEL[app],
+                     "example_image": _EXAMPLE_IMAGE.get(app, ''),
+                     "example_text": _EXAMPLE_TEXT.get(app, '')}
+                    for app in columns],
         # From `core/recommendations.py`, not spelled in the template: this
         # heading and the captions in the cells under it are the same claim, and
         # two copies on one screen is the drift that module exists to stop.
@@ -862,6 +1029,8 @@ def antibody_table(request, gene_name):
         # the line stating how many are hidden sits directly under it.
         "antibody_count": len(antibody_data),
         "published_total": published_total,
+        "published_apps": published_apps,
+        "drawn_apps": drawn_apps,
         # ?ab= focus — the id to highlight, and what to call it in the chip.
         "focus_id": focus["id"] if focus else None,
         "focus_label": (focus["catalogue"] or focus["rrid"]) if focus else "",
@@ -878,6 +1047,103 @@ def antibody_table(request, gene_name):
         "show_discontinued": show_discontinued,
         "hidden_discontinued": hidden_discontinued,
         "shown_discontinued": shown_discontinued,
+    })
+
+
+# ─────────────────────────────────────────────────────────
+# A GENE'S IHC PAGE — the report's whole IHC figures
+# ─────────────────────────────────────────────────────────
+
+def antibody_ihc(request, gene_name):
+    """The report's whole IHC figures for one gene, with each legend as
+    published and a table of the antibodies each figure shows.
+
+    404 unless the gene has a public page **and** released whole figures
+    (`services/ihc_figures.py::page_figures`): the IHC page never outlives the
+    gene page, and a gene whose only material is a whole figure is not public.
+    Never in the API, the manifest, the archive, the extension or the MCP —
+    this view is the only reader.
+    """
+    from pipeline.services import doi as doi_svc
+    from pipeline.services import ihc_figures as ihc_svc
+
+    target = get_object_or_404(public_targets(), gene_name=gene_name)
+    figures = ihc_svc.page_figures(target)
+    if not figures:
+        raise Http404('No IHC figures for this gene')
+
+    report_link, report_label = _get_report_link(target)
+    gene_is_curated = _target_has_recommendations(target)
+    all_abs = {}
+    for fig in figures:
+        for link in fig.antibody_links.all():
+            all_abs.setdefault(link.antibody_id, link.antibody)
+    axes = R.capability_axes(list(all_abs), ('IHC',))
+    # A catalogue links to the gene page's row only when that row exists —
+    # an antibody with no published figure (an IVD reagent shown only in the
+    # whole figure) has no row to land on.
+    on_gene_page = set(published_antibodies().filter(target=target)
+                       .values_list('pk', flat=True))
+
+    drawn = []
+    for fig in figures:
+        rows = []
+        for link in fig.antibody_links.all():
+            ab = link.antibody
+            tested = {img.application_type for img in ab.publication_images.all()}
+            verdict = R.describe(ab, 'IHC', tested, gene_is_curated,
+                                 axes.get((ab.pk, 'IHC')))
+            rows.append({
+                'catalogue': ab.catalogue_number,
+                'gene_page_url': (
+                    reverse('antibody_table', kwargs={'gene_name': target.gene_name})
+                    + '?' + urlencode({'ab': ab.catalogue_number})
+                    if ab.pk in on_gene_page and ab.catalogue_number else ''),
+                'supplier': _supplier_name(ab) or '',
+                'host': ab.host_species or '',
+                'clonality': clonality_svc.label(ab),
+                'rrid': ab.rrid or '',
+                'rrid_link': ab.rrid_link or '',
+                # The supplier's claim, as plain text — never a verdict colour.
+                'supplier_ihc': bool(ab.supplier_validated_ihc),
+                # OGA's own result, on HAP1 pellets, from the one reader.
+                'oga_result': verdict['sentence'],
+                'oga_tone': verdict['tone'],
+                'discontinued': bool(ab.out_of_market),
+            })
+        own_source = doi_svc.link(fig.source)
+        drawn.append({
+            'label': fig.label,
+            'slug': fig.slug,
+            'legend': fig.legend,
+            'image_url': fig.image.url if fig.image else '',
+            'width': fig.width or None,
+            'height': fig.height or None,
+            'scale': fig.scale,
+            'samples': ihc_svc.describe_samples(fig.samples),
+            'controls': ihc_svc.describe_controls(fig.controls),
+            'source_url': own_source or report_link or '',
+            'source_label': (doi_svc.display(fig.source) if own_source
+                             else (report_label if report_link else '')),
+            'source_is_own': bool(own_source),
+            'antibodies': rows,
+        })
+
+    # The meta count and the tables are one list: distinct antibodies over the
+    # figures this page draws.
+    antibody_count = len(all_abs)
+    return render(request, 'core/antibody_ihc.html', {
+        'gene_name': target.gene_name,
+        'figures': drawn,
+        'antibody_count': antibody_count,
+        'meta_description': ihc_svc.meta_description(
+            target.gene_name, figures, antibody_count),
+        'reading_notes': ihc_svc.reading_notes(figures),
+        'report_link': report_link,
+        'report_label': report_label,
+        'licence_name': R.LICENCE_NAME,
+        'licence_url': R.LICENCE_URL,
+        'canonical_url': request.build_absolute_uri(request.path),
     })
 
 
@@ -910,6 +1176,8 @@ def gene_recommendations(request, gene_name):
     antibodies = target.antibodies.all().filter(publication_images__isnull=False).distinct()
     recommendations = {}
 
+    # Four keys, deliberately: a retired endpoint's shape is frozen, and IHC
+    # (26 Sep 2026) is on the gene page and the API instead.
     for ab in antibodies:
         recommendations[str(ab.id)] = {
             'wb': ab.wb_recommended,
@@ -1173,6 +1441,25 @@ CONFUSION_SCREENSHOT_ALT = (
 
 HERO_SCREENSHOT = '03_not_supportive_A7131.webp'
 
+#: The install walkthrough on YouTube (unlisted, uploaded 19 Sep 2026). One
+#: copy of the id, because a re-cut is a NEW upload with a new id — the owner
+#: plans one ending on the PMC example — and the page, the plain link under
+#: the player and the test all read this. Empty id, no player: the block is
+#: not drawn at all rather than framing a video that does not exist.
+#:
+#: Embedded from `youtube-nocookie.com` (YouTube's privacy-enhanced mode), so
+#: the player loads but YouTube sets no cookie until somebody presses play —
+#: the privacy policy's Cookies section says so, and this is the constant that
+#: makes it true. `rel=0` keeps other channels' videos off the end card.
+EXTENSION_VIDEO = {
+    'id': 'sgw6mZND_2A',
+    'title': 'How to install the Only Good Antibodies browser extension',
+    # What the cut covers, so the caption cannot promise a section it lacks:
+    # this one ends after the Europe PMC demo.
+    'note': ('Installing it in Chrome and Firefox, the settings worth turning '
+             'on, and what it draws on a paper on Europe PMC.'),
+}
+
 #: Falls back to the full capture when the crop is not deployed: a hero drawn
 #: from the uncropped file is small, not broken.
 HERO_SCREENSHOT_CROP = '03_not_supportive_A7131_top.webp'
@@ -1392,6 +1679,7 @@ def _extension_page(request, is_public):
         'confusion_totals': target_confusions.public_totals(),
         'consensus_protocol_url': CONSENSUS_PROTOCOL_URL,
         'confusion_shot': confusion_shot,
+        'video': EXTENSION_VIDEO if EXTENSION_VIDEO.get('id') else None,
         'citation_papers': citation_papers,
         'citeab_data_through': (snapshot.get('source') or {}).get(
             'citeab_data_through', ''),
@@ -1651,6 +1939,10 @@ def embed_antibody_card(request):
     for img in antibody.publication_images.all():
         pub_images[img.application_type] = img
 
+    # The four, not IHC (owner, 26 Sep 2026): the embed card and the API's
+    # `embed_urls` gain IHC together, later. An `application=IHC` falls through
+    # to the all-applications card, which is why the portal draws no IHC embed
+    # button.
     app_types = [('WB', 'WB'), ('IP', 'IP'), ('ICC-IF', 'ICC-IF'), ('FC', 'FC')]
     valid_apps = {'WB', 'IP', 'ICC-IF', 'FC'}
     if application and application in valid_apps:

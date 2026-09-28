@@ -85,6 +85,7 @@ def session_board(request):
         # dropped — see templates/pipeline/_unknown_site_option.html.
         "site_pks": [str(s.pk) for s in opts["sites"]],
         "experimenters": opts["experimenters"],
+        "experimenter_groups": member_svc.experimenter_groups(),
         "procedures": opts["procedures"],
         "statuses": opts["statuses"],
         "tips": {col: sio.COLUMN_TIPS.get(key, "")
@@ -102,7 +103,8 @@ def session_board(request):
         # session gets controlled against another site's line.
         "cell_choices": board.cell_choices(site_id=site_id),
         "wt_options": cell_line_svc.picker_options(genotype="WT", site_id=site_id),
-        "ko_options": cell_line_svc.picker_options(genotype="KO", site_id=site_id),
+        "ko_options": cell_line_svc.picker_options(genotype=cell_line_svc.CONTROL,
+                                                   site_id=site_id),
     })
 
 
@@ -215,7 +217,7 @@ def _set_session_field(session, field, value):
         # sorted first — so a wild type set to another institution's knockout
         # could not be corrected here at all: one spelling errored, the other
         # silently changed nothing.
-        want = "WT" if field == "cell_line_wt" else "KO"
+        want = "WT" if field == "cell_line_wt" else cell_line_svc.CONTROL
         line, err = cell_line_svc.resolve(value, genotype=want,
                                           site_id=session.site_id)
         if value and line is None:
@@ -308,9 +310,9 @@ def session_board_patch(request):
     if fresh is None:
         return JsonResponse({"ok": True, "matches": False, "row": None})
     counts = board.result_counts([fresh.pk])
-    readings = board.reading_counts([fresh.pk])
+    readings, savers = board.readings_and_savers([fresh.pk])
     return JsonResponse({"ok": True, "matches": True,
-                         "row": board.row_for(fresh, counts, readings)})
+                         "row": board.row_for(fresh, counts, readings, savers)})
 
 
 # ---------------------------------------------------------------------------

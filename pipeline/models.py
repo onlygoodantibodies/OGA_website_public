@@ -30,6 +30,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 
 from pipeline.storages import attachment_storage
+# Who added and who last saved a row, stamped at the save — see saved_by.py.
+from pipeline.saved_by import SavedBy
 # Stdlib-only, no Django and no import back into models — see the module
 # docstring. It owns `received_precision`'s choices so the column and its
 # one reader cannot drift apart.
@@ -90,7 +92,21 @@ class Member(models.Model):
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.display_name or self.user.get_full_name()
+        if self.display_name:
+            return self.display_name
+        # Not `self.user`: the router sends every `auth.User` read to academy_db,
+        # so the descriptor fetched the *login* whose pk equals this pipeline
+        # user's pk — somebody else, when the two tables' numbering differs.
+        # The pipeline's own row is the one this FK names.
+        from django.contrib.auth import get_user_model
+        if Member.user.is_cached(self):
+            u = self.user
+        else:
+            u = (get_user_model().objects.using(self._state.db or 'pipeline_db')
+                 .filter(pk=self.user_id).first())
+        if u is None:
+            return ""
+        return u.get_full_name() or u.username
 
 
 class GrantingAgency(models.Model):
@@ -391,6 +407,7 @@ class TargetAssignment(models.Model):
         IP = 'IP', 'Immunoprecipitation'
         IF = 'IF', 'Immunofluorescence'
         FC = 'FC', 'Flow Cytometry'
+        IHC = 'IHC', 'Immunohistochemistry'
         KO_GENERATION = 'KO', 'KO Cell Line Generation'
 
     class AssignmentStatus(models.TextChoices):
@@ -539,7 +556,7 @@ class TargetClassification(models.Model):
         return f"{self.target} — {self.label} ({self.get_source_display()})"
 
 
-class CellLine(models.Model):
+class CellLine(SavedBy):
     """
     Cell line inventory with WT/KO pairing.
     Access source: CellLines table (744 rows).
@@ -550,6 +567,14 @@ class CellLine(models.Model):
     class Genotype(models.TextChoices):
         WILD_TYPE = 'WT', 'Wild Type'
         KNOCKOUT = 'KO', 'Knockout'
+        # A knockdown is a wild-type background with the gene's transcript
+        # suppressed — siRNA, shRNA, CRISPRi — rather than removed. It is its
+        # own row because a session and a figure point at a cell line, and the
+        # Access database recorded 115 knockdown blots as a tick on the blot
+        # with the lane pointing at the plain WT, so nothing downstream could
+        # tell a knockdown result from a knockout one. `services/cell_lines.py`
+        # is the one reader for "is this line a control" (CONTROL_GENOTYPES).
+        KNOCKDOWN = 'KD', 'Knockdown'
         OTHER = 'other', 'Other'
 
     name = models.CharField(max_length=255)
@@ -631,6 +656,27 @@ class CellLine(models.Model):
         help_text="Has this KO been validated by WB (no truncated protein)?"
     )
     ko_validation_notes = models.TextField(blank=True)
+
+    # What a knockdown line *is*, beyond its background and its gene — the
+    # reagent that silences the transcript and how it got into the cells. On a
+    # KO row these stay blank. A session records how the knockdown was done on
+    # the day (`session_entry.KNOCKDOWN_CONDITION_FIELDS`); this is the line's
+    # own record, the thing a Data Note's methods section names.
+    knockdown_method = models.CharField(
+        max_length=40, blank=True,
+        help_text="siRNA, shRNA, CRISPRi, antisense oligo — how the transcript is suppressed")
+    knockdown_supplier = models.CharField(
+        max_length=255, blank=True,
+        help_text="Who made the silencing reagent, e.g. Dharmacon / Horizon")
+    knockdown_catalogue = models.CharField(
+        max_length=255, blank=True,
+        help_text="The reagent's catalogue number or pool ID, e.g. L-012345-00-0005")
+    knockdown_sequence = models.TextField(
+        blank=True,
+        help_text="Target sequence(s), or the pool's individual IDs")
+    transfection_reagent = models.CharField(
+        max_length=255, blank=True,
+        help_text="What carried the reagent into the cells, e.g. Lipofectamine RNAiMAX")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -734,7 +780,7 @@ class CellLineVial(models.Model):
         return f"{self.cell_line.name} ({c})"
 
 
-class Antibody(models.Model):
+class Antibody(SavedBy):
     """
     Core antibody records.
     Access source: Antibodies table (3,142 rows).
@@ -889,10 +935,20 @@ class Antibody(models.Model):
     ip_recommended = models.BooleanField(default=False, help_text="Recommended for Immunoprecipitation")
     if_recommended = models.BooleanField(default=False, help_text="Recommended for Immunofluorescence")
     fc_recommended = models.BooleanField(default=False, help_text="Recommended for Flow Cytometry")
+    # Immunohistochemistry on FFPE HAP1 cell pellets, not tissue (26 Sep 2026),
+    # judged by eye on the ICC-IF model — see `pipeline/services/outcomes.py`.
+    # `db_default` as well as `default`, and the first in this app: Django's
+    # AddField drops a plain `default` from the column once the rows are
+    # filled, so code rolled back past this migration would INSERT antibodies
+    # without the column and PostgreSQL would refuse every one of them (NOT
+    # NULL). A database default keeps a rollback working.
+    ihc_recommended = models.BooleanField(
+        default=False, db_default=False,
+        help_text="Recommended for Immunohistochemistry (HAP1 cell pellets)")
 
-    #: When any of the four above last changed.
+    #: When any of the five above last changed.
     #:
-    #: **They changed with no trace at all until 29 Aug 2026.** These four
+    #: **They changed with no trace at all until 29 Aug 2026.** These
     #: booleans are the public verdict on a named commercial product — the gene
     #: page, the API, the MCP and the extension all read them — and nothing
     #: recorded when one moved. Not even ``updated_at``: ``rec_toggle`` saves
@@ -915,9 +971,13 @@ class Antibody(models.Model):
             ),
         ]
 
-    #: The four the stamp above watches.
+    #: The five the stamp above watches — the same list, in the same order, as
+    #: ``core.recommendations.RECOMMENDATION_FIELDS`` (pinned by
+    #: ``tests_recommendation_stamp``); it lives here too because the model
+    #: cannot import from ``core``.
     RECOMMENDATION_FIELDS = ('wb_recommended', 'ip_recommended',
-                             'if_recommended', 'fc_recommended')
+                             'if_recommended', 'fc_recommended',
+                             'ihc_recommended')
 
     @classmethod
     def from_db(cls, db, field_names, values):
@@ -1415,12 +1475,13 @@ class ProtocolTemplate(models.Model):
         IP = 'IP', 'Immunoprecipitation'
         IF = 'IF', 'Immunofluorescence'
         FC = 'FC', 'Flow Cytometry'
+        IHC = 'IHC', 'Immunohistochemistry'
 
     name = models.CharField(
         max_length=255,
         help_text="e.g. 'Leicester WB standard', 'Montreal IF standard'"
     )
-    procedure_type = models.CharField(max_length=2, choices=ProcedureType.choices)
+    procedure_type = models.CharField(max_length=3, choices=ProcedureType.choices)
     site = models.ForeignKey(
         Site, on_delete=models.PROTECT, related_name='protocol_templates'
     )
@@ -1459,9 +1520,9 @@ class ProtocolTemplate(models.Model):
 # Layer 2: Pipeline — Experiment Sessions and Results
 # =============================================================================
 
-class ExperimentSession(models.Model):
+class ExperimentSession(SavedBy):
     """
-    Base session model for all four procedure types.
+    Base session model for all five procedure types (IHC joined 26 Sep 2026).
     Scoping doc §3.1: "The natural unit of work at the bench is 'I ran a
     WB screening session today.'"
     """
@@ -1470,8 +1531,9 @@ class ExperimentSession(models.Model):
         IP = 'IP', 'Immunoprecipitation'
         IF = 'IF', 'Immunofluorescence'
         FC = 'FC', 'Flow Cytometry'
+        IHC = 'IHC', 'Immunohistochemistry'
 
-    procedure_type = models.CharField(max_length=2, choices=ProcedureType.choices)
+    procedure_type = models.CharField(max_length=3, choices=ProcedureType.choices)
     target = models.ForeignKey(
         Target, on_delete=models.CASCADE, related_name='sessions'
     )
@@ -1576,7 +1638,7 @@ class ExperimentSession(models.Model):
 
 
 
-class WbResult(models.Model):
+class WbResult(SavedBy):
     """
     Per-antibody result within a WB session.
     Access source: Wb table (1,912 rows).
@@ -1628,7 +1690,7 @@ class WbResult(models.Model):
         return f"WB: {self.antibody} — {self.signal}"
 
 
-class IpResult(models.Model):
+class IpResult(SavedBy):
     """
     Per-antibody result within an IP session.
     Access source: IP table (1,641 rows).
@@ -1694,7 +1756,7 @@ class IpResult(models.Model):
         return f"IP: {self.antibody} — {self.enrichment}"
 
 
-class IfResult(models.Model):
+class IfResult(SavedBy):
     """
     Per-antibody result within an IF session.
     Access source: IF table (1,639 rows).
@@ -1759,7 +1821,57 @@ class IfResult(models.Model):
         return f"IF: {self.antibody} — {self.specific_signal}"
 
 
-class FcResult(models.Model):
+class IhcResult(SavedBy):
+    """
+    Per-antibody result within an IHC session (26 Sep 2026, PLATFORM_ROADMAP
+    #102). Modelled on `IfResult`: the run's conditions — fixation, embedding,
+    antigen retrieval, chromogen, scanner — live in the session's
+    `session_conditions` (`views/session_entry.py::PROCEDURE_CONDITION_FIELDS`),
+    and this row holds what differs per antibody. Everything is optional text;
+    a missing field is a warning on the upload preview, never a refusal.
+
+    Deliberately no verdict column: IHC's `selective` axis is judged by eye in
+    Judge outcomes and the review queue, never derived from these readings.
+    Several rows per antibody are allowed (one per core or slide position).
+    """
+    session = models.ForeignKey(
+        ExperimentSession, on_delete=models.CASCADE, related_name='ihc_results'
+    )
+    antibody = models.ForeignKey(
+        Antibody, on_delete=models.CASCADE, related_name='ihc_results'
+    )
+
+    specific_signal = models.CharField(max_length=255, blank=True)
+    staining_location = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. cytoplasmic, nuclear, membranous')
+
+    primary_ab_dilution = models.CharField(max_length=255, blank=True)
+    dilution_source = models.CharField(
+        max_length=255, blank=True,
+        help_text='Where the dilution came from, e.g. supplier-recommended')
+    secondary_ab = models.CharField(
+        max_length=255, blank=True,
+        help_text='Secondary / detection, e.g. OmniMap anti-rabbit HRP')
+
+    slide_position = models.CharField(
+        max_length=100, blank=True, help_text='Slide or TMA core position')
+
+    image_acquired_by = models.CharField(max_length=255, blank=True)
+    image_analysed_by = models.CharField(max_length=255, blank=True)
+
+    tissue_result = models.TextField(blank=True)
+    comments = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'IHC result'
+        verbose_name_plural = 'IHC results'
+
+    def __str__(self):
+        return f"IHC: {self.antibody} — {self.specific_signal}"
+
+
+class FcResult(SavedBy):
     """
     Per-antibody result within a Flow Cytometry session.
     Not in Access — Leicester only currently.
@@ -1818,6 +1930,8 @@ class FileAttachment(models.Model):
         FC_HISTOGRAM = 'fc_histogram', 'FC Histogram'
         FC_FCS = 'fc_fcs', 'FC Raw Data (.fcs)'
         IP_SCAN = 'ip_scan', 'IP Scan'
+        IHC_IMAGE = 'ihc_image', 'IHC Image'
+        IHC_SLIDE = 'ihc_slide', 'IHC Slide / TMA Scan'
         OTHER = 'other', 'Other'
 
     session = models.ForeignKey(
@@ -1838,6 +1952,10 @@ class FileAttachment(models.Model):
     )
     fc_result = models.ForeignKey(
         FcResult, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='attachments'
+    )
+    ihc_result = models.ForeignKey(
+        IhcResult, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='attachments'
     )
 
@@ -1877,6 +1995,16 @@ class PublicationImage(models.Model):
         IP = 'IP', 'Immunoprecipitation'
         ICC_IF = 'ICC-IF', 'Immunocytochemistry/IF'
         FC = 'FC', 'Flow Cytometry'
+        # Immunohistochemistry on FFPE HAP1 cell pellets (26 Sep 2026), not
+        # tissue. It carries OGA's verdict like the other four —
+        # `Antibody.ihc_recommended`, judged by eye on the ICC-IF model — and
+        # the gene page shows the pellets (WT, knockout, mosaic) stacked; see
+        # `cropper/engine.py`.
+        IHC = 'IHC', 'Immunohistochemistry'
+
+    class ControlGenotype(models.TextChoices):
+        KNOCKOUT = 'KO', 'Knockout'
+        KNOCKDOWN = 'KD', 'Knockdown'
 
     antibody = models.ForeignKey(
         Antibody, on_delete=models.CASCADE, related_name='publication_images'
@@ -1886,6 +2014,17 @@ class PublicationImage(models.Model):
         upload_to='publication_images/%Y/',
         help_text="Cropped image for public display (supports SVG, PNG, JPG)"
     )
+    # Which kind of genetic control the figure's own legend names — the cropper
+    # burns "knockout" or "knockdown" into the pixels from its session's
+    # genotype, and until this column existed the word reached the image and
+    # nothing else, so every public surface said "knockout-controlled" over
+    # figures whose legend said knockdown. Blank means the figure predates the
+    # column (released before 18 Sep 2026); `pipeline/public.py::control_kinds`
+    # is the one reader, and `backfill_control_genotype` fills the blanks from
+    # the Access export's own knockdown marks — those figures predate the
+    # cropper, so the export is the only record of which blots were knockdowns.
+    control_genotype = models.CharField(
+        max_length=4, blank=True, choices=ControlGenotype.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1982,6 +2121,10 @@ class PendingPublicationImage(models.Model):
     # The human's verdict for this antibody in this application, held here until
     # release rather than written onto the antibody. See the class docstring.
     recommended = models.BooleanField(default=False)
+    # Same meaning as `PublicationImage.control_genotype`, held here from the
+    # cropper and copied across by `review.release`.
+    control_genotype = models.CharField(
+        max_length=4, blank=True, choices=PublicationImage.ControlGenotype.choices)
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING,
         db_index=True)
@@ -2016,6 +2159,185 @@ class PendingPublicationImage(models.Model):
     def __str__(self):
         return (f"{self.antibody.catalogue_number} — "
                 f"{self.get_application_type_display()} ({self.get_status_display()})")
+
+
+class PendingIhcFigure(models.Model):
+    """A whole immunohistochemistry figure for a gene's IHC page, before release.
+
+    **Not a crop, and not on `PublicationImage`.** A crop is one antibody in one
+    application; a whole IHC figure is a gene's report figure as published — the
+    HAP1 pellets, other cell lines, tissue, H&E and secondary-only panels, with
+    several suppliers' antibodies in one image and the legend quoted as
+    published. `PublicationImage` is unique per antibody per application and
+    feeds `public_targets`, so a figure of five antibodies cannot live there,
+    and nothing that reads it (the API, the manifest, the extension, the MCP)
+    may see these. The public row is `IhcFigure`; `services/ihc_figures.py` is
+    the one writer for both.
+
+    **Private until release** (owner, 26 Sep 2026) — unlike a crop, which has
+    been written at its public key since 23 Aug. The file lives on the
+    attachments storage (`pipeline/storages.py::attachment_storage`: never the
+    public custom domain, signed URLs), because a whole figure shows several
+    manufacturers' unreleased results at once, and pre-release data goes to the
+    supplier whose reagent it is and nobody else. The review queue serves it
+    through a members-only view; release **copies** the bytes to the public key.
+
+    One row per figure per gene, keyed on a slug of its label, so re-saving a
+    figure from the cropper revises the queued row rather than queueing a copy,
+    and two labels that slug alike (`Figure 4` / `figure 4`) are one figure —
+    not two rows fighting over one object key.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Awaiting release'
+        RELEASED = 'released', 'Released to the public site'
+
+    target = models.ForeignKey(
+        Target, on_delete=models.CASCADE, related_name='pending_ihc_figures')
+    slug = models.SlugField(max_length=140)
+    # As the report numbers it — "Figure 4", "Figure 3, page 2 of 5".
+    label = models.CharField(max_length=120)
+    # Pasted from the report and printed verbatim, never edited here.
+    legend = models.TextField()
+    image = models.FileField(
+        upload_to='ihc_figures_pending/', storage=attachment_storage,
+        max_length=255,
+        help_text="The whole figure, byte for byte, on private storage.")
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
+    # sha256 of the bytes: an unchanged figure is never rewritten.
+    checksum = models.CharField(max_length=64, blank=True)
+    # What the figure shows, as typed in the cropper — see
+    # `services/ihc_figures.py::SAMPLE_KEYS` / `CONTROL_KEYS`.
+    samples = models.JSONField(default=dict, blank=True)
+    controls = models.JSONField(default=list, blank=True)
+    # The antibody names in the figure are coloured by the supplier's own
+    # recommendation (TP53's key) — a claim that is the supplier's, not OGA's.
+    supplier_key = models.BooleanField(default=False)
+    # The scale bar length as the figure prints it; blank is "not stated".
+    scale = models.CharField(max_length=60, blank=True)
+    # A DOI or URL for this figure's own source, when it is not the gene's
+    # report. Blank means the gene's report (the page says which).
+    source = models.CharField(max_length=300, blank=True)
+    control_genotype = models.CharField(
+        max_length=4, blank=True, choices=PublicationImage.ControlGenotype.choices)
+    antibodies = models.ManyToManyField(
+        Antibody, through='PendingIhcFigureAntibody', related_name='pending_ihc_figures',
+        blank=True)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING,
+        db_index=True)
+    staged_by = models.CharField(max_length=150, blank=True)
+    released_by = models.CharField(max_length=150, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    source_session = models.ForeignKey(
+        'pipeline.CropperSession', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='pending_ihc_figures')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pending whole IHC figure'
+        verbose_name_plural = 'Pending whole IHC figures'
+        ordering = ['target__gene_name', 'slug']
+        constraints = [
+            models.UniqueConstraint(fields=['target', 'slug'],
+                                    name='unique_pending_ihc_figure_per_target_slug'),
+        ]
+
+    def __str__(self):
+        return f"{self.target.gene_name} — {self.label} ({self.get_status_display()})"
+
+
+class PendingIhcFigureAntibody(models.Model):
+    """Which antibodies a queued whole figure shows, in the figure's order.
+
+    An explicit table rather than Django's automatic one, so the daily
+    snapshot captures it (`services/snapshot.py` reads models, and an
+    automatic through table is not one) and so a merge of duplicate antibodies
+    can move it (`services/duplicates.py::CHILD_RELATIONS`)."""
+    figure = models.ForeignKey(PendingIhcFigure, on_delete=models.CASCADE,
+                               related_name='antibody_links')
+    antibody = models.ForeignKey(Antibody, on_delete=models.CASCADE,
+                                 related_name='pending_ihc_figure_links')
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['figure', 'position', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['figure', 'antibody'],
+                                    name='unique_pending_ihc_figure_antibody'),
+        ]
+
+
+class IhcFigure(models.Model):
+    """A whole IHC figure on a gene's public IHC page (`/antibodies/<GENE>/ihc/`).
+
+    Written by `services/ihc_figures.py::release` and nothing else, and read by
+    `services/ihc_figures.py::page_figures` and nothing else. It never feeds
+    `public_targets`, the headline counts, the API, the manifest, the archive,
+    the extension, the MCP or the supplier feed: a gene is public because of
+    its crops, and this page exists only while the gene page does.
+
+    The file is a **copy** of the pending row's private bytes at a public key
+    that carries a short checksum (`ihc_figures/<GENE>/<GENE>_IHC_<slug>_<sha>`),
+    so a revised figure is written beside the old one and the old one freed
+    after — no moment where the live page's image 404s — and withdrawing
+    deletes it: withdrawn means unreachable here, as it no longer does for crops.
+    """
+    target = models.ForeignKey(
+        Target, on_delete=models.CASCADE, related_name='ihc_figures')
+    slug = models.SlugField(max_length=140)
+    label = models.CharField(max_length=120)
+    legend = models.TextField()
+    image = models.FileField(upload_to='ihc_figures/', max_length=255)
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
+    checksum = models.CharField(max_length=64, blank=True)
+    samples = models.JSONField(default=dict, blank=True)
+    controls = models.JSONField(default=list, blank=True)
+    supplier_key = models.BooleanField(default=False)
+    scale = models.CharField(max_length=60, blank=True)
+    source = models.CharField(max_length=300, blank=True)
+    control_genotype = models.CharField(
+        max_length=4, blank=True, choices=PublicationImage.ControlGenotype.choices)
+    antibodies = models.ManyToManyField(
+        Antibody, through='IhcFigureAntibody', related_name='ihc_figures',
+        blank=True)
+    released_by = models.CharField(max_length=150, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Whole IHC figure'
+        verbose_name_plural = 'Whole IHC figures'
+        ordering = ['target__gene_name', 'slug']
+        constraints = [
+            models.UniqueConstraint(fields=['target', 'slug'],
+                                    name='unique_ihc_figure_per_target_slug'),
+        ]
+
+    def __str__(self):
+        return f"{self.target.gene_name} — {self.label}"
+
+
+class IhcFigureAntibody(models.Model):
+    """Which antibodies a public whole figure shows — see
+    `PendingIhcFigureAntibody` for why the table is explicit."""
+    figure = models.ForeignKey(IhcFigure, on_delete=models.CASCADE,
+                               related_name='antibody_links')
+    antibody = models.ForeignKey(Antibody, on_delete=models.CASCADE,
+                                 related_name='ihc_figure_links')
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['figure', 'position', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['figure', 'antibody'],
+                                    name='unique_ihc_figure_antibody'),
+        ]
 
 
 
@@ -2112,6 +2434,15 @@ class AntibodyOutcome(models.Model):
     enriches = models.CharField(
         max_length=20, choices=Verdict.choices, blank=True,
         help_text="Did it pull the target down? (IP Enrichment)")
+    # FC's one question, and a caveat rather than a verdict: flow records no
+    # outcome (`histogram_shift` is blank on every live row), so a recommended
+    # antibody is the whole call — and "recommended, but with non-specific
+    # background" is the thing the reviewers wanted a reader told (owner,
+    # 25 Sep 2026). Offered only on a recommended antibody; see
+    # `services/outcomes.py`.
+    background = models.CharField(
+        max_length=20, choices=Verdict.choices, blank=True,
+        help_text="Flow cytometry: is there non-specific background?")
 
     note = models.TextField(
         blank=True,

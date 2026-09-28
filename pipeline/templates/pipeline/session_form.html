@@ -90,7 +90,7 @@
                       {% if post_data.procedure_type == value %}border-blue-500 bg-blue-50{% else %}border-gray-200 bg-white hover:border-gray-300{% endif %}"
                     data-proc="{{ value }}">
               <span class="text-2xl mb-1">
-                {% if value == 'WB' %}🧬{% elif value == 'IP' %}🔬{% elif value == 'IF' %}🔍{% elif value == 'FC' %}📊{% endif %}
+                {% if value == 'WB' %}🧬{% elif value == 'IP' %}🔬{% elif value == 'IF' %}🔍{% elif value == 'FC' %}📊{% elif value == 'IHC' %}🧫{% endif %}
               </span>
               <span class="text-sm font-semibold text-gray-800">{{ label }}</span>
             </button>
@@ -137,9 +137,7 @@
           <select name="experimenter" id="session-exp" required
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px]">
             <option value="">Select experimenter</option>
-            {% for m in experimenters %}
-            <option value="{{ m.pk }}" {% if member and member.pk == m.pk %}selected{% endif %}>{{ m }} ({{ m.site.short_code }})</option>
-            {% endfor %}
+            {% include "pipeline/_experimenter_options.html" with selected=default_experimenter_id|stringformat:"s" with_site=True %}
           </select>
           <p id="err-exp" role="alert" class="hidden text-xs text-red-600 mt-1"></p>
         </div>
@@ -219,10 +217,10 @@
               </a>
             </div>
             <div>
-              <label for="cl-ko" class="block text-xs font-medium text-gray-500 mb-1">KO Cell Line</label>
+              <label for="cl-ko" class="block text-xs font-medium text-gray-500 mb-1">KO / KD Cell Line</label>
               <select name="cell_line_ko" id="cl-ko"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base bg-white min-h-[48px] disabled:bg-gray-100 disabled:text-gray-400">
-                <option value="">— Select KO —</option>
+                <option value="">— Select KO / KD —</option>
               </select>
               <p id="cl-ko-note" class="hidden text-xs text-amber-700 mt-1"></p>
               <a id="cl-ko-link" href="{% url 'pipeline:cell_line_board' %}"
@@ -572,7 +570,7 @@
     fillCellLineBox('cl-wt', cellLines.wt || [], cellLines.wt_note,
                     '— Select WT —', 'NA');
     fillCellLineBox('cl-ko', cellLines.ko || [], cellLines.ko_note,
-                    '— Select KO —', selectedGene);
+                    '— Select KO / KD —', selectedGene);
   }
 
   // ── Init ──

@@ -157,7 +157,8 @@ def session_q(term):
             | Q(wb_results__comments__icontains=term)
             | Q(ip_results__comments__icontains=term)
             | Q(if_results__comments__icontains=term)
-            | Q(fc_results__comments__icontains=term))
+            | Q(fc_results__comments__icontains=term)
+            | Q(ihc_results__comments__icontains=term))
 
 
 def _targets(term):
@@ -195,7 +196,8 @@ def _sessions(term):
     return (ExperimentSession.objects.using(DB)
             .filter(session_q(term))
             .select_related("target", "site")
-            .prefetch_related("wb_results", "ip_results", "if_results", "fc_results")
+            .prefetch_related("wb_results", "ip_results", "if_results",
+                              "fc_results", "ihc_results")
             .distinct()
             .order_by("-date"))
 
@@ -354,7 +356,8 @@ def _result_comment_hit(session, term) -> str:
     needle = (term or "").strip().lower()
     if not needle:
         return ""
-    for accessor in ("wb_results", "ip_results", "if_results", "fc_results"):
+    for accessor in ("wb_results", "ip_results", "if_results", "fc_results",
+                     "ihc_results"):
         for row in getattr(session, accessor).all():
             if needle in (row.comments or "").lower():
                 return row.comments

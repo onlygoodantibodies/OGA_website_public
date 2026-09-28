@@ -105,13 +105,21 @@ ANTIBODY_EXAMPLE = ["SNCA", "ab138501", "Abcam", "AB_2537855", "Rabbit", "recomb
 # 2026). The column was not missing from the app, only from every screen and
 # every sheet — `CellLine.growth_properties` carries 411 rows from the Access
 # import — which is the same shape as the freezer box and the received date.
+#
+# The five knockdown columns sit after `clone`, the other thing that says
+# *which* control this is. Blank on the example row because it is a knockout;
+# the header comments below say what each takes.
 CELL_LINE_COLUMNS = ["name", "gene", "genotype", "parent", "c number",
                      "cellosaurus", "supplier", "catalogue", "lot", "site", "medium",
                      "growth properties", "species",
-                     "clone", "storage", "freezer", "box", "position", "comments"]
+                     "clone", "knockdown method", "knockdown supplier",
+                     "knockdown catalogue", "knockdown sequence",
+                     "transfection reagent",
+                     "storage", "freezer", "box", "position", "comments"]
 CELL_LINE_EXAMPLE = ["HAP1", "SNCA", "KO", "C-48", "632", "CVCL_0030",
                      "Horizon", "HZGHC001", "", "", "IMDM", "adherent", "Human",
-                     "", "-80", "F2", "B1", "A1",
+                     "", "", "", "", "", "",
+                     "-80", "F2", "B1", "A1",
                      "from the Feb order"]
 
 # **A column's own sentence, on the column, in the file people actually read.**
@@ -153,7 +161,11 @@ TEMPLATE_NOTES = {
             "A wild type has none. Leave it blank or write NA — both mean the "
             "same and neither creates a gene. Filling in a real gene here "
             "creates a second, wrong line."),
-        "genotype": "WT for a parental line, KO for a knockout.",
+        "genotype": (
+            "WT for a parental line, KO for a knockout, KD for a knockdown "
+            "(siRNA, shRNA, CRISPRi — a wild type with the transcript silenced, "
+            "recorded as its own line so a session and a figure can point at "
+            "it). siRNA or shRNA written here also reads as KD."),
         "parent": (
             "For a KO row, the wild type it was made from — by name (HAP1) or by "
             "C-number (C-48). Most rows on file use the C-number.\n\n"
@@ -191,6 +203,21 @@ TEMPLATE_NOTES = {
             "Leave it blank if it was not written down. Blank means 'not "
             "recorded', so it never narrows a match and never picks one clone "
             "out of several."),
+        "knockdown method": (
+            "KD rows only: how the transcript is silenced — siRNA, shRNA, "
+            "CRISPRi, antisense oligo."),
+        "knockdown supplier": (
+            "KD rows only: who made the silencing reagent, e.g. Dharmacon."),
+        "knockdown catalogue": (
+            "KD rows only: the reagent's catalogue number or pool ID, e.g. "
+            "L-012345-00-0005 — the thing a methods section cites."),
+        "knockdown sequence": (
+            "KD rows only: the target sequence(s), or the pool's individual "
+            "IDs. Leave blank if the supplier does not publish them."),
+        "transfection reagent": (
+            "KD rows only: what carried the reagent into the cells, e.g. "
+            "Lipofectamine RNAiMAX. How much, and for how long, is recorded on "
+            "the session."),
         "storage": (
             "Where the vial is kept, in your own words. The shelf is read out of "
             "it, so -80, -20 or LN2 in here sets the storage type."),

@@ -23,7 +23,15 @@
      reader can drag it: `resize` on the panel with the grid track following it,
      so a long antibody list and a wide figure are not competing for one
      hard-coded number. */
-  main { display:grid; grid-template-columns:auto 1fr; gap:0; height:calc(100vh - 44px); }
+  /* The page is the window: the two chrome bars take what they need and the
+     panel and the figure share the rest, each scrolling on its own. main was
+     `100vh - 44px` under two bars taller than 44px, so the page itself
+     scrolled too and the bottom of the panel — the Save button — sat below
+     the window in a small one. */
+  body { height:100vh; display:flex; flex-direction:column; }
+  body > nav, body > header { flex:0 0 auto; }
+  main { display:grid; grid-template-columns:auto 1fr; grid-template-rows:minmax(0,1fr); gap:0;
+         flex:1 1 auto; min-height:240px; }
   .panel { background:#fff; border-right:1px solid #dde3ee; padding:14px; overflow:auto;
            width:360px; resize:horizontal; min-width:280px; max-width:640px; }
   .stage { position:relative; overflow:auto; padding:16px; }
@@ -48,7 +56,22 @@
   .bound { stroke:#e8622c; stroke-width:2; cursor:grab; }
   .hline { stroke:var(--line); stroke-width:2; cursor:row-resize; }
   .vline { stroke:#12a150; stroke-width:2; cursor:col-resize; }
-  .hit { stroke:transparent; stroke-width:12; }
+  /* The hit area is in screen pixels whatever the zoom: 18px wide is 9 either
+     side of the line. The drawn line takes no pointer events, or the 2px a
+     person aims for would be the one place a press did nothing. */
+  .hit { stroke:transparent; stroke-width:18; }
+  svg line:not(.hit) { pointer-events:none; }
+  line.sel { stroke:#d6249f; stroke-width:4; stroke-dasharray:8 4; }
+  .linepos { display:grid; grid-template-columns:auto 1fr; gap:3px 6px; align-items:center; font-size:12px; margin-top:4px; }
+  .linepos .lp-row { grid-column:1 / -1; font-weight:700; margin-top:4px; }
+  .linepos .lp-in { display:flex; flex-wrap:wrap; gap:3px; }
+  .linepos input[type=number] { width:74px; padding:2px 4px; }
+  .linepos input.lp-bad { border-color:#c0392b; background:#fdecea; }
+  .linepos input.lp-on { outline:2px solid #d6249f; }
+  .linepos .lp-why { grid-column:1 / -1; color:#9a2a1a; font-size:11px; }
+  .linepos .lp-why:empty { display:none; }
+  .linesum { font:11px/1.4 monospace; color:#1c2a44; background:#f7f9fc; border:1px solid #dde3ee; border-radius:6px; padding:4px 6px; margin-top:6px; word-break:break-word; }
+  .linesum:empty { display:none; }
   .cell { fill:transparent; cursor:pointer; }
   .cell.assigned { fill:rgba(45,108,223,.16); }
   .cellnum { font:800 26px system-ui; fill:#ffcc00; stroke:#000; stroke-width:5px; paint-order:stroke fill; pointer-events:none; }
@@ -59,9 +82,7 @@
   .crop { border:1px solid #dde3ee; border-radius:6px; background:#fff; padding:6px; text-align:center; }
   .crop canvas { width:180px; height:180px; border:1px solid #eee; }
   .crop .fn { font:600 11px monospace; margin-top:4px; word-break:break-all; max-width:180px; }
-  .crop.recon { border-color:#12a150; box-shadow:0 0 0 2px #12a15044; }
-  .crop .recbadge { font-size:11px; font-weight:700; color:#12a150; margin-top:3px; min-height:14px; }
-  .crop:not(.recon) .recbadge { color:#9aa4b2; font-weight:400; }
+
   .note { font-size:12px; color:#5b6577; }
   .pill { display:inline-block; background:#e7eefc; color:var(--blue); border-radius:20px; padding:2px 9px; font-size:11px; font-weight:700; }
   .banner { margin-top:10px; padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.4; border:1px solid transparent; }
@@ -69,6 +90,21 @@
   .banner.exists_no_images { background:#eef3fc; border-color:#c3d6f5; color:#1c437e; }
   .banner.exists_with_images { background:#fdecea; border-color:#f3c0b8; color:#9a2a1a; }
   .banner.loading        { background:#f2f4f8; border-color:#dde3ee; color:#5b6577; }
+  .banner.not_on_file, .banner.ambiguous { background:#fdecea; border-color:#f3c0b8; color:#9a2a1a; }
+  /* In-page questions and refusals (`notice`). They replace the native
+     confirm and alert dialogs this page used, which a browser agent cannot
+     read and which a person answers by reflex. */
+  .notice { margin:8px 0; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.45;
+            border:1px solid #dde3ee; background:#f7f9fc; color:var(--ink); white-space:normal; }
+  .notice[hidden] { display:none; }
+  .notice.refusal { background:#fdecea; border-color:#f3c0b8; color:#7a1f12; }
+  .notice.consent { background:#fff8e6; border-color:#f0d58c; color:#5a4200; }
+  .notice.ok      { background:#eef7ef; border-color:#bcdcc3; color:#1c4f2a; }
+  .notice .msg    { white-space:pre-line; }
+  .notice .btns   { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .notice .btns button { padding:5px 10px; }
+  .ocrread { display:block; font:11px monospace; color:#5b6577; word-break:break-all; }
+  .metatable .co-note { font-size:11px; white-space:nowrap; }
   .ocrbadge { font-size:11px; font-weight:700; padding:1px 5px; border-radius:10px; white-space:nowrap; cursor:help; }
   .ocrbadge.ok  { background:#e6f4ea; color:#1c6b34; }
   .ocrbadge.amb { background:#fcefda; color:#8a5a00; }
@@ -91,6 +127,34 @@
   .metatable .co-new { color:#9a6b00; font-weight:700; }
   .metatable button.delab { border:none; background:none; color:#c0392b; cursor:pointer; font-size:14px; line-height:1; padding:2px 5px; border-radius:4px; }
   .metatable button.delab:hover { color:#fff; background:#c0392b; }
+  /* Preview and save stay in reach at the foot of the panel however far it is
+     scrolled, with what they answer directly under them. */
+  .actionbar { position:sticky; bottom:0; margin:10px -14px -14px; padding:8px 14px 10px; background:#fff;
+               border-top:1px solid #dde3ee; box-shadow:0 -4px 10px rgba(20,40,80,.07); z-index:3;
+               /* One cap for the whole bar, so a summary and a question together
+                  can never cover boxes 1–6; the buttons never scroll away. */
+               max-height:45vh; display:flex; flex-direction:column; }
+  .actionbar .btnrow { display:flex; gap:6px; flex:none; }
+  .actionbar .btnrow button { flex:1; padding:7px 8px; }
+  .actionbar #commitstatus { flex:1 1 auto; min-height:3em; overflow:auto; margin-bottom:0; }
+  .actionbar .presum { flex:0 1 auto; min-height:2.2em; }
+  .presum { font:11px/1.45 monospace; white-space:pre-line; word-break:break-word; color:#1c2a44; background:#f7f9fc;
+            border:1px solid #dde3ee; border-radius:6px; padding:4px 6px; margin-top:6px; max-height:9.5em; overflow:auto; }
+  .presum[hidden] { display:none; }
+  /* Every panel as a control (box 5), so a panel is assigned by name as well as
+     by clicking the figure. */
+  details.celllist { margin:8px 0; border:1px solid #dde3ee; border-radius:6px; padding:4px 8px; }
+  details.celllist > summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--blue); }
+  .cl-row { border-top:1px solid #eef1f6; padding:4px 0; }
+  .cl-row:first-child { border-top:none; }
+  .cl-head { font-size:12px; font-weight:700; margin:2px 0; }
+  .cl-rowctl { display:flex; gap:6px; align-items:center; margin:2px 0 4px; }
+  .cl-rowctl button { padding:2px 8px; font-size:12px; flex:0 0 auto; }
+  .cl-cell { display:flex; align-items:center; gap:6px; font-size:12px; margin:1px 0; }
+  .cl-cell label { display:inline-flex; align-items:center; gap:4px; margin:0; font-weight:400; font-size:12px; white-space:nowrap; flex:0 0 auto; }
+  .cl-cell.on label { font-weight:700; }
+  .cl-cell select, .cl-rowctl select { flex:1; min-width:0; padding:2px 4px; font-size:12px; }
+  .cl-tag { font:800 11px system-ui; color:#8a5a00; min-width:1.5em; }
   #addab { background:#eef7ef; border:1px solid #bcdcc3; color:#1c6b34; border-radius:6px; cursor:pointer; font-weight:600; }
   #addab:hover { background:#1c6b34; color:#fff; }
 </style>
@@ -112,10 +176,9 @@ it.{% endcomment %}
   <a href="{% url 'pipeline:hub' %}" style="color:#dbeafe;text-decoration:none">Task hub</a>
   <a href="{% url 'pipeline:target_board' %}" style="color:#dbeafe;text-decoration:none">Targets</a>
   <a href="{% url 'pipeline:antibody_board' %}" style="color:#dbeafe;text-decoration:none">Antibodies</a>
-  {% comment %}"Set recommendations" is what the page calls itself, what the hub
-  calls it and what Browse calls it. This bar said "Recommendations", which is a
-  second name for one page — the thing the task hub's own renaming fixed.{% endcomment %}
-  <a href="{% url 'pipeline:recommendations' %}" style="color:#dbeafe;text-decoration:none">Set recommendations</a>
+  {% comment %}One name per page: "Judge outcomes" is what the page, the hub and
+  Browse call it.{% endcomment %}
+  <a href="{% url 'pipeline:outcomes' %}" style="color:#dbeafe;text-decoration:none">Judge outcomes</a>
   <form action="{% url 'pipeline:find' %}" method="get" role="search"
         style="margin-left:auto;display:flex;gap:6px">
     <label for="nav-find" style="position:absolute;left:-9999px">Search genes, antibodies, cell lines and sessions</label>
@@ -128,7 +191,7 @@ it.{% endcomment %}
 <header>
   <h1>OGA Grid Cropper</h1>
   <span class="pill" id="status">no image</span>
-  <span class="hint">Load figures → grid → assign → OCR → generate. Deterministic, no AI.</span>
+  <span class="hint">Load figures → grid → assign → OCR → preview → save to the review queue. Deterministic, no AI.</span>
   <span class="zoom">
     <button class="sec" id="zoomout" title="Zoom out">−</button>
     <span id="zoomlevel" title="Figures open fitted to the window">—</span>
@@ -136,22 +199,32 @@ it.{% endcomment %}
     <button class="sec" id="zoomfit" title="Fit the whole figure in the window">Fit</button>
   </span>
   <span style="flex:1"></span>
+  <label for="sessionpick" style="position:absolute;left:-9999px">Resume a saved session</label>
   <select id="sessionpick" title="Resume a saved session" style="width:auto;max-width:220px"><option value="">— resume session —</option></select>
   <button id="delsession" class="sec" style="padding:5px 10px" title="Delete the selected saved session" disabled>🗑 Delete</button>
+  <button id="newsession" class="sec" style="padding:5px 10px">New session</button>
   <button id="save" class="sec" style="padding:5px 12px">Save session</button>
   <span id="savestatus" class="hint"></span>
 </header>
 <main>
   <section class="panel">
+    {% comment %}Where things stand, in words — the figure on screen, its grid
+    and its antibodies, and the session's totals. The page draws panels and
+    crops as pictures, and on a large session (11 figures, 113 crops) that was
+    more than a browser agent's page tools could read; a person skimming for
+    "which figure is not mapped yet" reads it too.{% endcomment %}
+    <div id="cropper-status" class="presum" role="status" style="margin:0 0 8px">No figure yet.</div>
+    <div id="sessionnotice" class="notice" hidden></div>
     <fieldset>
-      <legend>1 · Images (one gene, up to 4 applications)</legend>
+      <legend>1 · Images (one gene, up to 5 applications)</legend>
       <label>Application for image(s) you add</label>
       <select id="app">
-        <option>WB</option><option>IP</option><option>ICC-IF</option><option>FC</option>
+        <option>WB</option><option>IP</option><option>ICC-IF</option><option>FC</option><option>IHC</option>
       </select>
       <label>Add composite figure(s) — PNG/JPG</label>
       <input type="file" id="file" accept="image/*" multiple>
       <div id="imagelist" class="imagelist"></div>
+      <div id="imagenotice" class="notice" hidden></div>
       <div class="note">Add every figure for this gene (e.g. a WB, an IP, an IF). Each keeps its own grid &amp; mapping; the antibody list and gene settings below are shared.</div>
     </fieldset>
 
@@ -169,44 +242,95 @@ it.{% endcomment %}
       <select id="genotype"><option>KO</option><option>KD</option></select>
       <label><input type="checkbox" id="fcsec" style="width:auto"> FC: add "secondary only control" line</label>
       <div id="genestatus" class="banner" style="display:none"></div>
-      {% comment %}Retargeted rather than removed. This press no longer replaces
-      anything on the public site — the crops wait in the review queue — so the
-      acknowledgement is now about what *release* will do: a crop for an
-      antibody+application that already has a published figure is queued as a
-      replacement for it. The person who made the crop is the one who knows
-      whether that is intended, and they are standing here rather than at the
-      review meeting.{% endcomment %}
-      <label id="overwritewrap" style="display:none"><input type="checkbox" id="overwriteack" style="width:auto"> I understand these will replace published figures when released</label>
+      {% comment %}What the tick is about is what the save really does. A crop is
+      written at its final public key (`review.stage`), so a re-crop of a figure
+      published at that key replaces the file the live gene page is showing as
+      soon as the save lands — review gates which figures the page lists, not
+      the bytes behind them. It said "when released" until 26 Sep 2026, which was
+      true of the page and false of the file. Reset only when the gene the crops
+      are filed under changes, and restored when a session is resumed.{% endcomment %}
+      <label id="overwritewrap" style="display:none"><input type="checkbox" id="overwriteack" style="width:auto"> I understand these crops replace published figures — a replaced figure can change on the live gene page as soon as I save, before anybody reviews it</label>
     </fieldset>
 
     <fieldset>
       <legend>3 · Antibodies</legend>
-      <label>Paste the antibody table (F1000 / Zenodo)</label>
-      <textarea id="metapaste" placeholder="Paste the whole table — catalogue, company, RRID, clonality, host…"></textarea>
-      <button id="parsemeta" class="sec" style="width:100%;margin-top:6px">Parse table →</button>
+      {% comment %}From the pipeline, not a pasted table (owner, 25 Sep 2026). The
+      cropper was built to backfill published papers, where the antibodies were
+      in an F1000 table and nowhere else; the pipeline is now where antibodies are
+      entered, so they are on file before anybody crops. One not on file yet is
+      still addable (+ Add antibody under the crops), which is the case the old
+      parser was for.{% endcomment %}
+      <div id="onfile" class="note">Type the gene above and its antibodies on file are listed here.</div>
       <label style="margin-top:8px">Catalogues (reading order — drives mapping)</label>
-      <textarea id="abs" placeholder="One per line — or Parse a table above" style="min-height:46px"></textarea>
-      <div class="note">Parse fills the catalogue list + the editable metadata grid (right, under the crops). Blanks are fine; catalogues drive OCR mapping and filenames.</div>
+      <textarea id="abs" placeholder="One per line — tick them above, or type one" style="min-height:46px"></textarea>
+      <div class="note">Untick any antibody that is not in these figures. Put them in the order they appear if you can; OCR fixes the mapping either way. One that is not on file yet: <b>+ Add antibody</b> under the crops, which asks for its details.</div>
     </fieldset>
 
     <fieldset>
       <legend>4 · Seed grid</legend>
-      <label>How many rows (bands) of panels?</label>
+      <label for="nrows">How many rows (bands) of panels?</label>
       <input type="number" id="nrows" value="2" min="1">
+      {% comment %}An IHC figure is many rows of the same panels (TP53: nine rows
+      of five), so typing the count once beats typing it nine times — and the
+      copy control below makes one row's fitted edges every row's, in one
+      press, instead of dragging the same lines nine times.{% endcomment %}
+      <label for="samepanels">Same number of panels in every row</label>
+      <input type="number" id="samepanels" min="1" placeholder="leave blank to set each row below">
       <div id="rowcounts"></div>
       <div id="panelcheck" class="note" style="margin-top:6px"></div>
       <button id="seed" class="sec" style="margin-top:8px;width:100%">Seed / reset grid</button>
       <div class="note" style="margin-top:6px">Then drag to fit. <b>Orange</b> = edges (top/bottom span the figure; each row's <b>left &amp; right are independent</b>, so an inset/centred row brackets just its panels). <b>Blue</b> = row dividers. <b>Green</b> = column splits (double-click a row to add one, Alt-click any green/blue line to delete). A row of N panels needs N−1 green lines between its two orange edges.</div>
+      <label for="copyrow" style="margin-top:10px">Copy one row's edges and columns to every row</label>
+      <div class="row">
+        <select id="copyrow" disabled><option value="">— add a figure —</option></select>
+        <button id="copyrow-apply" class="sec" disabled>Copy to every row</button>
+      </div>
+      <div id="copyrow-status" class="note" style="margin-top:4px">Fit one row's orange edges and green lines, then copy them to the rest. Panels already assigned stay assigned in rows that keep their number of panels.</div>
+      {% comment %}Every line as a number, in the image's own pixels (26 Sep
+      2026). Dragging a 2px line at 20% zoom was the hardest thing on this page
+      for a person and impossible for a browser agent, whose clicks land ~1.1x
+      off. Typed values and drags edit the same state; the saved grid format is
+      unchanged (splits are still stored as fractions of the row).{% endcomment %}
+      <label style="margin-top:10px">Line positions (image pixels)</label>
+      <div class="note">Type a value and leave the box, or click a line and use the arrow keys (Shift = 10 px). Moving an orange edge leaves the green lines where they are on the figure; hold <b>Shift</b> while dragging an edge to carry them with it, or press <b>Space splits evenly</b> under a row.</div>
+      <div id="linepos"><div class="note">Add a figure first.</div></div>
+      <div id="line-summary" class="linesum"></div>
+      <button id="line-copy" class="sec" style="margin-top:4px;padding:3px 10px" disabled>Copy these numbers</button>
     </fieldset>
 
     <fieldset>
       <legend>5 · Assign</legend>
-      <div class="note">Click a cell to assign/discard. Assigned cells are numbered in reading order. Then run OCR to read the printed titles and pre-fill the mapping (falls back to reading order for unclear reads).<br><b>Multi-row tip:</b> put each row's blue divider <i>above</i> that row's titles, so every panel's title sits inside its own cell — that's what OCR reads (and what the crop keeps).</div>
+      <div class="note">Click a cell on the figure — or tick it in the list below — to assign/discard. Assigned cells are numbered in reading order. Then run OCR to read the printed titles and pre-fill the mapping (falls back to reading order for unclear reads).<br><b>Multi-row tip:</b> put each row's blue divider <i>above</i> that row's titles, so every panel's title sits inside its own cell — that's what OCR reads (and what the crop keeps).</div>
+      {% comment %}Every panel of the current figure as a checkbox and an antibody
+      picker (26 Sep 2026). The figure is an image, so a browser agent's clicks
+      on it land ~1.1x off; these are real controls with stable ids
+      (`cell-<row>_<panel>-toggle`, `-ab`, zero-based like the figure's own
+      `cell-<row>_<panel>`). They and the figure edit one state and redraw
+      each other. Collapsed by default: a person mostly clicks the figure.{% endcomment %}
+      <details id="celllist-wrap" class="celllist">
+        <summary id="celllist-open">Panels as a list<span id="celllist-count"></span></summary>
+        <div id="celllist"><div class="note">Add a figure first.</div></div>
+      </details>
       <button id="ocr" class="sec" style="width:100%;margin:8px 0">OCR pre-fill from titles</button>
+      <div id="ocrwhy" class="note" style="display:none;margin:-4px 0 8px"></div>
+      <div id="ocrstatus" class="notice" hidden></div>
       <div id="mapwrap"></div>
     </fieldset>
 
-    <button id="gen" style="width:100%" disabled>Generate crops (preview)</button>
+    {% comment %}The report's whole figure, for the gene's public IHC page
+    (`/antibodies/<GENE>/ihc/`, 26 Sep 2026) — the HAP1 pellets, other cell
+    lines, tissue, H&E and secondary-only panels as published, with the legend
+    word for word. Per figure, saved with the session (`grid.ihcPage`), and
+    stored privately until somebody releases it on the review queue. Drawn for
+    every figure and explained on a non-IHC one, rather than absent: a control
+    that is merely absent is a feature a reader concludes does not exist.
+    Redrawn only when the figure or the antibodies on file change — never on
+    each keystroke, which is what keeps the caret in the legend box.{% endcomment %}
+    <fieldset id="ihcpage-fieldset">
+      <legend>6 · Whole figure on the gene's IHC page</legend>
+      <div id="ihcpage"><div class="note">Add a figure first.</div></div>
+    </fieldset>
+
     {% comment %}Commit was soft green — the colour every other page here uses for
     "go ahead" — sitting next to a soft blue preview button of the same size, with
     no warning text. The only red control on the page deleted a cropper session,
@@ -220,17 +344,30 @@ it.{% endcomment %}
     screen in the app that publishes.{% endcomment %}
     <p class="note" style="margin-top:10px">
       <b>Preview first.</b> Generate crops is safe and changes nothing — it shows
-      what the crops will look like. The button below saves them to the
-      <b>review queue</b>: nothing goes on the public website until somebody
-      releases it there, after the review meeting.
+      what the crops will look like. Save to review queue sends them to the
+      <b>review queue</b>: a gene page shows a new figure only once somebody
+      releases it there, after the review meeting. The one exception is a crop
+      that replaces a figure already published — the check before saving says
+      if any would, and asks.
     </p>
-    <button id="commit" style="width:100%;margin-top:6px" disabled>Save to review queue →</button>
-    <div id="commitstatus" class="note" style="margin-top:6px"></div>
+    {% comment %}Held at the foot of the panel however far it is scrolled — in a
+    small window these were below the fold and an agent's clicks missed them —
+    with the preview's plain-text summary and the save's question and receipt
+    directly underneath.{% endcomment %}
+    <div id="actionbar" class="actionbar">
+      <div class="btnrow">
+        <button id="gen" disabled>Generate crops (preview)</button>
+        <button id="commit" disabled>Save to review queue →</button>
+      </div>
+      <div id="preview-summary" class="presum" role="status" hidden></div>
+      <div id="commitstatus" class="notice" hidden></div>
+    </div>
   </section>
 
   <section class="stage">
     <div class="svgwrap" id="svgwrap"><div class="note" style="padding:40px">Add a composite figure to begin.</div></div>
     <div class="crops" id="crops"></div>
+    <div id="metanotice" class="notice" hidden style="margin:6px 16px"></div>
     <div id="metagrid" class="metagrid"></div>
   </section>
 </main>
@@ -311,10 +448,70 @@ async function askServer(url, opts, mode){
   }
   throw new ServerTrouble(msg, r.status);
 }
+/* One writer for every question, refusal and receipt this page puts to the
+   reader (26 Sep 2026). It used the browser's own confirm and alert dialogs — the save's
+   consent among them — which a Cowork browser agent cannot read or answer,
+   which print raw exception text, and which a person dismisses by reflex. A
+   notice is drawn beside the control it is about, scrolls itself into view,
+   is role="alert" when it refuses, and its buttons are real buttons with ids.
+   kind: "refusal" | "consent" | "ok" | "info". */
+const esc = t => String(t==null?"":t).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function notice(where, o){
+  const el = typeof where==="string" ? document.querySelector(where) : where;
+  if(!el) return null;
+  o = o||{};
+  el.className = "notice "+(o.kind||"info");
+  el.setAttribute("role", o.kind==="refusal" ? "alert" : "status");
+  el.innerHTML = "";
+  const msg=document.createElement("div"); msg.className="msg";
+  if(o.html) msg.innerHTML=o.html; else msg.textContent=o.text||"";
+  el.appendChild(msg);
+  // A question's buttons go ABOVE its text: a save's summary and warnings ran
+  // several screens on 113 crops, and the Save button sat at the bottom of
+  // that scroll (TP53 run, 26 Sep 2026).
+  if(o.buttons && o.buttons.length && o.buttonsFirst){
+    const row=document.createElement("div"); row.className="btns"; row.style.marginTop="0"; row.style.marginBottom="6px";
+    o.buttons.forEach(b=>{
+      const btn=document.createElement("button");
+      if(b.id) btn.id=b.id;
+      btn.type="button"; btn.textContent=b.label;
+      if(!b.primary) btn.className="sec";
+      btn.addEventListener("click", b.onClick);
+      row.appendChild(btn);
+    });
+    el.insertBefore(row, msg);
+  } else if(o.buttons && o.buttons.length){
+    const row=document.createElement("div"); row.className="btns";
+    o.buttons.forEach(b=>{
+      const btn=document.createElement("button");
+      if(b.id) btn.id=b.id;
+      btn.type="button"; btn.textContent=b.label;
+      if(!b.primary) btn.className="sec";
+      btn.addEventListener("click", b.onClick);
+      row.appendChild(btn);
+    });
+    el.appendChild(row);
+  }
+  el.hidden=false;
+  try{ el.scrollIntoView({block:"nearest"}); }catch(e){}
+  return el;
+}
+function clearNotice(where){
+  const el = typeof where==="string" ? document.querySelector(where) : where;
+  if(!el) return;
+  el.hidden=true; el.innerHTML=""; el.removeAttribute("role");
+}
+// The targets board with the gene filled in — the way out of the refusal the
+// cropper gives for a gene that is not on file (it never adds one).
+function addTargetLink(url, gene){
+  return url ? ` <a id="add-target-link" href="${esc(url)}" target="_blank">Add “${esc(gene)}” on the targets board →</a>` : "";
+}
+
 let META = {};   // catalogue -> {company, rrid, clonality, is_recombinant, clone_id, host, supplier_url, discontinued, company_status}
-let REC = {};    // catalogue -> {app: true}  (human-set "recommended" flags, spec §10)
-function isRec(cat,app){ return !!(REC[cat] && REC[cat][app]); }
-function toggleRec(cat,app){ if(!REC[cat]) REC[cat]={}; REC[cat][app]=!REC[cat][app]; }
+// No judgement is made here (owner, 25 Sep 2026): the recommendation and the
+// outcome answers are set on the review queue or Judge outcomes, beside each
+// other and with what the bench recorded in view.
 // what the DB knows about the current gene (feeds the overwrite gate, and later
 // the OCR candidate union + commit reconciliation)
 // `resolvedGene` is the gene these crops will be FILED under, which is not
@@ -323,11 +520,17 @@ function toggleRec(cat,app){ if(!REC[cat]) REC[cat]={}; REC[cat][app]=!REC[cat][
 // preview you download disagrees with the record that gets written. `blocked`
 // is set when the typed name is an old name for more than one gene on file —
 // there is no answer to pick, so the save is refused rather than guessed.
-let GENE_INFO = { exists:false, existing_catalogues:[], requires_overwrite_ack:false,
-                  resolvedGene:"", blocked:"" };
+let GENE_INFO = { exists:false, existing_catalogues:[], antibodies:[],
+                  requires_overwrite_ack:false, resolvedGene:"", blocked:"" };
 // The gene to write on the crops. Falls back to the box while the check is in
 // flight or unreachable, which is the old behaviour and the honest one.
 function filedGene(){ return GENE_INFO.resolvedGene || $("#gene").value.trim(); }
+// The gene the overwrite tick was given for. The tick is about *these*
+// published figures, so it is cleared when the gene the crops are filed under
+// changes — and only then. It was cleared on every blur of the gene box, and
+// not restored when a session was resumed, so it had to be ticked again after
+// every click away (G11).
+let ackGene = null;
 
 // One SESSION = one gene with many images (up to ~4 applications). Each image
 // carries its own grid + mapping; the gene/legend inputs and antibody list are
@@ -342,15 +545,185 @@ function newImageState(name, app){
            // both give the same readable size rather than 1:1 pixels.
            userScale:0,
            bounds:null, hLines:[], vLines:[], bandLeft:[], bandRight:[], cellState:{},
-           abOffset:0 };   // reading-order start (for an app split over >1 figure)
+           abOffset:0,     // reading-order start (for an app split over >1 figure)
+           // IHC only: the panel labels as typed (null = the default below) and
+           // the scale bar's length as the figure's key prints it.
+           ihcLabels:null, ihcScale:"", ihcLayout:"row",
+           // IHC only: the whole figure for the gene's IHC page (box 6).
+           // null = never touched. Saved as grid.ihcPage and read back by
+           // commit.py::whole_spec, so the three places a session's figure is
+           // built — here, the save and the load — all carry it.
+           ihcPage:null };
 }
 const $ = s => document.querySelector(s);
 const CANVAS = 490;
-const FILL = {WB:.90, IP:.95, "ICC-IF":1.0, FC:.90};
-const LEG  = {WB:0, IP:60, "ICC-IF":84, FC:84};
-const GUT  = {WB:0, IP:0, "ICC-IF":46, FC:0};   // left gutter for antibody/DAPI labels
+const FILL = {WB:.90, IP:.95, "ICC-IF":1.0, FC:.90, IHC:.97};
+const LEG  = {WB:0, IP:60, "ICC-IF":84, FC:84, IHC:0};
+const GUT  = {WB:0, IP:0, "ICC-IF":46, FC:0, IHC:46};   // left gutter for rotated labels
 const GREEN="rgb(0,158,76)", MAGENTA="rgb(200,30,140)", GREY="rgb(130,130,130)";
+const IHC_GAP = 6, IHC_NOTE_H = 28;   // mirrors engine.py
 
+// ── IHC (engine.py::_render_ihc, commit.py::_ihc_groups) ──────────────────
+// Two layouts, chosen per figure. "row": one antibody per row, its panels side
+// by side (TP53) — the row's assigned cells are stacked, left to right becoming
+// top to bottom, and labelled by what is typed for the figure, read off its
+// column headings and never assumed from position. "cell": one antibody per
+// cell, already stacked and labelled in the figure itself (PPP2R5D, Figure 4).
+function isIHC(im){ im=im||S; return !!im && im.app==="IHC"; }
+function ihcLayout(im){ return im.ihcLayout==="cell" ? "cell" : "row"; }
+function ihcDefaultLabels(){
+  const g=filedGene()||"gene", w=$("#genotype").value==="KD"?"KD":"KO";
+  return ["WT", `${g} ${w}`, "Mosaic"];
+}
+// null = never touched (the default); [] = cleared, because the panels carry
+// their own labels. Same reading as commit.py::ihc_labels.
+function ihcLabelsOf(im){
+  if(ihcLayout(im)==="cell") return [];
+  if(im.ihcLabels==null) return ihcDefaultLabels();
+  return im.ihcLabels.map(x=>String(x).trim()).filter(Boolean);
+}
+function ihcNote(cellLine, scale){
+  const parts=[]; if((cellLine||"").trim()) parts.push(`${cellLine.trim()} cell pellets`);
+  if((scale||"").trim()) parts.push(`scale bar ${scale.trim()}`);
+  return parts.join(" · ");
+}
+// [{where, cells:[cl, ...]}] — one group per antibody: a row, left to right,
+// or a single cell, in reading order.
+function ihcGroupsOf(im){
+  const assigned=cellsFor(im).filter(cl=>im.cellState[cl.key]?.assigned);
+  if(ihcLayout(im)==="cell") return assigned.map((cl,i)=>({where:`cell ${i+1}`, cells:[cl]}));
+  const rows={};
+  assigned.forEach(cl=>{ (rows[cl.b]=rows[cl.b]||[]).push(cl); });
+  return Object.keys(rows).map(Number).sort((a,b)=>a-b)
+    .map(b=>({where:`row ${b+1}`, cells:rows[b].sort((x,y)=>x.c-y.c)}));
+}
+// What is wrong with one group, or "" — the same refusals the server makes
+// (commit.py::_ihc_problem), so the preview cannot pass what the save refuses.
+function ihcProblem(im,g){
+  const labels=ihcLabelsOf(im);
+  const abs=new Set(g.cells.map(cl=>im.cellState[cl.key].ab).filter(a=>a!=null));
+  if(!abs.size) return "";
+  if(abs.size>1) return `${g.where} has its panels set to different antibodies — an IHC row is one antibody`;
+  if(labels.length && g.cells.length!==labels.length)
+    return `${g.where} has ${g.cells.length} panel${g.cells.length===1?"":"s"} assigned and the labels name ${labels.length} (${labels.join(", ")})`;
+  return "";
+}
+// ── Whole figure on the gene's IHC page (box 6; commit.py::whole_spec) ────
+// Per figure, IHC only. `crop:false` is a tissue-only figure: the save puts
+// the whole figure on the IHC page and cuts no crop from it, and the preview
+// (generate) skips it the same way, so the two agree.
+function pageOf(im){
+  const p=im.ihcPage||{};
+  const sm=p.samples||{};
+  return { on:!!p.on, crop:p.crop!==false, label:p.label||"", legend:p.legend||"",
+    samples:{ hap1_pellets:!!sm.hap1_pellets, other_lines:sm.other_lines||"",
+              tissue:!!sm.tissue, tissue_species:sm.tissue_species||"",
+              tissue_species_other:sm.tissue_species_other||"",
+              tissue_organs:sm.tissue_organs||"" },
+    controls:Array.isArray(p.controls)?p.controls.slice():[],
+    supplier_key:!!p.supplier_key,
+    antibodies:Array.isArray(p.antibodies)?p.antibodies.slice():[],
+    source:p.source||"" };
+}
+function isWholeFigure(im){ return !!im && im.app==="IHC" && pageOf(im).on; }
+function isCropped(im){ return !isWholeFigure(im) || pageOf(im).crop; }
+function plural(n, one, many){ return n+" "+(n===1?one:(many||one+"s")); }
+// The catalogues this figure's mapped cells point at, on file for the gene —
+// what "Antibodies shown" starts with when the box is first ticked.
+function mappedCatalogues(im){
+  const list=abList(), out=[];
+  Object.values(im.cellState||{}).forEach(st=>{
+    if(st && st.assigned && st.ab!=null && list[st.ab] && !out.includes(list[st.ab])) out.push(list[st.ab]); });
+  return out.filter(isOnFile);
+}
+function renderIhcPage(){
+  const el=$("#ihcpage"); if(!el) return;
+  if(!S){ el.innerHTML='<div class="note">Add a figure first.</div>'; return; }
+  if(S.app!=="IHC"){
+    el.innerHTML='<div class="note" id="ihcpage-not-ihc">Offered for IHC figures only. This figure is '+esc(S.app)+
+      ' — set its application to IHC in box 1 to put the whole figure on the gene\'s IHC page.</div>';
+    return;
+  }
+  const p=pageOf(S), gene=filedGene()||"the gene";
+  const ck=(b)=>b?" checked":"";
+  const abs=(GENE_INFO.antibodies||[]);
+  let h='<label style="font-weight:600"><input type="checkbox" id="ihcpage-on" style="width:auto"'+ck(p.on)+'> '+
+        'Show this whole figure on '+esc(gene)+'\'s IHC page</label>'+
+        '<div class="note" id="ihcpage-purpose">For <b>tissue</b> figures: the most selective antibodies in wild-type and knockout tissue, with the figure\'s own H&amp;E and secondary-only panels and its legend word for word. '+
+        'Not for the HAP1 pellet figure — that is in the report behind its DOI; crop its pellets for the gene page instead. '+
+        'It is not on the public site until somebody releases it on the review queue.</div>';
+  h+='<div id="ihcpage-fields"'+(p.on?"":' hidden')+'>';
+  h+='<label><input type="checkbox" id="ihcpage-crop" style="width:auto"'+ck(p.crop)+'> Also crop this figure for the gene page</label>'+
+     '<div class="note">Untick for a tissue-only figure, which has no HAP1 pellet to crop — it then goes on the IHC page and nowhere else.</div>';
+  h+='<label for="ihcpage-label">Figure label, as the report numbers it (required)</label>'+
+     '<input type="text" id="ihcpage-label" placeholder="e.g. Figure 4" value="'+esc(p.label)+'">';
+  h+='<label for="ihcpage-legend">Legend as published (required — printed word for word)</label>'+
+     '<textarea id="ihcpage-legend" placeholder="Paste the figure legend from the report">'+esc(p.legend)+'</textarea>';
+  h+='<label>What the figure shows</label>'+
+     '<label style="font-weight:400"><input type="checkbox" id="ihcpage-hap1" style="width:auto"'+ck(p.samples.hap1_pellets)+'> HAP1 cell pellets</label>'+
+     '<label for="ihcpage-otherlines" style="font-weight:400">Other cell lines (blank if none)</label>'+
+     '<input type="text" id="ihcpage-otherlines" placeholder="e.g. MCF7" value="'+esc(p.samples.other_lines)+'">'+
+     '<label style="font-weight:400"><input type="checkbox" id="ihcpage-tissue" style="width:auto"'+ck(p.samples.tissue)+'> Tissue</label>'+
+     '<div class="row"><div><label for="ihcpage-species" style="font-weight:400">Species</label>'+
+     '<select id="ihcpage-species"><option value="">—</option>'+
+       ["mouse","human","other"].map(v=>'<option value="'+v+'"'+(p.samples.tissue_species===v?" selected":"")+'>'+v+'</option>').join("")+
+     '</select></div><div><label for="ihcpage-species-other" style="font-weight:400">If other, which</label>'+
+     '<input type="text" id="ihcpage-species-other" value="'+esc(p.samples.tissue_species_other)+'"></div></div>'+
+     '<label for="ihcpage-organs" style="font-weight:400">Organs</label>'+
+     '<input type="text" id="ihcpage-organs" placeholder="e.g. frontal lobe, lung, muscle" value="'+esc(p.samples.tissue_organs)+'">';
+  h+='<label>Controls in this figure</label>'+
+     [["he","ihcpage-he","H&amp;E"],["rabbit_secondary","ihcpage-rbsec","Rabbit secondary only"],
+      ["mouse_secondary","ihcpage-mssec","Mouse secondary only"]].map(([k,id,t])=>
+       '<label style="font-weight:400"><input type="checkbox" id="'+id+'" data-control="'+k+'" class="ihcpage-control" style="width:auto"'+
+       ck(p.controls.includes(k))+'> '+t+'</label>').join("");
+  h+='<label style="font-weight:400"><input type="checkbox" id="ihcpage-supplierkey" style="width:auto"'+ck(p.supplier_key)+'> '+
+     'Antibody names are coloured by the supplier\'s recommendation (a key like TP53\'s)</label>';
+  h+='<label>Antibodies shown</label>';
+  if(!abs.length){
+    h+='<div class="note" id="ihcpage-no-abs">No antibodies on file for '+esc(gene)+' yet — a whole figure can only name antibodies on file. '+
+       'Log them on the antibodies board, then check the gene again.</div>';
+  } else {
+    h+=abs.map((a,i)=>'<label style="font-weight:400;margin:2px 0"><input type="checkbox" class="ihcpage-ab" id="ihcpage-ab-'+i+'" style="width:auto" data-cat="'+esc(a.catalogue)+'"'+
+       ck(p.antibodies.some(c=>onFileKey(c)===onFileKey(a.catalogue)))+'> '+esc(a.catalogue)+
+       (a.company?' <span style="color:#7a8496">'+esc(a.company)+'</span>':"")+'</label>').join("");
+  }
+  // One fact, one control: the scale bar is box 5's, for the crop and the page.
+  h+='<div class="note" id="ihcpage-scale" style="margin-top:6px">Scale bar: '+
+     ((S.ihcScale||"").trim()?'<b>'+esc(S.ihcScale.trim())+'</b>':'not stated — the page will say the length is not stated in the source report')+
+     ' (the “Scale bar length” box in 5 sets it for the crop and the page alike).</div>';
+  h+='<label for="ihcpage-source">Source, if not the gene\'s report (DOI or link; blank = the gene\'s report)</label>'+
+     '<input type="text" id="ihcpage-source" placeholder="e.g. 10.12688/f1000research.12345.1" value="'+esc(p.source)+'">';
+  h+='</div>';
+  el.innerHTML=h;
+  wireIhcPage();
+}
+function setPage(fn){
+  const p=pageOf(S); fn(p); S.ihcPage=p;
+}
+function wireIhcPage(){
+  const on=$("#ihcpage-on"); if(!on) return;
+  on.addEventListener("change", e=>{
+    const first=S.ihcPage==null;
+    setPage(p=>{ p.on=e.target.checked;
+      if(p.on && first && !p.antibodies.length) p.antibodies=mappedCatalogues(S);
+      if(p.on && first) p.samples.tissue = true; });
+    renderIhcPage(); render();
+  });
+  const txt=[["#ihcpage-label",(p,v)=>p.label=v],["#ihcpage-legend",(p,v)=>p.legend=v],
+             ["#ihcpage-otherlines",(p,v)=>p.samples.other_lines=v],
+             ["#ihcpage-species-other",(p,v)=>p.samples.tissue_species_other=v],
+             ["#ihcpage-organs",(p,v)=>p.samples.tissue_organs=v],
+             ["#ihcpage-source",(p,v)=>p.source=v],
+             ["#ihcpage-species",(p,v)=>p.samples.tissue_species=v]];
+  txt.forEach(([sel,set])=>{ const el=$(sel); if(el) onEdit(el, e=>setPage(p=>set(p, e.target.value))); });
+  const box=[["#ihcpage-crop",(p,v)=>p.crop=v],["#ihcpage-hap1",(p,v)=>p.samples.hap1_pellets=v],
+             ["#ihcpage-tissue",(p,v)=>p.samples.tissue=v],["#ihcpage-supplierkey",(p,v)=>p.supplier_key=v]];
+  box.forEach(([sel,set])=>{ const el=$(sel); if(el) el.addEventListener("change", e=>{ setPage(p=>set(p, e.target.checked)); render(); }); });
+  document.querySelectorAll(".ihcpage-control").forEach(b=>b.addEventListener("change", e=>setPage(p=>{
+    const k=e.target.dataset.control; p.controls=p.controls.filter(c=>c!==k); if(e.target.checked) p.controls.push(k); })));
+  document.querySelectorAll(".ihcpage-ab").forEach(b=>b.addEventListener("change", ()=>setPage(p=>{
+    p.antibodies=[...document.querySelectorAll(".ihcpage-ab")].filter(x=>x.checked).map(x=>x.dataset.cat); })));
+}
 function abList(){ return $("#abs").value.split(/\n/).map(s=>s.trim()).filter(Boolean); }
 function setStatus(t){ $("#status").textContent=t; }
 
@@ -368,7 +741,7 @@ $("#file").addEventListener("change", e=>{
       renderImageList(); };
     im.src=URL.createObjectURL(f);
     SESS.images.push(st);
-    stageImage(st);               // upload so it survives a reload
+    st.staging=stageImage(st);    // upload so it survives a reload
     if(firstNew<0) firstNew=SESS.images.length-1;
   });
   e.target.value="";              // allow re-adding the same file later
@@ -380,7 +753,7 @@ async function stageImage(st){
   const fd=new FormData(); fd.append("image",st.file); fd.append("app",st.app); fd.append("name",st.name);
   try{
     const d=await askServer(STAGE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF},body:fd},"write");
-    if(d.id){ st.id=d.id; st.url=d.url; renderImageList(); return; }
+    if(d.id){ st.id=d.id; st.url=d.url; st.staging=null; renderImageList(); return; }
     // Refused — a figure too big to crop, most often. It must LEAVE the tool:
     // `saveSession` only sends images that staged, so one left sitting here can
     // be gridded and mapped and then is silently absent from the save. Alerted
@@ -396,22 +769,45 @@ async function stageImage(st){
 function dropUnstaged(st, why){
   const i = SESS.images.indexOf(st);
   if(i >= 0) removeImage(i);
-  setSaveStatus("“" + st.name + "” was not added — " + why);
-  alert("“" + st.name + "” has not been added.\n\n" + why);
+  setSaveStatus("“" + st.name + "” was not added");
+  notice("#imagenotice", {kind:"refusal", text:"“" + st.name + "” has not been added.\n" + why});
 }
 function setSaveStatus(t){ $("#savestatus").textContent=t; }
-async function saveSession(){
-  setSaveStatus("saving…");
-  const payload={ session_id:SESS.id||null,
+// What a save sends — and, serialised, what "unsaved changes" is measured
+// against, so the question asked before replacing the workspace and the save
+// itself read one description of the work.
+function sessionPayload(){
+  return { session_id:SESS.id||null,
     gene:$("#gene").value.trim(), cell_line:$("#cellline").value.trim(),
     genotype:$("#genotype").value, fc_secondary:$("#fcsec").checked,
-    antibody_list:$("#abs").value, overwrite_ack:$("#overwriteack").checked, metadata:META, recommended:REC,
+    antibody_list:$("#abs").value, overwrite_ack:$("#overwriteack").checked, metadata:META,
     images:SESS.images.filter(im=>im.id).map(im=>({ id:im.id, app:im.app, name:im.name,
-      grid:{bounds:im.bounds,hLines:im.hLines,vLines:im.vLines,bandLeft:im.bandLeft,bandRight:im.bandRight,abOffset:im.abOffset||0},
+      grid:{bounds:im.bounds,hLines:im.hLines,vLines:im.vLines,bandLeft:im.bandLeft,bandRight:im.bandRight,abOffset:im.abOffset||0,
+            ihcLabels:im.ihcLabels==null?null:im.ihcLabels, ihcScale:im.ihcScale||"",
+            ihcLayout:im.ihcLayout||"row", ihcPage:im.ihcPage||null},
       mapping:im.cellState })) };
+}
+function workSignature(){ const p=sessionPayload(); delete p.session_id;
+  return JSON.stringify(p)+"|"+SESS.images.length; }
+let SAVED_SIGNATURE = null;
+function markSaved(){ SAVED_SIGNATURE = workSignature(); }
+// Work that would be lost: figures in the workspace that differ from what was
+// last saved or loaded. A page with no figure has nothing worth asking about.
+function hasUnsavedWork(){
+  return SESS.images.length>0 && workSignature()!==SAVED_SIGNATURE;
+}
+async function saveSession(){
+  setSaveStatus("saving…");
+  // A figure still uploading has no id yet, and `sessionPayload` sends only
+  // figures that have one — so a save pressed mid-upload left that figure out
+  // and said nothing. Wait for the uploads first.
+  const uploading=SESS.images.map(im=>im.staging).filter(Boolean);
+  if(uploading.length){ setSaveStatus("waiting for figures to finish uploading…");
+    await Promise.all(uploading.map(p=>p.catch(()=>{}))); setSaveStatus("saving…"); }
+  const payload=sessionPayload();
   try{
     const d=await askServer(SAVE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify(payload)},"write");
-    if(d.session_id){ SESS.id=d.session_id; setSaveStatus(`saved ✓ (${d.saved} image${d.saved===1?"":"s"})`); loadSessionList(); }
+    if(d.session_id){ SESS.id=d.session_id; markSaved(); setSaveStatus(`saved ✓ (${d.saved} image${d.saved===1?"":"s"})`); loadSessionList(); }
     else { setSaveStatus("save failed — "+(d.error||"the server did not say why")); throw new Error(d.error||"save failed"); }
   }catch(e){ setSaveStatus("save failed: "+e.message); throw e; }
 }
@@ -421,7 +817,8 @@ async function loadSessionList(){
     const sel=$("#sessionpick"); const cur=sel.value;
     sel.innerHTML='<option value="">— resume session —</option>'+
       d.sessions.map(s=>`<option value="${s.id}">${s.gene||"(no gene)"} · ${s.images} img · ${s.updated_at.slice(0,16).replace("T"," ")}</option>`).join("");
-    sel.value=cur;
+    sel.value = SESS.id ? String(SESS.id) : cur;
+    $("#delsession").disabled = !sel.value;
   }catch(e){
     // A failed read is not an empty result. An untouched picker reading
     // "— resume session —" with nothing under it says your saved work is gone,
@@ -434,13 +831,20 @@ async function loadSessionList(){
 }
 async function loadSession(id){
   let d;
+  const sel=$("#sessionpick");
   try{ d=await askServer(LOAD_URL+"?id="+id,{},"read"); }
-  catch(e){ alert("That session could not be opened.\n\n"+e.message+"\nNothing has been changed — try again."); return; }
-  if(d.error){ alert(d.error); return; }
+  catch(e){ sel.value=SESS.id?String(SESS.id):"";
+    notice("#sessionnotice",{kind:"refusal", text:"That session could not be opened. "+e.message+" Nothing has been changed — try again."}); return; }
+  if(d.error){ sel.value=SESS.id?String(SESS.id):"";
+    notice("#sessionnotice",{kind:"refusal", text:"That session could not be opened: "+d.error}); return; }
+  clearNotice("#sessionnotice"); clearNotice("#commitstatus"); $("#crops").innerHTML=""; clearPreviewSummary();
   SESS.id=d.session_id; SESS.images=[]; SESS.current=-1; S=null;
   $("#gene").value=d.gene; $("#cellline").value=d.cell_line; $("#genotype").value=d.genotype;
   $("#fcsec").checked=d.fc_secondary; $("#abs").value=d.antibody_list;
-  META=d.metadata||{}; REC=d.recommended||{}; renderMetaGrid();
+  // The acknowledgement was saved with the session and comes back with it; the
+  // gene check below keeps it unless the gene these are filed under changes.
+  $("#overwriteack").checked=!!d.overwrite_ack; ackGene=null;
+  META=d.metadata||{}; renderMetaGrid();
   d.images.forEach(img=>{
     const st=newImageState(img.name,img.app); st.id=img.id; st.url=img.url;
     st.natW=img.nat_w; st.natH=img.nat_h;
@@ -448,7 +852,12 @@ async function loadSession(id){
     st.bounds=g.bounds||null; st.hLines=g.hLines||[]; st.vLines=g.vLines||[];
     st.bandLeft=g.bandLeft||[]; st.bandRight=g.bandRight||[]; st.cellState=img.mapping||{};
     st.abOffset=g.abOffset||0;
-    const im=new Image(); im.crossOrigin="anonymous";   // allow canvas use of R2-served images
+    st.ihcLabels=g.ihcLabels==null?null:g.ihcLabels; st.ihcScale=g.ihcScale||"";
+    st.ihcLayout=g.ihcLayout||"row";
+    st.ihcPage=g.ihcPage||null;
+    // Drawn through the members-only view (same origin, so the canvas may read
+    // it): the upload is on private storage, not a public bucket URL.
+    const im=new Image(); im.crossOrigin="anonymous";
     // natW/natH come from the saved record, but the *scale* was never set here:
     // this is where a resumed session drew at 1:1. Fit it as soon as the bitmap
     // is in, whether or not it is the image on screen.
@@ -458,71 +867,200 @@ async function loadSession(id){
   });
   checkGene(); updatePanelCheck(); renderImageList();
   if(SESS.images.length) switchImage(0);
+  else { $("#svgwrap").innerHTML='<div class="note" style="padding:40px">Add a composite figure to begin.</div>';
+         $("#mapwrap").innerHTML=""; setStatus("no image"); renderIhcPage(); renderCellList(); renderLinePos(); }
+  sel.value=String(SESS.id); $("#delsession").disabled=false;
+  markSaved();
   setSaveStatus("loaded");
 }
 // saveSession rethrows so commitFlow can stop before committing an unsaved
 // session; pressed on its own the status line has already said what happened.
 $("#save").addEventListener("click", ()=>{ saveSession().catch(()=>{}); });
+// Choosing a session replaces the workspace. It used to do that at once, so a
+// stray pick threw away an unsaved grid; unsaved work is asked about first.
 $("#sessionpick").addEventListener("change", e=>{
-  $("#delsession").disabled = !e.target.value;
-  if(e.target.value) loadSession(+e.target.value);
+  const wanted=+e.target.value;
+  const sel=e.target;
+  if(!wanted){ $("#delsession").disabled=true; return; }
+  if(wanted===SESS.id){ $("#delsession").disabled=false; return; }
+  if(!hasUnsavedWork()){ loadSession(wanted); return; }
+  const label=sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : "that session";
+  sel.value=SESS.id?String(SESS.id):""; $("#delsession").disabled=!sel.value;
+  notice("#sessionnotice",{kind:"consent",
+    text:`You have unsaved changes to the figures here. Opening “${label}” replaces them.`,
+    buttons:[
+      {id:"session-save-then-open", label:"Save mine, then open it", primary:true,
+       onClick:()=>{ saveSession().then(()=>loadSession(wanted)).catch(e=>
+         notice("#sessionnotice",{kind:"refusal", text:"Your work could not be saved, so the other session was not opened. "+e.message})); }},
+      {id:"session-open-anyway", label:"Open it — drop my changes", onClick:()=>loadSession(wanted)},
+      {id:"session-stay", label:"Stay here", onClick:()=>clearNotice("#sessionnotice")}]});
 });
-async function deleteSession(){
+function deleteSession(){
   const sel=$("#sessionpick"); const id=+sel.value;
   if(!id) return;
   const name=sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : "this session";
-  if(!confirm(`Delete this saved session?\n\n${name}\n\nRemoves the saved grid/mapping and its staged figures. `+
-              `Crops you have already saved to the review queue are NOT affected.`)) return;
-  const btn=$("#delsession"); btn.disabled=true;
+  notice("#sessionnotice",{kind:"consent",
+    text:`Delete this saved session? ${name}\nIt removes the saved grid and mapping and the figures uploaded to it. `+
+         `Crops you have already saved to the review queue are not affected.`,
+    buttons:[
+      {id:"session-delete-yes", label:"Delete this session", primary:true, onClick:()=>reallyDeleteSession(id)},
+      {id:"session-delete-no", label:"Keep it", onClick:()=>clearNotice("#sessionnotice")}]});
+}
+async function reallyDeleteSession(id){
+  const sel=$("#sessionpick"), btn=$("#delsession"); btn.disabled=true;
   try{
     const d=await askServer(DELETE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify({session_id:id})},"write");
-    if(d.error){ alert("Delete failed: "+d.error); return; }
+    if(d.error){ notice("#sessionnotice",{kind:"refusal", text:"The session was not deleted: "+d.error}); return; }
     if(SESS.id===id) SESS.id=null;   // the loaded workspace stays; it's just no longer a saved session
     sel.value=""; setSaveStatus("session deleted");
+    notice("#sessionnotice",{kind:"ok", text:"Session deleted. What is on screen stays until you start a new session; save it to keep it."});
     loadSessionList();
-  }catch(e){ alert("Delete failed.\n\n"+e.message+"\nCheck the list before trying again."); loadSessionList(); }
+  }catch(e){ notice("#sessionnotice",{kind:"refusal", text:"Delete did not complete. "+e.message+" Check the list before trying again."}); loadSessionList(); }
   finally{ btn.disabled = !sel.value; }
 }
 $("#delsession").addEventListener("click", deleteSession);
+// A new session starts from an empty workspace. Without it, typing the next
+// gene after a save reused the same session id and overwrote that record.
+function resetWorkspace(){
+  SESS.id=null; SESS.images=[]; SESS.current=-1; S=null;
+  $("#gene").value=""; $("#cellline").value=""; $("#genotype").value="KO";
+  $("#fcsec").checked=false; $("#overwriteack").checked=false; ackGene=null;
+  $("#abs").value=""; META={};
+  GENE_INFO={ exists:false, existing_catalogues:[], antibodies:[],
+              requires_overwrite_ack:false, resolvedGene:"", blocked:"" };
+  $("#genestatus").style.display="none"; $("#overwritewrap").style.display="none";
+  $("#svgwrap").innerHTML='<div class="note" style="padding:40px">Add a composite figure to begin.</div>';
+  $("#mapwrap").innerHTML=""; $("#crops").innerHTML=""; clearPreviewSummary(); renderCellList(); renderLinePos();
+  ["#commitstatus","#imagenotice","#ocrstatus","#metanotice"].forEach(clearNotice);
+  $("#gen").disabled=true; $("#commit").disabled=true;
+  $("#sessionpick").value=""; $("#delsession").disabled=true;
+  renderImageList(); renderOnFile(); renderMetaGrid(); updatePanelCheck(); refreshCopyRow();
+  renderIhcPage();
+  setStatus("no image"); markSaved();
+  setSaveStatus("new session — nothing saved yet");
+}
+$("#newsession").addEventListener("click", ()=>{
+  if(!hasUnsavedWork()){ clearNotice("#sessionnotice"); resetWorkspace(); return; }
+  notice("#sessionnotice",{kind:"consent",
+    text:"You have unsaved changes to the figures here. A new session starts from an empty page.",
+    buttons:[
+      {id:"new-save-first", label:"Save mine, then start a new one", primary:true,
+       onClick:()=>{ saveSession().then(()=>{ clearNotice("#sessionnotice"); resetWorkspace(); }).catch(e=>
+         notice("#sessionnotice",{kind:"refusal", text:"Your work could not be saved, so nothing was cleared. "+e.message})); }},
+      {id:"new-drop", label:"Start a new one — drop my changes", onClick:()=>{ clearNotice("#sessionnotice"); resetWorkspace(); }},
+      {id:"new-stay", label:"Stay here", onClick:()=>clearNotice("#sessionnotice")}]});
+});
 $("#commit").addEventListener("click", commitFlow);
 
-// Save → dry-run (show what will change) → confirm → write to the review
-// queue. Nothing on this path reaches the public website; releasing does.
+// Save → dry-run (show what will change) → the reader agrees in an in-page
+// panel → write to the review queue. The consent was a native confirm dialog until
+// 26 Sep 2026 — unreadable to a browser agent, and answered by reflex — and
+// every refusal was an alert dialog while the line beside the button said "the gene
+// is ambiguous" whatever the reason was. Now the server's own sentence is what
+// the reader sees, beside the button, and the question has real buttons.
 async function commitFlow(){
   const gene=$("#gene").value.trim();
-  if(!gene){ alert("Enter a gene before committing."); return; }
+  if(!gene){
+    notice("#commitstatus",{kind:"refusal", text:"Type the gene these figures are for in box 2 before saving."});
+    $("#gene").focus(); return;
+  }
   const btn=$("#commit"); btn.disabled=true; const label=btn.textContent; btn.textContent="Saving…";
   const hdr={"X-CSRFToken":CSRF,"Content-Type":"application/json"};
   try{
-    await saveSession();
-    if(!SESS.id){ alert("Save failed — cannot commit."); return; }
+    try{ await saveSession(); }
+    catch(e){ notice("#commitstatus",{kind:"refusal", text:"The session could not be saved, so nothing was sent to the review queue. "+e.message}); return; }
+    if(!SESS.id){ notice("#commitstatus",{kind:"refusal", text:"The session could not be saved, so nothing was sent to the review queue."}); return; }
     btn.textContent="Checking…";
-    const dry=await askServer(COMMIT_URL,{method:"POST",headers:hdr,body:JSON.stringify({session_id:SESS.id,dry_run:true})},"read");
-    if(dry.error){ alert("Cannot commit: "+dry.error); return; }
+    let dry;
+    try{ dry=await askServer(COMMIT_URL,{method:"POST",headers:hdr,body:JSON.stringify({session_id:SESS.id,dry_run:true})},"read"); }
+    catch(e){ notice("#commitstatus",{kind:"refusal", text:"The check before saving did not complete, and nothing was saved. "+e.message}); return; }
+    if(dry.error){ notice("#commitstatus",{kind:"refusal", text:"Not saved: "+dry.error}); return; }
     const s=dry.summary;
-    if(s.refusal){ alert("Cannot save these crops.\n\n"+s.refusal); setCommitStatus("blocked — the gene is ambiguous"); return; }
-    if(!s.crops){ alert("Nothing to commit — assign and map some cells first."); return; }
-    // Say it again at the press, not only in the banner. The banner is set when
-    // the gene field is left, which may have been an hour and several figures
-    // ago, and this is the moment the filing actually happens.
-    const alias = s.gene_matched_via==="alias"
-      ? `\n"${s.typed_gene}" is an older name for ${s.gene} — these will be filed under ${s.gene}, `+
-        `and that is the gene printed on the crops.\n` : "";
-    let msg=`Save these crops to the review queue?\n${alias}\nGene ${s.gene} — will ${s.target} the target.\n`+
-      `Antibodies: ${s.antibodies_create} new, ${s.antibodies_update} existing.\n`+
-      `${s.crops} crops, ${s.recommended} marked recommended.\n`+
-      (s.images_restage?`${s.images_restage} replace a crop already waiting for review.\n`:"")+
-      `\nNothing goes on the public website now`+
-      (s.images_overwrite?`, but ${s.images_overwrite} of these would REPLACE a published figure when released.`:`.`);
-    if(s.warnings.length) msg+=`\n\n⚠ ${s.warnings.join("\n⚠ ")}`;
-    if(s.images_overwrite && !$("#overwriteack").checked){
-      alert(msg+`\n\nTick the box under the gene to say you mean to replace those, then save again.`); return;
+    if(s.refusal){
+      notice("#commitstatus",{kind:"refusal",
+        html:"<b>Not saved.</b>\n"+esc(s.refusal)+addTargetLink(s.add_target_url, gene)});
+      return;
     }
-    if(!confirm(msg)) return;
-    btn.textContent="Saving…"; setCommitStatus("saving…");
-    const d=await askServer(COMMIT_URL,{method:"POST",headers:hdr,body:JSON.stringify({session_id:SESS.id,dry_run:false})},"write");
-    if(d.http_status===409){ alert("Blocked: some of these would replace a published figure when released. Tick the box under the gene, then save again."); setCommitStatus("blocked — replacement not acknowledged"); return; }
-    if(d.error){ alert("Commit failed: "+d.error); setCommitStatus("failed: "+d.error); return; }
+    if(!s.crops && !s.whole_figures){
+      const q=s.whole_figures_dropped||[];
+      notice("#commitstatus",{kind:"refusal", text:"Nothing to save yet — no assigned cell is set to an antibody, and no figure is ticked for the gene's IHC page. Click the panels you want (box 5) and check each has an antibody, or tick the whole figure in box 6."+
+        (q.length?` This session's whole ${q.length===1?"figure":"figures"} ${q.join(", ")} ${q.length===1?"is":"are"} still waiting on the review queue — discard ${q.length===1?"it":"them"} there if no longer wanted.`:"")});
+      return;
+    }
+    if(s.images_overwrite && !$("#overwriteack").checked){
+      notice("#commitstatus",{kind:"refusal",
+        html:commitSummaryHtml(s)+"\n<b>Not saved.</b> Tick “I understand these crops replace published figures” under the gene (box 2) if that is what you mean, then press Save to review queue again.",
+        buttons:[{id:"commit-goto-ack", label:"Show me the tick", onClick:()=>{
+          const t=$("#overwriteack"); try{ t.scrollIntoView({block:"center"}); }catch(e){} t.focus(); }}]});
+      return;
+    }
+    // What was agreed to is this exact workspace. Edit anything after the
+    // panel is drawn and the press is refused rather than saving crops
+    // nobody looked at the count of.
+    const agreed=workSignature();
+    const n=s.crops, w=s.whole_figures||0;
+    const what=[n?plural(n,"crop"):"", w?plural(w,"whole IHC figure"):""].filter(Boolean).join(" and ");
+    notice("#commitstatus",{kind:"consent", html:commitSummaryHtml(s), buttonsFirst:true,
+      buttons:[
+        {id:"commit-yes", label:`Save ${what} to the review queue`, primary:true,
+         onClick:()=>commitWrite(n, agreed, s.stamp, w)},
+        {id:"commit-no", label:"Not yet", onClick:()=>notice("#commitstatus",{kind:"info",
+          text:"Nothing was sent to the review queue. Your session is saved — press Save to review queue when you are ready."})}]});
+  }
+  finally{ btn.disabled=false; btn.textContent=label; render(); }
+}
+// The dry run, in sentences. Built from the server's summary so the count on
+// the button is the count the write will make.
+function commitSummaryHtml(s){
+  const lines=[];
+  if(s.gene_matched_via==="alias")
+    lines.push(`“${esc(s.typed_gene)}” is an older name for ${esc(s.gene)} — these will be filed under ${esc(s.gene)}, and that is the gene printed on the crops.`);
+  const w=s.whole_figures||0;
+  const what=[s.crops?plural(s.crops,"crop"):"", w?plural(w,"whole IHC figure"):""].filter(Boolean).join(" and ");
+  lines.push(`<b>Save ${what} for ${esc(s.gene)} to the review queue?</b>`);
+  if(s.crops) lines.push(`Antibodies: ${s.antibodies_update} on file`+
+    (s.antibodies_create?`, ${s.antibodies_create} new — ${esc((s.new_antibodies||[]).join(", "))} will be added to ${esc(s.gene)}`:"")+".");
+  if(w){
+    lines.push(`Whole ${w===1?"figure":"figures"} for ${esc(s.gene)}'s IHC page: ${esc((s.whole_figure_labels||[]).join(", "))}. `+
+      `Not on the public site until somebody releases ${w===1?"it":"them"} on the review queue.`);
+    if(s.whole_figures_restage) lines.push(`${s.whole_figures_restage} replace${s.whole_figures_restage===1?"s":""} a whole figure already waiting for review.`);
+    if(s.whole_figures_replacing_live) lines.push(`${s.whole_figures_replacing_live} revise${s.whole_figures_replacing_live===1?"s":""} a figure already on the IHC page; the page keeps the old one until the revision is released.`);
+  }
+  // Whole figures this session queued under a label no figure in it carries
+  // now — relabelled, unticked or removed. Named here because the save
+  // changes them too; a relabel otherwise queued the same image twice.
+  const dropped=s.whole_figures_dropped||[], leftLive=s.whole_figures_left_live||[];
+  if(dropped.length) lines.push(`${esc(dropped.join(", "))} — queued from this session under a label no figure here carries now — will be <b>taken out of the review queue</b>.`);
+  if(leftLive.length) lines.push(`${esc(leftLive.join(", "))} stay${leftLive.length===1?"s":""} on the public IHC page: a save here never changes it. Withdraw ${leftLive.length===1?"it":"them"} from the released list on the review queue if ${leftLive.length===1?"it is":"they are"} no longer wanted.`);
+  if(s.images_restage) lines.push(`${s.images_restage} replace${s.images_restage===1?"s":""} a crop already waiting for review.`);
+  if(s.images_overwrite){
+    const live=s.images_overwrite_live||0, later=s.images_overwrite-live;
+    lines.push(`⚠ ${s.images_overwrite} replace${s.images_overwrite===1?"s":""} a figure already published on the gene page.`+
+      (live?` <b>${live} of them ${live===1?"is":"are"} written over the file the live gene page shows, so that page changes as soon as you save</b> — before anybody reviews it.`:"")+
+      (later?` ${later===s.images_overwrite?"They":"The other "+later} change the page when released.`:""));
+  }
+  lines.push("The rest wait in the review queue; a gene page shows them only once somebody releases them there.");
+  (s.warnings||[]).forEach(w=>lines.push("⚠ "+esc(w)));
+  return lines.join("\n");
+}
+async function commitWrite(n, agreed, stamp, w){
+  if(workSignature()!==agreed){
+    notice("#commitstatus",{kind:"refusal", text:"You changed the figures after the check, so these are not the crops you agreed to. Nothing was saved — press Save to review queue again to see the new count."});
+    return;
+  }
+  ["#commit-yes","#commit-no"].forEach(id=>{ const b=$(id); if(b) b.disabled=true; });
+  const y=$("#commit-yes"); if(y) y.textContent="Saving…";
+  const hdr={"X-CSRFToken":CSRF,"Content-Type":"application/json"};
+  try{
+    const d=await askServer(COMMIT_URL,{method:"POST",headers:hdr,
+      body:JSON.stringify({session_id:SESS.id,dry_run:false,consented_crops:n,
+                           consented_whole_figures:w||0,consented_stamp:stamp})},"write");
+    if(d.error){
+      const sm=d.summary||{};
+      notice("#commitstatus",{kind:"refusal",
+        html:"<b>Not saved.</b>\n"+esc(d.error)+addTargetLink(sm.add_target_url, $("#gene").value.trim())});
+      return;
+    }
     showCommitSuccess(d);
   }catch(e){
     // The one press where "did it work?" cannot be left hanging. The write is
@@ -531,15 +1069,12 @@ async function commitFlow(){
     // where to look, and say that pressing again is safe: staging upserts on
     // (antibody, application), so a second press revises the queued crop rather
     // than queueing a duplicate.
-    alert("Commit did not complete.\n\n"+e.message+
-          "\nNothing has gone on the public website either way — crops only ever wait in the review queue.\n\n"+
-          "Check /pipeline/review/ to see whether they arrived. If they did not, press Save to review queue again — "+
-          "it is safe to repeat, because a second save replaces the queued crop rather than adding another copy.");
-    setCommitStatus("did not complete — check the review queue");
+    notice("#commitstatus",{kind:"refusal", html:
+      "<b>Saving did not complete.</b> "+esc(e.message)+"\n"+
+      `Check the <a href="{% url 'pipeline:review_queue' %}" target="_blank">review queue</a> to see whether they arrived. `+
+      "If they did not, press Save to review queue again — it is safe to repeat, because a second save replaces the queued crop rather than adding another copy."});
   }
-  finally{ btn.disabled=false; btn.textContent=label; render(); }
 }
-function setCommitStatus(t){ $("#commitstatus").textContent=t; }
 // Success panel: confirm where the crops went + a link to each committed
 // antibody's edit page so the lab-internal fields (lot, concentration,
 // isotype…) can be completed straight after import.
@@ -550,19 +1085,23 @@ function setCommitStatus(t){ $("#commitstatus").textContent=t; }
 // the old figures or a 404, and conclude the save had failed.
 function showCommitSuccess(d){
   const s=d.summary||{}, committed=s.committed||[];
-  const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  let h=`<div style="border:1px solid #bcdcc3;background:#eef7ef;border-radius:8px;padding:8px 10px">`+
-        `<b style="color:#12a150">Saved ✓</b> — ${s.crops||0} crops are waiting for review`+
-        (d.review_url?` · <a href="${esc(d.review_url)}">review &amp; release →</a>`:"")+
+  const w=(s.whole_figures_saved||[]).length;
+  const n=s.crops||0, total=n+w;
+  const what=[n?plural(n,"crop"):"", w?plural(w,"whole IHC figure"):""].filter(Boolean).join(" and ")||"nothing";
+  let h=`<b style="color:#12a150">Saved ✓</b> — ${what} ${total===1?"is":"are"} waiting for review`+
+        (d.review_url?` · <a id="commit-review-link" href="${esc(d.review_url)}">review &amp; release →</a>`:"")+
         (d.gene_page_url?` · <a href="${esc(d.gene_page_url)}">gene page ↗</a>`:"");
+  if(s.images_overwrite_live)
+    h+=`\n${s.images_overwrite_live} of them replaced the file a live gene page shows.`;
+  if((s.whole_figures_discarded||[]).length)
+    h+=`\nTaken out of the review queue: ${esc(s.whole_figures_discarded.join(", "))}.`;
+  if((s.whole_figures_left_live||[]).length)
+    h+=`\nStill on the public IHC page: ${esc(s.whole_figures_left_live.join(", "))} — withdraw from the review queue if no longer wanted.`;
   if(committed.length){
-    h+=`<div style="margin-top:6px">Complete the lab fields (lot, concentration, isotype…):</div>`+
-       `<div style="max-height:150px;overflow:auto;margin-top:3px">`+
-       committed.map(c=>`<a href="${esc(c.edit_url)}" target="_blank" style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:#fff;border:1px solid #cdd8ea;border-radius:5px;text-decoration:none">${esc(c.catalogue)} ✎</a>`).join("")+
-       `</div>`;
+    h+=`\nComplete the lab fields (lot, concentration, isotype…): `+
+       committed.map(c=>`<a href="${esc(c.edit_url)}" target="_blank" style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:#fff;border:1px solid #cdd8ea;border-radius:5px;text-decoration:none">${esc(c.catalogue)} ✎</a>`).join("");
   }
-  h+=`</div>`;
-  $("#commitstatus").innerHTML=h;
+  notice("#commitstatus",{kind:"ok", html:h});
 }
 
 // #app sets the application for images you ADD; it does NOT change existing
@@ -576,63 +1115,68 @@ function switchImage(i){
   // An image that already has a grid — the resumed-session case — was drawn
   // without ever computing a scale for it.
   else if(S.img){ applyFit(S); render(); }
+  // Not loaded yet (or failed to): the previous figure's boxes must not stay
+  // live, or typing in one would edit this figure's grid.
+  else { selLine=null; renderLinePos(); renderCellList();
+         $("#svgwrap").innerHTML='<div class="note" style="padding:40px">This figure\'s image has not loaded yet.</div>'; }
   showZoom();
+  renderIhcPage();
+}
+// ✕ on a figure takes its grid and assignments with it, so it asks first.
+function askRemoveImage(i){
+  const im=SESS.images[i]; if(!im) return;
+  const n=Object.values(im.cellState).filter(c=>c.assigned).length;
+  notice("#imagenotice",{kind:"consent",
+    text:`Remove “${im.name}” from this session?`+(n?` Its grid and the ${n} panel${n===1?"":"s"} assigned on it go with it.`:"")+
+         " Nothing already in the review queue changes.",
+    buttons:[{id:"imgrm-yes", label:"Remove figure", primary:true, onClick:()=>{
+               clearNotice("#imagenotice"); const j=SESS.images.indexOf(im); if(j>=0) removeImage(j); }},
+             {id:"imgrm-no", label:"Keep it", onClick:()=>clearNotice("#imagenotice")}]});
 }
 function removeImage(i){
   SESS.images.splice(i,1);
   if(!SESS.images.length){ SESS.current=-1; S=null;
     $("#svgwrap").innerHTML='<div class="note" style="padding:40px">Add a composite figure to begin.</div>';
-    $("#mapwrap").innerHTML=''; $("#gen").disabled=true; renderImageList(); setStatus("no image"); return; }
+    $("#mapwrap").innerHTML=''; $("#gen").disabled=true; $("#commit").disabled=true;
+    renderImageList(); refreshCopyRow(); setStatus("no image"); renderIhcPage(); renderCellList(); renderLinePos(); clearPreviewSummary(); return; }
   switchImage(Math.min(i, SESS.images.length-1));
 }
 function renderImageList(){
   const el=$("#imagelist");
-  const apps=["WB","IP","ICC-IF","FC"];
+  const apps=["WB","IP","ICC-IF","FC","IHC"];
   el.innerHTML=SESS.images.map((im,i)=>{
     const assigned=Object.values(im.cellState).filter(c=>c.assigned).length;
     const done=assigned?`<span class="done">${assigned}✓</span>`:'';
-    const sel=`<select class="appsel" data-i="${i}">`+
+    const sel=`<select class="appsel" id="imgapp-${i}" data-i="${i}" aria-label="Application of ${esc(im.name)}">`+
       apps.map(a=>`<option ${a===im.app?"selected":""}>${a}</option>`).join("")+`</select>`;
-    return `<div class="imgrow ${i===SESS.current?'active':''}" data-i="${i}">
-      ${sel}<span class="nm" title="${im.name}">${im.name}</span>
-      ${done}<button class="rm" data-rm="${i}" title="remove">✕</button></div>`;
+    return `<div class="imgrow ${i===SESS.current?'active':''}" id="imgrow-${i}" data-i="${i}">
+      ${sel}<span class="nm" title="${esc(im.name)}">${esc(im.name)}</span>
+      ${done}<button class="rm" id="imgrm-${i}" data-rm="${i}" aria-label="Remove ${esc(im.name)}">✕</button></div>`;
   }).join("");
   el.querySelectorAll(".imgrow").forEach(r=>r.addEventListener("click",e=>{
     if(e.target.classList.contains("appsel")) return;      // let the select handle itself
-    if(e.target.dataset.rm!==undefined){ removeImage(+e.target.dataset.rm); }
+    if(e.target.dataset.rm!==undefined){ askRemoveImage(+e.target.dataset.rm); }
     else switchImage(+r.dataset.i);
   }));
   el.querySelectorAll(".appsel").forEach(s=>s.addEventListener("change",e=>{
     e.stopPropagation();
     const i=+e.target.dataset.i; SESS.images[i].app=e.target.value;
-    if(i===SESS.current) setStatus(`image ${i+1}/${SESS.images.length} · ${e.target.value} · ${S.natW}×${S.natH}px`);
+    // IHC maps a whole row to one antibody and every other type maps a cell,
+    // so the reading-order guess has to be taken again for the new type.
+    if(i===SESS.current){ setStatus(`image ${i+1}/${SESS.images.length} · ${e.target.value} · ${S.natW}×${S.natH}px`);
+      reprefill(); render(); updatePanelCheck(); renderIhcPage(); }
   }));
 }
 
 $("#seed").addEventListener("click", seedGrid);
+$("#app").addEventListener("change", ()=>{ if(!S) updatePanelCheck(); });
 $("#gen").addEventListener("click", generate);
 $("#nrows").addEventListener("input", renderRowCounts);
 $("#abs").addEventListener("input", updatePanelCheck);
 $("#gene").addEventListener("change", checkGene);
 $("#gene").addEventListener("blur", checkGene);
 $("#ocr").addEventListener("click", ocrPrefill);
-$("#parsemeta").addEventListener("click", parseMetadata);
-$("#abs").addEventListener("input", renderMetaGrid);
-
-// Parse a pasted antibody table → metadata grid + catalogue list (spec §4).
-async function parseMetadata(){
-  const text=$("#metapaste").value.trim();
-  if(!text){ alert("Paste the antibody table first."); return; }
-  const btn=$("#parsemeta"); btn.disabled=true; const label=btn.textContent; btn.textContent="Parsing…";
-  try{
-    const d=await askServer(PARSE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},body:JSON.stringify({text})},"read");
-    if(d.error){ alert(d.error); return; }
-    META={}; d.rows.forEach(r=>{ META[r.catalogue]=r; });
-    $("#abs").value=d.rows.map(r=>r.catalogue).join("\n");   // catalogues in order
-    updatePanelCheck(); renderMetaGrid();
-  }catch(e){ alert("The antibody table could not be parsed.\n\n"+e.message+"\nYour paste is still in the box — try again."); }
-  finally{ btn.disabled=false; btn.textContent=label; }
-}
+$("#abs").addEventListener("input", ()=>{ renderMetaGrid(); renderOnFile(); });
 
 const CLON_OPTS=["unknown","monoclonal","polyclonal","recombinant"];
 const ADD_AB_BTN='<button id="addab" style="margin-top:8px;padding:5px 10px">+ Add antibody</button>';
@@ -652,46 +1196,120 @@ function addAntibody(){
 }
 // Remove an antibody row and keep every image's cell→antibody mapping consistent
 // (drop cells that pointed at it; shift the higher indices down by one).
-function deleteAntibody(idx){
+function deleteAntibody(idx, ask=true){
   const list=abList();
   if(idx<0 || idx>=list.length) return;
   const removed=list[idx];
-  if(!confirm(`Remove antibody "${removed}" from this list?`)) return;
+  if(ask){
+    notice("#metanotice",{kind:"consent",
+      text:`Remove antibody “${removed}” from this list? Panels mapped to it become unmapped; nothing on file changes.`,
+      buttons:[{id:"delab-yes", label:"Remove it", primary:true, onClick:()=>{ clearNotice("#metanotice"); deleteAntibody(idx,false); }},
+               {id:"delab-no", label:"Keep it", onClick:()=>clearNotice("#metanotice")}]});
+    return;
+  }
   list.splice(idx,1);
   $("#abs").value=list.join("\n");
-  if(removed){ delete META[removed]; if(typeof REC!=="undefined" && REC) delete REC[removed]; }
+  if(removed){ delete META[removed]; }
   (SESS.images||[]).forEach(im=>Object.values(im.cellState||{}).forEach(st=>{
     if(st.ab==null) return;
     if(st.ab===idx){ st.ab=null; st.manual=false; }
     else if(st.ab>idx){ st.ab-=1; }
   }));
-  updatePanelCheck(); renderMetaGrid(); if(typeof S!=="undefined" && S && S.img) render();
+  updatePanelCheck(); renderMetaGrid(); renderOnFile(); if(typeof S!=="undefined" && S && S.img) render();
+}
+const onFileKey=c=>String(c||"").trim().toUpperCase();
+function isOnFile(cat){
+  return (GENE_INFO.antibodies||[]).some(a=>onFileKey(a.catalogue)===onFileKey(cat));
+}
+// The gene's antibodies on file, one tick each. Ticking appends to the list
+// (which drives the mapping); unticking removes it and re-indexes every cell
+// that pointed past it — the same path as the ✕ in the grid.
+function renderOnFile(){
+  const el=$("#onfile"); if(!el) return;
+  const abs=GENE_INFO.antibodies||[];
+  if(!$("#gene").value.trim()){ el.innerHTML="Type the gene above and its antibodies on file are listed here."; return; }
+  if(!abs.length){
+    el.innerHTML="No antibodies on file for this gene. Log them on the "+
+      '<a href="{% url "pipeline:antibody_board" %}?gene='+encodeURIComponent($("#gene").value.trim())+'" target="_blank">antibodies board</a>, '+
+      "or use <b>+ Add antibody</b> under the crops.";
+    return;
+  }
+  const inList=new Set(abList().map(onFileKey));
+  el.innerHTML='<b>'+abs.length+' on file</b> for this gene:'+
+    abs.map((a,i)=>'<label style="display:block;font-weight:400;margin:2px 0">'+
+      '<input type="checkbox" class="onfile" id="onfile-'+i+'" style="width:auto" data-cat="'+esc(a.catalogue)+'"'+
+      (inList.has(onFileKey(a.catalogue))?" checked":"")+'> '+esc(a.catalogue)+
+      (a.company?' <span style="color:#7a8496">'+esc(a.company)+'</span>':"")+
+      (a.published&&a.published.length?' <span style="color:#7a8496">· published '+esc(a.published.join(", "))+'</span>':"")+
+      '</label>').join("");
+  el.querySelectorAll("input.onfile").forEach(b=>b.addEventListener("change",e=>{
+    const cat=e.target.dataset.cat, list=abList();
+    const idx=list.findIndex(c=>onFileKey(c)===onFileKey(cat));
+    if(e.target.checked && idx<0){ list.push(cat); $("#abs").value=list.join("\n");
+      updatePanelCheck(); renderMetaGrid(); }
+    else if(!e.target.checked && idx>=0){ deleteAntibody(idx, false); }
+  }));
+}
+// Which supplier the save will store, printed beside the box — it was a ✓ or ＋
+// with the answer in a tooltip, and nothing on the page ever asked the server
+// once the paste table went. The same reader as every other preview
+// (`cropper_parse_metadata` → `db.resolved_company_name`).
+function companyNote(m){
+  if(!m || !m.company) return "";
+  if(m.company_status==="existing")
+    return `<span class="co-existing">✓ on file as ${esc(m.company_resolved||m.company)}</span>`;
+  if(m.company_status==="new")
+    return `<span class="co-new">＋ new supplier “${esc(m.company_resolved||m.company)}” will be added</span>`;
+  return "";
+}
+async function checkCompany(cat, noteId){
+  const m=META[cat]; if(!m) return;
+  const note=document.getElementById(noteId);
+  if(!m.company){ m.company_status=""; if(note) note.innerHTML=""; return; }
+  try{
+    const d=await askServer(PARSE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},
+      body:JSON.stringify({text:"Catalogue\tCompany\n"+cat+"\t"+m.company})},"read");
+    const row=(d.rows||[])[0];
+    if(row){ m.company_status=row.company_status; m.company_resolved=row.company_resolved; }
+    if(note) note.innerHTML=companyNote(m);
+  }catch(e){ if(note) note.textContent="could not check the supplier — "+e.message; }
 }
 function _wireAddBtn(){ const b=$("#addab"); if(b) b.addEventListener("click", addAntibody); }
 
 function renderMetaGrid(){
   const cats=abList(); const el=$("#metagrid");
-  if(!cats.length){ el.innerHTML='<div class="note">No antibodies yet — parse a table above, or add one.</div>'+ADD_AB_BTN; _wireAddBtn(); return; }
+  if(!cats.length){ el.innerHTML='<div class="note">No antibodies yet — tick them in box 3, or add one.</div>'+ADD_AB_BTN; _wireAddBtn(); return; }
+  // Only the ones not on file need details: the rest are already recorded in
+  // the pipeline, and editing them belongs on the antibodies board.
+  if(cats.every(isOnFile)){
+    el.innerHTML='<div class="note">Every antibody in the list is on file. One that is not: </div>'+ADD_AB_BTN;
+    _wireAddBtn(); return;
+  }
   const cols=[["company","Company"],["rrid","RRID"],["host","Host"],["clone_id","Clone"],["supplier_url","Product link"]];
   let h='<table class="metatable"><tr><th>Catalogue</th><th>Lot</th><th>Conc</th><th>Company</th><th>Clonality</th><th>Recomb</th>'+
         cols.slice(1).map(c=>`<th>${c[1]}</th>`).join("")+'<th>Disc.</th><th></th></tr>';
   cats.forEach((cat,idx)=>{
+    if(isOnFile(cat)) return;
     const m=META[cat]||{};
-    const co=m.company_status==="existing"?`<span class="co-existing" title="matches ${m.company_resolved||""}">✓</span>`
-            :(m.company_status==="new"?'<span class="co-new" title="will create supplier">＋</span>':"");
-    const clon=`<select data-cat="${cat}" data-f="clonality">`+CLON_OPTS.map(o=>`<option ${o===(m.clonality||"unknown")?"selected":""}>${o}</option>`).join("")+`</select>`;
-    h+=`<tr><td><input class="cat" data-idx="${idx}" value="${cat}" title="edit to match the catalogue as printed in the image"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="lot" value="${m.lot||""}" style="min-width:70px"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="concentration" value="${m.concentration||""}" style="min-width:56px" title="as pasted (no unit conversion)"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="company" value="${m.company||""}"> ${co}</td>`+
+    const co=companyNote(m);
+    const clon=`<select id="meta-${idx}-clonality" data-cat="${esc(cat)}" data-f="clonality">`+CLON_OPTS.map(o=>`<option ${o===(m.clonality||"unknown")?"selected":""}>${o}</option>`).join("")+`</select>`;
+    // Stable ids (`meta-<row>-<field>`) so a browser agent can name each box.
+    const f=(k,extra)=>`id="meta-${idx}-${k}" data-cat="${esc(cat)}" data-f="${k}"`+(extra||"");
+    h+=`<tr><td><input class="cat" id="meta-${idx}-catalogue" data-idx="${idx}" value="${esc(cat)}" title="edit to match the catalogue as printed in the image"></td>`+
+       `<td><input type="text" ${f("lot")} value="${esc(m.lot||"")}" style="min-width:70px"></td>`+
+       // It is converted, not kept as typed: `services/concentration.py`
+       // turns 1 mg/mL into 1000 µg/mL on save, and a bare number is read as
+       // µg/mL. The tooltip said "no unit conversion", which was the opposite.
+       `<td><input type="text" ${f("concentration")} value="${esc(m.concentration||"")}" style="min-width:56px" placeholder="e.g. 1 mg/mL" title="Include the unit, e.g. 1 mg/mL — it is converted to µg/mL when saved. A bare number is read as µg/mL."></td>`+
+       `<td><input type="text" ${f("company")} value="${esc(m.company||"")}"> <span class="co-note" id="meta-${idx}-company-note">${co}</span></td>`+
        `<td>${clon}</td>`+
-       `<td style="text-align:center"><input type="checkbox" data-cat="${cat}" data-f="is_recombinant" ${m.is_recombinant?"checked":""}></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="rrid" value="${m.rrid||""}"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="host" value="${m.host||""}"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="clone_id" value="${m.clone_id||""}"></td>`+
-       `<td><input type="text" data-cat="${cat}" data-f="supplier_url" value="${m.supplier_url||""}"></td>`+
-       `<td style="text-align:center"><input type="checkbox" data-cat="${cat}" data-f="discontinued" ${m.discontinued?"checked":""}></td>`+
-       `<td style="text-align:center"><button class="delab" data-idx="${idx}" title="remove this antibody">✕</button></td></tr>`;
+       `<td style="text-align:center"><input type="checkbox" ${f("is_recombinant")} ${m.is_recombinant?"checked":""}></td>`+
+       `<td><input type="text" ${f("rrid")} value="${esc(m.rrid||"")}"></td>`+
+       `<td><input type="text" ${f("host")} value="${esc(m.host||"")}"></td>`+
+       `<td><input type="text" ${f("clone_id")} value="${esc(m.clone_id||"")}"></td>`+
+       `<td><input type="text" ${f("supplier_url")} value="${esc(m.supplier_url||"")}"></td>`+
+       `<td style="text-align:center"><input type="checkbox" ${f("discontinued")} ${m.discontinued?"checked":""}></td>`+
+       `<td style="text-align:center"><button class="delab" id="delab-${idx}" data-idx="${idx}" aria-label="Remove ${esc(cat)}">✕</button></td></tr>`;
   });
   h+="</table>"+ADD_AB_BTN;
   el.innerHTML=h;
@@ -699,6 +1317,7 @@ function renderMetaGrid(){
     const t=e.target, cat=t.dataset.cat, f=t.dataset.f;
     if(!META[cat]) META[cat]={};
     META[cat][f] = t.type==="checkbox" ? t.checked : t.value;
+    if(f==="company") checkCompany(cat, t.id.replace(/-company$/,"-company-note"));
   }));
   // editable catalogue: rewrite the matching line in the antibody list and re-key META
   el.querySelectorAll("input.cat").forEach(inp=>inp.addEventListener("change",e=>{
@@ -831,14 +1450,17 @@ async function _readBand(worker, src, im, cl, above){
 }
 
 async function ocrPrefill(){
-  if(!S || !S.img){ alert("Add a figure first."); return; }
+  // Refusals beside the button, never a dialog (see `notice`).
+  if(!S || !S.img){ notice("#ocrstatus",{kind:"refusal", text:"Add a figure first (box 1)."}); return; }
+  if(isIHC()) return;   // disabled with the reason beside it — see render()
   const ordered=assignedCellsInOrder();
-  if(!ordered.length){ alert("Assign the panels you want (click cells) before running OCR."); return; }
+  if(!ordered.length){ notice("#ocrstatus",{kind:"refusal", text:"Assign the panels you want first — click each cell on the figure — then run OCR."}); return; }
+  clearNotice("#ocrstatus");
   const btn=$("#ocr"); btn.disabled=true; const label=btn.textContent;
   btn.textContent="Loading OCR…";
   let src;
   try{ src=sourceCanvas(S); }                       // full-res canvas of this figure
-  catch(e){ alert("Can't read this image for OCR (a reloaded figure needs R2 CORS enabled). "+e); btn.disabled=false; btn.textContent=label; return; }
+  catch(e){ notice("#ocrstatus",{kind:"refusal", text:"This figure cannot be read for OCR — a figure reopened from a saved session needs the storage to allow it (CORS). Set each antibody in the table below instead."}); btn.disabled=false; btn.textContent=label; return; }
   try{
     const worker=await getTessWorker();
     const results=[];
@@ -868,7 +1490,9 @@ async function ocrPrefill(){
       // ambiguous / no-match: keep the reading-order guess, flagged via st.ocr
     });
     updatePanelCheck(); render();
-  }catch(e){ alert("OCR failed: "+e+"\n(The tool still works with reading-order mapping.)"); }
+    const sure=results.filter(r=>r.confident).length;
+    notice("#ocrstatus",{kind:"ok", text:`OCR read ${ordered.length} title${ordered.length===1?"":"s"}: ${sure} matched with confidence, ${ordered.length-sure} left in reading order — check those in the table.`});
+  }catch(e){ notice("#ocrstatus",{kind:"refusal", text:"OCR did not run, so nothing was changed. The mapping still works in reading order — set each antibody in the table below."}); }
   finally{ btn.disabled=false; btn.textContent=label; }
 }
 
@@ -877,18 +1501,34 @@ async function ocrPrefill(){
 async function checkGene(){
   const gene=$("#gene").value.trim();
   const el=$("#genestatus"), ow=$("#overwritewrap");
+  // A verdict about the previous gene is not one about this one.
+  GENE_INFO.blocked=""; GENE_INFO.addTargetUrl="";
   if(!gene){ el.style.display="none"; ow.style.display="none"; return; }
   el.style.display="block"; el.className="banner loading"; el.textContent="Checking database…";
   try{
     const d=await askServer(GENE_STATUS_URL+"?gene="+encodeURIComponent(gene),{},"read");
     if(d.error){ el.className="banner loading"; el.textContent=d.error; return; }
     GENE_INFO={ exists:d.exists, existing_catalogues:d.existing_catalogues||[],
+                antibodies:d.antibodies||[],
                 requires_overwrite_ack:d.banner.requires_overwrite_ack,
-                resolvedGene:d.resolved_gene||"", blocked:d.blocked||"" };
+                resolvedGene:d.resolved_gene||"", blocked:d.blocked||"",
+                addTargetUrl:d.add_target_url||"" };
     el.className="banner "+d.banner.level;
-    el.textContent=d.banner.text;
-    if(d.banner.requires_overwrite_ack){ ow.style.display="block"; $("#overwriteack").checked=false; }
-    else { ow.style.display="none"; }
+    el.setAttribute("role", d.banner.blocked ? "alert" : "status");
+    // Not on file: the cropper does not add genes, so the banner names the
+    // board that does, with the gene filled in.
+    el.innerHTML=esc(d.banner.text)+addTargetLink(d.add_target_url, gene);
+    const filed=d.resolved_gene||gene;
+    if(ackGene!==null && ackGene!==filed) $("#overwriteack").checked=false;
+    ackGene=filed;
+    ow.style.display = d.banner.requires_overwrite_ack ? "block" : "none";
+    // An empty list starts with everything on file — untick what is not in the
+    // figure. A list already there (a resumed session) is left as it is.
+    if(!abList().length && GENE_INFO.antibodies.length){
+      $("#abs").value=GENE_INFO.antibodies.map(a=>a.catalogue).join("\n");
+      updatePanelCheck();
+    }
+    renderOnFile(); renderMetaGrid(); renderIhcPage();
   }catch(e){
     // A failed check is not "this gene is new". The banner drives the overwrite
     // gate, so saying nothing is on file for a gene the check never reached
@@ -907,15 +1547,62 @@ function renderRowCounts(){
   const prev = readRowCounts();
   const wrap = $("#rowcounts");
   let h = "";
+  const same = Math.max(0, +$("#samepanels").value|0);
   for(let r=0;r<nr;r++){
-    // default: reuse previous value if present, else spread antibodies evenly across rows
-    const def = prev[r] != null ? prev[r] : Math.max(1, Math.round(total/nr));
-    h += `<label>Panels in row ${r+1}</label><input type="number" class="rowcount" data-r="${r}" value="${def}" min="1">`;
+    // "Same number in every row" wins; else reuse the previous value if
+    // present, else spread the antibodies evenly across rows.
+    const def = same ? same : (prev[r] != null ? prev[r] : Math.max(1, Math.round(total/nr)));
+    h += `<label for="rowcount-${r}">Panels in row ${r+1}</label><input type="number" class="rowcount" id="rowcount-${r}" data-r="${r}" value="${def}" min="1">`;
   }
   wrap.innerHTML = h;
   wrap.querySelectorAll(".rowcount").forEach(inp=>inp.addEventListener("input", updatePanelCheck));
   updatePanelCheck();
 }
+$("#samepanels").addEventListener("input", ()=>{
+  const n=Math.max(0, +$("#samepanels").value|0); if(!n) return;
+  document.querySelectorAll(".rowcount").forEach(i=>{ i.value=n; });
+  updatePanelCheck();
+});
+// Copy one row's orange edges and green column splits onto every row of the
+// current figure. An IHC figure is many identical rows, and fitting each by
+// dragging is the same work nine times over (and, for an agent, nine sets of
+// pointer drags on thin lines). Column splits are stored as fractions of the
+// row's width, so copying the edges and the fractions reproduces the columns.
+// Assignments survive in rows that keep their number of panels.
+function refreshCopyRow(){
+  const sel=$("#copyrow"), btn=$("#copyrow-apply");
+  if(!S || !S.img || !S.bounds){
+    sel.innerHTML='<option value="">— add a figure —</option>'; sel.disabled=true; btn.disabled=true; return; }
+  const n=nbands(), cur=sel.value;
+  if(sel.options.length!==n || sel.dataset.fig!==String(SESS.current)){
+    sel.innerHTML=Array.from({length:n},(_,b)=>`<option value="${b}">Row ${b+1}</option>`).join("");
+    sel.dataset.fig=String(SESS.current);
+    if(cur!=="" && +cur<n) sel.value=cur;
+  }
+  sel.disabled = n<2; btn.disabled = n<2;
+}
+function copyRowGeometry(){
+  if(!S || !S.img || !S.bounds) return;
+  normalizeBands();
+  const src=+$("#copyrow").value, n=nbands();
+  if(!(src>=0 && src<n)) return;
+  const L=S.bandLeft[src], R=S.bandRight[src], cols=[...S.vLines[src]].sort((a,b)=>a-b);
+  let dropped=0;
+  for(let b=0;b<n;b++){
+    if(b===src) continue;
+    const before=(S.vLines[b]||[]).length;
+    S.bandLeft[b]=L; S.bandRight[b]=R; S.vLines[b]=[...cols];
+    if(before!==cols.length){
+      Object.keys(S.cellState).forEach(k=>{ if(+k.split("_")[0]===b){
+        if(S.cellState[k].assigned) dropped++; delete S.cellState[k]; } });
+    }
+  }
+  reprefill(); render();
+  $("#copyrow-status").textContent=`Row ${src+1}'s edges and ${cols.length} column split${cols.length===1?"":"s"} `+
+    `(${cols.length+1} panel${cols.length===0?"":"s"}) copied to the other ${n-1} row${n===2?"":"s"}.`+
+    (dropped?` ${dropped} assigned panel${dropped===1?"":"s"} in rows whose number of panels changed ${dropped===1?"was":"were"} cleared — assign them again.`:"");
+}
+$("#copyrow-apply").addEventListener("click", copyRowGeometry);
 function readRowCounts(){
   return [...document.querySelectorAll(".rowcount")].map(i=>Math.max(1,+i.value|0));
 }
@@ -923,6 +1610,18 @@ function updatePanelCheck(){
   const panels = readRowCounts().reduce((a,b)=>a+b,0);
   const abs = abList().length;
   const el = $("#panelcheck");
+  // Said before a figure is added too (box 1's application), since which
+  // layout a figure has decides how many panels a row is seeded with.
+  if(S ? isIHC() : $("#app").value==="IHC"){
+    // An IHC figure has one panel per cell line in every row and rows that are
+    // not antibodies at all (H&E, secondary only), so panels and antibodies
+    // are not meant to match.
+    el.textContent = (S && ihcLayout(S)==="cell")
+      ? `IHC, one antibody per cell: give each row one cell per antibody column and assign the antibodies' cells only. Leave H&E and secondary-only unassigned.`
+      : `IHC, one antibody per row: give each row as many panels as the figure has columns, then assign the panels you want in each antibody's row. Leave the H&E and secondary-only rows unassigned. `+
+        `If instead each antibody is a column of the figure, already stacked and labelled, choose “one cell, already stacked and labelled” under box 5's “In this figure, one antibody is”, and give each row one cell per antibody column.`;
+    el.style.color="#555"; return;
+  }
   if(!abs){ el.textContent = `${panels} panels · paste this figure's antibodies in box 3`; el.style.color="#c0392b"; return; }
   const ok = panels===abs;
   el.textContent = ok ? `${panels} panels · ${abs} antibodies ✓ match`
@@ -947,8 +1646,8 @@ const PANEL_W = 360;   // the CSS default; only used if the stage has no width y
 function fitScale(st){
   if(!st || !st.natW || !st.natH) return 1;
   const stage = $(".stage");
-  const availW = (stage ? stage.clientWidth : window.innerWidth-PANEL_W) - 40;
-  const availH = (stage ? stage.clientHeight : window.innerHeight-90) - 40;
+  const availW = (stage ? stage.clientWidth : window.innerWidth-PANEL_W) - 40 - 2*LINE_PAD;
+  const availH = (stage ? stage.clientHeight : window.innerHeight-90) - 40 - 2*LINE_PAD;
   return Math.max(0.05, Math.min(1, availW/st.natW, availH/st.natH));
 }
 // Fit, unless the person has chosen a zoom for this image themselves.
@@ -1005,6 +1704,7 @@ function seedGrid(){
     S.vLines.push(arr);
   }
   S.cellState = {};
+  selLine = null; lineHint = null;   // the old index would name a different line now
   render();
 }
 
@@ -1044,37 +1744,64 @@ function bandCols(b){ return bandColsOf(S,b); }
 function cells(){ return cellsFor(S); }
 function assignedCellsInOrder(){ return cells().filter(cl=>S.cellState[cl.key]?.assigned); }
 
+function renderStatus(){
+  const el=$("#cropper-status"); if(!el) return;
+  const imgs=(SESS.images||[]);
+  if(!S||!S.img||!S.bounds){ el.textContent=imgs.length ? `${plural(imgs.length,"figure")} in this session.` : "No figure yet."; return; }
+  const list=abList(), n=nbands(), all=cells();
+  const per=[]; for(let b=0;b<n;b++) per.push(all.filter(cl=>cl.b===b).length);
+  const on=all.filter(cl=>S.cellState[cl.key]?.assigned).length;
+  const names=mapUnits().map(u=>{ const a=S.cellState[u.cells[0].key]?.ab; return a==null ? "—" : list[a]; });
+  let total=0;
+  imgs.forEach(im=>{ try{ total+=cellsFor(im).filter(cl=>im.cellState?.[cl.key]?.assigned).length; }catch(e){} });
+  const lines=[
+    `Figure ${SESS.current+1} of ${imgs.length} — ${S.name||""} · ${S.app} · ${plural(n,"row")} × ${[...new Set(per)].join("/")} panels`,
+    `Box 5: ${on} of ${plural(all.length,"panel")} assigned · start ${(S.abOffset||0)+1}`+
+      (names.length ? ` · antibodies in reading order: ${names.join(", ")}` : ""),
+    `Session: ${plural(imgs.length,"figure")}, ${plural(total,"panel")} assigned across them`];
+  el.textContent=lines.join("\n");
+}
 function render(){
+  renderStatus();
   if(!S||!S.img){ return; }
   normalizeBands();
   const sc=S.scale, W=S.natW*sc, H=S.natH*sc;
   const NS="http://www.w3.org/2000/svg";
-  const svg=document.createElementNS(NS,"svg");
-  svg.setAttribute("width",W); svg.setAttribute("height",H);
+  // The figure sits LINE_PAD screen px inside the svg, so a line on the
+  // image's own border (a row edge at x = image width) has its whole hit area
+  // on the page rather than half of it clipped off the side.
+  const svgEl=document.createElementNS(NS,"svg");
+  svgEl.setAttribute("width",W+2*LINE_PAD); svgEl.setAttribute("height",H+2*LINE_PAD);
+  const svg=document.createElementNS(NS,"g");
+  svg.setAttribute("transform",`translate(${LINE_PAD},${LINE_PAD})`);
+  svgEl.appendChild(svg);
   const img=document.createElementNS(NS,"image");
   img.setAttribute("href",S.img.src); img.setAttribute("width",W); img.setAttribute("height",H);
   svg.appendChild(img);
   const X=v=>v*sc, Y=v=>v*sc;
 
   // cells (rects + click + number)
-  const ordered=assignedCellsInOrder();
+  const tags=cellTags();
   cells().forEach(cl=>{
     const r=document.createElementNS(NS,"rect");
     r.setAttribute("x",X(cl.rect.l)); r.setAttribute("y",Y(cl.rect.t));
     r.setAttribute("width",X(cl.rect.r-cl.rect.l)); r.setAttribute("height",Y(cl.rect.bot-cl.rect.t));
     r.setAttribute("class","cell"+(S.cellState[cl.key]?.assigned?" assigned":""));
-    r.addEventListener("click",ev=>{ if(ev.altKey)return; toggleCell(cl.key); });
+    // A stable id per cell (`cell-<row>_<col>`, zero-based) so a browser agent
+    // can click "row 2, panel 3" by name rather than by pixel.
+    r.setAttribute("id","cell-"+cl.key); r.setAttribute("data-key",cl.key);
+    // A press that dragged, or that started on a line, is not a click on the
+    // cell: a missed drag used to assign or discard whatever it ended over.
+    r.addEventListener("click",ev=>{ if(ev.altKey)return; if(gestureWasDrag()) return; toggleCell(cl.key); });
     // double-click a band adds a vertical line at click x
     r.addEventListener("dblclick",ev=>{
-      const rc=ev.currentTarget.ownerSVGElement.getBoundingClientRect();
-      addVertical(cl.b, (ev.clientX-rc.left)/S.scale);
+      addVertical(cl.b, toImage(ev, ev.currentTarget.ownerSVGElement).x);
     });
     svg.appendChild(r);
     if(S.cellState[cl.key]?.assigned){
-      const n=ordered.findIndex(o=>o.key===cl.key)+1;
       const t=document.createElementNS(NS,"text");
       t.setAttribute("x",X((cl.rect.l+cl.rect.r)/2)); t.setAttribute("y",Y((cl.rect.t+cl.rect.bot)/2));
-      t.setAttribute("text-anchor","middle"); t.setAttribute("class","cellnum"); t.textContent=n;
+      t.setAttribute("text-anchor","middle"); t.setAttribute("class","cellnum"); t.textContent=tags[cl.key];
       svg.appendChild(t);
     }
   });
@@ -1083,24 +1810,130 @@ function render(){
   // global top/bottom (draggable orange horizontals, full width)
   addLine(svg,0,Y(S.bounds.top),W,Y(S.bounds.top),"bound","h","top");
   addLine(svg,0,Y(S.bounds.bottom),W,Y(S.bounds.bottom),"bound","h","bottom");
-  // per-band LEFT/RIGHT edges (draggable orange verticals, independent per row)
-  for(let b=0;b<nbands();b++){
-    addLine(svg,X(S.bandLeft[b]), Y(ys[b]),X(S.bandLeft[b]), Y(ys[b+1]),"bound","v",{type:"bl",b});
-    addLine(svg,X(S.bandRight[b]),Y(ys[b]),X(S.bandRight[b]),Y(ys[b+1]),"bound","v",{type:"br",b});
-  }
   // interior horizontal dividers (blue, full width)
   S.hLines.forEach((y,i)=> addLine(svg,0,Y(y),W,Y(y),"hline","h",{type:"h",i}));
   // per-band interior verticals (green) — fractions mapped to the band's width
   S.vLines.forEach((arr,b)=>{ const L=S.bandLeft[b], R=S.bandRight[b];
     arr.forEach((f,i)=>{ const x=L+f*(R-L);
       addLine(svg,X(x),Y(ys[b]),X(x),Y(ys[b+1]),"vline","v",{type:"v",b,i}); }); });
+  // per-band LEFT/RIGHT edges (draggable orange verticals, independent per row) —
+  // drawn after the splits, so an edge stopped against a split can still be grabbed
+  for(let b=0;b<nbands();b++){
+    addLine(svg,X(S.bandLeft[b]), Y(ys[b]),X(S.bandLeft[b]), Y(ys[b+1]),"bound","v",{type:"bl",b});
+    addLine(svg,X(S.bandRight[b]),Y(ys[b]),X(S.bandRight[b]),Y(ys[b+1]),"bound","v",{type:"br",b});
+  }
 
-  const wrap=$("#svgwrap"); wrap.innerHTML=""; wrap.appendChild(svg);
+  const wrap=$("#svgwrap"); wrap.innerHTML=""; wrap.appendChild(svgEl);
+  renderLinePos();
+  renderCellList();
+  // The mapping area is redrawn on every render, and its boxes now act on
+  // `input` (typing without Tab takes effect) — so the box being typed in is
+  // put back with its caret, or each keystroke would throw the focus away.
+  const act=document.activeElement, keep=(act && act.id && $("#mapwrap").contains(act)) ? act.id : null;
+  let caret=null; try{ if(keep) caret=[act.selectionStart, act.selectionEnd]; }catch(e){ caret=null; }
   renderMap();
+  if(keep){ const again=document.getElementById(keep);
+    if(again){ again.focus(); try{ if(caret && caret[0]!=null) again.setSelectionRange(caret[0],caret[1]); }catch(e){} } }
+  refreshCopyRow();
   // enable Generate/Commit if ANY image in the session has an assigned cell
-  const hasWork = SESS.images.some(im=>Object.values(im.cellState).some(c=>c.assigned));
+  const hasWork = SESS.images.some(im=>Object.values(im.cellState).some(c=>c.assigned)
+                                      || isWholeFigure(im));
   $("#gen").disabled = !hasWork; $("#commit").disabled = !hasWork;
+  const ocrOff=isIHC();
+  $("#ocr").disabled=ocrOff;
+  $("#ocrwhy").style.display=ocrOff?"block":"none";
+  $("#ocrwhy").textContent=ocrOff?"OCR reads a title printed above each panel. An IHC figure names its antibody beside the row instead, so set each row's antibody in the table below.":"";
 }
+
+// What each assigned panel is called, on the figure and in the list: its
+// place in reading order, or for IHC "row·label" — which antibody, and which
+// panel it will be labelled as on the crop — so a wrong column is visible
+// before anything is cut.
+function cellTags(){
+  const tags={};
+  if(isIHC()){ const labels=ihcLabelsOf(S);
+    ihcGroupsOf(S).forEach((g,i)=>g.cells.forEach((cl,j)=>{
+      tags[cl.key]= !labels.length ? `${i+1}`
+        : `${i+1}·${g.cells.length===labels.length?labels[j]:"?"}`; })); }
+  else assignedCellsInOrder().forEach((cl,i)=>{ tags[cl.key]=String(i+1); });
+  return tags;
+}
+
+// ---- Every panel as a control (box 5, "Panels as a list") ----------------
+// The same state the figure's cells show, so a tick here draws on the figure
+// and a click on the figure ticks here. Rebuilt only when what it shows
+// changes (never on a drag, which moves lines and changes no assignment), and
+// only while it is open.
+var cellListSig="";
+function abOptions(cur){
+  return '<option value="">— no antibody —</option>'+
+    abList().map((a,ai)=>`<option value="${ai}"${cur===ai?" selected":""}>${esc(a)}</option>`).join("");
+}
+function renderCellList(){
+  const wrap=$("#celllist-wrap"), el=$("#celllist"), count=$("#celllist-count");
+  if(!wrap) return;
+  if(!S || !S.img || !S.bounds){
+    el.innerHTML='<div class="note">Add a figure first.</div>'; count.textContent=""; cellListSig=""; return; }
+  const all=cells(), st=k=>S.cellState[k]||{};
+  const on=all.filter(cl=>st(cl.key).assigned);
+  count.textContent=` — ${on.length} of ${plural(all.length,"panel")} assigned`;
+  if(!wrap.open) return;
+  const ihcRow=isIHC() && ihcLayout(S)==="row", tags=cellTags(), list=abList();
+  const sig=JSON.stringify([SESS.current, ihcRow, list, tags,
+    all.map(cl=>[cl.key, !!st(cl.key).assigned, st(cl.key).ab])]);
+  if(sig===cellListSig) return;
+  cellListSig=sig;
+  const act=document.activeElement, keep=(act && act.id && el.contains(act)) ? act.id : null;
+  let h='<div class="note" style="margin:4px 0">'+(ihcRow
+    ? 'Tick the panels to crop in each antibody\'s row, then choose the row\'s antibody — an IHC row is one antibody.'
+    : 'Tick a panel to assign it, then choose its antibody. An unticked panel is discarded.')+'</div>';
+  for(let b=0;b<nbands();b++){
+    const row=all.filter(cl=>cl.b===b), mine=row.filter(cl=>st(cl.key).assigned);
+    h+=`<div class="cl-row" id="cellrow-${b}"><div class="cl-head">Row ${b+1} · ${plural(row.length,"panel")}</div>`;
+    if(ihcRow){
+      const abs=new Set(mine.map(cl=>st(cl.key).ab).filter(a=>a!=null));
+      const cur=abs.size===1?[...abs][0]:null, every=row.length && mine.length===row.length;
+      h+=`<div class="cl-rowctl"><button type="button" class="sec" id="cellrow-${b}-all" data-b="${b}">`+
+         `${every?"Discard":"Assign"} every panel</button>`+
+         `<select id="cellrow-${b}-ab" data-b="${b}" aria-label="Antibody for row ${b+1}"${mine.length?"":" disabled"}>${abOptions(cur)}</select></div>`;
+      if(!mine.length) h+=`<div class="note" id="cellrow-${b}-why">Nothing assigned in row ${b+1} — tick its panels to choose its antibody.</div>`;
+      else if(abs.size>1) h+=`<div class="note" id="cellrow-${b}-why" style="color:#9a2a1a">Row ${b+1}'s panels are set to different antibodies — choose one here.</div>`;
+    }
+    if(!ihcRow){
+      const every=row.length && mine.length===row.length;
+      h+=`<div class="cl-rowctl"><button type="button" class="sec" id="cellrow-${b}-all" data-b="${b}">`+
+         `${every?"Untick":"Tick"} every panel in row ${b+1}</button></div>`;
+    }
+    row.forEach(cl=>{
+      const s=st(cl.key), a=!!s.assigned, name=`Row ${b+1} · panel ${cl.c+1}`;
+      h+=`<div class="cl-cell${a?" on":""}"><label><input type="checkbox" id="cell-${cl.key}-toggle" data-key="${cl.key}"`+
+         ` style="width:auto"${a?" checked":""}> ${name}</label><span class="cl-tag">${a?"#"+esc(tags[cl.key]||""):""}</span>`;
+      if(!ihcRow) h+=`<select id="cell-${cl.key}-ab" data-key="${cl.key}" aria-label="Antibody for ${name}"`+
+         `${a?"":" disabled"}>${a?abOptions(s.ab):'<option value="">tick the panel first</option>'}</select>`;
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  el.innerHTML=h;
+  el.querySelectorAll("input[data-key]").forEach(x=>x.addEventListener("change", e=>toggleCell(e.target.dataset.key)));
+  el.querySelectorAll("select[data-key]").forEach(x=>x.addEventListener("change", e=>{
+    const s=S.cellState[e.target.dataset.key]; if(!s) return;
+    s.ab = e.target.value===""? null : +e.target.value; s.manual=true; render(); }));
+  el.querySelectorAll("select[data-b]").forEach(x=>x.addEventListener("change", e=>{
+    const b=+e.target.dataset.b, v=e.target.value;
+    cells().filter(cl=>cl.b===b && S.cellState[cl.key]?.assigned).forEach(cl=>{
+      const s=S.cellState[cl.key]; s.ab = v===""? null : +v; s.manual=true; });
+    render(); }));
+  el.querySelectorAll("button[data-b]").forEach(x=>x.addEventListener("click", e=>{
+    const b=+e.currentTarget.dataset.b, row=cells().filter(cl=>cl.b===b);
+    const every=row.every(cl=>S.cellState[cl.key]?.assigned);
+    row.forEach(cl=>{
+      if(every) S.cellState[cl.key]={assigned:false, ab:null, manual:false};
+      else if(!S.cellState[cl.key]?.assigned) S.cellState[cl.key]={assigned:true, ab:null, manual:false}; });
+    reprefill(); render(); }));
+  if(keep){ const again=document.getElementById(keep); if(again) again.focus(); }
+}
+$("#celllist-wrap").addEventListener("toggle", ()=>{ cellListSig=""; renderCellList(); });
 
 function addLine(svg,x1,y1,x2,y2,cls,axis,ref){
   const NS="http://www.w3.org/2000/svg";
@@ -1109,7 +1942,8 @@ function addLine(svg,x1,y1,x2,y2,cls,axis,ref){
   hit.setAttribute("class","hit "+cls);
   const vis=document.createElementNS(NS,"line");
   [["x1",x1],["y1",y1],["x2",x2],["y2",y2]].forEach(([k,v])=>vis.setAttribute(k,v));
-  vis.setAttribute("class",cls);
+  vis.setAttribute("class",cls+(sameLine(selectedLine(),ref)?" sel":""));
+  hit.setAttribute("data-line",lineId(ref));
   startDrag(hit,axis,ref); svg.appendChild(hit); svg.appendChild(vis);
 }
 
@@ -1119,6 +1953,14 @@ function addLine(svg,x1,y1,x2,y2,cls,axis,ref){
 // left untouched.
 function reprefill(){
   const list=abList(), off=(S&&S.abOffset)||0;
+  if(isIHC()){
+    // One antibody per GROUP — a row, or a cell — in reading order.
+    ihcGroupsOf(S).forEach((g,i)=>{
+      const a = list[off+i]!==undefined ? off+i : null;
+      g.cells.forEach(cl=>{ const st=S.cellState[cl.key]; if(!st.manual) st.ab=a; });
+    });
+    return;
+  }
   assignedCellsInOrder().forEach((cl,i)=>{
     const st=S.cellState[cl.key];
     if(!st.manual) st.ab = list[off+i]!==undefined ? off+i : null;
@@ -1145,67 +1987,444 @@ function startDrag(el,axis,ref){
   el.addEventListener("pointerdown",ev=>{
     if(ev.altKey){ deleteLine(ref); return; }
     ev.preventDefault();
+    if(gesture) gesture.onLine=true;
     // cache the svg screen rect: it's stable during a drag and survives re-renders
+    // (taken first: the blur below can apply a typed box and redraw the svg)
     drag={axis,ref,rect:el.ownerSVGElement.getBoundingClientRect()};
+    // A box keeping the focus would keep the arrow keys too.
+    const a=document.activeElement; if(a && a!==document.body && a.blur) a.blur();
+    selectLine(ref); render();
   });
 }
+// Screen → image pixels, allowing for the padding the figure sits inside.
+function toImage(ev, svgEl){
+  const rc = svgEl.getBoundingClientRect ? svgEl.getBoundingClientRect() : svgEl;
+  return { x:(ev.clientX-rc.left-LINE_PAD)/S.scale, y:(ev.clientY-rc.top-LINE_PAD)/S.scale };
+}
+// One pointer gesture: where it started, how far it went, whether it began on
+// a line. The cell's click asks it, so a drag is never also an assignment.
+let gesture=null;
+const CLICK_SLOP=4;   // screen px a press may wander and still be a click
+window.addEventListener("pointerdown",ev=>{
+  gesture={x:ev.clientX, y:ev.clientY, moved:0, onLine:false, ended:0};
+  // A press anywhere but on a line or its box lets go of the selected line,
+  // so the arrow keys never move a line nobody is looking at. Redrawn in
+  // place: replacing the figure here would swallow the click that follows.
+  const t=ev.target;
+  if(selLine && !(t.classList && t.classList.contains("hit")) && !(t.closest && t.closest("#linepos"))){
+    selLine=null;
+    document.querySelectorAll("#svgwrap line.sel").forEach(l=>l.classList.remove("sel"));
+    renderLinePos();
+  }
+}, true);
 window.addEventListener("pointermove",ev=>{
+  if(gesture && !gesture.ended)
+    gesture.moved=Math.max(gesture.moved, Math.hypot(ev.clientX-gesture.x, ev.clientY-gesture.y));
   if(!drag) return;
-  const rect=drag.rect;
-  const px=(ev.clientX-rect.left)/S.scale, py=(ev.clientY-rect.top)/S.scale;
-  applyDrag(drag.ref, drag.axis, px, py);
+  const p=toImage(ev, drag.rect);
+  applyDrag(drag.ref, drag.axis, p.x, p.y, ev.shiftKey);
 });
-window.addEventListener("pointerup",()=>{ drag=null; });
-function applyDrag(ref,axis,px,py){
+window.addEventListener("pointerup",()=>{ drag=null; if(gesture) gesture.ended=Date.now(); });
+// A click with no press behind it (an element click by an agent, a keyboard
+// activation) is a click; a stale gesture is forgotten after a moment.
+function gestureWasDrag(){
+  const g=gesture; gesture=null;
+  if(!g || !g.ended || Date.now()-g.ended>600) return false;
+  return g.onLine || g.moved>CLICK_SLOP;
+}
+function applyDrag(ref,axis,px,py,shift){
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  delete lineErrors()[lineId(ref)];   // a refused number is superseded by the drag
+  lineHint=null;
+  const stopped=(b,side,x)=>{ lineHint={fig:S, id:lineId(ref), msg:
+    `Row ${b+1}'s ${side} edge stopped at ${Math.round(x)}: split ${side==="left"?1:splitXs(b).length} is there. `+
+    `Hold Shift while dragging the edge to carry the splits with it, or move that split first.`}; };
   if(ref==="top")         S.bounds.top    = clamp(py,0,S.bounds.bottom-10);
   else if(ref==="bottom") S.bounds.bottom = clamp(py,S.bounds.top+10,S.natH);
-  else if(ref.type==="bl") S.bandLeft[ref.b]  = clamp(px,0,S.bandRight[ref.b]-10);
-  else if(ref.type==="br") S.bandRight[ref.b] = clamp(px,S.bandLeft[ref.b]+10,S.natW);
+  // Shift: the splits keep their share of the row and move with the edge.
+  else if(ref.type==="bl" && shift) S.bandLeft[ref.b]  = clamp(px,0,S.bandRight[ref.b]-1);
+  else if(ref.type==="br" && shift) S.bandRight[ref.b] = clamp(px,S.bandLeft[ref.b]+1,S.natW);
+  else if(ref.type==="bl"){ const xs=splitXs(ref.b), hi=(xs.length?xs[0]:S.bandRight[ref.b])-1;
+    if(xs.length && px>hi) stopped(ref.b,"left",hi);
+    moveEdge(ref.b,"L",clamp(px,0,hi)); }
+  else if(ref.type==="br"){ const xs=splitXs(ref.b), lo=(xs.length?xs[xs.length-1]:S.bandLeft[ref.b])+1;
+    if(xs.length && px<lo) stopped(ref.b,"right",lo);
+    moveEdge(ref.b,"R",clamp(px,lo,S.natW)); }
   else if(ref.type==="h")  S.hLines[ref.i]     = clamp(py,S.bounds.top,S.bounds.bottom);
   else if(ref.type==="v"){ const L=S.bandLeft[ref.b], R=S.bandRight[ref.b];
     S.vLines[ref.b][ref.i] = clamp((px-L)/(R-L), 0, 1); }   // store as fraction
   render();
 }
+// A row's green splits as absolute image x, in storage order.
+function splitXs(b){ const L=S.bandLeft[b], R=S.bandRight[b];
+  return (S.vLines[b]||[]).map(f=>L+f*(R-L)).sort((a,c)=>a-c); }
+// Move a row's orange edge and keep its green splits where they are on the
+// image: the splits are stored as fractions of the row, so they are
+// recomputed against the new edges. (They used to rescale with the edge,
+// which silently moved every column of the row.)
+function moveEdge(b, side, x){
+  const L=S.bandLeft[b], R=S.bandRight[b];
+  const abs=(S.vLines[b]||[]).map(f=>L+f*(R-L));
+  if(side==="L") S.bandLeft[b]=x; else S.bandRight[b]=x;
+  const nL=S.bandLeft[b], nR=S.bandRight[b];
+  if(nR>nL) S.vLines[b]=abs.map(a=>fracAt(nL,nR,a));
+}
+// The fraction of the row [L,R] at image x `v`, never landing short of it.
+// commit.grid_cells rebuilds x as L+f*(R-L) and truncates with int(), so a
+// fraction whose product came back as 1086.9999999999999 was cut at 1086
+// while every box said 1087 (about 1 typed value in 100).
+function fracAt(L, R, v){
+  let f=Math.max(0, Math.min(1, (v-L)/(R-L)));
+  for(let k=0; k<8 && f<1 && L+f*(R-L)<v; k++) f=Math.min(1, f+Number.EPSILON*Math.max(f,1e-300));
+  return f;
+}
+// Re-space a row's green splits evenly between its two orange edges.
+function evenSplits(b){
+  const n=(S.vLines[b]||[]).length; if(!n) return;
+  S.vLines[b]=Array.from({length:n},(_,j)=>(j+1)/(n+1));
+  const errs=lineErrors(); Object.keys(errs).forEach(k=>{ if(k.startsWith(`line-row${b+1}-`)) delete errs[k]; });
+  lineHint=null; render();
+}
 function deleteLine(ref){
   if(ref==="top"||ref==="bottom"||ref.type==="bl"||ref.type==="br") return; // edges not deletable
   if(ref.type==="h") S.hLines.splice(ref.i,1);
   else if(ref.type==="v") S.vLines[ref.b].splice(ref.i,1);
+  selLine=null;
   S.cellState={}; render();
 }
 
+// ---- Every line as a number (box 4, "Line positions") --------------------
+// Dragging a 2px line at fit zoom was the hardest thing on this page for a
+// person and could not be done at all by a browser agent, so every line of
+// the current figure is also a box holding its position in IMAGE pixels.
+// Typing, dragging and arrow-key nudging all write the same S fields, and the
+// saved grid is unchanged: splits are converted to and from the fractions of
+// the row that the grid stores (and that commit.grid_cells reads back).
+// `var`, not `let`: render() reads these and must not meet a TDZ.
+var LINE_PAD = 12;          // screen px of room around the figure (see render)
+var selLine = null;         // {fig, ref} — the line the arrow keys move
+var lineErr = {fig:null, map:{}};   // id → {msg, typed}: refusals beside a box
+var lineHint = null;                // {fig, id, msg}: why a dragged edge stopped
+function sameLine(a,b){
+  if(!a||!b) return false;
+  if(typeof a==="string"||typeof b==="string") return a===b;
+  return a.type===b.type && a.b===b.b && a.i===b.i;
+}
+function selectedLine(){ return (selLine && selLine.fig===S) ? selLine.ref : null; }
+function selectLine(ref){
+  if(sameLine(selectedLine(),ref)) return;
+  selLine = ref==null ? null : {fig:S, ref};
+}
+function rankOf(arr,i){   // position of arr[i] in ascending order (ties by index)
+  return arr.filter((v,j)=>v<arr[i] || (v===arr[i] && j<i)).length;
+}
+function lineId(ref){
+  if(ref==="top"||ref==="bottom") return "line-"+ref;
+  if(ref.type==="bl") return `line-row${ref.b+1}-left`;
+  if(ref.type==="br") return `line-row${ref.b+1}-right`;
+  if(ref.type==="h")  return `line-divider${rankOf(S.hLines,ref.i)+1}`;
+  if(ref.type==="v")  return `line-row${ref.b+1}-split${rankOf(S.vLines[ref.b]||[],ref.i)+1}`;
+  return "";
+}
+// Every line of the current figure, with the range a value may take and why.
+function lineDescriptors(){
+  const out=[], r=v=>Math.round(v);
+  const lo=(v,why)=>({v:Math.floor(v)+1, why}), hi=(v,why)=>({v:Math.ceil(v)-1, why});
+  const hIdx=S.hLines.map((_,i)=>i).sort((a,c)=>S.hLines[a]-S.hLines[c]||a-c);
+  const hs=hIdx.map(i=>S.hLines[i]);
+  const nm=k=>`divider ${k+1} (${r(hs[k])})`;
+  out.push({ref:"top", label:"top", group:"fig", axis:"h", value:S.bounds.top,
+    lo:{v:0, why:"the top of the image"},
+    hi: hs.length ? hi(hs[0], nm(0)) : hi(S.bounds.bottom, `bottom (${r(S.bounds.bottom)})`)});
+  out.push({ref:"bottom", label:"bottom", group:"fig", axis:"h", value:S.bounds.bottom,
+    lo: hs.length ? lo(hs[hs.length-1], nm(hs.length-1)) : lo(S.bounds.top, `top (${r(S.bounds.top)})`),
+    hi:{v:S.natH, why:`the bottom of the image (${S.natH} px tall)`}});
+  hIdx.forEach((i,k)=>out.push({ref:{type:"h",i}, label:`divider ${k+1}`, group:"div", axis:"h", value:S.hLines[i],
+    lo: k ? lo(hs[k-1], nm(k-1)) : lo(S.bounds.top, `top (${r(S.bounds.top)})`),
+    hi: k<hs.length-1 ? hi(hs[k+1], nm(k+1)) : hi(S.bounds.bottom, `bottom (${r(S.bounds.bottom)})`)}));
+  for(let b=0;b<nbands();b++){
+    const L=S.bandLeft[b], R=S.bandRight[b], fr=S.vLines[b]||[];
+    const vIdx=fr.map((_,i)=>i).sort((a,c)=>fr[a]-fr[c]||a-c);
+    const xs=vIdx.map(i=>L+fr[i]*(R-L));
+    const sn=k=>`split ${k+1} (${r(xs[k])})`, row=`row${b+1}`;
+    out.push({ref:{type:"bl",b}, label:"left", group:row, axis:"v", value:L,
+      lo:{v:0, why:"the left edge of the image"},
+      hi: xs.length ? hi(xs[0], sn(0)) : hi(R, `the right edge (${r(R)})`)});
+    out.push({ref:{type:"br",b}, label:"right", group:row, axis:"v", value:R,
+      lo: xs.length ? lo(xs[xs.length-1], sn(xs.length-1)) : lo(L, `the left edge (${r(L)})`),
+      hi:{v:S.natW, why:`the right edge of the image (${S.natW} px wide)`}});
+    vIdx.forEach((i,k)=>out.push({ref:{type:"v",b,i}, label:`split ${k+1}`, group:row, axis:"v", value:xs[k],
+      lo: k ? lo(xs[k-1], sn(k-1)) : lo(L, `the left edge (${r(L)})`),
+      hi: k<xs.length-1 ? hi(xs[k+1], sn(k+1)) : hi(R, `the right edge (${r(R)})`)}));
+  }
+  out.forEach(d=>d.id=lineId(d.ref));
+  return out;
+}
+function setLine(ref, v){
+  if(ref==="top") S.bounds.top=v;
+  else if(ref==="bottom") S.bounds.bottom=v;
+  else if(ref.type==="h") S.hLines[ref.i]=v;
+  else if(ref.type==="bl") moveEdge(ref.b,"L",v);
+  else if(ref.type==="br") moveEdge(ref.b,"R",v);
+  else if(ref.type==="v"){ const L=S.bandLeft[ref.b], R=S.bandRight[ref.b];
+    S.vLines[ref.b][ref.i]=fracAt(L,R,v); }
+}
+function lineRefusal(d, v){
+  if(!Number.isFinite(v)) return `Type a number of image pixels, e.g. ${Math.round(d.value)}.`;
+  if(v<d.lo.v || v>d.hi.v)
+    return `${v} is out of range: ${d.label} must be ${d.lo.v}–${d.hi.v}, between ${d.lo.why} and ${d.hi.why}.`+
+      ((d.ref.type==="bl"||d.ref.type==="br") && /^split/.test(v<d.lo.v?d.lo.why:d.hi.why)
+        ? " Move that split first, or press “Space splits evenly” once both edges are set." : "");
+  return "";
+}
+function lineErrors(){ if(lineErr.fig!==S) lineErr={fig:S, map:{}}; return lineErr.map; }
+function onLineTyped(ev){
+  const inp=ev.target; if(!inp.isConnected || !S || !S.img || !S.bounds) return;
+  const ds=lineDescriptors(), d=ds.find(x=>x.id===inp.id); if(!d) return;
+  const raw=inp.value.trim(), v=raw===""?NaN:Number(raw), errs=lineErrors();
+  const why=lineRefusal(d, v);
+  if(why){ errs[d.id]={msg:why, typed:raw}; renderLinePos(); return; }
+  delete errs[d.id]; lineHint=null;
+  setLine(d.ref, v); selectLine(d.ref); render();
+}
+function lineSummary(ds){
+  const r=v=>Math.round(v), parts=[];
+  for(let b=0;b<nbands();b++){
+    const g=ds.filter(d=>d.group===`row${b+1}`);
+    const sp=g.filter(d=>d.ref.type==="v").map(d=>r(d.value));
+    parts.push(`Row ${b+1}: left ${r(g[0].value)}, right ${r(g[1].value)}, `+
+               (sp.length?`splits ${sp.join(" / ")}`:"no splits"));
+  }
+  const dv=ds.filter(d=>d.group==="div").map(d=>r(d.value));
+  parts.push((dv.length?`dividers ${dv.join(", ")}`:"no dividers")+
+             `; top ${r(S.bounds.top)}, bottom ${r(S.bounds.bottom)}`);
+  return parts.join("; ");
+}
+// Rebuilt when the set of lines changes; otherwise updated in place, so a
+// drag keeps the numbers live without taking the caret out of a box (and a
+// refusal never removes the box it is about while that box has the focus).
+function renderLinePos(){
+  const wrap=$("#linepos"), sum=$("#line-summary"), copy=$("#line-copy");
+  if(!wrap) return;
+  if(!S || !S.img || !S.bounds){
+    wrap.innerHTML='<div class="note">Add a figure first.</div>'; wrap.dataset.sig="";
+    sum.textContent=""; copy.disabled=true; return; }
+  normalizeBands();
+  const ds=lineDescriptors(), errs=lineErrors(), sel=selectedLine();
+  const sig=SESS.current+"|"+ds.map(d=>d.id).join(",");
+  const act=document.activeElement;
+  if(wrap.dataset.sig!==sig){
+    const keep=(act && act.id && wrap.contains(act)) ? act.id : null;
+    const groups=[["fig","Figure"],["div","Row dividers"]];
+    for(let b=0;b<nbands();b++) groups.push([`row${b+1}`,`Row ${b+1}`]);
+    let h='<div class="linepos">';
+    groups.forEach(([g,title])=>{
+      const mine=ds.filter(d=>d.group===g); if(!mine.length) return;
+      h+=`<div class="lp-row">${esc(title)}</div><div class="lp-in" style="grid-column:1 / -1">`+
+         mine.map(d=>`<label style="display:inline-flex;align-items:center;gap:3px;margin:0;font-weight:400">${esc(d.label)}`+
+           `<input type="number" step="1" id="${d.id}" data-line="${d.id}" value="${Math.round(d.value)}"`+
+           ` aria-describedby="${d.id}-why"></label>`).join("")+
+         (/^row\d+$/.test(g) && mine.some(d=>d.ref.type==="v")
+           ? `<button type="button" class="sec" id="line-${g}-even" data-even="${+g.slice(3)-1}" style="padding:1px 6px;font-size:11px">Space splits evenly</button>` : "")+
+         `</div>`;
+      mine.forEach(d=>{ h+=`<div class="lp-why" id="${d.id}-why" role="alert"></div>`; });
+    });
+    wrap.innerHTML=h+"</div>"; wrap.dataset.sig=sig;
+    wrap.querySelectorAll("button[data-even]").forEach(btn=>
+      btn.addEventListener("click", ()=>{ if(S && S.img && S.bounds) evenSplits(+btn.dataset.even); }));
+    wrap.querySelectorAll("input[data-line]").forEach(inp=>{
+      inp.addEventListener("change", onLineTyped);
+      inp.addEventListener("focus", ()=>{ if(!S || !S.img || !S.bounds) return;
+        const d=lineDescriptors().find(x=>x.id===inp.id);
+        if(d && !sameLine(selectedLine(),d.ref)){ selectLine(d.ref); render(); } });
+    });
+    if(keep){ const again=document.getElementById(keep); if(again && again!==document.activeElement) again.focus(); }
+    ds.forEach(d=>{ const inp=document.getElementById(d.id);
+      if(inp && errs[d.id]) inp.value=errs[d.id].typed; });
+  }
+  ds.forEach(d=>{ const inp=document.getElementById(d.id), why=document.getElementById(d.id+"-why");
+    if(!inp) return;
+    if(inp!==document.activeElement && !errs[d.id]) inp.value=Math.round(d.value);
+    inp.classList.toggle("lp-on", sameLine(sel,d.ref));
+    inp.classList.toggle("lp-bad", !!errs[d.id]);
+    const hint=(lineHint && lineHint.fig===S && lineHint.id===d.id) ? lineHint.msg : "";
+    if(why) why.textContent=errs[d.id]?errs[d.id].msg:hint; });
+  sum.textContent=lineSummary(ds); copy.disabled=false;
+}
+$("#line-copy").addEventListener("click", ()=>{
+  const text=$("#line-summary").textContent, btn=$("#line-copy");
+  const done=ok=>{ btn.textContent=ok?"Copied":"Select the line above and copy it";
+    setTimeout(()=>{ btn.textContent="Copy these numbers"; }, 2000); };
+  try{ navigator.clipboard.writeText(text).then(()=>done(true), ()=>done(false)); }
+  catch(e){ done(false); }
+});
+// Arrow keys move the selected line 1 image px (Shift: 10); Escape lets go.
+// Never while a box, list or text area has the keys.
+window.addEventListener("keydown", ev=>{
+  const ref=selectedLine(); if(!ref || !S || !S.img) return;
+  if(ev.altKey || ev.ctrlKey || ev.metaKey) return;   // Alt+Left is the browser's Back
+  const t=ev.target;
+  if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if(ev.key==="Escape"){ selLine=null; render(); return; }
+  const d=lineDescriptors().find(x=>sameLine(x.ref,ref));
+  if(!d){ selLine=null; render(); return; }
+  const dir={ArrowUp:-1,ArrowDown:1,ArrowLeft:-1,ArrowRight:1}[ev.key];
+  if(!dir) return;
+  if((d.axis==="h") !== (ev.key==="ArrowUp"||ev.key==="ArrowDown")) return;
+  ev.preventDefault();
+  const v=Math.max(d.lo.v, Math.min(d.hi.v, Math.round(d.value)+dir*(ev.shiftKey?10:1)));
+  delete lineErrors()[d.id]; lineHint=null;
+  setLine(d.ref, v); render();
+});
+
+// `input` as well as `change`: a box that only acts once it loses focus looks
+// like it did nothing to somebody (or an agent) who types and moves on.
+function onEdit(el, fn){ ["input","change"].forEach(t=>el.addEventListener(t, fn)); }
+// The start number acts on `change` (Enter, or leaving the box) and never on
+// each keystroke: acting on `input` redrew the table this box sits in, the
+// caret jumped to the front, and a typed 17 arrived as 71 — silently mapping
+// the wrong antibodies, or none past the end of the list (TP53 run, 26 Sep).
+// A new start number re-numbers EVERY assigned panel, hand-picked ones too:
+// that is what somebody changing it means, and a panel that kept its old
+// antibody until it was unticked and ticked again was the other half of the
+// same report.
 function wireOffset(){
   const inp=$("#aboff"); if(!inp) return;
-  inp.addEventListener("change",e=>{
-    S.abOffset=Math.max(0,(parseInt(e.target.value,10)||1)-1);
+  inp.addEventListener("change", e=>{
+    const n=parseInt(e.target.value,10);
+    if(!(n>=1)){ inp.value=String((S.abOffset||0)+1); return; }
+    S.abOffset=n-1;
+    Object.values(S.cellState||{}).forEach(st=>{ if(st && st.assigned) st.manual=false; });
     reprefill(); render();
   });
+  wireOrder();
+}
+// "This figure's antibodies, in reading order" — one catalogue per assigned
+// panel (per row on an IHC figure laid out a row per antibody), for a figure
+// whose antibodies are not a run of box 3's list. The text lives on the figure
+// in memory only (the assignments it sets are what is saved), so a redraw of
+// the table never loses what was typed.
+function mapUnits(){
+  return isIHC() ? ihcGroupsOf(S) : assignedCellsInOrder().map(cl=>({cells:[cl]}));
+}
+function wireOrder(){
+  const ta=$("#aborder"), btn=$("#aborder-apply"), why=$("#aborder-why"); if(!ta||!btn) return;
+  ta.addEventListener("input", ()=>{ S.abOrderText=ta.value; });
+  btn.addEventListener("click", ()=>{
+    const list=abList(), norm=s=>s.replace(/\*/g,"").trim().toLowerCase();
+    const lines=(ta.value||"").split(/\r?\n/).map(s=>s.trim());
+    while(lines.length && !lines[lines.length-1]) lines.pop();
+    const units=mapUnits();
+    const unknown=lines.filter(l=>l && !list.some(a=>norm(a)===norm(l)));
+    if(unknown.length){
+      why.style.color="#9a2a1a";
+      why.textContent=`Not applied: ${unknown.map(u=>"“"+u+"”").join(", ")} ${unknown.length===1?"is":"are"} not in box 3's list. Add ${unknown.length===1?"it":"them"} there first, or fix the spelling.`;
+      return; }
+    if(!units.length){ why.style.color="#9a2a1a"; why.textContent="Not applied: no panels are assigned yet — tick them first."; return; }
+    units.forEach((u,i)=>{
+      const l=lines[i], ai=l ? list.findIndex(a=>norm(a)===norm(l)) : -1;
+      u.cells.forEach(cl=>{ const st=S.cellState[cl.key]; st.ab = ai>=0 ? ai : null; st.manual=true; });
+    });
+    const n=units.length, m=lines.length;
+    S.abOrderNote = n===m ? `Applied: ${n} line${n===1?"":"s"} to ${n} assigned ${isIHC()?"row":"panel"}${n===1?"":"s"}, in reading order.`
+      : `Applied: ${m} line${m===1?"":"s"} for ${n} assigned ${isIHC()?"row":"panel"}${n===1?"":"s"} — `+
+        (m<n ? `the last ${n-m} ${n-m===1?"has":"have"} no antibody.` : `the last ${m-n} line${m-n===1?" was":"s were"} not used.`);
+    render();
+  });
+}
+// The IHC controls for the current figure: its layout, the panel labels and
+// the scale bar — then one mapping row per antibody (a row, or a cell).
+function ihcControls(){
+  const lay=ihcLayout(S), labels=ihcLabelsOf(S);
+  // The text as typed, while it is being typed: the box is redrawn on every
+  // keystroke, and redrawing it from the parsed list would turn "WT,K" into
+  // "WT, K" under the caret.
+  const val=S.ihcLabels==null ? labels.join(", ")
+    : (S.ihcLabelsText!=null ? S.ihcLabelsText : S.ihcLabels.join(", "));
+  let h='<div class="ihcbox" style="border:1px solid #cdd8ea;border-radius:6px;padding:8px;margin-bottom:8px">'+
+    '<label>In this figure, one antibody is</label>'+
+    `<select id="ihclayout"><option value="row" ${lay==="row"?"selected":""}>a row of panels — stack them</option>`+
+    `<option value="cell" ${lay==="cell"?"selected":""}>one cell, already stacked and labelled</option></select>`;
+  if(lay==="row"){
+    h+='<label style="margin-top:6px">Panel labels, left to right — as the figure\'s column headings read</label>'+
+      `<input id="ihclabels" type="text" value="${val.replace(/"/g,"&quot;")}">`+
+      '<div class="note">Comma-separated. Each label is drawn beside its panel, so it must name that column. Clear the box if the panels carry their own labels.</div>';
+  }
+  h+='<label style="margin-top:6px">Scale bar length, as the figure\'s key prints it</label>'+
+    `<input id="ihcscale" type="text" value="${(S.ihcScale||"").replace(/"/g,"&quot;")}" placeholder="e.g. 50 µm">`+
+    '<div class="note">Left blank, the bar stays on each panel with no length printed — nothing is assumed.</div></div>';
+  return h;
+}
+function wireIhcControls(){
+  const lay=$("#ihclayout"), lab=$("#ihclabels"), sc=$("#ihcscale");
+  if(lay) onEdit(lay, e=>{ if(S.ihcLayout===e.target.value) return; S.ihcLayout=e.target.value;
+    Object.values(S.cellState).forEach(st=>{ st.manual=false; });   // the unit changed, so guess again
+    reprefill(); render(); updatePanelCheck(); });
+  if(lab) onEdit(lab, e=>{
+    const next=e.target.value.split(",").map(x=>x.trim()).filter(Boolean);
+    S.ihcLabelsText=e.target.value;
+    if(S.ihcLabels && JSON.stringify(next)===JSON.stringify(S.ihcLabels)) return;
+    S.ihcLabels=next; render(); });
+  if(sc) onEdit(sc, e=>{ S.ihcScale=e.target.value.trim();
+    const n=$("#ihcpage-scale"); if(n) n.innerHTML="Scale bar: "+(S.ihcScale?"<b>"+esc(S.ihcScale)+"</b>":"not stated — the page will say the length is not stated in the source report")+
+      " (the “Scale bar length” box in 5 sets it for the crop and the page alike)."; });
+}
+function renderIhcMap(ctrl){
+  const groups=ihcGroupsOf(S), list=abList();
+  let h=ctrl+ihcControls();
+  if(!groups.length){ $("#mapwrap").innerHTML=h+'<div class="note">No cells assigned yet.</div>'; wireOffset(); wireIhcControls(); return; }
+  h+='<table class="maptable"><tr><th>#</th><th>Where</th><th>Antibody (catalogue)</th><th>Check</th></tr>';
+  groups.forEach((g,i)=>{
+    const abs=new Set(g.cells.map(cl=>S.cellState[cl.key].ab).filter(a=>a!=null));
+    const cur=abs.size===1?[...abs][0]:null, why=ihcProblem(S,g);
+    h+=`<tr><td>${i+1}</td><td>${g.where} · ${g.cells.length} panel${g.cells.length===1?"":"s"}</td>`+
+       `<td><select id="map-${i+1}" data-keys="${g.cells.map(cl=>cl.key).join(",")}"><option value="">— discard —</option>`+
+       list.map((a,ai)=>`<option value="${ai}" ${cur===ai?"selected":""}>${a}</option>`).join("")+
+       `</select></td><td>${why?'<span class="ocrbadge amb">✗ '+why+'</span>':'<span class="ocrbadge ok">✓</span>'}</td></tr>`;
+  });
+  h+='</table>';
+  $("#mapwrap").innerHTML=h;
+  wireOffset(); wireIhcControls();
+  $("#mapwrap").querySelectorAll("select[data-keys]").forEach(sel=>sel.addEventListener("change",e=>{
+    const v=e.target.value;
+    e.target.dataset.keys.split(",").forEach(k=>{ const st=S.cellState[k];
+      st.ab = v===""? null : +v; st.manual = true; });
+    render();
+  }));
 }
 function renderMap(){
   const ordered=assignedCellsInOrder(), list=abList();
   const off=(S&&S.abOffset)||0;
-  const ctrl=`<div class="note" style="margin-bottom:6px">This figure's reading order starts at antibody #`+
+  const ctrl=`<div class="note" style="margin-bottom:6px"><label for="aboff" style="display:inline;font-weight:400;font-size:12px;margin:0">`+
+    `This figure's first assigned panel is antibody number</label>`+
     `<input id="aboff" type="number" min="1" value="${off+1}" style="width:56px;margin:0 4px">`+
-    `<span class="note">— set &gt;1 when an application spans more than one figure</span></div>`;
+    `<span class="note">in box 3's list (set to ${off+1}${off?"":", the first"}). Change it only when an application spans more than one figure — for the second figure, type the number of the first antibody it shows, then press Enter. It re-numbers every assigned panel, hand-picked ones too.</span>`+
+    `<label for="aborder" style="margin-top:6px;font-weight:400;font-size:12px">Or type this figure's antibodies in reading order — one catalogue per line, one line per assigned ${isIHC()?"row (or cell)":"panel"}; an empty line leaves that one without an antibody</label>`+
+    `<textarea id="aborder" rows="3" style="width:100%" placeholder="e.g.\nab1101\nab154036\n\nab16665">${esc((S&&S.abOrderText)||"")}</textarea>`+
+    `<button id="aborder-apply" type="button" class="sec" style="margin-top:2px;padding:2px 10px">Apply to the assigned ${isIHC()?"rows":"panels"}</button>`+
+    `<div id="aborder-why" class="note" role="alert">${esc((S&&S.abOrderNote)||"")}</div></div>`;
+  if(isIHC()){ renderIhcMap(ctrl); return; }
   if(!ordered.length){ $("#mapwrap").innerHTML=ctrl+'<div class="note">No cells assigned yet.</div>'; wireOffset(); return; }
   let h='<table class="maptable"><tr><th>#</th><th>Antibody (catalogue)</th><th title="OCR">OCR</th></tr>';
   ordered.forEach((cl,i)=>{
     const st=S.cellState[cl.key], cur=st.ab;
-    let badge='<span class="note">·</span>', title='';
+    let badge='<span class="note">·</span>';
     if(st.ocr){
-      title=`OCR read: “${st.ocr.raw||"(nothing)"}” · score ${st.ocr.score}`;
-      if(st.ocr.ambiguous)      badge='<span class="ocrbadge amb" title="'+title+'">⚠ check</span>';
-      else if(st.ocr.confident) badge='<span class="ocrbadge ok"  title="'+title+'">✓ '+st.ocr.score+'</span>';
-      else                      badge='<span class="ocrbadge no"  title="'+title+'">? order</span>';
+      // What OCR read and how well, printed — it was a tooltip, which a
+      // browser agent cannot see and a person has to go hunting for.
+      const read=`<span class="ocrread">read “${esc(st.ocr.raw||"(nothing)")}” · score ${st.ocr.score}</span>`;
+      if(st.ocr.ambiguous)      badge='<span class="ocrbadge amb">⚠ check</span>'+read;
+      else if(st.ocr.confident) badge='<span class="ocrbadge ok">✓ '+st.ocr.score+'</span>'+read;
+      else                      badge='<span class="ocrbadge no">? order</span>'+read;
     }
-    h+=`<tr><td>${i+1}</td><td><select data-key="${cl.key}"><option value="">— discard —</option>`+
+    h+=`<tr><td>${i+1}</td><td><select id="map-${i+1}" data-key="${cl.key}"><option value="">— discard —</option>`+
        list.map((a,ai)=>`<option value="${ai}" ${cur===ai?"selected":""}>${a}</option>`).join("")+
        `</select></td><td>${badge}</td></tr>`;
   });
   h+='</table>';
   $("#mapwrap").innerHTML=ctrl+h;
   wireOffset();
-  $("#mapwrap").querySelectorAll("select").forEach(sel=>sel.addEventListener("change",e=>{
+  $("#mapwrap").querySelectorAll("select[data-key]").forEach(sel=>sel.addEventListener("change",e=>{
     const v=e.target.value, st=S.cellState[e.target.dataset.key];
     st.ab = v===""? null : +v; st.manual = true;   // your choice wins over pre-fill
     render();
@@ -1240,13 +2459,45 @@ function generate(){
   const gene=filedGene(), cellLine=$("#cellline").value.trim();
   const geno=$("#genotype").value, fcsec=$("#fcsec").checked, list=abList();
   const crops=$("#crops"); crops.innerHTML=""; let total=0;
+  const figLines=[];
+  // Each figure's crops and refusals, read back off what was just drawn for
+  // it, so the plain-text summary by the save button says what the pane shows.
   SESS.images.forEach((im,idx)=>{
+    const fn0=crops.querySelectorAll("a.fn").length, note0=crops.querySelectorAll(".note").length;
+    cropFigure(im,idx);
+    const fns=[...crops.querySelectorAll("a.fn")].slice(fn0).map(a=>a.textContent);
+    const notes=[...crops.querySelectorAll(".note")].slice(note0).map(n=>n.textContent.replace(/^✗\s*/,"").replace(im.name+": ",""));
+    let line=`${im.app} · ${im.name}: `;
+    if(fns.length) line+=`${plural(fns.length,"crop")} — ${fns.join(", ")}`;
+    else if(!notes.length) line+=(!im.img||!im.bounds) ? "not loaded yet" : "no panel assigned to an antibody — not cropped";
+    if(notes.length) line+=(fns.length?" · ":"")+notes.join(" · ");
+    figLines.push(line);
+  });
+  function cropFigure(im,idx){
     if(!im.img||!im.bounds) return;
+    if(!isCropped(im)){
+      // Ticked for the IHC page with "Also crop" unticked: the save cuts no
+      // crop from it (commit.py::is_cropped), so neither does the preview.
+      const w=document.createElement("div"); w.className="note"; w.style.cssText="width:100%;padding:2px 0";
+      w.id="preview-whole-only-"+idx;
+      w.textContent=`${im.name}: whole figure for the IHC page only — not cropped (box 6).`;
+      crops.appendChild(w); return;
+    }
     const assigned=cellsFor(im).filter(cl=>im.cellState[cl.key]?.assigned && im.cellState[cl.key].ab!=null);
     if(!assigned.length) return;
     const h=document.createElement("h4"); h.textContent=`${im.app} · ${im.name} (${assigned.length})`;
     crops.appendChild(h);
     const src=sourceCanvas(im), scx=src.getContext("2d"), app=im.app;
+    if(app==="IHC"){ total+=generateIhc(im, src, scx, crops, gene, cellLine, list); return; }
+    // The legend prints the cell line; a blank box would burn " wild-type cell
+    // line" into a public figure. Refused here as `commit.cell_line_refusal`
+    // refuses it at the save.
+    if((app==="ICC-IF"||app==="FC") && !cellLine){
+      const w=document.createElement("div"); w.className="note"; w.style.cssText="width:100%;color:#c0392b;padding:2px 0";
+      w.id="preview-cellline-refusal-"+idx;
+      w.textContent=`✗ Not cropped — ${im.name}: the Cell line box (box 2) is blank, and an ${app} legend prints it (“HAP1 wild-type cell line”). Type the cell line the figure shows, then preview again.`;
+      crops.appendChild(w); return;
+    }
     assigned.forEach(cl=>{
       const cat=list[im.cellState[cl.key].ab];
       let x=Math.round(cl.rect.l), y=Math.round(cl.rect.t),
@@ -1267,17 +2518,19 @@ function generate(){
       const tag=app==="ICC-IF"?"IF":app;
       const fn=`${gene}_${cat.replace(/\*/g,"").trim()}_${tag}.png`;
       const div=document.createElement("div"); div.className="crop"; div.appendChild(out);
-      const badge=document.createElement("div"); badge.className="recbadge";
-      out.style.cursor="pointer"; out.title="Click to mark this antibody 'recommended' for "+app;
-      const paint=()=>{ const on=isRec(cat,app); div.classList.toggle("recon",on); badge.textContent=on?"★ Recommended":"☆ click to recommend"; };
-      out.onclick=()=>{ toggleRec(cat,app); paint(); };
-      div.appendChild(badge); paint();
       const a=document.createElement("a"); a.className="fn"; a.textContent=fn;
       a.href=out.toDataURL("image/png"); a.download=fn; a.style.display="block";
       div.appendChild(a); crops.appendChild(div); total++;
     });
-  });
-  if(!total){ crops.innerHTML='<div class="note" style="padding:10px">No assigned+mapped cells to crop yet.</div>'; return; }
+  }
+  if(!total){
+    // A refusal drawn above says why nothing was cropped; wiping it for a
+    // generic line would hide the reason.
+    if(!crops.querySelector(".note")) crops.innerHTML='<div class="note" style="padding:10px">No assigned+mapped cells to crop yet.</div>';
+    previewGeneRefusal(crops, gene);
+    previewSummary(0, figLines, []);
+    return;
+  }
   // preview warnings: assigned-but-unmapped cells, and catalogues with no crop
   let unmapped=0; const cropped=new Set();
   SESS.images.forEach(im=>{ if(!im.img||!im.bounds) return;
@@ -1287,6 +2540,74 @@ function generate(){
   if(noCrop.length) warns.push(`${noCrop.length} antibody(ies) with no crop: ${noCrop.slice(0,6).join(", ")}${noCrop.length>6?"…":""}`);
   if(warns.length){ const w=document.createElement("div"); w.className="note"; w.style.cssText="width:100%;color:#9a6b00;padding:2px 0";
     w.textContent="⚠ "+warns.join(" · "); crops.insertBefore(w, crops.firstChild); }
+  previewGeneRefusal(crops, gene);
+  previewSummary(total, figLines, warns);
+}
+// The preview in words, beside the save button (26 Sep 2026): the crops are
+// pictures in the other pane, which a reader in the panel cannot see and a
+// browser agent's element search chokes on. Counts, filenames, and every
+// refusal the pane draws. Nothing is saved by a preview, and it says so.
+function previewSummary(total, figLines, warns){
+  const el=$("#preview-summary"); if(!el) return;
+  const figs=figLines.length;
+  const lines=[`Last preview (nothing saved yet): ${plural(total,"crop")} from ${plural(figs,"figure")}.`, ...figLines];
+  (warns||[]).forEach(w=>lines.push("⚠ "+w));
+  if(GENE_INFO.blocked) lines.push("✗ These crops cannot be saved under this gene yet. "+GENE_INFO.blocked);
+  el.textContent=lines.join("\n"); el.dataset.crops=String(total); el.hidden=false;
+}
+function clearPreviewSummary(){ const el=$("#preview-summary"); if(el){ el.hidden=true; el.textContent=""; delete el.dataset.crops; } }
+// A preview that draws crops the save will refuse disagrees with the save, so
+// a gene the banner blocked (not on file, ambiguous, or NA) is said above the
+// crops too — the banner's own sentence, which is the save's.
+function previewGeneRefusal(crops, gene){
+  if(!GENE_INFO.blocked) return;
+  const w=document.createElement("div"); w.className="note"; w.id="preview-gene-refusal";
+  w.setAttribute("role","alert"); w.style.cssText="width:100%;color:#c0392b;padding:2px 0";
+  w.innerHTML="✗ These crops cannot be saved under this gene yet. "+esc(GENE_INFO.blocked)+
+    addTargetLink(GENE_INFO.addTargetUrl, gene);
+  crops.insertBefore(w, crops.firstChild);
+}
+// One stacked crop per antibody, mirroring engine.py::_render_ihc: each panel
+// cut and trimmed at its native size, stacked with a gap, and only the stack
+// scaled — so every panel's scale bar keeps meaning the same distance.
+function generateIhc(im, src, scx, crops, gene, cellLine, list){
+  const labels=ihcLabelsOf(im), note=ihcNote(cellLine, im.ihcScale);
+  let made=0; const refused=[];
+  ihcGroupsOf(im).forEach(g=>{
+    const abs=new Set(g.cells.map(cl=>im.cellState[cl.key].ab).filter(a=>a!=null));
+    if(!abs.size) return;
+    const why=ihcProblem(im,g); if(why){ refused.push(why); return; }
+    const cat=list[[...abs][0]]; if(cat===undefined) return;
+    const pieces=g.cells.map(cl=>{
+      let x=Math.max(0,Math.round(cl.rect.l)), y=Math.max(0,Math.round(cl.rect.t));
+      let w=Math.min(im.natW-x,Math.round(cl.rect.r-cl.rect.l)), h=Math.min(im.natH-y,Math.round(cl.rect.bot-cl.rect.t));
+      return trimWhite(scx,x,y,w,h);
+    });
+    const W=Math.max(...pieces.map(p=>p.w)), H=pieces.reduce((a,p)=>a+p.h,0)+IHC_GAP*(pieces.length-1);
+    const col=document.createElement("canvas"); col.width=W; col.height=H;
+    const cx=col.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,W,H);
+    let yy=0; pieces.forEach(p=>{ cx.drawImage(src,p.x,p.y,p.w,p.h,Math.floor((W-p.w)/2),yy,p.w,p.h); yy+=p.h+IHC_GAP; });
+    const out=document.createElement("canvas"); out.width=CANVAS; out.height=CANVAS;
+    const o=out.getContext("2d"); o.imageSmoothingEnabled=true; o.imageSmoothingQuality="high";
+    o.fillStyle="#fff"; o.fillRect(0,0,CANVAS,CANVAS);
+    const reserve=note?IHC_NOTE_H:0, gutter=labels.length?GUT.IHC:0, fill=FILL.IHC;
+    const s=Math.min((CANVAS-gutter)*fill/W, (CANVAS-reserve)*fill/H);
+    const dw=Math.round(W*s), dh=Math.round(H*s);
+    const dx=Math.round(gutter+(CANVAS-gutter-dw)/2), dy=Math.round((CANVAS-reserve-dh)/2);
+    o.drawImage(col,0,0,W,H,dx,dy,dw,dh);
+    let top=0;
+    pieces.forEach((p,j)=>{ if(labels[j]) drawVText(o,labels[j],Math.max(gutter/2,dx-14),dy+(top+p.h/2)*s); top+=p.h+IHC_GAP; });
+    if(note){ o.fillStyle="#000"; o.font="15px DejaVu Sans, sans-serif"; o.textAlign="center"; o.textBaseline="middle";
+      o.fillText(note,CANVAS/2,CANVAS-reserve/2); o.textAlign="left"; }
+    const fn=`${gene}_${cat.replace(/\*/g,"").trim()}_IHC.png`;
+    const div=document.createElement("div"); div.className="crop"; div.appendChild(out);
+    const a=document.createElement("a"); a.className="fn"; a.textContent=fn;
+    a.href=out.toDataURL("image/png"); a.download=fn; a.style.display="block";
+    div.appendChild(a); crops.appendChild(div); made++;
+  });
+  if(refused.length){ const w=document.createElement("div"); w.className="note"; w.style.cssText="width:100%;color:#c0392b;padding:2px 0";
+    w.textContent=`✗ Not cropped — ${im.name}: `+refused.join(" · "); crops.appendChild(w); }
+  return made;
 }
 function drawVText(o,text,cx,cy){   // text rotated 90° (reads bottom-to-top)
   o.save(); o.translate(cx,cy); o.rotate(-Math.PI/2);
@@ -1327,6 +2648,7 @@ window.addEventListener("resize", refit);
 if(window.ResizeObserver) new ResizeObserver(refit).observe($(".panel"));
 
 loadSessionList();   // populate the "resume session" picker
+markSaved();         // an untouched page has nothing unsaved
 // Deep-linked with ?gene= → auto-load that gene's DB status + overwrite gate.
 {% if initial_gene %}checkGene();{% endif %}
 </script>

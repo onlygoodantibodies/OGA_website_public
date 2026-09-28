@@ -87,9 +87,9 @@ def test_the_concentration_column_names_the_unit_it_holds(bench):
     assert "Conc. (mg/mL)" not in header
 
 
-@pytest.mark.parametrize("proc", ["WB", "IP", "IF", "FC"])
+@pytest.mark.parametrize("proc", ["WB", "IP", "IF", "FC", "IHC"])
 def test_every_bench_sheet_says_which_session_it_is_for(bench, proc):
-    """All four, not just the one the guard was written against.
+    """All five, not just the one the guard was written against.
 
     The IF plate map did not: its row 2 was the KO vial's C-number alone, so it
     was the one bench sheet with no session number in it — and a guard reading a

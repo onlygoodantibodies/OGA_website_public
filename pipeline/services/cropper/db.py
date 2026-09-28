@@ -16,6 +16,7 @@ Read-only helpers here; the transactional write lives in the commit step.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -24,6 +25,33 @@ from pipeline.services import targets as target_svc
 
 
 APP_TYPES = ["WB", "IP", "ICC-IF", "FC"]
+
+
+def not_on_file_sentence(gene: str) -> str:
+    """The refusal for a gene that is not in the pipeline — one writer for the
+    banner and the save, so the sentence read before cropping is the one the
+    save gives back.
+
+    ``NA`` is not a gene that is missing, it is the placeholder for "no gene"
+    (``targets.NOT_APPLICABLE``, which ``match_gene`` never resolves), so it
+    must not send the reader to add a gene called NA."""
+    if target_svc.is_not_applicable(gene):
+        return (f"“{gene}” means no gene, and a figure is filed under the gene "
+                f"it shows. Type that gene's symbol in the Gene box (box 2), "
+                f"e.g. SOD1, then save again.")
+    return (f"“{gene}” is not in the pipeline yet, and the cropper does not add "
+            f"genes — a gene is added on the targets board, which checks the "
+            f"symbol first. Add it there, then come back and save these crops.")
+
+
+def add_target_url(gene: str) -> str:
+    """The targets board with this gene filled in and the Add panel open — the
+    same link the antibody paste gives (`bulk_antibodies._add_target_url`).
+    Nothing for ``NA``, which is not a gene anybody should add."""
+    if target_svc.is_not_applicable(gene):
+        return ""
+    from pipeline.services.bulk_antibodies import _add_target_url
+    return _add_target_url(gene)
 
 
 @dataclass
@@ -76,19 +104,30 @@ class GeneStatus:
                     f"gene on file ({names}). Type the gene symbol you mean — "
                     f"filing these figures under the wrong one is not something "
                     f"the tool can undo for you.")
+        if not self.exists and self.gene:
+            # **A target is added on the targets doors and nowhere else**
+            # (CLAUDE.md, "Adding a gene"). The cropper said "New gene — will be
+            # created" here and then minted one with no check on the symbol, so
+            # a typo in this box became a permanent gene with public figures
+            # hanging off it. `commit.gene_refusal` says the same sentence at
+            # the save.
+            return not_on_file_sentence(self.gene)
         return ""
+
+    @property
+    def add_target_url(self) -> str:
+        return add_target_url(self.gene) if (not self.exists and self.gene
+                                             and not self.ambiguous) else ""
 
     @property
     def banner(self) -> dict:
         """A small structured status for the UI to render a banner + set the
         overwrite gate."""
         if self.blocked:
-            return {"level": "ambiguous", "requires_overwrite_ack": False,
-                    "blocked": True, "text": self.blocked}
-        if not self.exists:
-            return {"level": "new", "requires_overwrite_ack": False,
-                    "blocked": False,
-                    "text": f"New gene — “{self.gene}” will be created."}
+            return {"level": "ambiguous" if self.ambiguous else "not_on_file",
+                    "requires_overwrite_ack": False,
+                    "blocked": True, "text": self.blocked,
+                    "add_target_url": self.add_target_url}
         # Said first and in every branch below, because it changes which gene's
         # public page these figures land on.
         alias = (f"“{self.gene}” is an older name for {self.resolved_gene}, which is "
@@ -104,8 +143,12 @@ class GeneStatus:
         imgs = ", ".join(f"{k}×{v}" for k, v in self.images_by_app.items() if v)
         return {"level": "exists_with_images", "requires_overwrite_ack": True,
                 "blocked": False,
-                "text": (f"{alias}⚠ “{named}” already has published images ({imgs}). "
-                         f"Committing will OVERWRITE matching images — tick to allow.")}
+                "text": (f"{alias}⚠ “{named}” already has published figures ({imgs}). "
+                         f"A crop for an antibody and application that already has "
+                         f"one replaces it, and it is written to the file the "
+                         f"public gene page shows — so that page can change as "
+                         f"soon as you save, before anybody reviews it. Tick the "
+                         f"box below to allow it.")}
 
 
 def gene_status(gene: str) -> GeneStatus:
@@ -173,6 +216,8 @@ def resolve_company(vendor: str, catalogue: str = "", create: bool = True,
     - **Bio-Techne is split into two brands** that both display "Bio-Techne":
       catalogue starting `NB`/`BC` → Novus, everything else → R&D Systems. Pick the
       brand by catalogue prefix, never by display name.
+    - A name the supplier is otherwise known by (its public name, or either half
+      of a bracketed name) resolves to it when exactly one supplier carries it.
     - `create=False` does a non-creating lookup (for the dry-run "will create
       supplier" notice); `create=True` uses `Company.resolve` to get-or-create a
       canonical row at commit time.
@@ -213,12 +258,48 @@ def resolve_company(vendor: str, catalogue: str = "", create: bool = True,
             return None
         return Company.resolve(_biotechne_brand(catalogue), db=db)[0]
 
-    for c in companies:
-        if Company.canonical_key(c.name) == key:
-            return c
+    # The same supplier typed another way it is already known by. Four empty or
+    # near-empty duplicates were minted exactly like this: "Santa Cruz
+    # Biotechnology" is `Santa-Cruz`'s own public name, "Structural Genomics
+    # Consortium" is SGC's, and "Developmental Studies Hybridoma Bank" is
+    # `… (DSHB)` without its bracket — none matched on `name`, so each paste
+    # created a second record and split the supplier's catalogue across two.
+    # Only an alias exactly one supplier carries counts: Novus and R&D share the
+    # display name "Bio-Techne", and that ambiguity is the branch above's job.
+    match = _by_alias(companies).get(key)
+    if match is not None:
+        return match
     if not create:
         return None
     return Company.resolve(vendor, db=db)[0]
+
+
+_BRACKETED = re.compile(r"^(.*?)\s*\(([^()]*)\)\s*$")
+
+
+def alias_keys(company) -> set:
+    """The other spellings a supplier is known by, as canonical keys.
+
+    Its public ``display_name``, and for a name ending in a bracket both halves:
+    ``Developmental Studies Hybridoma Bank (DSHB)`` is also the full name alone
+    and ``DSHB``. Never the ``name`` itself — that is the exact match, which
+    wins over all of these.
+    """
+    spellings = [company.display_name or ""]
+    m = _BRACKETED.match(company.name or "")
+    if m:
+        spellings += [m.group(1), m.group(2)]
+    own = Company.canonical_key(company.name)
+    return {k for k in map(Company.canonical_key, spellings) if k and k != own}
+
+
+def _by_alias(companies) -> dict:
+    """alias key → the one company carrying it; an alias two carry is dropped."""
+    seen: dict = {}
+    for c in companies:
+        for k in alias_keys(c):
+            seen.setdefault(k, []).append(c)
+    return {k: cs[0] for k, cs in seen.items() if len(cs) == 1}
 
 
 _BIOTECHNE_KEYS = {"novus", "novusbiologicals", "rdsystems", "randdsystems", "rd"}

@@ -30,7 +30,12 @@ from pipeline.services.review import PENDING
 
 DB = "pipeline_db"
 
-APPLICATIONS = ["WB", "IP", "ICC-IF", "FC"]
+# The five OGA gives a verdict in (IHC since API 2.2.0) — so the per-application
+# list agrees with the `awaiting_release` count, which counts every pending
+# figure. IHC's `run_at_sites` reads IHC bench sessions since 26 Sep 2026
+# (PLATFORM_ROADMAP #102); before that no session machinery recorded IHC work
+# and it was always empty.
+APPLICATIONS = ["WB", "IP", "ICC-IF", "FC", "IHC"]
 
 
 def reporting_status(targets, *, pending_antibody_ids=None) -> dict:

@@ -71,6 +71,21 @@ HEADER_ALIASES = {
     "growth type": "growth_properties", "adherence": "growth_properties",
     "adherent or suspension": "growth_properties",
     "clone": "clone", "clone id": "clone",
+    # What a knockdown line was made with. Five columns rather than one
+    # sentence, because a Data Note names the supplier, the catalogue number
+    # and the sequence apart, and a cell that holds all three cannot be read
+    # back into any of them. `bulk_cell_lines` reads them; `_apply_metadata`
+    # fills blanks; the board draws them (`board_columns.CELL_LINES`).
+    "knockdown method": "knockdown_method", "kd method": "knockdown_method",
+    "method": "knockdown_method",
+    "knockdown supplier": "knockdown_supplier", "sirna supplier": "knockdown_supplier",
+    "kd supplier": "knockdown_supplier",
+    "knockdown catalogue": "knockdown_catalogue", "knockdown catalog": "knockdown_catalogue",
+    "sirna catalogue": "knockdown_catalogue", "sirna id": "knockdown_catalogue",
+    "kd catalogue": "knockdown_catalogue",
+    "knockdown sequence": "knockdown_sequence", "sirna sequence": "knockdown_sequence",
+    "target sequence": "knockdown_sequence", "kd sequence": "knockdown_sequence",
+    "transfection reagent": "transfection_reagent", "transfection": "transfection_reagent",
     "species": "species", "origin": "origin",
     # Where a line came from, in a person's own words. The model has carried this
     # since the Access import and nothing exposed it, so tagging a batch of new
@@ -108,6 +123,8 @@ HEADER_ALIASES = {
 ROW_KEYS = ("name", "gene", "genotype", "parent", "c_number", "cellosaurus_id",
             "company", "catalogue", "lot", "site", "medium", "growth_properties",
             "clone", "species", "origin_comments",
+            "knockdown_method", "knockdown_supplier", "knockdown_catalogue",
+            "knockdown_sequence", "transfection_reagent",
             "origin", "storage_type", "location", "freezer", "box",
             "position", "rack", "shelf", "building", "room")
 
@@ -207,8 +224,9 @@ def parse(text: str, default_gene: str = "", default_genotype: str = ""):
 
 def norm_genotype(raw: str, name: str = "", has_parent: bool = False,
                   gene_not_applicable: bool = False) -> str:
-    """Map free text to WT / KO / other. If blank, infer: a parent or a name
-    containing 'KO' implies a knockout; otherwise wild type.
+    """Map free text to WT / KO / KD / other. If blank, infer: a name containing
+    'KD' implies a knockdown, a parent or a name containing 'KO' a knockout;
+    otherwise wild type.
 
     ``gene_not_applicable`` is a gene column that said ``NA``. It is a statement
     about the row — this is not a knockout of anything — so it settles a blank
@@ -220,11 +238,19 @@ def norm_genotype(raw: str, name: str = "", has_parent: bool = False,
         return "WT"
     if r in ("ko", "knockout", "knock-out", "knock out", "ko line", "-/-"):
         return "KO"
+    # The lab's own words for a knockdown, and the reagents that make one —
+    # `siRNA` typed in a genotype column means "this is a knockdown".
+    if r in ("kd", "knockdown", "knock-down", "knock down", "kd line",
+             "sirna", "si-rna", "shrna", "sh-rna", "crispri", "aso",
+             "antisense", "antisense oligo"):
+        return "KD"
     if r:
         return "other"
     if gene_not_applicable:
         return "WT"
     up = (name or "").upper()
+    if " KD" in f" {up}" or up.endswith("KD"):
+        return "KD"
     if has_parent or " KO" in f" {up}" or up.endswith("KO") or "-/-" in up:
         return "KO"
     return "WT"
@@ -249,8 +275,8 @@ def _derived_name(row, genotype):
     if name:
         return name
     gene = (row.get("gene") or "").strip()
-    if genotype == "KO" and gene:
-        return f"{gene} KO"
+    if genotype in cell_line_svc.CONTROL_GENOTYPES and gene:
+        return f"{gene} {genotype}"
     if gene:
         return gene
     return ""
@@ -641,7 +667,7 @@ def plan(rows, member=None):
         # file. Named up here because the C-number clash check further down
         # needs it, and a row that matched is allowed to keep its own number.
         existing = None
-        if said_na and genotype != "KO":
+        if said_na and genotype not in cell_line_svc.CONTROL_GENOTYPES:
             note = "gene NA — read as a wild type, with no gene"
         if site_err:
             status, note = "blocked", site_err
@@ -650,13 +676,15 @@ def plan(rows, member=None):
                 "needs a name — the cell line's own name, as it is written on the "
                 f"flask ({_PARENT_NAME_EG}, HeLa, U2OS). The gene goes in the gene "
                 "column, not the name")
-        elif genotype == "KO" and not gene:
+        elif genotype in cell_line_svc.CONTROL_GENOTYPES and not gene:
+            word = cell_line_svc.control_word(genotype)
             status, note = "blocked", (
-                "gene NA on a KO row: a knockout is a knockout *of* something, so "
-                "this needs the gene it knocks out — or set the genotype to WT"
+                f"gene NA on a {genotype} row: a {word} is a {word} *of* something, "
+                f"so this needs the gene it silences — or set the genotype to WT"
                 if said_na else
-                "a KO needs a gene (KO of what?) — put the gene symbol in the gene "
-                "column, or set the genotype to WT if this is a parental line")
+                f"a {genotype} needs a gene ({genotype} of what?) — put the gene "
+                f"symbol in the gene column, or set the genotype to WT if this is "
+                f"a parental line")
         else:
             existing = find_cell_line(r, target, site_id=site_id)
             siblings = (find_cell_line_matches(r, target, site_id=site_id)
@@ -775,7 +803,8 @@ def plan(rows, member=None):
         # Asked for a row that is going to be written, and with the same lookup
         # `apply` will do, so the answer is on screen before anything is saved
         # rather than in a note nobody reads.
-        if it["status"] in ("create", "update", "create-target") and it["genotype"] == "KO":
+        if (it["status"] in ("create", "update", "create-target")
+                and it["genotype"] in cell_line_svc.CONTROL_GENOTYPES):
             _parent, pnote = resolve_parent(it["parent"], site_id=it["site_id"],
                                             pending=pending)
             # **A wild type is not enough; it must be a wild type of that
@@ -786,7 +815,8 @@ def plan(rows, member=None):
             # mismatched control is read as the matched one by every session
             # planned afterwards, and `apply` writes only what `plan` passed.
             wrong = cell_line_svc.wrong_background(
-                it["name"], _parent, gene=it["gene"], site_id=it["site_id"])
+                it["name"], _parent, gene=it["gene"], site_id=it["site_id"],
+                kind=cell_line_svc.control_word(it["genotype"]))
             if wrong:
                 it["status"] = "blocked"
                 it["will_be_numbered"] = False
@@ -861,7 +891,12 @@ def _apply_metadata(cl, row, *, creating, member, overwrite=False, site_id=None)
                        ("growth_properties", "growth_properties"),
                        ("origin", "origin"),
                        ("origin_comments", "origin_comments"),
-                       ("parent", "parental_line_name")):
+                       ("parent", "parental_line_name"),
+                       ("knockdown_method", "knockdown_method"),
+                       ("knockdown_supplier", "knockdown_supplier"),
+                       ("knockdown_catalogue", "knockdown_catalogue"),
+                       ("knockdown_sequence", "knockdown_sequence"),
+                       ("transfection_reagent", "transfection_reagent")):
         val = (row.get(src) or "").strip()
         if src == "cellosaurus_id":
             val = _norm_cvcl(val)
@@ -952,7 +987,7 @@ def apply(rows, member=None, overwrite=False):
            # because one writer in `board.js` renders both.
            "numbers_issued": []}
 
-    order = sorted(range(len(items)), key=lambda i: items[i]["genotype"] == "KO")
+    order = sorted(range(len(items)), key=lambda i: items[i]["genotype"] != "WT")
     with transaction.atomic(using=DB):
         for idx in order:
             it = items[idx]
@@ -996,7 +1031,7 @@ def apply(rows, member=None, overwrite=False):
 
             # KO → WT parent link (only fill if not already linked). Same lookup
             # the preview ran, so what was previewed is what is written.
-            if genotype == "KO" and not cl.parent_line_id:
+            if genotype in cell_line_svc.CONTROL_GENOTYPES and not cl.parent_line_id:
                 pname = (r.get("parent") or "").strip()
                 if pname:
                     parent, pnote = resolve_parent(pname, site_id=it["site_id"])
@@ -1005,7 +1040,9 @@ def apply(rows, member=None, overwrite=False):
                     if pnote:
                         out["notes"].append(f"{name}: {pnote}")
                 else:
-                    out["notes"].append(f"{name}: knockout with no WT parent named")
+                    out["notes"].append(
+                        f"{name}: {cell_line_svc.control_word(genotype)} with no "
+                        f"WT parent named")
 
             cl.save(using=DB)
             vial = _ensure_vial(cl, it["c_number"], member, site_id=it["site_id"])

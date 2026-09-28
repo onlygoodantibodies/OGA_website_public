@@ -442,7 +442,9 @@ class TheStripShowsAllFourApplicationsTests(TestCase):
     def test_the_strip_is_drawn_and_the_findings_are_counted(self):
         """Two lists, two questions — the strip's length is not a count."""
         row = next(r for r in NS.rows() if r["catalogue_number"] == "ab-bad")
-        self.assertEqual(len(row["applications"]), 4)
+        # Every application OGA gives a verdict in — five since IHC's
+        # verdict (26 Sep 2026), so every card gains an "IHC Not tested" chip.
+        self.assertEqual(len(row["applications"]), len(R.APPLICATIONS))
         self.assertEqual(len(row["findings"]), 2)
         self.assertEqual(row["applications_not_supportive"], 2)
         self.assertEqual(row["applications_tested"], 2)

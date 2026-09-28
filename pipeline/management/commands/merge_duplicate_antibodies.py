@@ -116,12 +116,17 @@ NEVER_BACKFILL = {
     "lot_number",        # unique-key field
     "site",              # unique-key field
     "site_id",
+    "added_by",          # who added the survivor is its own history
+    "saved_by",
 }
 
 # Positive-information booleans: a True on EITHER row should survive the merge
 # (an application recommended / supplier-validated somewhere stays so). All
 # other booleans keep the survivor's value.
-OR_BOOL_FIELDS = {
+OR_BOOL_FIELDS = set(Antibody.RECOMMENDATION_FIELDS) | {
+    # Every OGA recommendation flag, from the model's own list so a sixth
+    # cannot be dropped by a merge (IHC joined on 26 Sep 2026) — unioned with
+    # the supplier's claims and the recombinant tick, never replaced by it.
     "wb_recommended", "ip_recommended", "if_recommended", "fc_recommended",
     "supplier_validated_wb", "supplier_validated_ip", "supplier_validated_if",
     "supplier_validated_ihc", "supplier_validated_elisa", "supplier_validated_fc",
@@ -434,6 +439,9 @@ class Command(BaseCommand):
             try:
                 with transaction.atomic(using="pipeline_db"):
                     moved = 0
+                    # One row per whole IHC figure per antibody.
+                    from pipeline.services.ihc_figures import merge_links
+                    merge_links(survivor, losers)
                     for rel in simple_rels:
                         for loser in losers:
                             moved += getattr(loser, rel).update(antibody=survivor)

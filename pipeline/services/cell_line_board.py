@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 
+from pipeline import saved_by as saved_by_stamp
 from pipeline.models import CellLine, Site
 from pipeline.services import board_page as board_page_svc
 from pipeline.services import c_number as c_number_svc
@@ -41,6 +42,11 @@ EDITABLE_FIELDS = {
     "c_number", "catalogue_number", "lot_number", "cellosaurus_id", "species",
     "growth_properties", "medium", "origin", "origin_comments",
     "location_original_vial", "ko_validation_notes", "site",
+    # What a knockdown was made with — editable in the grid, since none of it
+    # is identity: the gene and the background say what the line is, and
+    # correcting a catalogue number changes nothing a session points at.
+    "knockdown_method", "knockdown_supplier", "knockdown_catalogue",
+    "knockdown_sequence", "transfection_reagent",
 }
 
 # c_number is an IntegerField. Typed into a text cell it arrives as a string, and
@@ -73,9 +79,9 @@ COLUMN_TIPS = {
             "type, which is not a knockout of anything — 'NA' in a sheet means "
             "the same and is read as blank. Not editable here: it is what the "
             "line is.",
-    "genotype": "WT, KO, or other. Not editable here for the same reason as "
-                "the gene: a session's whole meaning depends on which of the "
-                "two lines was which.",
+    "genotype": "WT, KO, KD (knockdown — siRNA, shRNA, CRISPRi) or other. Not "
+                "editable here for the same reason as the gene: a session's "
+                "whole meaning depends on which of the two lines was which.",
     "parent": "The wild type this knockout was made from. Two things where they "
               "differ: the line it is linked to, then the C-number the bench "
               "recorded — which names a specific freeze-down batch, and matters "
@@ -105,6 +111,11 @@ COLUMN_TIPS = {
                     "check failed asks to be looked at rather than showing a "
                     "green confirmation. An unconfirmed KO line makes every "
                     "result that used it provisional.",
+    "knockdown_method": "For a KD line: how the transcript is silenced (siRNA, "
+                        "shRNA, CRISPRi), who made the reagent, its catalogue "
+                        "number or pool ID, the target sequence, and what "
+                        "carried it into the cells. Click any line to fill it "
+                        "in. Blank on a knockout.",
     "growth_properties": "How the line grows — adherent or suspension. Click to "
                          "change it; the box offers the spellings already in use.",
     "species": "Which species the line came from. Nearly all are human, which is "
@@ -265,6 +276,11 @@ def row_for(line, *, clone_total=None) -> dict:
         "site": line.site.name if line.site_id else "",
         "ko_validated": line.ko_validated,
         "ko_validation_notes": line.ko_validation_notes or "",
+        "knockdown_method": line.knockdown_method or "",
+        "knockdown_supplier": line.knockdown_supplier or "",
+        "knockdown_catalogue": line.knockdown_catalogue or "",
+        "knockdown_sequence": line.knockdown_sequence or "",
+        "transfection_reagent": line.transfection_reagent or "",
         # What the tick and the reason say *together*. The board drew the tick
         # alone as a green pill reading "validated", so six live rows carried a
         # green confirmation directly above their own record saying the
@@ -273,6 +289,11 @@ def row_for(line, *, clone_total=None) -> dict:
         **{f"ko_{k}": v for k, v in ko_validation.badge(line).items()},
         "received": line.received,
         "thawed": line.thawed,
+        # Who added the row and who last saved it, from the stamps — drawn under
+        # the site as one grey line, or not at all for a row saved before
+        # 27 Sep 2026. See pipeline/saved_by.py.
+        "provenance": saved_by_stamp.describe(line.added_by, line.saved_by,
+                                              line.updated_at),
     }
 
 
@@ -343,10 +364,25 @@ def cell_choices() -> dict:
     """
     from pipeline.services import vocabulary
 
+    # The knockdown method's picker is seeded with the four words the field
+    # is for, because on the day the column was added it held nothing and
+    # `on_file` alone would have offered an empty list on the one cell where a
+    # reminder of the vocabulary matters most. Still a convention: a method
+    # none of them names is typed, and joins the list once it is on file.
+    seeded = list(cell_lines_svc.KNOCKDOWN_METHODS)
+    for v in vocabulary.choices(CellLine, "knockdown_method")["values"]:
+        if v and v not in seeded:
+            seeded.append(v)
     return {
         "site": vocabulary.sites(blank="— no site —"),
         "growth_properties": vocabulary.choices(CellLine, "growth_properties"),
         "species": vocabulary.choices(CellLine, "species"),
+        # Only the method: the supplier and the transfection reagent are drawn
+        # *inside* the Knockdown cell under no heading of their own, and a
+        # picker is offered only for a column the board names
+        # (`test_cell_choices`), the same rule that keeps `catalogue_number`
+        # out of this dict.
+        "knockdown_method": {"values": seeded, "strict": False},
     }
 
 

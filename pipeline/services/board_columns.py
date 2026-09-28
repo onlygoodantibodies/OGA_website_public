@@ -135,9 +135,14 @@ _APPS = (("wb", "WB"), ("ip", "IP"), ("if", "IF"), ("fc", "FC"))
 # not share a list.
 _SUPPLIER_APPS = _APPS + (("ihc", "IHC"), ("elisa", "ELISA"))
 
+# OGA's own verdicts: the four board applications plus IHC (26 Sep 2026), which
+# has a verdict and no board tick — so its own list, not `_APPS` (which the
+# supplier list above extends and would then name IHC twice).
+_OGA_APPS = _APPS + (("ihc", "IHC"),)
+
 
 def _recommended(obj) -> str:
-    return ", ".join(lbl for a, lbl in _APPS
+    return ", ".join(lbl for a, lbl in _OGA_APPS
                      if getattr(obj, f"{a}_recommended", False))
 
 
@@ -393,6 +398,24 @@ CELL_LINES: tuple[Column, ...] = (
            cell=lambda c: _yes_no(c.ko_validated)),
     Column("ko_validation_notes", "ko validation notes", "", upload=READ,
            cell=lambda c: c.ko_validation_notes or ""),
+    # **What a knockdown line was made with.** One heading on the board and
+    # five columns in the sheet: the grid stacks them in one cell the way Site
+    # / status does, because a reader scanning the board wants "siRNA ·
+    # Dharmacon L-012345 · RNAiMAX" in one glance, while a Data Note names the
+    # supplier, the catalogue number and the sequence apart and a sheet that
+    # held all three in one cell could not be read back into any of them.
+    # Blank on every knockout, and drawn as a dash there rather than five
+    # prompts nobody should fill in.
+    Column("knockdown_method", "knockdown method", "Knockdown",
+           cell=lambda c: c.knockdown_method or ""),
+    Column("knockdown_supplier", "knockdown supplier", "",
+           cell=lambda c: c.knockdown_supplier or ""),
+    Column("knockdown_catalogue", "knockdown catalogue", "",
+           cell=lambda c: c.knockdown_catalogue or ""),
+    Column("knockdown_sequence", "knockdown sequence", "",
+           cell=lambda c: c.knockdown_sequence or ""),
+    Column("transfection_reagent", "transfection reagent", "",
+           cell=lambda c: c.transfection_reagent or ""),
     # **Adherent or suspension.** Filled on 411 rows by the Access import, in
     # `EDITABLE_FIELDS` and in `row_for` from the day this board was written,
     # and in no column on any screen and no sheet — the same dark shape as the

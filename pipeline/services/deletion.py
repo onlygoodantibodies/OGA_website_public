@@ -12,7 +12,7 @@ Every foreign key into these models is ``CASCADE`` or ``SET_NULL``:
     Target    <- Report, TargetAssignment, TargetNomination,
                  TargetClassification, Antibody, ReagentRequest,
                  ExperimentSession   (all CASCADE)
-    Antibody  <- WbResult, IpResult, IfResult, FcResult, PublicationImage,
+    Antibody  <- WbResult, IpResult, IfResult, FcResult, IhcResult, PublicationImage,
                  InventoryLocation   (all CASCADE)
     CellLine  <- CellLineVial, InventoryLocation, CellCultureEvent, Sample
                  (CASCADE); ExperimentSession.cell_line_wt/ko and
@@ -63,8 +63,10 @@ from django.db import transaction
 from django.db.models import Q
 
 from pipeline.models import (Antibody, CellLine, CellLineVial, CellCultureEvent,
-                             ExperimentSession, FileAttachment,
-                             InventoryLocation, PublicationImage, ReagentRequest,
+                             ExperimentSession, FileAttachment, IhcFigure,
+                             IhcFigureAntibody, InventoryLocation,
+                             PendingIhcFigure, PendingIhcFigureAntibody,
+                             PublicationImage, ReagentRequest,
                              Report, Sample, Site, Target, TargetAssignment,
                              TargetClassification, TargetNomination)
 from pipeline.services import targets as target_svc
@@ -374,8 +376,11 @@ def _count(model, **kw) -> int:
 
 
 def _result_count(**kw) -> int:
-    from pipeline.models import FcResult, IfResult, IpResult, WbResult
-    return sum(_count(m, **kw) for m in (WbResult, IpResult, IfResult, FcResult))
+    # Every result table, from the one registry of them — a hand-kept four
+    # here let an antibody with IHC readings delete without the "recorded
+    # results" blocker saying so.
+    from pipeline.services.session_board import RESULT_MODELS
+    return sum(_count(m, **kw) for m in RESULT_MODELS.values())
 
 
 def plan_for_target(target) -> Plan:
@@ -393,7 +398,12 @@ def plan_for_target(target) -> Plan:
                   ("sessions", _count(ExperimentSession, target_id=pk)),
                   ("reports", _count(Report, target_id=pk)),
                   ("site assignments", _count(TargetAssignment, target_id=pk)),
-                  ("reagent requests", _count(ReagentRequest, target_id=pk))],
+                  ("reagent requests", _count(ReagentRequest, target_id=pk)),
+                  # The gene's IHC page, public or queued. Their files are not
+                  # freed by a cascade — the same gap published crops have.
+                  ("whole IHC figures",
+                   _count(IhcFigure, target_id=pk)
+                   + _count(PendingIhcFigure, target_id=pk))],
     )
 
 
@@ -407,7 +417,12 @@ def plan_for_antibody(antibody) -> Plan:
         # A reading and a published figure are the two things that make an
         # antibody row mean something to somebody else.
         blockers=[("recorded results", _result_count(antibody_id=pk)),
-                  ("published figures", _count(PublicationImage, antibody_id=pk))],
+                  ("published figures", _count(PublicationImage, antibody_id=pk)),
+                  # A whole figure's pixels go on showing this antibody after
+                  # its row in the figure's table cascades away in silence.
+                  ("whole IHC figures showing it",
+                   _count(IhcFigureAntibody, antibody_id=pk)
+                   + _count(PendingIhcFigureAntibody, antibody_id=pk))],
     )
 
 

@@ -59,7 +59,8 @@ ALLOWED = {
     "pipeline_antibodyoutcome": "the curated per-application outcome",
     # outcomes._assemble reads these to DERIVE the verdict. The rows themselves
     # are never serialised — only the merged answer and its `verdict_source`.
-    # FcResult is absent on purpose: RESULT_MODELS covers WB/ICC-IF/IP only.
+    # FcResult and IhcResult are absent on purpose: RESULT_MODELS covers
+    # WB/ICC-IF/IP only (IHC is judged by eye — `outcomes.APPLICATION_AXES`).
     "pipeline_wbresult": "session axes behind the WB verdict (never serialised)",
     "pipeline_ifresult": "session axes behind the ICC-IF verdict (never serialised)",
     "pipeline_ipresult": "session axes behind the IP verdict (never serialised)",

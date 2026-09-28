@@ -915,9 +915,9 @@
     const p = new URLSearchParams(location.search);
     if (!p.get('add')) return;
     const gene = p.get('gene') || '';
-    const box = document.getElementById(null);
-    if (box && gene) box.value = gene;
-    newEntry.open();
+    // Filled by column name, the way every other prefilled panel is — this
+    // looked the box up with getElementById(null), so the panel opened empty.
+    newEntry.open(gene ? {gene} : undefined);
   })();
 
   /* A gene deleted on its own page sends you back here, and has to say so on

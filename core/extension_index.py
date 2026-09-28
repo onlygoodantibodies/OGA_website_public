@@ -103,7 +103,11 @@ NOT_TESTED = 0
 NOT_RECOMMENDED = 1
 RECOMMENDED = 2
 
-# The four applications assessed under the consensus protocols.
+# The four applications this file carries — its own list, not
+# `core/recommendations.py::APPLICATIONS`, which gained IHC on 26 Sep 2026.
+# Shipped builds read these four keys and draw an `img` key they do not know
+# as an unlabelled figure, so IHC stays out until a store release says what to
+# do with it.
 APPLICATIONS = ('WB', 'IP', 'IF', 'FC')
 
 # PublicationImage stores immunofluorescence as 'ICC-IF'; the extension uses 'IF'.
@@ -242,7 +246,11 @@ def _dataset_stamp():
     so the *bytes* still change and every cache still notices. This is the
     human-facing half: the extension's options page prints it as "data <date>".
     """
-    newest = PublicationImage.objects.aggregate(newest=Max('created_at'))['newest']
+    # Only the figures this file carries: an IHC release changes nothing in it,
+    # and moving the date would send every install back for identical bytes.
+    newest = (PublicationImage.objects
+              .filter(application_type__in=_KEY_TO_APPLICATION.values())
+              .aggregate(newest=Max('created_at'))['newest'])
     if newest is None:
         return EMPTY_DATASET_STAMP
     return (newest.astimezone(datetime.timezone.utc)
@@ -262,6 +270,10 @@ def build_index(aliases=None):
     # not a smaller set, and the CHANGELOG and the roadmap both quote the 1,611
     # as though it were the whole thing.
     no_rrid = 0
+    # Published antibodies whose figures are all in an application this file
+    # does not carry (IHC, since 26 Sep 2026) — the other half of the gap
+    # between `counts.antibodies` and the headline, counted for the same reason.
+    no_indexed_application = 0
 
     report_doi_by_target = {}
     for report in Report.objects.all().only('target_id', 'f1000_doi', 'zenodo_doi'):
@@ -287,8 +299,10 @@ def build_index(aliases=None):
     # two queries per application, not two per antibody. This file walks every
     # published antibody, so a per-row lookup here is the N+1 that would show up
     # as a slow feed rather than as a wrong answer.
+    # The four applications this file carries only, so IHC costs no queries.
     axes = _R_capability_axes(
-        list(queryset.values_list('pk', flat=True)))
+        list(queryset.values_list('pk', flat=True)),
+        applications=tuple(_KEY_TO_APPLICATION.values()))
 
     for antibody in queryset:
         gene = antibody.target.gene_name
@@ -307,6 +321,10 @@ def build_index(aliases=None):
             # Nothing has been published for this antibody, so we have no
             # assessment to report. Leaving it out means the extension treats it
             # as untested rather than inventing a recommendation.
+            if antibody.publication_images.all():
+                # Published, but only in an application this file does not
+                # carry — counted, so the headline gap is explained.
+                no_indexed_application += 1
             continue
 
         if not rrid:
@@ -459,6 +477,10 @@ def build_index(aliases=None):
             # key rather than a rename: the index is a published artefact and a
             # signed extension in the field reads it.
             'antibodies_without_rrid': no_rrid,
+            # Published only in an application this file does not carry (IHC).
+            # Additive, like the key above; the two gaps plus `antibodies` are
+            # the site's headline antibody count.
+            'antibodies_without_indexed_application': no_indexed_application,
             'clones': len(clones),
         },
     }

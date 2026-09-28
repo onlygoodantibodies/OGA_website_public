@@ -90,6 +90,20 @@ class EndpointTests(TestCase):
         self.assertEqual((row.tool, row.client, row.count),
                          ("list_targets", "claude-code", 1))
 
+    def test_a_report_over_the_private_network_is_counted(self):
+        """The live address since 27 Sep 2026, when the public Render subdomain
+        was switched off: `http://oga-website:10000/internal/mcp-usage/`.
+        Without `oga-website` in ALLOWED_HOSTS Django answers 400 before the
+        view runs, and the reporter drops that in silence — the impact page
+        just stops counting."""
+        sent = self.client.post(
+            self.url, data=json.dumps({"tool": "list_targets"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {TOKEN}",
+            headers={"host": "oga-website:10000"})
+        self.assertEqual(sent.status_code, 204)
+        self.assertEqual(McpUsageDay.objects.get().tool, "list_targets")
+
     def test_a_wrong_token_writes_nothing(self):
         self.assertEqual(self._post({"tool": "x"}, token="wrong").status_code, 401)
         self.assertFalse(McpUsageDay.objects.exists())

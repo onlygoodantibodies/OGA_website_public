@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 
+from pipeline import saved_by as saved_by_stamp
 from pipeline.models import Antibody, Company, Site
 from pipeline.services import board_page as board_page_svc
 from pipeline.services import clonality as clonality_svc
@@ -32,6 +33,7 @@ from pipeline.services import received as received_svc
 from pipeline.services import sites as site_svc
 from pipeline.services import storage as storage_svc
 from pipeline.services import targets as target_svc
+from core import recommendations as R
 
 DB = "pipeline_db"
 
@@ -39,7 +41,10 @@ APPLICATIONS = ["wb", "ip", "if", "fc"]
 
 # What the supplier claims covers more ground than what OGA tests, and the model
 # has the columns for it — see `board_columns._SUPPLIER_APPS`. Two lists on
-# purpose: the OGA verdict is about the four applications OGA characterises.
+# purpose: the OGA verdict is about the applications OGA characterises. The
+# board ticks four of OGA's five — IHC (on HAP1 pellets, 26 Sep 2026) is set on
+# Judge outcomes and the review queue, and a tick here would be a second writer
+# (and `SUPPLIER_APPLICATIONS` would then list `ihc` twice).
 SUPPLIER_APPLICATIONS = APPLICATIONS + ["ihc", "elisa"]
 
 # Free-text and boolean fields the board may edit in place.
@@ -206,8 +211,9 @@ def apply_filters(qs, *, q="", company="", site="", gene="", recommended="",
         qs = qs.filter(**{f"{application}_recommended": True})
     if recommended in ("yes", "no"):
         want = recommended == "yes"
-        any_rec = Q(wb_recommended=True) | Q(ip_recommended=True) \
-            | Q(if_recommended=True) | Q(fc_recommended=True)
+        # Any OGA recommendation, IHC included — the one reader, so a row
+        # recommended for IHC alone is not listed under "no".
+        any_rec = R.any_recommendation_q()
         qs = qs.filter(any_rec) if want else qs.exclude(any_rec)
     if out_of_market in ("yes", "no"):
         qs = qs.filter(out_of_market=(out_of_market == "yes"))
@@ -274,9 +280,20 @@ def row_for(antibody) -> dict:
         "empty_vial": antibody.empty_vial,
         "recommended": {a: getattr(antibody, f"{a}_recommended", False)
                         for a in APPLICATIONS},
+        # OGA's fifth verdict, drawn read-only beside the four ticks: the
+        # `?recommended=` filter asks `any_recommendation_q` (IHC included),
+        # so a row recommended for IHC alone would otherwise be listed under
+        # "Recommended" and draw as recommended for nothing. Not in
+        # `EDITABLE_FIELDS` — Judge outcomes and the review queue write it.
+        "ihc_recommended": bool(antibody.ihc_recommended),
         "supplier_validated": {
             a: getattr(antibody, f"supplier_validated_{a}", False)
             for a in SUPPLIER_APPLICATIONS},
+        # Who added the row and who last saved it, from the stamps — drawn under
+        # the site as one grey line, or not at all for a row saved before
+        # 27 Sep 2026. See pipeline/saved_by.py.
+        "provenance": saved_by_stamp.describe(antibody.added_by, antibody.saved_by,
+                                              antibody.updated_at),
     }
 
 

@@ -14,6 +14,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from pipeline.decorators import pipeline_member_required
+from pipeline.public import control_kinds, control_phrase, public_summary
+from pipeline.services.ihc_figures import has_page as has_ihc_page
 from pipeline.services import attachments as attachments_svc
 from pipeline.services import cell_lines as cell_line_svc
 from pipeline.services import gene_progress
@@ -133,8 +135,10 @@ def target_detail(request, pk):
     # their FK instead, and the invariant is that every counted line is shown.
     lines = list(cell_lines)
     wt_lines = [cl for cl in lines if cl.genotype == 'WT']
-    ko_lines = [cl for cl in lines if cl.genotype == 'KO']
-    other_lines = [cl for cl in lines if cl.genotype not in ('WT', 'KO')]
+    # Knockdowns sit in the KO column too: a control is a control, and the
+    # row says which kind (`get_genotype_display`, `knockdown_summary`).
+    ko_lines = [cl for cl in lines if cl.genotype in ('KO', 'KD')]
+    other_lines = [cl for cl in lines if cl.genotype not in ('WT', 'KO', 'KD')]
 
     wt_by_id = {wt.pk: wt for wt in wt_lines}
     absent_parents = {ko.parent_line_id for ko in ko_lines
@@ -176,6 +180,10 @@ def target_detail(request, pk):
             ip_result_count=Count('ip_results'),
             if_result_count=Count('if_results'),
             fc_result_count=Count('fc_results'),
+            # A fifth relation on one annotate multiplies the others only when a
+            # session has rows in two tables, and a session has rows in exactly
+            # one — its procedure's.
+            ihc_result_count=Count('ihc_results'),
         )
         .order_by('-date')
     )
@@ -185,6 +193,7 @@ def target_detail(request, pk):
         'IP': [],
         'IF': [],
         'FC': [],
+        'IHC': [],
     }
     # A **result row is not a reading**, and this page is where that costs most.
     # Planning a session writes one blank row per antibody it will test, so a
@@ -217,6 +226,8 @@ def target_detail(request, pk):
             session.result_count = session.if_result_count
         elif proc == 'FC':
             session.result_count = session.fc_result_count
+        elif proc == 'IHC':
+            session.result_count = session.ihc_result_count
         else:
             session.result_count = 0
         session.reading_count = readings.get(session.pk, 0)
@@ -272,7 +283,7 @@ def target_detail(request, pk):
                'rows': sum(getattr(s, 'result_count', 0) or 0
                            for s in sessions_by_type.get(proc, [])),
                'complete': False}
-        for proc in ('WB', 'IP', 'IF', 'FC')
+        for proc in ('WB', 'IP', 'IF', 'FC', 'IHC')
     }
     # Completion used to be read off `target.status` — "ip_complete" ticked WB and
     # IP, and so on. Nothing advances that field (it is written once, as
@@ -310,6 +321,7 @@ def target_detail(request, pk):
     for cl in ko_lines:
         cl.ko_badge = ko_validation.badge(cl)
         cl.clone_note = cell_line_svc.clone_note(cl, total=clone_totals.get(cl.pk))
+        cl.knockdown_summary = cell_line_svc.knockdown_summary(cl)
 
     # Where this gene has got to, derived from records rather than a status
     # field — see services/gene_progress.py.
@@ -374,6 +386,14 @@ def target_detail(request, pk):
     pending_rows = review_svc.rows_for(
         pending_items,
         url_of=lambda i: reverse("pipeline:review_image", args=[i.pk]))
+    # Whole IHC figures for the gene's IHC page wait in the same queue, so they
+    # are counted in the same panel — one surface answering "what is waiting",
+    # not a second count somewhere else on the page.
+    from pipeline.services import ihc_figures as ihc_svc
+    pending_figures = list(ihc_svc.for_target(target.pk))
+    pending_figure_rows = ihc_svc.rows_for(
+        pending_figures,
+        url_of=lambda f: reverse("pipeline:review_ihc_image", args=[f.pk]))
 
     context = {
         'target': target,
@@ -395,6 +415,17 @@ def target_detail(request, pk):
         'ko_confirmed_count': ko_confirmed_count,
         'ko_disputed_count': ko_disputed_count,
         'ko_line_count': len(ko_lines),
+        # What the public page says the figures were controlled against —
+        # read off the published figures, so this page and the public one
+        # cannot disagree. Empty while nothing is published.
+        'public_control': (control_phrase(kinds) if (kinds := control_kinds(target)) else ''),
+        # What the public page for this gene holds — antibodies, applications,
+        # and how many read supportive in each — with the link to it, at the
+        # top of the page. `None` while the gene has no public page.
+        'public_summary': (summary := public_summary(target)),
+        'public_url': (reverse('antibody_table', kwargs={'gene_name': target.gene_name})
+                       if summary else ''),
+        'has_kd_line': any((cl.genotype or '').upper() == 'KD' for cl in ko_lines),
         'wt_parentals': wt_parentals,
         # The same wild types, as the Add grid's `parent` cell takes them.
         'wt_options': wt_options,
@@ -441,8 +472,11 @@ def target_detail(request, pk):
         # live figure" and "this gives the gene its first public page" are facts
         # about the database and not about the checkboxes.
         'pending_rows': pending_rows,
-        'pending_count': len(pending_rows),
-        'pending_manifest': review_svc.manifest(pending_items),
+        'pending_figure_rows': pending_figure_rows,
+        'pending_count': len(pending_rows) + len(pending_figure_rows),
+        'pending_manifest': review_svc.manifest(pending_items, pending_figures),
+        'ihc_page_url': (reverse('antibody_ihc', kwargs={'gene_name': target.gene_name})
+                         if has_ihc_page(target) else ''),
         # **Assign numbers needs a bench, not just a gene.** The panel renumbers
         # whatever the query names, and `?gene=` alone spans every site holding
         # that gene — which `renumber.plan` refuses, correctly, because McGill's
@@ -528,6 +562,7 @@ def _annotate_progress(qs):
         ip_count=Count('sessions', filter=Q(sessions__procedure_type='IP'), distinct=True),
         if_count=Count('sessions', filter=Q(sessions__procedure_type='IF'), distinct=True),
         fc_count=Count('sessions', filter=Q(sessions__procedure_type='FC'), distinct=True),
+        ihc_count=Count('sessions', filter=Q(sessions__procedure_type='IHC'), distinct=True),
         report_count=Count('reports', distinct=True),
         is_completed=board_svc.completed_subquery(),
     )
@@ -562,7 +597,7 @@ def _active(annotated_qs):
         Q(status__in=TYPED_ACTIVE_STATUSES)
         | (Q(report_count=0)
            & (Q(ab_count__gt=0) | Q(wb_count__gt=0) | Q(ip_count__gt=0)
-              | Q(if_count__gt=0) | Q(fc_count__gt=0)))
+              | Q(if_count__gt=0) | Q(fc_count__gt=0) | Q(ihc_count__gt=0)))
     ).exclude(status__in=STOPPED_STATUSES)
 
 
@@ -592,9 +627,9 @@ def _stage_counts(annotated):
     cancelled target that had been written up would appear twice.
     """
     live = annotated.exclude(status__in=PAUSED_STATUSES)
-    no_session = Q(wb_count=0, ip_count=0, if_count=0, fc_count=0)
+    no_session = Q(wb_count=0, ip_count=0, if_count=0, fc_count=0, ihc_count=0)
     any_session = (Q(wb_count__gt=0) | Q(ip_count__gt=0)
-                   | Q(if_count__gt=0) | Q(fc_count__gt=0))
+                   | Q(if_count__gt=0) | Q(fc_count__gt=0) | Q(ihc_count__gt=0))
     # Not started, so nothing to report on. `report_count=0` already implies not
     # reported — a qualifying report needs a Report row — so the first three
     # buckets need no completion test of their own.
@@ -667,6 +702,7 @@ def master_dashboard(request):
             ip_sessions=Count('sessions', filter=Q(sessions__procedure_type='IP'), distinct=True),
             if_sessions=Count('sessions', filter=Q(sessions__procedure_type='IF'), distinct=True),
             fc_sessions=Count('sessions', filter=Q(sessions__procedure_type='FC'), distinct=True),
+            ihc_sessions=Count('sessions', filter=Q(sessions__procedure_type='IHC'), distinct=True),
         )
         .order_by('gene_name')
     )

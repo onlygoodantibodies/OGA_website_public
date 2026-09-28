@@ -14,6 +14,7 @@ The step-by-step wizard (with protocol templates + full conditions) stays
 available at ``session_create`` for people who want it.
 """
 import json
+import logging
 from datetime import date
 
 from django.http import JsonResponse
@@ -23,10 +24,12 @@ from django.views.decorators.http import require_GET, require_POST
 from pipeline.decorators import pipeline_member_required
 from pipeline.models import Member, Site, ExperimentSession, Target
 from pipeline.services import bulk_sessions as bs
+from pipeline.services import cell_lines as clines_svc
 from pipeline.services import bench_results
 from pipeline.services import sessions as sess
 
 DB = "pipeline_db"
+logger = logging.getLogger(__name__)
 
 
 def _member(request):
@@ -102,7 +105,7 @@ def _cell_line_preview(d, member):
         "wt": clines.preview(d.get("cell_line_wt", ""),
                              genotype="WT", site_id=site_id),
         "ko": clines.preview(d.get("cell_line_ko", ""),
-                             genotype="KO", site_id=site_id),
+                             genotype=clines.CONTROL, site_id=site_id),
     }
 
 def _header(d):
@@ -168,7 +171,8 @@ def session_plan_commit(request):
             if wt_new:
                 created["cell_lines"].append(str(wt_cl))
             ko_cl, ko_new = bs.resolve_or_create_cell_line(
-                header["cell_line_ko"], genotype="KO", target=target, parent=wt_cl, member=member)
+                header["cell_line_ko"], genotype=clines_svc.CONTROL, target=target,
+                parent=wt_cl, member=member)
             if ko_new:
                 created["cell_lines"].append(str(ko_cl))
 
@@ -288,8 +292,25 @@ def session_results_upload(request, pk):
         pass
     try:
         parsed = bench_results.parse(f, session.procedure_type)
-    except Exception as e:
+    except bench_results.SheetRefusal as e:
+        # `parse`'s own refusals — "the sheet is empty", "couldn't find the
+        # header row" — are sentences written for this panel. Only those: a
+        # bare `except ValueError` also caught openpyxl's, which raises
+        # ValueError for a malformed cell and reached the page in its words.
         return JsonResponse({"ok": False, "error": f"could not read the sheet ({e})"}, status=400)
+    except Exception:
+        # **Exception detail goes to the log; the page gets a sentence** — the
+        # rule `imports.import_upload` already holds. This interpolated `str(e)`
+        # for every exception, so a damaged upload answered in zlib's words.
+        logger.exception("bench sheet could not be read (session=%s, name=%s)",
+                         session.pk, getattr(f, "name", "?"))
+        return JsonResponse(
+            {"ok": False,
+             "error": f"“{getattr(f, 'name', 'That file')}” could not be opened "
+                      f"as a spreadsheet. It may have been damaged in transit, or "
+                      f"saved in an older Excel format — open it and re-save it "
+                      f"as .xlsx, then try again."},
+            status=400)
     result = bench_results.plan(session, parsed)
     result["kind"] = "bench"
     # The parsed sheet goes back with the preview so the save records exactly
@@ -302,6 +323,9 @@ def session_results_upload(request, pk):
     # reason: the commit re-asks both. A sheet with no stamp — an older download,
     # or one somebody typed — still has its columns to be judged on.
     result["sheet_procedure"] = parsed["sheet_procedure"]
+    # The sheet's session-conditions block (IHC's) travels the same way, so the
+    # save stores what the preview listed.
+    result["conditions"] = parsed.get("conditions") or {}
     return JsonResponse(result)
 
 
@@ -323,6 +347,7 @@ def session_results_commit(request, pk):
     return JsonResponse(bench_results.apply(
         session,
         {"rows": rows,
+         "conditions": d.get("conditions") if isinstance(d.get("conditions"), dict) else {},
          "sheet_session_id": d.get("sheet_session_id"),
          "sheet_procedure": d.get("sheet_procedure")},
         member=_member(request)))

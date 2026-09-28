@@ -35,27 +35,31 @@ from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from pipeline.decorators import pipeline_member_required
-from pipeline.models import Antibody, AntibodyOutcome, PublicationImage, Target
+from pipeline.models import Antibody, PublicationImage, Target
 from pipeline.services import clonality as clonality_svc
 from pipeline.services import outcomes as outcome_svc
+from pipeline.services import review as review_svc
 from pipeline.services import targets as target_svc
 
 logger = logging.getLogger(__name__)
 
 DB = "pipeline_db"
 
-#: The applications this page judges, in the order it offers them. FC is absent
-#: on purpose: `histogram_shift` is blank on all 22 live rows, so a tab for it
-#: would be an empty box with no source behind it. `services/outcomes.py` is the
-#: one reader for which axes each of these answers — a column the page calls
-#: judgeable must be one the reader reads, so widen both or neither.
-APPLICATIONS = ("WB", "ICC-IF", "IP")
+#: The applications this page judges, in the order it offers them. FC joined on
+#: 25 Sep 2026 with its one caveat — non-specific background, on a recommended
+#: antibody — which is also why Set recommendations could retire: this page now
+#: sets every recommendation there is. `services/outcomes.py` is the one reader
+#: for which axes each of these answers — a column the page calls judgeable must
+#: be one the reader reads, so widen both or neither. IHC joined on 26 Sep 2026,
+#: judged by eye from the HAP1 pellet figure on the ICC-IF bands.
+APPLICATIONS = ("WB", "ICC-IF", "IP", "FC", "IHC")
 DEFAULT_APPLICATION = "WB"
 
 #: How each is written where a person reads it. `ICC-IF` is the database's exact
 #: value and must stay that in a URL or a payload; this is only the wording.
 APPLICATION_LABELS = {"WB": "Western blot", "ICC-IF": "Immunofluorescence",
-                      "IP": "Immunoprecipitation"}
+                      "IP": "Immunoprecipitation", "FC": "Flow cytometry",
+                      "IHC": "Immunohistochemistry"}
 
 
 def _application(request, body=None):
@@ -131,6 +135,10 @@ def outcome_genes(request):
     # ICC-IF's alone because it is the only application whose answer is a
     # number.
     unused_total = len(outcome_svc.ratio_not_used(application))
+    # Flow's fast pass: every recommended figure, where the background caveat
+    # is the one thing left to decide.
+    fc_total = (len(outcome_svc.fc_recommended())
+                if application == "FC" else 0)
     return JsonResponse({
         "genes": genes,
         "total_antibodies": total_figures,
@@ -138,6 +146,7 @@ def outcome_genes(request):
         "conflict_total": conflict_total,
         "review_total": review_total,
         "unused_total": unused_total,
+        "fc_total": fc_total,
         "application": application,
     })
 
@@ -169,10 +178,14 @@ def _payload(rows, summary, application, **extra):
         # list would offer a control the save refuses.
         "axis_values": {
             axis: [{"value": v,
-                    "label": outcome_svc.VERDICT_LABELS.get(v, v.title())}
+                    "label": outcome_svc.VERDICT_LABELS.get(v, v.title()),
+                    "tone": outcome_svc.tone_of(axis, v)}
                    for v in outcome_svc.values_for(application, axis)]
             for axis in outcome_svc.axes_for(application)},
         "application": application,
+        # Axes that are a caveat on a recommendation: drawn as buttons only on
+        # a recommended card, a sentence otherwise — the save refuses the rest.
+        "caveat_axes": sorted(outcome_svc.CAVEAT_AXES),
         # Printed on the page beside the bands, because a band with no cut-off
         # under it is a verdict the reader cannot check.
         "thresholds": {"floor": str(outcome_svc.SELECTIVE_FLOOR),
@@ -180,7 +193,16 @@ def _payload(rows, summary, application, **extra):
     }, **extra))
 
 
-def _card(ab, axes, img, application, gene, **extra):
+def _public(ab, axes, application, curated):
+    """What the public gene page prints for this cell, from the reader every
+    public surface asks — the same line the review queue's card and the
+    cropper show, so the three screens a judgement is made on agree."""
+    from core import recommendations as recs
+    d = recs.describe(ab, application, {application}, curated, axes)
+    return {"public_sentence": d["sentence"], "public_tone": d["tone"]}
+
+
+def _card(ab, axes, img, application, gene, curated=True, **extra):
     """One antibody's card."""
     return dict({
         "id": ab.pk,
@@ -204,10 +226,11 @@ def _card(ab, axes, img, application, gene, **extra):
         # nobody reads twice.
         "conflict_direction": outcome_svc.conflict_direction(
             axes, getattr(ab, _REC_FIELD[application]), application),
+        **_public(ab, axes, application, curated),
     }, **extra)
 
 
-def _worklist_cards(application, found, note):
+def _worklist_cards(application, found, note, keep_order=False):
     """One card per antibody in a worklist, ordered by gene.
 
     Both lists come through here — where the recommendation and the data
@@ -231,14 +254,18 @@ def _worklist_cards(application, found, note):
         for img in PublicationImage.objects.using(DB)
         .filter(application_type=application, antibody_id__in=ab_ids)
     }
+    rank = {ab_id: i for i, ab_id in enumerate(ab_ids)}
     antibodies = sorted(
         Antibody.objects.using(DB).select_related("company", "target")
         .filter(pk__in=ab_ids),
-        key=lambda a: (found[a.pk]["gene"], a.catalogue_number or ""))
+        key=(lambda a: rank[a.pk]) if keep_order
+        else (lambda a: (found[a.pk]["gene"], a.catalogue_number or "")))
 
+    from core import recommendations as recs
+    curated = recs.curated_gene_ids({a.target_id for a in antibodies})
     rows = [
         _card(ab, found[ab.pk]["axes"], images.get(ab.pk), application,
-              found[ab.pk]["gene"])
+              found[ab.pk]["gene"], curated=ab.target_id in curated)
         for ab in antibodies
     ]
     # The header sentence comes from the server, because the two worklists
@@ -262,6 +289,17 @@ def outcome_antibodies(request):
         return _worklist_cards(
             application, outcome_svc.unrecommended_but_capable(application),
             "not recommended, and the data records on-target signal")
+    if request.GET.get("fcreview"):
+        found = outcome_svc.fc_recommended()
+        # Unanswered first: the pass is for setting the caveat, and a row
+        # somebody has already answered is there to be checked, not done.
+        ordered = dict(sorted(
+            found.items(),
+            key=lambda kv: kv[1]["axes"]["background"]["value"] is not None))
+        return _worklist_cards(
+            "FC", ordered,
+            "recommended for flow cytometry — set the background caveat",
+            keep_order=True)
     if request.GET.get("unused"):
         return _worklist_cards(
             application, outcome_svc.ratio_not_used(application),
@@ -291,15 +329,27 @@ def outcome_antibodies(request):
         .filter(pk__in=list(by_ab))
     )
 
+    from core import recommendations as recs
+    curated = target.pk in recs.curated_gene_ids([target.pk])
     rows = [_card(ab, by_ab[ab.pk], images.get(ab.pk), application,
-                  target.gene_name)
+                  target.gene_name, curated=curated)
             for ab in antibodies]
     # Outstanding first, so the work is at the top of the grid as well as the
     # picker; then by catalogue number, which is how people refer to them.
     rows.sort(key=lambda r: (not r["is_gap"], r["name"] or ""))
 
+    from pipeline.views.review import _asker
+    member, is_superuser = _asker(request)
     return _payload(rows, outcome_svc.summarise(by_ab, application),
-                    application)
+                    application,
+                    # Drawn with the cards rather than fetched separately: a
+                    # button whose count arrives after the grid is a button
+                    # that is briefly wrong.
+                    withdraw=dict(
+                        review_svc.withdraw_manifest(target.pk),
+                        gene=target.gene_name,
+                        why_not=review_svc.withdraw_refusal(member,
+                                                            is_superuser)))
 
 
 @require_POST
@@ -349,12 +399,13 @@ def outcome_save(request):
     # No refusal past this point. Every judgement is makeable here, including
     # one that overrides a reading or a measured ratio (owner, 29 Aug 2026) —
     # the card keeps printing what was overridden, and no session row moves.
-    row, _ = AntibodyOutcome.objects.using(DB).get_or_create(
-        antibody_id=ab.pk, application_type=application)
-    setattr(row, axis, value)
-    row.note = data.get("note", row.note) or ""
-    row.assessed_by = request.user.username
-    row.save(using=DB)
+    why_not = outcome_svc.caveat_refusal(
+        axis, getattr(ab, _REC_FIELD[application]), application)
+    if why_not and value:
+        return JsonResponse({"error": why_not}, status=400)
+    # The one writer, shared with the review queue's cards.
+    outcome_svc.record(ab.pk, application, axis, value,
+                       actor=request.user.username, note=data.get("note"))
 
     axes = outcome_svc.for_gene(ab.target_id, application)[ab.pk]
     return JsonResponse(_saved(ab, axes, application))
@@ -368,8 +419,11 @@ def _saved(ab, axes, application):
     the half that was written would leave the note on screen saying something
     that was true a moment ago.
     """
+    from core import recommendations as recs
     flag = getattr(ab, _REC_FIELD[application])
+    curated = ab.target_id in recs.curated_gene_ids([ab.target_id])
     return {
+        **_public(ab, axes, application, curated),
         "status": "ok",
         "antibody_id": ab.pk,
         "antibody_name": ab.catalogue_number,
@@ -426,3 +480,76 @@ def outcome_recommend(request):
     setattr(ab, _REC_FIELD[application], value)
     ab.save(using=DB)
     return JsonResponse(_saved(ab, axes_by_ab[ab.pk], application))
+
+
+@pipeline_member_required
+@require_POST
+def outcome_withdraw(request):
+    """Take this gene's published figures off the public site, into the queue.
+
+    Moved here from Set recommendations when that page retired (25 Sep 2026):
+    this is the screen where a gene's figures are judged, and "none of this
+    should be public yet" belongs beside the judgement.
+
+    Not a delete — ``review.withdraw`` re-stages the crops into
+    ``/pipeline/review/`` first, so releasing them again is one press. ``count``
+    is the number the panel printed, and a set that has grown since is refused.
+    The edge cache is purged after the commit, because a withdrawn gene page
+    held for a week is the one stale copy that says something false.
+    """
+    from OGA_website import edge_cache
+    from pipeline.views.review import _asker
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    member, is_superuser = _asker(request)
+    why_not = review_svc.withdraw_refusal(member, is_superuser)
+    if why_not:
+        return JsonResponse({"ok": False, "error": why_not}, status=403)
+
+    gene = (payload.get("gene") or "").strip()
+    target = Target.objects.using(DB).filter(gene_name__iexact=gene).first()
+    if target is None:
+        return JsonResponse(
+            {"ok": False, "error": f"There is no gene called {gene}."}, status=404)
+
+    images = list(PublicationImage.objects.using(DB)
+                  .filter(antibody__target_id=target.pk)
+                  .select_related("antibody"))
+    if not images:
+        return JsonResponse(
+            {"ok": False,
+             "error": f"{target.gene_name} has no published figures, so there "
+                      f"is nothing to withdraw."}, status=409)
+
+    try:
+        result = review_svc.withdraw(images, actor=request.user.username,
+                                     consented_count=payload.get("count"))
+    except review_svc.Refused as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=409)
+    except Exception:
+        # Never `alert(str(e))` — detail to the log, a sentence to the page.
+        logger.exception("withdraw failed for %s", target.gene_name)
+        return JsonResponse(
+            {"ok": False,
+             "error": "Something went wrong withdrawing those figures and "
+                      "nothing was changed. The gene is still on the public "
+                      "site."}, status=500)
+
+    purged, purge_note = edge_cache.purge_everything()
+    return JsonResponse({
+        "ok": True,
+        "gene": target.gene_name,
+        "withdrawn": len(result.withdrawn),
+        "restaged": result.restaged,
+        "already_queued": result.already_queued,
+        "recommendations_cleared": result.recommendations_cleared,
+        "genes_leaving_public": result.genes_leaving_public,
+        "whole_figures_withdrawn": len(result.whole_figures_withdrawn),
+        "purged": purged,
+        "purge_note": purge_note,
+        "review_url": "/pipeline/review/",
+    })

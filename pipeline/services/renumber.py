@@ -61,9 +61,11 @@ from pipeline.services import session_board
 
 DB = "pipeline_db"
 
-#: The four procedures, and the reverse accessor each result table hangs off.
-_PROCEDURES = {"wb_results": "WB", "ip_results": "IP",
-               "if_results": "IF", "fc_results": "FC"}
+#: Every procedure, and the reverse accessor each result table hangs off —
+#: derived from the one registry of result tables, because an A-number printed
+#: on a bench sheet of a procedure missing here could be moved (IHC, 26 Sep 2026).
+_PROCEDURES = {model._meta.get_field("antibody").remote_field.related_name: proc
+               for proc, model in session_board.RESULT_MODELS.items()}
 
 #: The other three ways an antibody's number reaches somewhere this app cannot
 #: reach back into. Read off the relations rather than a flag, so a new way of

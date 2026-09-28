@@ -265,7 +265,8 @@ def test_serialised_shape_matches_portal():
     # in `experiments` instead, so shipping them was pure payload
     assert "embed_urls" not in ab
     assert "evidence" not in ab
-    assert set(ab["recommendations"]) == {"WB", "ICC-IF", "IP", "FC"}
+    # IHC since API 2.2.0 (26 Sep 2026) — on HAP1 cell pellets.
+    assert set(ab["recommendations"]) == {"WB", "ICC-IF", "IP", "FC", "IHC"}
 
 
 # ── target_report / gene_detail ──────────────────────────────────────────────

@@ -74,14 +74,59 @@ def size_refusal(width, height, name: str = "") -> str:
         f"original is discarded anyway.")
 
 # Per-type fill factor (fraction of the available area the crop fills)
-FILL = {"WB": 0.90, "IP": 0.95, "ICC-IF": 1.00, "FC": 0.90}
+FILL = {"WB": 0.90, "IP": 0.95, "ICC-IF": 1.00, "FC": 0.90, "IHC": 0.97}
 
 # Bottom canvas space reserved for the drawn legend, per type (px)
-LEGEND_H = {"WB": 0, "IP": 60, "ICC-IF": 84, "FC": 84}
+LEGEND_H = {"WB": 0, "IP": 60, "ICC-IF": 84, "FC": 84, "IHC": 0}
+# IHC reserves a line only when it has something to say — see `ihc_note`.
+IHC_NOTE_H = 28
 
 # Left gutter reserved for rotated labels, per type (px). ICC-IF keeps the
 # antibody (top) + DAPI (bottom) panels stacked and labels them in this gutter.
-LEFT_GUTTER = {"WB": 0, "IP": 0, "ICC-IF": 46, "FC": 0}
+LEFT_GUTTER = {"WB": 0, "IP": 0, "ICC-IF": 46, "FC": 0, "IHC": 46}
+
+# ── IHC: several panels of one row, stacked ──────────────────────────────────
+#
+# An IHC figure is one row per antibody and one column per cell line, each
+# panel about twice as wide as it is tall. The gene page shows the HAP1 pellets
+# only (owner, 26 Sep 2026) — wild type, knockout and mosaic — and three such
+# panels side by side on a square canvas shrink to a strip nobody can read the
+# mosaic in, so they are **stacked**, top to bottom in the order they sit in
+# the figure, and labelled in the gutter.
+#
+# Every panel keeps its own pixels and its own scale bar: each is cropped and
+# pasted **at its native size**, and only the finished stack is scaled, once.
+# Scaling the panels separately to a common width would make three scale bars
+# of one printed length mean three different distances.
+#
+# The labels are what the person typed for that figure (`ihc_default_labels`
+# is only what the box starts with), because which column is which is read off
+# the figure's headings, and a figure that orders them differently must not be
+# labelled by position. None at all is legitimate: some figures stack the
+# panels themselves and print "HAP1 WT" inside each one (PPP2R5D, Figure 4),
+# and those are cropped as one cell with no gutter.
+IHC_GAP = 6
+
+
+def ihc_default_labels(gene: str, genotype: str = "KO") -> list:
+    """What the panel-label box starts with: wild type, the control, mosaic."""
+    word = "KD" if (genotype or "").upper() == "KD" else "KO"
+    return ["WT", f"{gene} {word}".strip(), "Mosaic"]
+
+
+def ihc_note(cell_line: str, scale: str) -> str:
+    """The one line under an IHC stack, or ``""`` — never a value nobody typed.
+
+    The scale bar's length is printed once in the figure's key, not on the
+    panels, so the crop would otherwise carry a bar with no length. It is taken
+    from what the person typed; a blank leaves the bar unlabelled rather than
+    guessing the 50 µm most figures use."""
+    parts = []
+    if (cell_line or "").strip():
+        parts.append(f"{cell_line.strip()} cell pellets")
+    if (scale or "").strip():
+        parts.append(f"scale bar {scale.strip()}")
+    return " · ".join(parts)
 
 # Legend colours (configurable per spec §8)
 GREEN = (0, 158, 76)
@@ -109,7 +154,7 @@ class Cell:
     top: int
     right: int
     bottom: int
-    app_type: str          # WB | IP | ICC-IF | FC
+    app_type: str          # WB | IP | ICC-IF | FC | IHC
     catalogue: str         # authoritative, from the confirmed table
     gene: str = ""
     cell_line: str = ""
@@ -117,6 +162,11 @@ class Cell:
     fc_secondary_only: bool = False
     wt_color: tuple = GREEN
     ko_color: tuple = MAGENTA
+    # IHC only: the panels of one row, left to right, each (l, t, r, b), and
+    # the label for each. The rectangle above is their bounding box.
+    panels: list = field(default_factory=list)
+    panel_labels: list = field(default_factory=list)
+    note: str = ""
 
 
 def _trim_white(im: Image.Image, keep: int = 3, thresh: int = 245) -> Image.Image:
@@ -186,8 +236,59 @@ def _draw_cellline_legend(draw: ImageDraw.ImageDraw, cell: Cell, top: int) -> No
         y += sq + 8
 
 
+def fit_to_canvas(content: Image.Image, app_type: str) -> Image.Image:
+    """A finished panel — one that already carries its own labels — on the same
+    490x490 canvas ``render_cell`` produces, so it sits beside the cropper's
+    figures at the same size. Same three operations and nothing else: trim the
+    outer white margin, LANCZOS scale, paste onto white. No legend is drawn,
+    since the panel brought its own."""
+    content = _trim_white(content.convert("RGB"))
+    canvas = Image.new("RGB", (CANVAS, CANVAS), "white")
+    _paste_scaled(canvas, content, FILL.get(app_type, 0.90), 0, 0)
+    return canvas
+
+
+def _stack_panels(source: Image.Image, panels: list) -> tuple:
+    """``(stack, pieces)`` — the panels cut from `source` and stacked top to
+    bottom on white, each at its native size, centred. Crop and paste only; no
+    scaling here."""
+    cut = [_trim_white(source.crop(tuple(int(v) for v in p)).convert("RGB"))
+           for p in panels]
+    w = max(c.width for c in cut)
+    h = sum(c.height for c in cut) + IHC_GAP * (len(cut) - 1)
+    col = Image.new("RGB", (w, h), "white")
+    y = 0
+    for c in cut:
+        col.paste(c, ((w - c.width) // 2, y))
+        y += c.height + IHC_GAP
+    return col, cut
+
+
+def _render_ihc(source: Image.Image, cell: Cell) -> Image.Image:
+    col, cut = _stack_panels(source, cell.panels)
+    reserve = IHC_NOTE_H if cell.note else 0
+    # No labels to draw — the figure's panels carry their own — means no gutter.
+    gutter = LEFT_GUTTER["IHC"] if cell.panel_labels else 0
+    canvas = Image.new("RGB", (CANVAS, CANVAS), "white")
+    x, y, w, h = _paste_scaled(canvas, col, FILL["IHC"], reserve, gutter)
+    scale = h / col.height
+    f = _font(15)
+    top = 0
+    for c, label in zip(cut, cell.panel_labels):
+        mid = y + (top + c.height / 2) * scale
+        _draw_vtext(canvas, label, max(gutter / 2, x - 14), mid, f)
+        top += c.height + IHC_GAP
+    if cell.note:
+        draw = ImageDraw.Draw(canvas)
+        draw.text((CANVAS / 2, CANVAS - reserve / 2), cell.note, font=_font(15),
+                  fill=(0, 0, 0), anchor="mm")
+    return canvas
+
+
 def render_cell(source: Image.Image, cell: Cell) -> Image.Image:
     """Crop one cell from `source` and return its finished 490x490 canvas."""
+    if cell.app_type == "IHC":
+        return _render_ihc(source, cell)
     content = source.crop((cell.left, cell.top, cell.right, cell.bottom))
     content = _trim_white(content)
 

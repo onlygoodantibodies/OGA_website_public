@@ -133,6 +133,7 @@
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">IP</th>
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">IF</th>
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">FC</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">IHC</th>
                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
               </tr>
@@ -162,6 +163,7 @@
                 <td class="px-4 py-2 text-center">{% procedure_indicator target.ip_sessions %}</td>
                 <td class="px-4 py-2 text-center">{% procedure_indicator target.if_sessions %}</td>
                 <td class="px-4 py-2 text-center">{% procedure_indicator target.fc_sessions %}</td>
+                <td class="px-4 py-2 text-center">{% procedure_indicator target.ihc_sessions %}</td>
                 <td class="px-4 py-2 text-center">
                   {% if target.report_count %}
                     <span class="inline-flex px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{{ target.report_count }}</span>
@@ -187,7 +189,7 @@
               </tr>
               {% empty %}
               <tr>
-                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                <td colspan="10" class="px-4 py-8 text-center text-gray-500">
                   No active targets. Use <a href="{% url 'pipeline:feasibility' %}" class="text-ycharos-600 underline">Feasibility</a> to assess new targets.
                 </td>
               </tr>
@@ -317,6 +319,7 @@
                          {% elif session.procedure_type == 'IP' %}bg-green-100 text-green-700
                          {% elif session.procedure_type == 'IF' %}bg-purple-100 text-purple-700
                          {% elif session.procedure_type == 'FC' %}bg-orange-100 text-orange-700
+                         {% elif session.procedure_type == 'IHC' %}bg-pink-100 text-pink-700
                          {% else %}bg-gray-100 text-gray-700{% endif %}">
               {{ session.procedure_type }}
             </span>

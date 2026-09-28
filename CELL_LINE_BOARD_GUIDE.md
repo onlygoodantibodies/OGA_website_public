@@ -164,7 +164,13 @@ Search matches on it, so it is also the fastest way to find a line.
 ## Filters
 
 - **Search** matches name, C-number, Cellosaurus ID, clone and gene.
-- **Genotype** separates WT from KO.
+- **Genotype** separates WT from KO from KD. A KD row is a knockdown — a wild
+  type with the gene's transcript silenced by siRNA, shRNA or CRISPRi —
+  recorded as its own line so a session and a published figure can say that
+  is what they were controlled against. Its reagent, catalogue number,
+  target sequence and transfection reagent are edited in the **Knockdown**
+  column; how the knockdown was done on the day (concentration, hours
+  post-transfection, the non-targeting control) is recorded on the session.
 - **KO confirmed** and **Received** are the two that answer "what still needs
   chasing" — filter for *not confirmed* or *not yet received* to get a to-do
   list. *Tick and reason disagree* is the third option, and it is the shortest

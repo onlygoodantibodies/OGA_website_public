@@ -50,14 +50,61 @@ DB = "pipeline_db"
 # exact inverse of the join.
 SITE_SEP = " — "
 
-# A knockout whose stored name doesn't mention its gene is decorated with it:
-# `HAP1` displays as `HAP1 ELP3 KO`. Recognised on the way back so the rendered
-# label round-trips to the row it was rendered from.
-_KO_SUFFIX = re.compile(r"^(?P<name>.+?)\s+(?P<gene>[A-Za-z0-9\-]+)\s+KO$", re.I)
+# ── A control is a knockout or a knockdown ──────────────────────────────────
+#
+# A session's second slot, a figure's legend and a Data Note's Table 1 all ask
+# "which line was the genetic control", and the answer was always a knockout
+# until the Access data was read for siRNA (18 Sep 2026): 115 western blots
+# and 114 IF wells there were knockdowns, recorded as a tick on the blot and a
+# note in the comments, with the lane pointing at the plain wild type. So the
+# site could not tell them apart, and said "knockout-controlled" over every one.
+# `CellLine.Genotype.KNOCKDOWN` is the row a knockdown gets; this pair is what
+# every slot that wants "the control" asks for, in place of the literal `"KO"`
+# it used to pass. A slot that wants a knockout specifically still says so.
+CONTROL = "control"                 # a genotype argument meaning "KO or KD"
+CONTROL_GENOTYPES = ("KO", "KD")
 
-# A trailing bare `KO` on the stored name. Stripped before the gene is appended,
-# so `SW620 KO` reads `SW620 SOD1 KO` rather than `SW620 KO SOD1 KO`.
-_BARE_KO = re.compile(r"\s+KO\s*$", re.I)
+# The vocabulary a knockdown's `method` cell offers. A convention, not a closed
+# set (`services/vocabulary.py`): the bench may write something none of these
+# name, and the column's own values are offered alongside once there are any.
+KNOCKDOWN_METHODS = ("siRNA", "shRNA", "CRISPRi", "antisense oligo")
+
+
+def is_control(line) -> bool:
+    return (getattr(line, "genotype", "") or "").strip().upper() in CONTROL_GENOTYPES
+
+
+def _wants(genotype) -> tuple:
+    """The stored values a genotype argument accepts: `"KO"` → `("KO",)`,
+    `CONTROL` → both, `None` → all."""
+    if not genotype:
+        return ()
+    g = str(genotype).strip()
+    if g.lower() == CONTROL:
+        return CONTROL_GENOTYPES
+    return (g.upper(),)
+
+
+def control_word(genotype) -> str:
+    """`knockout` / `knockdown` for a stored value; the pair for `CONTROL`;
+    `""` for anything else. The one place the two words are spelled."""
+    g = (str(genotype or "").strip())
+    if g.lower() == CONTROL:
+        return "knockout or knockdown"
+    return {"KO": "knockout", "KD": "knockdown"}.get(g.upper(), "")
+
+
+# A control whose stored name doesn't mention its gene is decorated with it:
+# `HAP1` displays as `HAP1 ELP3 KO`, a knockdown as `U-87 MG GPNMB KD`.
+# Recognised on the way back so the rendered label round-trips to the row it
+# was rendered from — and the suffix says which kind, so `_name_variants` asks
+# for that kind and never hands a knockdown back for a label naming a knockout.
+_CTRL_SUFFIX = re.compile(
+    r"^(?P<name>.+?)\s+(?P<gene>[A-Za-z0-9\-]+)\s+(?P<kind>KO|KD)$", re.I)
+
+# A trailing bare `KO`/`KD` on the stored name. Stripped before the gene is
+# appended, so `SW620 KO` reads `SW620 SOD1 KO` rather than `SW620 KO SOD1 KO`.
+_BARE_CTRL = re.compile(r"\s+K[OD]\s*$", re.I)
 
 # How many alternatives a refusal lists before it stops. Long enough to be a
 # real answer, short enough to read: `HAP1` alone would otherwise print
@@ -117,11 +164,13 @@ def label(line) -> str:
     # `NA` is not a gene, so a knockout attached to the placeholder target must
     # not be decorated `HAP1 NA KO` — see services/targets.py::gene_of.
     gene = target_svc.gene_of(getattr(line, "target", None))
-    if line.genotype == "KO" and gene and gene.lower() not in text.lower():
+    if is_control(line) and gene and gene.lower() not in text.lower():
         # `SW620 KO` already says it is a knockout but not of what, and two genes'
         # knockouts of one parental are then the same string. Naming the gene is
-        # the point; saying KO twice is not.
-        text = f"{_BARE_KO.sub('', text)} {gene} KO"
+        # the point; saying KO twice is not. A knockdown is decorated `KD`, so
+        # the label says which kind of control it is — the fact the public site
+        # could not state until the row existed.
+        text = f"{_BARE_CTRL.sub('', text)} {gene} {line.genotype.strip().upper()}"
     suffix = clone_suffix(line)
     if suffix:
         text = f"{text} {suffix}"
@@ -213,11 +262,12 @@ def _name_variants(name: str):
     out = []
     for stem, clone in _clone_readings(name):
         out.append((stem, None, None, clone))
-        m = _KO_SUFFIX.match(stem)
+        m = _CTRL_SUFFIX.match(stem)
         if m:
             base, gene = m.group("name").strip(), m.group("gene").strip()
-            out.append((base, "KO", gene, clone))
-            out.append((f"{base} KO", "KO", gene, clone))
+            kind = m.group("kind").upper()
+            out.append((base, kind, gene, clone))
+            out.append((f"{base} {kind}", kind, gene, clone))
     seen, ordered = set(), []
     for v in out:
         key = (v[0].lower(), v[1], (v[2] or "").lower(), (v[3] or "").lower())
@@ -426,6 +476,21 @@ def parent_label(line) -> str:
     return f"{name} · {recorded}"
 
 
+def knockdown_summary(line) -> str:
+    """What a knockdown line was made with, in one line: `siRNA · Dharmacon
+    L-012345-00 · Lipofectamine RNAiMAX`. Empty for anything but a knockdown,
+    and empty for a knockdown with nothing recorded — a sentence that invents a
+    method is the "RIPA" defect one column over.
+    """
+    if line is None or (getattr(line, "genotype", "") or "").upper() != "KD":
+        return ""
+    reagent = " ".join(p for p in ((line.knockdown_supplier or "").strip(),
+                                   (line.knockdown_catalogue or "").strip()) if p)
+    parts = [p for p in ((line.knockdown_method or "").strip(), reagent,
+                         (line.transfection_reagent or "").strip()) if p]
+    return " · ".join(parts)
+
+
 # ── A parent has to be a wild type *of that background* ─────────────────────
 #
 # `HeLa FUS KO → HAP1`, `U2OSn UBQLN2 KO → HCT116`, `HCT116 CSNK2A1 KO →
@@ -451,7 +516,7 @@ def background(name: str, gene: str = "") -> str:
     # `label()` appends ` <GENE> KO` and then ` clone <x>`, so the clone comes
     # off only where it follows the KO — a wild type genuinely named
     # `U2OSn clone FM109` keeps its name, and stays distinct from `U2OSn`.
-    text = re.sub(r"\s+KO(\s+clone\s+.*)?$", "", (name or "").strip(), flags=re.I)
+    text = re.sub(r"\s+K[OD](\s+clone\s+.*)?$", "", (name or "").strip(), flags=re.I)
     g = (gene or "").strip()
     if g:
         text = re.sub(rf"\s+{re.escape(g)}$", "", text, flags=re.I)
@@ -495,7 +560,7 @@ def parental_hint(name: str, site_id=None, db: str = DB) -> str:
 
 
 def wrong_background(name: str, parent, *, gene: str = "", site_id=None,
-                     db: str = DB) -> str:
+                     kind: str = "knockout", db: str = DB) -> str:
     """`""` when `parent` is a wild type of the same cell line as a knockout
     called `name`; otherwise the sentence to refuse the link with.
 
@@ -513,8 +578,8 @@ def wrong_background(name: str, parent, *, gene: str = "", site_id=None,
     if not mine or mine.casefold() == theirs.casefold():
         return ""
     where = site_id if site_id is not None else getattr(parent, "site_id", None)
-    return (f"Looks wrong: {parent.name} is a wild type, but a {mine} knockout "
-            f"does not come from a {parent.name}. "
+    return (f"Looks wrong: {parent.name} is a wild type, but a {mine} "
+            f"{kind or 'knockout'} does not come from a {parent.name}. "
             f"{parental_hint(mine, site_id=where, db=db)}")
 
 
@@ -561,8 +626,8 @@ def candidates(value, *, genotype=None, db: str = DB) -> list:
         found = by_c_number(name, db=db)
 
     if genotype:
-        want = str(genotype).strip().upper()
-        found = [cl for cl in found if (cl.genotype or "").strip().upper() == want]
+        want = _wants(genotype)
+        found = [cl for cl in found if (cl.genotype or "").strip().upper() in want]
 
     if site_name:
         # A label that names a site means *that* site's line. Honoured strictly:
@@ -585,7 +650,7 @@ def known_labels(*, genotype=None, site_id=None, db: str = DB) -> list:
     """
     qs = _base_queryset(db)
     if genotype:
-        qs = qs.filter(genotype=str(genotype).strip().upper())
+        qs = qs.filter(genotype__in=_wants(genotype))
     if site_id:
         own = list(qs.filter(site_id=site_id).order_by("name")[:_MAX_LISTED])
         if own:
@@ -702,7 +767,7 @@ def picker_options(*, genotype, site_id, limit=_MAX_LISTED * 5, db: str = DB) ->
     if not site_id:
         return []
     lines = list(_base_queryset(db)
-                 .filter(genotype=str(genotype).strip().upper(), site_id=site_id)
+                 .filter(genotype__in=_wants(genotype), site_id=site_id)
                  .order_by("name")[:limit])
     if not lines:
         return []
@@ -768,8 +833,11 @@ def session_options(target, *, db: str = DB) -> dict:
               .filter(Q(genotype="WT", target__isnull=True)
                       | Q(genotype="WT", target=target))
               .order_by("name"))
+    # Knockouts *and* knockdowns of this gene: both are a genetic control the
+    # session compares the wild type against, and the label says which is
+    # which (`U-87 MG GPNMB KD`).
     ko = list(_base_queryset(db)
-              .filter(genotype="KO", target=target)
+              .filter(genotype__in=CONTROL_GENOTYPES, target=target)
               .order_by("name"))
 
     numbers = _vial_numbers_all(wt + ko, db=db)
@@ -781,8 +849,8 @@ def session_options(target, *, db: str = DB) -> dict:
                     "No wild-type parental on file — add one on the cell lines "
                     "board."),
         "ko_note": ("" if ko else
-                    f"No knockout line on file{for_gene} — add one on the cell "
-                    f"lines board."),
+                    f"No knockout or knockdown line on file{for_gene} — add one "
+                    f"on the cell lines board."),
     }
 
 
@@ -817,7 +885,7 @@ def _session_option(cl, numbers) -> dict:
 
 def _genotype_word(genotype) -> str:
     g = (str(genotype or "").strip().upper())
-    return {"WT": "wild-type", "KO": "knockout"}.get(g, "")
+    return {"WT": "wild-type"}.get(g) or control_word(genotype)
 
 
 def refusal(value, *, genotype=None, site_id=None, db: str = DB) -> str:

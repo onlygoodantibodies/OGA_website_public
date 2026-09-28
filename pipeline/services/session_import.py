@@ -3,7 +3,7 @@ Session template upload (write-back for the per-gene sessions tool).
 
 Reverse of ``session_template``: read a filled workbook (a tab per application),
 and for each tab create **one shared ExperimentSession** for the gene plus one
-per-antibody result row (WbResult / IpResult / IfResult / FcResult). Columns that
+per-antibody result row (WbResult / IpResult / IfResult / FcResult / IhcResult). Columns that
 are neither context nor result fields are folded into ``session_conditions``.
 
 Guarantees, mirroring the rest of the tool:
@@ -20,6 +20,7 @@ Members only. Writes ``pipeline_db``.
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date as _date
 from decimal import Decimal, InvalidOperation
@@ -27,10 +28,13 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from pipeline.models import (Target, Member, ExperimentSession,
-                             WbResult, IpResult, IfResult, FcResult)
+                             WbResult, IpResult, IfResult, FcResult, IhcResult)
 from pipeline.services import lab_numbers
+from pipeline.services.cell_lines import CONTROL
 from pipeline.services import session_template as tmpl
 from pipeline.services.cropper import db as cdb
+
+logger = logging.getLogger(__name__)
 
 DB = "pipeline_db"
 
@@ -38,7 +42,8 @@ PROCEDURES = tmpl.PROCEDURES
 _CONTEXT_COLS = set(tmpl._CONTEXT_COLS)
 _RESULT_COLS = tmpl._RESULT_COLS
 CONDITION_PREFIX = tmpl.CONDITION_PREFIX
-_RESULT_MODEL = {"WB": WbResult, "IP": IpResult, "IF": IfResult, "FC": FcResult}
+_RESULT_MODEL = {"WB": WbResult, "IP": IpResult, "IF": IfResult, "FC": FcResult,
+                 "IHC": IhcResult}
 
 # How several rows' worth of one invented column are written into the single
 # session condition they have to share. Imported by ``bench_results`` so the two
@@ -57,20 +62,40 @@ def _norm(h) -> str:
     return str(h or "").strip().lower()
 
 
+class SheetRefusal(ValueError):
+    """A refusal written for the page — the only exception an upload view may
+    put into its reply. Every other exception, `ValueError` included, is a
+    library's words and goes to the log (`views/session_bulk.py`)."""
+
+
 def parse_template(f) -> dict:
     """Read a filled template into {procedure: {"header": [...], "rows": [ {header: cell} ]}}.
-    Only the WB/IP/IF/FC tabs are read; blank rows are dropped. Raises ValueError on
+    Only the WB/IP/IF/FC/IHC tabs are read; blank rows are dropped. Raises ValueError on
     an unreadable workbook."""
-    import openpyxl
     try:
         f.seek(0)
     except Exception:
         pass
     try:
-        wb = openpyxl.load_workbook(f, read_only=True, data_only=True)
-    except Exception as e:
-        raise ValueError(f"could not read the workbook ({e})")
+        return _read_tabs(f)
+    except Exception:
+        # **Exception detail goes to the log; the page gets a sentence.** This
+        # interpolated openpyxl's own words ("Unable to read workbook: could
+        # not read … from /tmp/…", "could not convert string to float") into
+        # the refusal, and three views put that straight into a JsonResponse.
+        # The whole read is inside the guard: in read-only mode a bad cell
+        # raises while the rows are iterated, not when the file is opened.
+        logger.warning("workbook could not be read (name=%s)",
+                       getattr(f, "name", "?"), exc_info=True)
+        raise SheetRefusal(
+            f"“{getattr(f, 'name', None) or 'That file'}” could not be opened as "
+            f"a spreadsheet. It may have been damaged in transit, or saved in an "
+            f"older Excel format — open it and re-save it as .xlsx, then try again.")
 
+
+def _read_tabs(f) -> dict:
+    import openpyxl
+    wb = openpyxl.load_workbook(f, read_only=True, data_only=True)
     out = {}
     for proc in PROCEDURES:
         if proc not in wb.sheetnames:
@@ -161,10 +186,10 @@ def _unrecognised_cols(proc, header):
 def _has_result(row, proc) -> bool:
     """Did anybody write a reading on this row?
 
-    The workbook ships **all four tabs** pre-filled with the gene's antibodies,
+    The workbook ships **all five tabs** pre-filled with the gene's antibodies,
     because you cannot know in advance which procedure the week will bring. So a
     scientist who runs a western blot, fills the WB tab and uploads the file is
-    handing back three other tabs still carrying their context rows — and every
+    handing back the other tabs still carrying their context rows — and every
     one of those used to become an ``ExperimentSession`` marked *complete*, with a
     blank result row against a real antibody.
 
@@ -180,19 +205,44 @@ def _has_result(row, proc) -> bool:
                if col not in NOT_A_READING)
 
 
-def _condition_key(header):
+def _condition_key(header, proc=None):
     """The name a condition column is stored under: its prefix is spelling, not
     part of the key, so ``cond:bead_type`` and a legacy ``bead_type`` land in the
     same place in ``session_conditions``.
 
-    Spaces become underscores, because every key the registry knows is
-    snake_case and a promoted column arrived as ``"owner notes"`` — the one key
-    in the dict that nothing round-tripping by key would survive. No effect on a
-    ``cond:`` column, which is snake_case already.
+    A heading that is one of this procedure's **own** condition labels goes to
+    that condition's key (`condition_labels`): snake-casing `Section thickness
+    (µm)` gives `section_thickness_(µm)`, a key nothing reads, while the form,
+    the board and the report read `section_thickness_um`. The bench-sheet
+    importer does the same through this function, so both importers spell a
+    column one way.
+
+    Otherwise spaces become underscores, because every key the registry knows
+    is snake_case and a promoted column arrived as ``"owner notes"`` — the one
+    key in the dict that nothing round-tripping by key would survive.
     """
     h = _norm(header)
     h = h[len(CONDITION_PREFIX):] if h.startswith(CONDITION_PREFIX) else h
-    return "_".join(h.split())
+    known = condition_labels(proc).get(label_norm(h)) if proc else None
+    return known or "_".join(h.split())
+
+
+def label_norm(text):
+    """A condition label as matched: case, spacing and a trailing colon aside."""
+    return " ".join(str(text or "").strip().rstrip(":").strip().lower().split())
+
+
+def condition_labels(proc):
+    """``{normalised label or key: key}`` for one procedure's registered
+    conditions — `views/session_entry.PROCEDURE_CONDITION_FIELDS`, the list
+    the form, the board and the report's needs are all written against."""
+    from pipeline.views.session_entry import PROCEDURE_CONDITION_FIELDS
+    out = {}
+    for key, label, *_ in PROCEDURE_CONDITION_FIELDS.get((proc or "").upper(), []):
+        out[label_norm(label)] = key
+        out[label_norm(key)] = key
+        out[label_norm(key.replace("_", " "))] = key
+    return out
 
 
 def _resolve_member(name, uploader):
@@ -277,7 +327,7 @@ def _target_session(session_id, proc, gene):
     cell line by name alone.
     """
     session = (ExperimentSession.objects.using(DB)
-               .select_related("target", "experimenter", "site")
+               .select_related("target", "experimenter__user", "site")
                .filter(pk=session_id).first())
     if session is None:
         return None, (f"session #{session_id} is not in the database — "
@@ -333,7 +383,7 @@ def _group(parsed):
                         continue
                     val = _get(rows[0], _norm(c))
                     if val:
-                        conditions[_condition_key(c)] = val
+                        conditions[_condition_key(c, proc)] = val
             unknown = []
             for c in unknown_cols:
                 values, filled = [], 0
@@ -345,7 +395,7 @@ def _group(parsed):
                             values.append(v)
                 if not values:
                     continue
-                key, joined = _condition_key(c), CONDITION_JOIN.join(values)
+                key, joined = _condition_key(c, proc), CONDITION_JOIN.join(values)
                 conditions[key] = joined
                 unknown.append({"header": c, "key": key, "value": joined,
                                 "values": len(values), "rows": filled})
@@ -379,12 +429,48 @@ def _preview_lines(target, rows, proc, site_id):
     said `HAP1` about a session that was going to be saved with nothing.
     """
     out = {}
-    for field, genotype in (("cell_line_wt", "WT"), ("cell_line_ko", "KO")):
+    for field, genotype in (("cell_line_wt", "WT"), ("cell_line_ko", CONTROL)):
         typed = _get(rows[0], field)
         line, err = _resolve_cell_line(target, typed, genotype=genotype, site_id=site_id)
         out[field] = _line_label(line) if line is not None else typed
         out[f"{field}_error"] = err if typed else None
     return out
+
+
+def _report_warnings(proc, existing_session, conditions, rows, target, model):
+    """What a draft Data Note would print as a gap for this tab's session once
+    it is saved — `report_needs`, the declaration the report itself reads.
+
+    Against what will be stored: a new session holds exactly the tab's
+    conditions and rows; a session being filled in holds its stored conditions
+    and rows with the tab's non-blank values over them (the write's own
+    fill-only-blank-never-clears rule).
+    """
+    from pipeline.services import report_needs
+    conditions_after = (report_needs.session_conditions(existing_session, extra=conditions)
+                        if existing_session is not None
+                        else {k: v for k, v in conditions.items() if v})
+    by_ab = {}
+    if existing_session is not None:
+        names = [f.name for f in model._meta.fields]
+        for r in (model.objects.using(DB).filter(session=existing_session)
+                  .select_related("antibody", "antibody__company").order_by("pk")):
+            if r.antibody_id and r.antibody_id not in by_ab:
+                d = {n: getattr(r, n, None) for n in names}
+                d["antibody"] = str(r.antibody)
+                by_ab[r.antibody_id] = d
+    for row in rows:
+        if not _has_result(row, proc):
+            continue
+        ab = _resolve_antibody(target, _get(row, "company"), _get(row, "antibody"))
+        if ab is None:
+            continue
+        d = by_ab.setdefault(ab.pk, {"antibody": str(ab)})
+        for col in _RESULT_COLS[proc]:
+            val = _get_result(row, proc, col)
+            if val != "":
+                d[col] = val
+    return report_needs.missing(proc, conditions_after, list(by_ab.values()))
 
 
 def plan_import(parsed, uploader=None) -> dict:
@@ -396,7 +482,7 @@ def plan_import(parsed, uploader=None) -> dict:
     turned into a new session.
     """
     if not parsed:
-        return {"ok": False, "error": "no WB/IP/IF/FC tabs with data were found in the file."}
+        return {"ok": False, "error": "no WB/IP/IF/FC/IHC tabs with data were found in the file."}
 
     sessions, blocked = [], []
     for g in _group(parsed):
@@ -462,6 +548,8 @@ def plan_import(parsed, uploader=None) -> dict:
             {"label": f"{proc}: {gene}", "reason": entry[f"{field}_error"]}
             for field in ("cell_line_wt", "cell_line_ko")
             if entry.get(f"{field}_error")]
+        entry["report_needs"] = _report_warnings(
+            proc, existing_session, conditions, rows, target, model)
         if existing_session is not None:
             entry["status_change"] = (
                 f"{existing_session.get_status_display()} → Complete"
@@ -523,7 +611,7 @@ def apply_import(parsed, uploader=None) -> dict:
     duplicate week of work that nobody previewed.
     """
     if not parsed:
-        return {"ok": False, "error": "no WB/IP/IF/FC tabs with data were found in the file."}
+        return {"ok": False, "error": "no WB/IP/IF/FC/IHC tabs with data were found in the file."}
     if uploader is None:
         return {"ok": False, "error": "no member profile for the uploader; cannot set the experimenter."}
 
@@ -561,7 +649,7 @@ def apply_import(parsed, uploader=None) -> dict:
             wt, wt_err = _resolve_cell_line(target, _get(rows[0], "cell_line_wt"),
                                             genotype="WT", site_id=site_id)
             ko, ko_err = _resolve_cell_line(target, _get(rows[0], "cell_line_ko"),
-                                            genotype="KO", site_id=site_id)
+                                            genotype=CONTROL, site_id=site_id)
             # A cell line that will not resolve is reported rather than silently
             # dropped. It used to be dropped on every row of every tab, because
             # the lookup went through `target.cell_lines` and a wild type has no

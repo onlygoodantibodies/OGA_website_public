@@ -735,3 +735,40 @@ class TheApprovalSectionCarriesRealIdentifiersTests(TestCase):
         self.assertIn("ExtensionInstallAllowlist", page)
         self.assertIn("ExtensionSettings", page)
         self.assertIn(reverse("extension_firefox_xpi"), page)
+
+
+@override_settings(EXTENSION_PAGE_PUBLIC=True)
+class TheInstallVideoIsOneCopyTests(TestCase):
+    """The player, the plain link and the constant name one video.
+
+    A re-cut is a new upload with a new id, so the id lives in
+    `core/views.py::EXTENSION_VIDEO` and nowhere else. The host is asserted
+    too: `youtube-nocookie.com` is what makes the privacy policy's sentence
+    about embedded video true, and swapping it for `youtube.com` would change
+    nothing anybody can see on the page.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def test_the_page_embeds_the_constant_privacy_enhanced(self):
+        from core.views import EXTENSION_VIDEO
+
+        page = self.client.get(reverse("extension")).content.decode()
+        self.assertIn(
+            f'https://www.youtube-nocookie.com/embed/{EXTENSION_VIDEO["id"]}?rel=0',
+            page)
+        self.assertIn(f'https://youtu.be/{EXTENSION_VIDEO["id"]}', page)
+        self.assertIn(EXTENSION_VIDEO["note"], page)
+        self.assertNotIn("www.youtube.com/embed", page)
+        # Above "What it does", by the owner's decision (19 Sep 2026): the
+        # order is the one thing a string test can lose without noticing.
+        self.assertLess(page.index("youtube-nocookie.com/embed"),
+                        page.index("<h2>What it does</h2>"))
+
+    def test_no_id_draws_no_player(self):
+        from unittest.mock import patch
+
+        with patch("core.views.EXTENSION_VIDEO", {"id": "", "title": "", "note": ""}):
+            page = self.client.get(reverse("extension")).content.decode()
+        self.assertNotIn("youtube-nocookie.com", page)
+        self.assertNotIn("bx-video-wrap\"", page.split("</style>", 1)[1])

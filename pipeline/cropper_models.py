@@ -16,6 +16,8 @@ All rows live in pipeline_db (routed by app_label).
 """
 from django.db import models
 
+from pipeline.storages import cropper_storage
+
 
 class CropperSession(models.Model):
     owner_username = models.CharField(max_length=150, db_index=True)
@@ -30,8 +32,11 @@ class CropperSession(models.Model):
     # per-catalogue metadata from the pasted table (spec §4):
     # {catalogue: {company, rrid, clonality, is_recombinant, clone_id, host, supplier_url, discontinued}}
     metadata = models.JSONField(default=dict, blank=True)
-    # human-set "recommended" flags, per antibody per application (spec §10):
-    # {catalogue: {"WB": true, "ICC-IF": true, ...}}
+    # Human-set "recommended" flags, per antibody per application (spec §10):
+    # {catalogue: {"WB": true, ...}}. **No longer read** — the cropper makes no
+    # judgement since 25 Sep 2026; the review queue and Judge outcomes do. Kept
+    # because saved sessions carry it and dropping a column is the one
+    # migration a rollback cannot undo.
     recommended = models.JSONField(default=dict, blank=True)
     overwrite_ack = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,8 +59,12 @@ class CropperImage(models.Model):
     order = models.IntegerField(default=0)
     application_type = models.CharField(max_length=10, default="WB")   # WB/IP/ICC-IF/FC
     name = models.CharField(max_length=255, blank=True)
-    # staged composite figure — separate prefix from published publication_images/
-    image = models.FileField(upload_to="cropper_staging/%Y/%m/")
+    # staged composite figure — separate prefix from published publication_images/,
+    # and **private storage** (`pipeline/storages.py::cropper_storage`): a whole
+    # IHC figure is copied from these bytes, and it is private until release.
+    # Drawn through `views/cropper.py::cropper_image`, never a storage URL.
+    image = models.FileField(upload_to="cropper_staging/%Y/%m/",
+                             storage=cropper_storage)
     nat_w = models.IntegerField(default=0)
     nat_h = models.IntegerField(default=0)
     # grid geometry: {bounds:{top,bottom}, hLines:[], vLines:[[..]], bandLeft:[], bandRight:[]}

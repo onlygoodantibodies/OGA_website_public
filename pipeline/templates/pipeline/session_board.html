@@ -195,9 +195,7 @@
       <span class="block text-xs font-semibold text-gray-500 mb-1">Experimenter</span>
       <select name="experimenter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
         <option value="">Anyone</option>
-        {% for m in experimenters %}
-          <option value="{{ m.pk }}" {% if filters.experimenter == m.pk|stringformat:"s" %}selected{% endif %}>{{ m }}</option>
-        {% endfor %}
+        {% include "pipeline/_experimenter_options.html" with selected=filters.experimenter %}
       </select>
     </label>
     <label class="block">
@@ -265,7 +263,7 @@
             <th class="px-3 py-2"><span class="help" title="{{ tips.experimenter }}">Experimenter</span></th>
             <th class="px-3 py-2"><span class="help" title="{{ tips.site }}">Site</span></th>
             <th class="px-3 py-2"><span class="help" title="{{ tips.status }}">Status</span></th>
-            <th class="px-3 py-2"><span class="help" title="{{ tips.cell_lines }}">WT / KO</span></th>
+            <th class="px-3 py-2"><span class="help" title="{{ tips.cell_lines }}">WT / KO or KD</span></th>
             <th class="px-3 py-2"><span class="help" title="{{ tips.results }}">Results</span></th>
             <th class="px-3 py-2"><span class="help" title="{{ tips.comments }}">Comments</span></th>
           </tr>
@@ -450,7 +448,12 @@ change rather than an oversight.{% endcomment %}
       </td>
       <td class="px-3 py-2">${pill(r.procedure, 'cool')}</td>
       <td class="px-3 py-2 text-gray-700">${cell(r, 'date', r.date)}</td>
-      <td class="px-3 py-2 text-gray-700">${cell(r, 'experimenter', r.experimenter)}</td>
+      ${/* Under the experimenter and never instead of it: the experimenter is
+            chosen in a form, while this line is who was signed in when the
+            session and its readings were saved (pipeline/saved_by.py). On
+            24 Sep 2026 those were one person filed under two profiles. */''}
+      <td class="px-3 py-2 text-gray-700">${cell(r, 'experimenter', r.experimenter)}
+        ${r.provenance ? `<div class="text-xs text-gray-400 mt-1 whitespace-normal">${esc(r.provenance)}</div>` : ''}</td>
       <td class="px-3 py-2 text-gray-700">${cell(r, 'site', r.site)}</td>
       ${/* One control, not two. This drew the status twice — a read-only pill
             with the raw code repeated underneath as the editable copy — which
@@ -722,6 +725,31 @@ change rather than an oversight.{% endcomment %}
             row${u.rows === 1 ? '' : 's'}, joined into the one condition` : ''}</li>`).join('')}</ul>
       </div>` : '';
 
+    /* Session conditions the sheet will store that are this procedure's own —
+     * the IHC sheet's conditions block, or a column named after a condition
+     * the form knows. Drawn apart from "not recognised" above, because calling
+     * a sheet's own antigen retrieval a mistake is the false accusation. The
+     * value on file is shown beside a changed one, so a save that replaces a
+     * recorded condition says so before it happens. */
+    const conditionsReadHtml = (block, cols) => {
+      const rows = [
+        ...(block || []).map(c => ({label: c.label, value: c.value, stored: c.stored, held: c.held})),
+        ...(cols || []).map(c => ({label: c.header, value: c.value, stored: ''})),
+      ];
+      /* A block value that differs from one on file is not written
+       * (fill-only-blank): the sheet may be an older print. Say so, and where
+       * the value can be changed. */
+      const note = c => c.held
+        ? ` <b>not saved</b> — <span class="font-mono">${esc(c.stored)}</span> is already on file; change it in this session's conditions on the sessions board if the sheet is right`
+        : '';
+      if (!rows.length) return '';
+      return `<div class="mt-2 border border-gray-200 bg-gray-50 rounded-lg p-2 text-xs text-gray-800">
+        <b>${OGABoard.plural(rows.length, 'session condition')} read from the sheet:</b>
+        <ul class="mt-1 list-disc pl-4">${rows.map(c => `<li>${esc(c.label)} —
+          <span class="font-mono">${esc(c.value)}</span>${note(c)}</li>`).join('')}</ul>
+      </div>`;
+    };
+
     /* A sheet with no session number on it. Not a refusal — a sheet typed from
      * scratch is legitimate — but the panel promises "both files carry this
      * session's number", and the one case where that cannot be checked has to
@@ -764,6 +792,7 @@ change rather than an oversight.{% endcomment %}
             ${s.cell_line_ko_error ? `<p class="text-amber-800">${esc(s.cell_line_ko_error)}</p>` : ''}
           </div>
           ${unknownHtml(s.unknown_columns)}
+          ${OGABoard.reportNeedsNote(s.report_needs, 'check')}
           ${(d.blocked || []).length ? `<div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
             ${d.blocked.map(b => `<div><b>${esc(b.label)}</b> — ${esc(b.reason)}</div>`).join('')}</div>` : ''}`;
         if ((c.results || 0) > 0) commit.classList.remove('hidden');
@@ -771,6 +800,7 @@ change rather than an oversight.{% endcomment %}
       }
 
       benchRows.set(id, {kind: 'bench', rows: d.rows || [],
+                         conditions: d.conditions || {},
                          sheet_session_id: d.sheet_session_id || null,
                          sheet_procedure: d.sheet_procedure || null});
       // bench_results.plan speaks `action`; previewRows draws `status`.
@@ -786,6 +816,8 @@ change rather than an oversight.{% endcomment %}
         items.length} antibod${items.length === 1 ? 'y' : 'ies'} read from the sheet.</p>
         ${OGABoard.previewRows(items, i => i.antibody)}
         ${unknownHtml(d.unknown_columns)}
+        ${conditionsReadHtml(d.conditions_read, d.condition_columns)}
+        ${OGABoard.reportNeedsNote(d.report_needs, 'check')}
         ${unmatched.length ? `<div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
           <b>Not matched to an antibody on this session:</b>
           ${unmatched.map(esc).join(', ')}. Those rows are ignored.</div>` : ''}`;
@@ -824,6 +856,7 @@ change rather than an oversight.{% endcomment %}
         method: 'POST',
         headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
         body: JSON.stringify({rows: staged.rows,
+                              conditions: staged.conditions || {},
                               sheet_session_id: staged.sheet_session_id,
                               sheet_procedure: staged.sheet_procedure}),
       }, fail);
@@ -1095,7 +1128,7 @@ change rather than an oversight.{% endcomment %}
         <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">Experimenter</span>
           <select id="ne-experimenter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <option value="">Me</option>
-            {% for m in experimenters %}<option value="{{ m.pk }}">{{ m }}</option>{% endfor %}
+            {% include "pipeline/_experimenter_options.html" with selected="" %}
           </select></label>
         ${/* The two boxes that make this a WT/KO comparison, and the two that
               could quietly create a record. Anything new is created with the
@@ -1119,7 +1152,7 @@ change rather than an oversight.{% endcomment %}
               decorated name teaches a spelling that matches no row and creates
               a badly-named one. The decoration belongs to the *label* the list
               offers, which is a different thing and is generated. */''}
-        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">KO cell line</span>
+        <label class="block"><span class="block text-xs font-semibold text-gray-500 mb-1">KO or KD cell line</span>
           <input type="text" id="ne-ko" list="ko-line-options" placeholder="e.g. HAP1"
                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></label>
       </div>`,
@@ -1167,7 +1200,7 @@ change rather than an oversight.{% endcomment %}
       const s = d.summary || {};
       const cl = d.cell_lines || {};
       const lines = cellLineLine('WT cell line', cl.wt)
-                  + cellLineLine('KO cell line', cl.ko);
+                  + cellLineLine('KO / KD cell line', cl.ko);
       // Named here, not at the save. A check that is silent about a required
       // field is a refusal deferred.
       //

@@ -12,7 +12,7 @@
 "pytest:core/tests.py",
 "pytest:pipeline/services/cropper/tests/test_crops.py"
 ],
-"built_from": "debc3fc2d0c50f15d8dc147e661f9d56cafafb71",
+"built_from": "780470eb87c3f8ba336fbdefa0d831ff7f05f725",
 "map": {
 "academy/assistant.py": [
 "django:academy.tests_assistant",
@@ -88,6 +88,7 @@
 "django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_data_access",
 "django:core.tests_headline_counts",
 "django:core.tests_not_supportive",
@@ -108,6 +109,7 @@
 "django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_headline_counts",
 "django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity",
@@ -124,9 +126,11 @@
 "django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_headline_counts",
 "django:core.tests_not_supportive",
 "django:pipeline.tests_consumer_activity",
+"django:pipeline.tests_knockdown",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
 "core/apps.py": [
@@ -157,6 +161,7 @@
 "django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_merge_targets",
@@ -192,6 +197,7 @@
 "django:core.tests_bandwidth",
 "django:core.tests_citations",
 "django:core.tests_data_access",
+"django:core.tests_europepmc_annotations",
 "django:core.tests_extension_scope",
 "django:core.tests_recommendation_caveat",
 "django:core.tests_target_confusions"
@@ -236,6 +242,7 @@
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
@@ -249,6 +256,9 @@
 "django:pipeline.tests_user_board",
 "django:selector.tests",
 "pytest:pipeline/services/tests/test_dataset.py"
+],
+"core/europepmc_annotations.py": [
+"django:core.tests_europepmc_annotations"
 ],
 "core/extension_index.py": [
 "django:core.tests_api",
@@ -279,6 +289,7 @@
 "django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_merge_targets",
@@ -333,6 +344,7 @@
 "django:core.tests_browser_portal_not_supportive",
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
+"django:core.tests_capability_layer",
 "django:core.tests_headline_counts",
 "django:core.tests_legacy_retired",
 "django:core.tests_not_supportive",
@@ -364,6 +376,7 @@
 "django:core.tests_browser_portal_pipeline",
 "django:core.tests_bulk_archive",
 "django:core.tests_capability_layer",
+"django:core.tests_europepmc_annotations",
 "django:core.tests_extension_package",
 "django:core.tests_extension_scope",
 "django:core.tests_gene_search",
@@ -373,6 +386,7 @@
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
 "django:core.tests_target_confusions",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_review"
 ],
 "core/sitemaps.py": [
@@ -411,6 +425,7 @@
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
 "django:pipeline.tests_gene_requests",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_review",
 "pytest:pipeline/services/tests/test_attachments.py"
 ],
@@ -468,6 +483,7 @@
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
 "django:pipeline.tests_impact",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
@@ -529,6 +545,9 @@
 ],
 "pipeline/management/commands/backfill_cell_line_parents.py": [
 "django:pipeline.tests_backfill_parents"
+],
+"pipeline/management/commands/backfill_control_genotype.py": [
+"django:pipeline.tests_knockdown"
 ],
 "pipeline/management/commands/backfill_depmap_expression.py": [
 "pytest:pipeline/services/tests/test_backfill_depmap_expression.py"
@@ -632,6 +651,7 @@
 "django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
 "django:pipeline.tests_merge_sites",
@@ -697,7 +717,9 @@
 "django:pipeline.tests_consumer_activity",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_impact",
-"django:pipeline.tests_review"
+"django:pipeline.tests_knockdown",
+"django:pipeline.tests_review",
+"pytest:pipeline/services/tests/test_knockdown.py"
 ],
 "pipeline/rrid_utils.py": [
 "django:core.tests_availability",
@@ -771,12 +793,14 @@
 "django:pipeline.tests_next_step",
 "django:pipeline.tests_pagination",
 "django:pipeline.tests_retired_pages",
-"pytest:pipeline/services/tests/test_antibody_storage.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_cell_choices.py"
 ],
 "pipeline/services/board_page.py": [
 "django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_patch",
+"django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_cell_line_board",
 "django:pipeline.tests_navigation",
@@ -805,7 +829,8 @@
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
-"pytest:pipeline/services/tests/test_antibody_storage.py"
+"pytest:pipeline/services/tests/test_antibody_storage.py",
+"pytest:pipeline/services/tests/test_knockdown.py"
 ],
 "pipeline/services/bulk_sessions.py": [
 "django:pipeline.tests_board_fieldtest",
@@ -841,6 +866,7 @@
 "django:pipeline.tests_pagination",
 "pytest:pipeline/services/tests/test_antibody_storage.py",
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
+"pytest:pipeline/services/tests/test_knockdown.py",
 "pytest:pipeline/services/tests/test_session_import.py"
 ],
 "pipeline/services/cell_line_board.py": [
@@ -892,6 +918,7 @@
 "pytest:pipeline/services/tests/test_bench_sheet_roundtrip.py",
 "pytest:pipeline/services/tests/test_cell_choices.py",
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
+"pytest:pipeline/services/tests/test_knockdown.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
 "pytest:pipeline/services/tests/test_session_template.py",
@@ -905,6 +932,7 @@
 "django:core.tests_availability",
 "django:core.tests_browser_gene_page",
 "django:core.tests_browser_portal_not_supportive",
+"django:core.tests_capability_layer",
 "django:core.tests_gene_search",
 "django:core.tests_headline_counts",
 "django:core.tests_identifier_search",
@@ -919,6 +947,7 @@
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_merge_sites",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_next_step",
@@ -964,6 +993,7 @@
 "django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_conventions",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_review",
@@ -983,6 +1013,7 @@
 "django:pipeline.tests_review"
 ],
 "pipeline/services/cropper/metadata.py": [
+"django:pipeline.tests_antibody_board",
 "django:pipeline.tests_board_fieldtest",
 "django:pipeline.tests_board_new_entry",
 "django:pipeline.tests_board_roundtrip",
@@ -1117,6 +1148,7 @@
 "pipeline/services/ko_validation.py": [
 "django:pipeline.tests_batches",
 "django:pipeline.tests_board_fieldtest",
+"django:pipeline.tests_board_roundtrip",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_cell_line_board",
 "django:pipeline.tests_columns",
@@ -1159,6 +1191,7 @@
 "django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
 "django:pipeline.tests_merge_sites",
@@ -1182,6 +1215,7 @@
 "pytest:pipeline/services/tests/test_dataset_inventory.py",
 "pytest:pipeline/services/tests/test_dataset_writeback.py",
 "pytest:pipeline/services/tests/test_duplicates.py",
+"pytest:pipeline/services/tests/test_knockdown.py",
 "pytest:pipeline/services/tests/test_renumber.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
@@ -1248,6 +1282,7 @@
 "django:core.tests_public_genes",
 "django:core.tests_recommendation_caveat",
 "django:pipeline.tests_browser_board",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_outcomes",
 "django:pipeline.tests_review",
 "pytest:pipeline/services/tests/test_antibody_storage.py"
@@ -1314,6 +1349,7 @@
 "django:pipeline.tests_board_patch",
 "django:pipeline.tests_browser_board",
 "django:pipeline.tests_deletion",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_navigation",
 "django:pipeline.tests_recommendations",
@@ -1497,6 +1533,7 @@
 "pytest:pipeline/services/tests/test_cell_lines_resolver.py",
 "pytest:pipeline/services/tests/test_gene_aliases.py",
 "pytest:pipeline/services/tests/test_gene_filter.py",
+"pytest:pipeline/services/tests/test_knockdown.py",
 "pytest:pipeline/services/tests/test_run7_endtoend.py",
 "pytest:pipeline/services/tests/test_session_import.py",
 "pytest:pipeline/services/tests/test_session_template.py",
@@ -1584,6 +1621,7 @@
 "django:pipeline.tests_fix_figure_application",
 "django:pipeline.tests_gene_requests",
 "django:pipeline.tests_identity",
+"django:pipeline.tests_knockdown",
 "django:pipeline.tests_lab_numbers",
 "django:pipeline.tests_merge_cell_lines",
 "django:pipeline.tests_merge_sites",

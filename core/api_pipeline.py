@@ -119,8 +119,15 @@ def _scope(request):
 
 
 def _their_pending(company_ids, allowed_genes):
+    from core.recommendations import APPLICATIONS
+    # The applications OGA gives a verdict in — IHC since 2.2.0. A future
+    # figure-only application stays out, as it does of every API
+    # (`pipeline.public.published_figures`), because a supplier would
+    # otherwise read "no provisional recommendation" on it — a verdict the
+    # application cannot have.
     qs = (PendingPublicationImage.objects.using(DB)
-          .filter(status=PENDING, antibody__company_id__in=company_ids)
+          .filter(status=PENDING, antibody__company_id__in=company_ids,
+                  application_type__in=APPLICATIONS)
           .select_related('antibody', 'antibody__target', 'antibody__company'))
     if allowed_genes is not None:
         q = None

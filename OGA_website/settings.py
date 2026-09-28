@@ -66,8 +66,14 @@ SECRET_KEY = os.environ.get(
 # `runserver` keeps serving static/media without extra flags. See AUDIT.md §4.
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
+# `oga-website` is this service's name on Render's private network, and the
+# only way the MCP service's usage reports reach it (MCP_USAGE_URL): the apex
+# bounces them 403 at Cloudflare, and the public Render subdomain has been
+# switched off since 27 Sep 2026. Leave it out and every report is refused 400
+# before the view is reached, which the reporter drops in silence. Nothing
+# outside Render can resolve the name. See mcp_servers/common/usage.py.
 ALLOWED_HOSTS = ['onlygoodantibodies.com', 'only-good-antibodies.onrender.com', '127.0.0.1', 'oga-website.onrender.com', 'onlygoodantibodies.co.uk',
-    'www.onlygoodantibodies.co.uk','localhost',]
+    'www.onlygoodantibodies.co.uk','localhost', 'oga-website',]
 CSRF_TRUSTED_ORIGINS = ['https://onlygoodantibodies.co.uk', 'https://www.onlygoodantibodies.co.uk']
 
 # Request body size for large bulk uploads/commits.
@@ -114,6 +120,21 @@ MIDDLEWARE = [
     # See OGA_website/health.py for what it deliberately does not check.
     'OGA_website.health.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # A public page answers on onlygoodantibodies.co.uk and nowhere else. This
+    # service also has Render's own hostname, oga-website.onrender.com, which
+    # Google indexed — and neither the edge cache nor the crawl throttle can
+    # reach it, both being rules on OUR Cloudflare zone rather than Render's.
+    # Since 27 Sep 2026 that subdomain is switched off on Render, so this is
+    # the second line: it only acts if somebody switches it back on.
+    #
+    # Here rather than lower down because the point is that a redirected
+    # request costs nothing: above GZip, WhiteNoise, the session and the
+    # database, so a crawler that found the origin name never holds one of the
+    # four threads while a gene page renders. Below SecurityMiddleware so the
+    # security headers still apply to the redirect, and below the health check,
+    # which must answer 200 on any hostname. See OGA_website/canonical_host.py
+    # for the two paths it will not touch and why.
+    'OGA_website.canonical_host.CanonicalHostMiddleware',
     # Public HTML goes out compressed. A gene page is 40-100 KB of markup and
     # Render's router does not compress it, so every crawler that walked the 585
     # gene pages was paying full price for each one. Text at this shape
@@ -176,6 +197,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    # Lets a pipeline row stamp who saved it (`added_by`/`saved_by`). Holds the
+    # request and nothing else — `request.user` is read only when a save
+    # happens, so a public page pays nothing. See pipeline/saved_by.py.
+    'pipeline.saved_by.SavedByMiddleware',
 ]
 
 ROOT_URLCONF = 'OGA_website.urls'
@@ -199,6 +224,9 @@ TEMPLATES = [
                 # See core/context_processors.py for why this is not passed
                 # per view.
                 'core.context_processors.recommendation_scope',
+                # search_index_version: the gene list's ?v=, which changes
+                # when figures are released. See OGA_website/edge_cache.py.
+                'core.context_processors.search_index_version',
                 # nav_gene: the gene the page is about, so the Browse menu can
                 # carry it. See pipeline/context_processors.py for why this is
                 # not a template expression.

@@ -291,7 +291,8 @@ _DATA_TOOLS = [
     {
         "name": "antibodies_by_support",
         "description": ("Within ONE gene, the antibodies at one support level for an "
-                        "application. gene is REQUIRED. application is one of WB, IP, IF, FC. "
+                        "application. gene is REQUIRED. application is one of WB, IP, IF, FC, IHC "
+                        "(IHC is on HAP1 cell pellets, not tissue). "
                         "support is one of: supportive (the data supports it); "
                         "limited_support (tested, not supported overall, and the antibody was "
                         "still seen to do what the application is for); not_supportive "
@@ -301,7 +302,8 @@ _DATA_TOOLS = [
                         "from not_supportive."),
         "input_schema": {"type": "object", "properties": {
             "gene": {"type": "string"},
-            "application": {"type": "string", "enum": ["WB", "IP", "IF", "FC"]},
+            "application": {"type": "string",
+                            "enum": ["WB", "IP", "IF", "FC", "IHC"]},
             "support": {"type": "string",
                         "enum": ["supportive", "limited_support",
                                  "not_supportive", "not_tested"]}},

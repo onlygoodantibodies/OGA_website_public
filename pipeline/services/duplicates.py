@@ -29,6 +29,7 @@ import os
 import re
 
 from pipeline.rrid_utils import normalize_rrid
+from core import recommendations as R
 
 # Catalogue/clone values that carry no information — never group on them.
 JUNK_TEXT = {"", "-", "?", "N/A", "NA", "NONE", "NULL", "UNKNOWN", "TBD"}
@@ -41,8 +42,16 @@ CHILD_RELATIONS = [
     "ip_results",
     "if_results",
     "fc_results",
+    # IHC bench readings (26 Sep 2026). Missing here, a merge would delete
+    # the losing row and its IHC results with it, by cascade.
+    "ihc_results",
     "publication_images",
     "locations",
+    # Which whole IHC figures show this antibody. Moved like the rest, after
+    # `ihc_figures.merge_links` drops a loser's link to a figure the survivor
+    # is already in (one row per figure per antibody).
+    "ihc_figure_links",
+    "pending_ihc_figure_links",
 ]
 
 
@@ -51,14 +60,10 @@ def payload_count(ab):
     return sum(getattr(ab, rel).count() for rel in CHILD_RELATIONS)
 
 
-# The OGA per-application recommendation flags. A row with none of them set has
-# no published verdict of its own.
-RECOMMENDATION_FIELDS = [
-    ("WB", "wb_recommended"),
-    ("IP", "ip_recommended"),
-    ("ICC-IF", "if_recommended"),
-    ("FC", "fc_recommended"),
-]
+# The OGA per-application recommendation flags, as (application, field) pairs
+# from `core/recommendations.py`'s own map. A row with none of them set has no
+# published verdict of its own.
+RECOMMENDATION_FIELDS = list(R._FLAG.items())
 
 
 def recommendations(ab):

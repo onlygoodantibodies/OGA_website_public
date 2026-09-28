@@ -25,13 +25,13 @@ from pipeline.views.session_bulk import *    # Plan a session by paste/upload + 
 # === Priority 3: Automation ===
 from pipeline.views.cropper import *          # Figure cropper (grid → crops → review queue)
 from pipeline.views.review import *           # Review queue: release crops to the public site
+from pipeline.views.figure_replace import *   # Replace one antibody's figure (→ review queue)
 from pipeline.views.bulk_import import *       # Bulk antibody paste (add/update many)
 from pipeline.views.imports import *           # xlsx/csv templates + upload
 from pipeline.views.deletion import *      # Delete one record, typed confirmation
 from pipeline.views.attachments import *   # Raw files against a session
 from pipeline.views.deposit import *       # Deposit a gene's data to Zenodo
 from pipeline.views.data_io import *           # Whole-dataset download / upsert upload
-from pipeline.views.recommendations import *   # Visual gene-at-a-time recommendation manager
 from pipeline.views.outcomes import *          # Judge outcomes: detects / selective, per figure
 from pipeline.views.target_board import *      # Cross-site target board + portfolio
 from pipeline.views.session_board import *     # Sessions board (find + edit in place)

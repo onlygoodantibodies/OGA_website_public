@@ -119,7 +119,18 @@ class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
         "the gene page says which", which on the gene page points at itself.
         Asserted as absent too, or dropping it would be undone by the next
         person who tidied the include back in.
+
+        **Only under a drawn ICC-IF column** (26 Sep 2026): the facts are
+        filtered to the columns the page draws, since IHC's "HAP1 cell pellets,
+        not tissue" on a gene with no IHC column names an application the page
+        does not show — and the same holds for immunofluorescence.
         """
+        page = self.client.get(
+            reverse("antibody_table", args=["SNCA"])).content.decode()
+        self.assertNotIn(R.APPLICATION_FACT["ICC-IF"], page)
+        PublicationImage.objects.create(
+            antibody=self.antibody, application_type="ICC-IF",
+            image="pubs/x_if.png")
         page = self.client.get(
             reverse("antibody_table", args=["SNCA"])).content.decode()
         self.assertIn(R.APPLICATION_FACT["ICC-IF"], page)

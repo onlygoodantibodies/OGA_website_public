@@ -2,7 +2,7 @@
 Per-gene session template (download side of the dedicated sessions tool).
 
 Given a gene, build one Excel workbook with **a tab per application** (WB, IP,
-IF, FC). Each tab is *one shared session* for that gene: the antibodies and the
+IF, FC, IHC). Each tab is *one shared session* for that gene: the antibodies and the
 WT/KO cell lines already in the database are listed as result rows, the session
 conditions are pre-filled from the member's **site default protocol**
 (``ProtocolTemplate``), and the result columns are left blank to complete. Fill
@@ -32,7 +32,8 @@ from pipeline.services.session_board import CONDITION_PREFIX
 
 DB = "pipeline_db"
 
-PROCEDURES = ["WB", "IP", "IF", "FC"]
+# Five procedures; IHC joined the bench on 26 Sep 2026 (PLATFORM_ROADMAP #102).
+PROCEDURES = ["WB", "IP", "IF", "FC", "IHC"]
 
 # What `session_ref` says about the tab it heads, and the only thing that decides
 # whether an upload **creates** a session or **fills one in**.
@@ -61,7 +62,7 @@ _CONTEXT_COLS = ["session_ref", "gene", "antibody", "company",
                  "cell_line_wt", "cell_line_ko", "experimenter", "date"]
 
 # Result columns per procedure — the real fields on WbResult / IpResult /
-# IfResult / FcResult, left blank for the bench scientist to complete.
+# IfResult / FcResult / IhcResult, left blank for the bench scientist to complete.
 _RESULT_COLS = {
     "WB": ["dilution", "secondary_ab", "secondary_ab_dilution",
            "exposure_time", "signal", "rating", "gel", "membrane", "ecl",
@@ -79,7 +80,34 @@ _RESULT_COLS = {
            "microscope", "objective", "comments"],
     "FC": ["concentration", "histogram_shift", "median_fluorescence_wt",
            "median_fluorescence_ko", "gating_strategy", "comments"],
+    "IHC": ["specific_signal", "staining_location", "primary_ab_dilution",
+            "dilution_source", "secondary_ab", "slide_position",
+            "image_acquired_by", "image_analysed_by", "tissue_result", "comments"],
 }
+
+# Procedures whose tab offers the session form's own condition keys, blank,
+# beside whatever the site protocol pre-fills. IHC has no `ProtocolTemplate` on
+# file anywhere yet, and `cond:` columns came from the template alone — so an
+# IHC tab would have carried no conditions at all, and a report that needs
+# antigen retrieval would have had nowhere on the sheet to be told it. The
+# other four keep exactly the columns their protocols give them.
+_REGISTRY_CONDITIONS = {"IHC"}
+
+
+def _offered_conditions(site_id, proc):
+    """(template, {key: pre-filled value}) for a tab's `cond:` columns."""
+    tmpl = _default_template(site_id, proc)
+    conditions = {}
+    if proc in _REGISTRY_CONDITIONS:
+        from pipeline.views.session_entry import (
+            KNOCKDOWN_CONDITION_FIELDS, PROCEDURE_CONDITION_FIELDS,
+            VIAL_CONDITION_FIELDS)
+        shared = {k for k, *_ in VIAL_CONDITION_FIELDS + KNOCKDOWN_CONDITION_FIELDS}
+        conditions = {k: "" for k, *_ in PROCEDURE_CONDITION_FIELDS.get(proc, [])
+                      if k not in shared}
+    if tmpl and isinstance(tmpl.conditions, dict):
+        conditions.update(tmpl.conditions)
+    return tmpl, conditions
 
 # A column this sheet used to ship, and the field it now writes to.
 #
@@ -170,8 +198,7 @@ def _line_cell(line):
 def _tab_plan(target, proc, site_id):
     """(columns, rows) for one procedure tab. Rows: one per antibody, sharing a
     session; conditions pre-filled from the site default protocol."""
-    tmpl = _default_template(site_id, proc)
-    conditions = dict(tmpl.conditions) if (tmpl and isinstance(tmpl.conditions, dict)) else {}
+    tmpl, conditions = _offered_conditions(site_id, proc)
     # Prefixed, because a protocol condition is very often named after the result
     # field it describes — IP's `bead_type`, `lysis_buffer`, `gel`, `membrane`;
     # IF's `blocking`, `permeabilisation`. Unprefixed they appeared twice in one
@@ -185,7 +212,7 @@ def _tab_plan(target, proc, site_id):
     columns = _CONTEXT_COLS + cond_cols + _RESULT_COLS[proc]
 
     cell_lines = list(target.cell_lines.all())
-    ko = _first_genotype(cell_lines, "KO")
+    ko = _first_genotype(cell_lines, "KO") or _first_genotype(cell_lines, "KD")
     # A wild type is recorded once, with no gene, so it is never in
     # `target.cell_lines` and looking for one there could only ever come back
     # empty — `cell_line_wt` was blank on every row of every tab. The parent of
@@ -242,8 +269,7 @@ def _session_tab_plan(session):
     gene_name = target.gene_name or target.protein_name or ""
 
     stored = dict(session.session_conditions or {})
-    tmpl = _default_template(session.site_id, proc)
-    offered = dict(tmpl.conditions) if (tmpl and isinstance(tmpl.conditions, dict)) else {}
+    _tmpl, offered = _offered_conditions(session.site_id, proc)
     # The session's own values win; the protocol's keys are offered blank so a
     # condition nobody recorded still has a column to be written in.
     keys = sorted(set(stored) | set(offered))
@@ -292,7 +318,7 @@ def _session_tab_plan(session):
 
 
 _GENE_README = [
-    ("One tab per application", "WB, IP, IF and FC each hold ONE shared session for this gene."),
+    ("One tab per application", "WB, IP, IF, FC and IHC each hold ONE shared session for this gene."),
     ("session_ref", "The same marker repeats down a tab — all its rows are one session. "
                     f"It ends {SESSION_REF_NEW}, which means uploading this file CREATES sessions."),
     ("Pre-filled cells", "Antibodies, WT/KO cell lines and the site default protocol conditions are filled in."),
@@ -302,7 +328,7 @@ _GENE_README = [
                                      "result column of the same name — change one and the reading "
                                      "beside it is untouched."),
     ("Tabs you leave alone", "A tab with no results written on it is not recorded. Fill in the one "
-                             "you ran; the other three are ignored."),
+                             "you ran; the others are ignored."),
     # Still true of THIS file, and the tab is the only guidance somebody has at a
     # bench: promising an update would send them to upload a corrected sheet
     # expecting it to replace a reading, and get a second session instead.

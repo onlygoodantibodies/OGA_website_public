@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 from pipeline.models import Antibody, CellLine
+from pipeline.services import cell_lines as clines_mod
 from pipeline.services import example_row
 from pipeline.services import sessions as sess
 from pipeline.services.cropper import db as cdb
@@ -163,7 +164,8 @@ def cell_lines_for_target(target):
               .values_list("name", flat=True).distinct())
     ko, ko_lines = [], []
     if target:
-        ko_qs = (CellLine.objects.using(DB).filter(genotype="KO", target=target)
+        ko_qs = (CellLine.objects.using(DB)
+                 .filter(genotype__in=clines_mod.CONTROL_GENOTYPES, target=target)
                  .exclude(name="").select_related("parent_line").order_by("name"))
         for cl in ko_qs:
             ko.append(cl.name)
@@ -214,8 +216,16 @@ def resolve_or_create_cell_line(name, *, genotype, target=None, parent=None, mem
     if clines.candidates(name):
         raise ValueError(err)
 
+    if str(genotype).lower() == clines.CONTROL:
+        # The slot wants "a control" and nothing answered, so the kind comes
+        # from the name — `U-87 MG GPNMB KD` is a knockdown, anything else a
+        # knockout, the same reading the cell-lines paste box makes.
+        from pipeline.services.bulk_cell_lines import norm_genotype
+        genotype = norm_genotype("", name, has_parent=parent is not None)
+        if genotype not in clines.CONTROL_GENOTYPES:
+            genotype = "KO"
     cl = CellLine(name=name, genotype=genotype)
-    if genotype == "KO" and target is not None:
+    if genotype in clines.CONTROL_GENOTYPES and target is not None:
         cl.target_id = target.pk
     if parent is not None:
         cl.parent_line_id = parent.pk

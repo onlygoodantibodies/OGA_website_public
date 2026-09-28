@@ -362,7 +362,7 @@
   <div id="filter-bar">
     <div class="filter-group">
       <select id="filter-gene" onchange="filtersChanged()"><option value="">All Genes</option></select>
-      <select id="filter-app" onchange="filtersChanged()"><option value="">All Applications</option><option value="WB">Western Blot</option><option value="IP">Immunoprecipitation</option><option value="ICC-IF">ICC / IF</option><option value="FC">Flow Cytometry</option></select>
+      <select id="filter-app" onchange="filtersChanged()"><option value="">All Applications</option><option value="WB">Western Blot</option><option value="IP">Immunoprecipitation</option><option value="ICC-IF">ICC / IF</option><option value="FC">Flow Cytometry</option><option value="IHC">Immunohistochemistry</option></select>
       <label class="toggle-label" id="filter-rec-wrap"><input type="checkbox" id="filter-rec" onchange="filtersChanged()"> Recommended only</label>
       <label class="toggle-label" id="filter-new-wrap"><input type="checkbox" id="filter-new" onchange="filtersChanged()"> New only</label>
     </div>
@@ -428,10 +428,14 @@
 'use strict';
 const API_BASE = '/api';
 const EMBED_BASE = 'https://onlygoodantibodies.co.uk/embed/';
-/* The four applications OGA assesses, in the order every OGA surface prints
-   them (core/recommendations.py::APPLICATIONS). It was written out three times in
-   here, which is three places to forget one. */
-const APPS = ['WB', 'IP', 'ICC-IF', 'FC'];
+/* The five applications OGA assesses, in the order every OGA surface prints
+   them (core/recommendations.py::APPLICATIONS; IHC since API 2.2.0). It was
+   written out three times in here, which is three places to forget one. */
+const APPS = ['WB', 'IP', 'ICC-IF', 'FC', 'IHC'];
+/* The applications the embed card can show one at a time — four, not APPS:
+   the card has no IHC view yet, and an `application=IHC` iframe would silently
+   draw the all-applications card under a button labelled IHC. */
+const EMBED_APPS = ['WB', 'IP', 'ICC-IF', 'FC'];
 /* The gene page's own heading for the same list, from the same constant
    (`core/recommendations.py::SUPPORTED_APPLICATIONS_LABEL`). Typed here it
    would be the second copy, and the two surfaces would drift the first time
@@ -672,7 +676,7 @@ function renderEmbedGallery(antibodies) {
     const rb = ' <button class="btn-danger-outline" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid||'') + '\')">Report issue</button>';
 
     // Build per-application copy buttons
-    const appBtns = APPS.map(app => {
+    const appBtns = EMBED_APPS.map(app => {
       const appUrl = eu[app] || (iframeUrl + '&application=' + app);
       const appIframe = '<iframe src="' + appUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
       return '<button onclick="copyAppEmbed(this,' + escAttr(JSON.stringify(appIframe)) + ')">' + app + '</button>';
@@ -926,6 +930,7 @@ function renderPipelineTab(figures, genes) {
       + '<th style="padding:6px 8px">Gene</th><th style="padding:6px 8px">Your antibodies</th>'
       + '<th style="padding:6px 8px">WB</th><th style="padding:6px 8px">IP</th>'
       + '<th style="padding:6px 8px">ICC-IF</th><th style="padding:6px 8px">FC</th>'
+      + '<th style="padding:6px 8px">IHC</th>'
       + '<th style="padding:6px 8px">Report</th></tr></thead><tbody>';
     gs.forEach(function (g) {
       html += '<tr style="border-top:1px solid var(--border)">'
@@ -1297,7 +1302,8 @@ function nsWouldAddSentence() {
 }
 
 const NS_APP_LABEL = { 'WB': 'Western blot', 'IP': 'Immunoprecipitation',
-                       'ICC-IF': 'Immunofluorescence / ICC', 'FC': 'Flow cytometry' };
+                       'ICC-IF': 'Immunofluorescence / ICC', 'FC': 'Flow cytometry',
+                       'IHC': 'Immunohistochemistry' };
 
 /* Red for a flat negative, amber for limited support, grey for untested. The
    same three the gene page and the extension use, and there is no fourth:

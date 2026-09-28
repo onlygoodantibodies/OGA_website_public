@@ -79,22 +79,11 @@
                                 <a href="{% url 'pipeline:antibody_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Antibodies</a>
                                 <a href="{% url 'pipeline:cell_line_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Cell lines</a>
                                 <a href="{% url 'pipeline:session_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Sessions</a>
-                                {% comment %}Set recommendations is in this
-                                group and carries the gene, which it did not
-                                when it joined Browse an hour earlier: the
-                                comment below correctly said a query string a
-                                view does not read only makes a link look
-                                filtered, and the view reads it now. It is a
-                                per-gene surface — its own first instruction is
-                                "pick a gene" — so under a heading reading
-                                "Across every gene" it was the one entry the
-                                heading was wrong about.{% endcomment %}
-                                <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Set recommendations</a>
                                 {% comment %}Judge outcomes is a per-gene
-                                surface for the same reason and reads `?gene=`
-                                the same way — it is Set recommendations at a
-                                finer grain, so it belongs next to it and in
-                                this group.{% endcomment %}
+                                surface — its first instruction is "pick a
+                                gene" — and reads `?gene=`, so it sits in this
+                                group and carries the gene. It absorbed Set
+                                recommendations on 25 Sep 2026.{% endcomment %}
                                 <a href="{% url 'pipeline:outcomes' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Judge outcomes</a>
                                 <hr class="border-gray-100 my-1">
                                 {% comment %}None of these three carry `?gene=`,
@@ -113,6 +102,7 @@
                                 boards mean by it, and coming to it from a gene
                                 you are working on is the normal way in.{% endcomment %}
                                 <a href="{% url 'pipeline:review_queue' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Review queue</a>
+                                <a href="{% url 'pipeline:figure_replace' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Replace a figure</a>
                                 <a href="{% url 'pipeline:data_io' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Downloads &amp; uploads</a>
                                 <hr class="border-gray-100 my-1">
                                 <a href="{% url 'pipeline:feasibility' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Add a gene</a>
@@ -176,7 +166,9 @@
                         a password change from the sessions board ends on the
                         Academy home page with no way back into the pipeline.{% endcomment %}
                         <a href="{% url 'account_change_password' %}?next={{ request.get_full_path|urlencode }}" class="text-gray-400 hover:text-white text-sm">Change password</a>
-                        <a href="/admin/" class="text-gray-400 hover:text-white text-sm">Admin</a>
+                        {% if user.is_staff %}
+                            <a href="/admin/" class="text-gray-400 hover:text-white text-sm">Admin</a>
+                        {% endif %}
                         {% comment %}A form, not a link. A GET that ends a session
                         is fetched by anything that follows links without a person
                         deciding to — a prefetcher, an unfurl preview, a stray
@@ -232,7 +224,6 @@
                 <a href="{% url 'pipeline:antibody_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Antibodies</a>
                 <a href="{% url 'pipeline:cell_line_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Cell lines</a>
                 <a href="{% url 'pipeline:session_board' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Sessions</a>
-                <a href="{% url 'pipeline:recommendations' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Set recommendations</a>
                 <a href="{% url 'pipeline:outcomes' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Judge outcomes</a>
                 {% comment %}The same destinations as the desktop dropdown, in
                 the same order, and carrying `?gene=` on the same ones. Two
@@ -242,6 +233,7 @@
                 <a href="{% url 'pipeline:target_portfolio' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Portfolio</a>
                 <a href="{% url 'pipeline:cropper' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Publish figures</a>
                 <a href="{% url 'pipeline:review_queue' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Review queue</a>
+                <a href="{% url 'pipeline:figure_replace' %}{% if nav_gene %}?gene={{ nav_gene|urlencode }}{% endif %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Replace a figure</a>
                 <a href="{% url 'pipeline:data_io' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Downloads &amp; uploads</a>
                 <hr class="border-ycharos-700 my-2">
                 <a href="{% url 'pipeline:feasibility' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Add a gene</a>
@@ -261,7 +253,9 @@
                     <hr class="border-ycharos-700 my-2">
                     <span class="text-gray-400 block px-3 py-1 text-sm">{{ user.get_full_name|default:user.username }}</span>
                     <a href="{% url 'account_change_password' %}?next={{ request.get_full_path|urlencode }}" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-sm">Change password</a>
-                    <a href="/admin/" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-sm">Admin</a>
+                    {% if user.is_staff %}
+                        <a href="/admin/" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-sm">Admin</a>
+                    {% endif %}
                     <form action="{% url 'pipeline:pipeline_logout' %}" method="post">
                         {% csrf_token %}
                         <button type="submit"

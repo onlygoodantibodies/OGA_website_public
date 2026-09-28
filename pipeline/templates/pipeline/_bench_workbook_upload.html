@@ -201,8 +201,14 @@ twice records the work twice.
               } will not be recorded — see below.</p>` : ''}
             ${c.dropped ? `<p class="text-gray-700">${OGABoard.plural(c.dropped, 'value')
               } cannot be matched and will be left blank — see below.</p>` : ''}</div>`;
+      /* What each tab's report will still be missing once saved — one
+       * writer (`OGABoard.reportNeedsNote`), labelled per tab because a
+       * workbook carries several sessions. */
+      const needs = sessions.filter(s => (s.report_needs || []).length).map(s =>
+        `<p class="mt-2 text-xs font-semibold text-gray-800">${esc(s.procedure)} · ${esc(s.gene)}</p>`
+        + OGABoard.reportNeedsNote(s.report_needs, 'check')).join('');
       return head + sessionTable(sessions) + existingSessions(sessions)
-             + unknownColumns(sessions) + droppedList(d.dropped || [])
+             + unknownColumns(sessions) + needs + droppedList(d.dropped || [])
              + blockedList(blocked);
     },
     renderResult(d) {

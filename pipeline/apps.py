@@ -41,11 +41,12 @@ def _check_attachment_storage(app_configs, **kwargs):
             id="pipeline.W001"))
     if attachments_are_public():
         issues.append(CheckWarning(
-            "Raw session files are stored in the public media bucket.",
+            "Raw session files and queued whole IHC figures are stored in "
+            "the public media bucket.",
             hint="Set R2_ATTACHMENTS_BUCKET to a bucket with no public route. "
                  "Files store and download correctly either way; without it an "
-                 "uncropped gel scan is reachable on the public domain by "
-                 "anyone who knows its key.",
+                 "uncropped gel scan, or a whole IHC figure waiting for release, "
+                 "is reachable on the public domain by anyone who knows its key.",
             id="pipeline.W002"))
     return issues
 

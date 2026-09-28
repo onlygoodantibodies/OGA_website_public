@@ -372,12 +372,22 @@ class TheVerdictsAreInThePageTests(TestCase):
         adding amber for the qualified case made the gap plain. Every tested
         cell now says which of the three it is (owner, 29 Aug 2026).
         """
+        # A second antibody with a western blot only, so its IP cell is one
+        # nobody ran, in a column the page draws.
+        other = Antibody.objects.create(
+            target=self.target, company=self.ab.company,
+            catalogue_number="OTHER-1")
+        PublicationImage.objects.create(
+            antibody=other, application_type="WB", image="pubs/other_WB.png")
         body = self._page().content.decode()
         self.assertIn('class="experiment-box supportive" data-app="wb"', body)
         self.assertIn('class="experiment-box not-supportive" data-app="ip"', body)
         # Untested stays unmarked: the cell already carries a "No data
         # available" image, and marking it would claim a result.
-        self.assertIn('class="experiment-box " data-app="fc"', body)
+        self.assertIn('class="experiment-box " data-app="ip"', body)
+        # An application nobody ran on this gene has no column at all (26 Sep
+        # 2026) — a column of "no data" down the whole page said nothing.
+        self.assertNotIn('data-app="fc"', body)
 
     def test_the_filter_can_still_find_the_row(self):
         # The client-side application filter reads this off the row now that
@@ -412,3 +422,28 @@ class TheVerdictsAreInThePageTests(TestCase):
             "gene_recommendations", kwargs={"gene_name": "SNCA"}))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["recommendations"][str(self.ab.id)]["wb"])
+
+
+class TheHeadingNamesOnlyWhatWasImagedTests(TestCase):
+    """The intro line said "across WB, IP, ICC-IF and FC" on every gene page,
+    whatever had been imaged (MAPT, 25 Sep 2026) — a heading the table under it
+    contradicts. It names the applications with a published figure now."""
+    databases = {"pipeline_db", "academy_db"}
+
+    @classmethod
+    def setUpTestData(cls):
+        company = Company.objects.create(name="Proteintech")
+        target = Target.objects.create(protein_name="Tau", gene_name="MAPT")
+        ab = Antibody.objects.create(
+            target=target, company=company, catalogue_number="10274-1-AP")
+        for app in ("WB", "ICC-IF"):
+            PublicationImage.objects.create(
+                antibody=ab, application_type=app, image=f"pubs/mapt_{app}.png")
+
+    def test_the_intro_line_and_description_name_wb_and_icc_if_only(self):
+        body = self.client.get(
+            reverse("antibody_table", kwargs={"gene_name": "MAPT"})
+        ).content.decode()
+        self.assertIn("1 MAPT antibody across WB and ICC-IF.", body)
+        self.assertIn("antibodies tested across WB and ICC-IF.", body)
+        self.assertNotIn("ICC-IF and FC", body)

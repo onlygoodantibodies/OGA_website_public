@@ -914,7 +914,7 @@ class ChromeIsOnEveryPageTests(TestCase):
     PAGES = ("/pipeline/start/", "/pipeline/overview/", "/pipeline/targets/board/",
              "/pipeline/antibodies/board/", "/pipeline/cell-lines/board/",
              "/pipeline/sessions/board/", "/pipeline/feasibility/",
-             "/pipeline/recommendations/",
+             "/pipeline/outcomes/",
              "/pipeline/data/", "/pipeline/cropper/", "/pipeline/guide/")
 
     def test_every_page_has_the_search_box(self):
@@ -1257,20 +1257,18 @@ class TheGeneFollowsYouEverywhereTests(TestCase):
         self.assertIn('href="/pipeline/cell-lines/board/"', body)
         self.assertNotIn("?gene=", body)
 
-    def test_set_recommendations_carries_it_too(self):
-        """It joined Browse without the gene, correctly — the view did not read
-        `?gene=` then, and a query string a view ignores only makes a link look
-        filtered. The view reads it now, and this is a per-gene surface whose
-        own first instruction is "pick a gene", so carrying it is the whole
-        difference between landing on that gene's figures and landing on a
-        160-item dropdown."""
+    def test_judge_outcomes_carries_it_too(self):
+        """A per-gene surface whose own first instruction is "pick a gene", so
+        carrying it is the whole difference between landing on that gene's
+        figures and landing on a 160-item dropdown. (Set recommendations held
+        this test until it retired into Judge outcomes, 25 Sep 2026.)"""
         body = self.client.get("/pipeline/antibodies/board/",
                                {"gene": "SOD1"}).content.decode()
         desktop = body.split('id="browse-menu"', 1)[1].split("</div>", 1)[0]
         mobile = body.split('id="mobile-menu"', 1)[1]
         for menu, name in ((desktop, "desktop dropdown"), (mobile, "mobile menu")):
             with self.subTest(menu=name):
-                self.assertIn('href="/pipeline/recommendations/?gene=SOD1"', menu,
+                self.assertIn('href="/pipeline/outcomes/?gene=SOD1"', menu,
                               f"the {name} dropped the gene")
 
 
@@ -1370,7 +1368,7 @@ class TheHubShowsTheOrderOfTheWorkTests(TestCase):
         body = self.client.get("/pipeline/start/").content.decode()
         for url in ("/pipeline/feasibility/", "/pipeline/cell-lines/board/",
                     "/pipeline/antibodies/board/", "/pipeline/sessions/board/",
-                    "/pipeline/cropper/", "/pipeline/recommendations/",
+                    "/pipeline/cropper/", "/pipeline/outcomes/",
                     "/pipeline/targets/board/", "/pipeline/data/"):
             with self.subTest(url=url):
                 self.assertIn(f'href="{url}"', body)
@@ -1533,6 +1531,11 @@ class AGeneIsAddedOnTheTargetsDoorsAndNowhereElseTests(TestCase):
                     "pipeline/services/dataset.py",
                     "pipeline/views/session_bulk.py"):
             self.assertNotIn("resolve_or_create_target(", (base / rel).read_text(), rel)
+        # The fifth door, closed 26 Sep 2026: the figure cropper minted a
+        # target with `Target.objects…create` when its gene was not on file.
+        cropper = (base / "pipeline/services/cropper/commit.py").read_text()
+        self.assertNotIn("Target.objects.using(DB).create(", cropper)
+        self.assertNotIn("resolve_or_create_target(", cropper)
 
     def test_the_progress_strip_links_to_whatever_is_still_missing(self):
         """The out-of-order answer that survives: every unfinished step on a

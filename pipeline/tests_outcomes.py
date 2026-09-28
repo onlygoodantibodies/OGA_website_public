@@ -33,7 +33,7 @@ import json
 from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from pipeline.models import (Antibody, AntibodyOutcome, Company,
@@ -387,6 +387,28 @@ class WhatTheScreenSaysTests(_Fixture):
         self._antibody("ab1")
         resp = self.client.get(PAGE, {"gene": "trpa1"})
         self.assertEqual(resp.context["requested_gene"], "TRPA1")
+
+
+class AButtonIsColouredByWhetherItsAnswerIsGoodNewsTests(SimpleTestCase):
+    """On flow's background caveat "No" is the clean result and "Yes" is the
+    caveat, so a page colouring by the word drew a clean figure's "No" in red
+    (owner, 26 Sep 2026). Both judging pages read the tone off the vocabulary."""
+
+    def test_no_background_is_good_and_background_is_a_caveat(self):
+        self.assertEqual(outcome_svc.tone_of("background", "no"), "good")
+        self.assertEqual(outcome_svc.tone_of("background", "yes"), "qualified")
+
+    def test_every_other_yes_no_axis_keeps_yes_as_the_good_answer(self):
+        for axis in ("detects", "selective", "enriches"):
+            self.assertEqual(outcome_svc.tone_of(axis, "yes"), "good")
+            self.assertEqual(outcome_svc.tone_of(axis, "no"), "bad")
+
+    def test_every_offered_button_has_a_tone(self):
+        for app, axes in outcome_svc.APPLICATION_AXES.items():
+            for axis in axes:
+                for v in outcome_svc.values_for(app, axis):
+                    self.assertIn(outcome_svc.tone_of(axis, v),
+                                  {"good", "qualified", "bad", "neutral"})
 
 
 class ThePublicLayerGoesThroughTheOneReaderTests(_Fixture):
@@ -898,12 +920,14 @@ class EachApplicationKeepsItsOwnRowsTests(_Fixture):
         self.assertFalse(
             AntibodyOutcome.objects.using(DB).filter(antibody=ab).exists())
 
-    def test_fc_is_not_offered(self):
-        """`histogram_shift` is blank on all 22 live rows, so a tab for it would
-        be an empty box with no source behind it."""
+    def test_fc_offers_only_its_caveat(self):
+        """`histogram_shift` is blank on all 22 live rows, so flow has no
+        outcome axis — only the background caveat, which is never a gap."""
         from pipeline.views.outcomes import APPLICATIONS
-        self.assertNotIn("FC", APPLICATIONS)
-        self.assertEqual(outcome_svc.axes_for("FC"), ())
+        self.assertIn("FC", APPLICATIONS)
+        self.assertEqual(outcome_svc.axes_for("FC"), ("background",))
+        blank = {"background": {"value": None}}
+        self.assertFalse(outcome_svc.is_gap(blank, "FC"))
 
 
 class TheReviewListIsTheOrdinaryAmberTests(_Fixture):

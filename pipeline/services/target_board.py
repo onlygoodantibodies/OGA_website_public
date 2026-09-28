@@ -38,7 +38,10 @@ from pipeline.services.protein_class import gene_family
 
 DB = "pipeline_db"
 
-APPLICATIONS = ["WB", "IP", "IF", "FC"]
+# Five procedures — IHC joined the bench on 26 Sep 2026 (PLATFORM_ROADMAP
+# #102). These are *bench* codes: ICC-IF is `IF` here and `ICC-IF` on a figure
+# (`gene_reporting` maps the one value); IHC is `IHC` in both.
+APPLICATIONS = ["WB", "IP", "IF", "FC", "IHC"]
 
 
 # ---------------------------------------------------------------------------

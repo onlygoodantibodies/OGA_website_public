@@ -38,7 +38,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
     <div class="oga-genesearch-field">
       <label class="oga-genesearch-label" for="oga-genesearch-input">Search the OGA antibody database</label>
       <div class="oga-genesearch"
-         data-genes-url="{% url 'gene_search_index' %}"
+         data-genes-url="{% url 'gene_search_index' %}?v={{ search_index_version }}"
          data-antibodies-url="{% url 'antibody_search' %}"
          data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}"
          data-nominate-url="{% url 'nominate_gene' %}"

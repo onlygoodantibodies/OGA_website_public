@@ -54,11 +54,11 @@ logger = logging.getLogger(__name__)
 DB = "pipeline_db"
 
 # Which result model each procedure's rows live in, and therefore which of
-# ``FileAttachment``'s four nullable FKs a file for that row belongs in. The
+# ``FileAttachment``'s five nullable FKs a file for that row belongs in. The
 # caller never picks: it names a result row id, and the session says what that
-# row can be.
+# row can be. IHC joined on 26 Sep 2026 (PLATFORM_ROADMAP #102).
 RESULT_FK = {"WB": "wb_result", "IP": "ip_result",
-             "IF": "if_result", "FC": "fc_result"}
+             "IF": "if_result", "FC": "fc_result", "IHC": "ihc_result"}
 
 # A ceiling, so an upload cannot sit in a web request long enough to be killed
 # half-written. Deliberately generous for a gel scan or an .fcs file and
@@ -87,6 +87,9 @@ _LIKELY = {
     "IP": ["ip_scan", "wb_scan", "ponceau"],
     "IF": ["if_image", "if_plate"],
     "FC": ["fc_histogram", "fc_fcs"],
+    # A whole-slide scan is often gigabytes, over `MAX_BYTES`; the refusal
+    # already says to record where the file lives in the description instead.
+    "IHC": ["ihc_image", "ihc_slide"],
 }
 
 

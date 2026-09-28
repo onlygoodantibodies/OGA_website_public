@@ -1,0 +1,6 @@
+{% comment %}The experimenter <option>s, grouped — services/members.py::
+experimenter_groups. One snippet for every "who ran it" picker, so the step
+form and both boxes on the sessions board cannot drift apart. `selected` is
+compared as a string, since a filter value arrives as one; `with_site` adds the
+site's short code.{% endcomment %}
+{% for label, group in experimenter_groups %}<optgroup label="{{ label }}">{% for m in group %}<option value="{{ m.pk }}"{% if selected and selected == m.pk|stringformat:"s" %} selected{% endif %}>{{ m }}{% if with_site %} ({{ m.site.short_code }}){% endif %}</option>{% endfor %}</optgroup>{% endfor %}

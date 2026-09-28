@@ -362,12 +362,22 @@
       <td class="px-3 py-2">${cell(r, 'host_species', r.host_species, {label: 'host species'})}</td>
       <td class="px-3 py-2 whitespace-nowrap">${
         APPS.map(a => tick(r, `${a}_recommended`, r.recommended[a], a.toUpperCase(),
-                           `OGA recommends for ${a.toUpperCase()}`)).join('')}</td>
+                           `OGA recommends for ${a.toUpperCase()}`)).join('')}${
+        /* IHC is OGA's fifth verdict and is read-only here — it is set where
+           the IHC figure is judged, so the reason is on the page rather than
+           the control merely absent. The Recommended filter counts it, so an
+           IHC-only row must draw it or it is listed as recommended for
+           nothing. A span, not a button: nothing here can move it. */
+        `<span class="inline-block align-top">${r.ihc_recommended
+            ? pill('IHC', 'good')
+            : '<span class="text-gray-300 text-xs">IHC</span>'}<span class="block text-xs text-gray-400">set on <a class="underline" href="{% url 'pipeline:outcomes' %}${r.gene ? '?' + new URLSearchParams({gene: r.gene}) : ''}">Judge outcomes</a></span></span>`}</td>
       ${/* Six, not the four beside it. This is what the *supplier* claims, and a
-            datasheet routinely claims more than the four applications OGA
+            datasheet routinely claims more than the applications OGA
             characterises — typing `WB, IHC` used to store WB and lose IHC in
             silence, on a column whose whole job is to record the claim. The OGA
-            verdict one cell to the left stays four, deliberately. */''}
+            verdict one cell to the left stays four ticks, deliberately: OGA's
+            IHC verdict (on HAP1 pellets) is set on Judge outcomes and the
+            review queue, and a tick here would be a second writer. */''}
       <td class="px-3 py-2 whitespace-nowrap">${
         SUPPLIER_APPS.map(a => tick(r, `supplier_validated_${a}`, r.supplier_validated[a],
                            a.toUpperCase(),
@@ -380,7 +390,11 @@
         cell(r, 'species_reactivity', r.species_reactivity,
              {label: 'species reactivity the supplier claims',
               empty: 'add — e.g. H, M, R'})}</td>
-      <td class="px-3 py-2 text-gray-600">${cell(r, 'site', r.site, {empty: 'set site'})}</td>
+      ${/* Who added the row and who last saved it (pipeline/saved_by.py) —
+            under the site, since both answer "whose record is this". Nothing
+            is drawn for a row saved before the stamp existed. */''}
+      <td class="px-3 py-2 text-gray-600">${cell(r, 'site', r.site, {empty: 'set site'})}
+        ${r.provenance ? `<div class="text-xs text-gray-400 mt-1 whitespace-normal">${esc(r.provenance)}</div>` : ''}</td>
       ${/* Where the vial is. Both columns were in the database and on no
             screen: 3,058 antibodies already carry an InventoryLocation with a
             box, imported from Access years ago and unreadable since, which is

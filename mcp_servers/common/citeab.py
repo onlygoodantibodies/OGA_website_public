@@ -147,7 +147,9 @@ def facts_for(record, normalise_apps, out_of_scope_apps, application_notes):
             ("OGA's IF result is ICC-IF — cultured cells. Whether an epitope "
              "survives depends on how the antigen is presented, so tissue is a "
              "different question and the cultured-cell verdict does not carry "
-             "over to it; IHC-IF is tissue despite its name. "
+             "over to it; IHC-IF is tissue despite its name. OGA's own IHC "
+             "result, where `assessment.IHC` has one, is on FFPE HAP1 cell "
+             "pellets — the closest context, not a result in tissue. "
              if tissue else
              "OGA does not assess these applications at all, so there is no "
              "result to be had either way — this is not 'untested'. ")

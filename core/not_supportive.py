@@ -39,7 +39,7 @@ supplier's row and the public page cannot say two different things.
 **An antibody with no published figure at all is absent, not failing.** The
 membership test is *at least one tested application, and not one of them
 supportive*. The count of tested applications rides on every row, because
-"failed all four" and "failed the only one anybody ran" are two different
+"failed all five" and "failed the only one anybody ran" are two different
 statements about a product and a reader who cannot tell them apart has been
 handed the stronger one.
 """
@@ -73,7 +73,7 @@ LIST_NOTE = (
 SCOPE_NOTE = R.SCOPE_NOTE
 
 #: The CSV's columns, in order. One row per **application finding**, not per
-#: antibody: the question is per-application and a wide row with four verdict
+#: antibody: the question is per-application and a wide row with five verdict
 #: columns would leave a reader deciding which of the blanks meant *not tested*
 #: and which meant *no such column*. `applications_tested` and
 #: `applications_not_supportive` ride on every row so the antibody-level fact
@@ -174,8 +174,14 @@ def rows(company_ids=None, allowed_genes=None, base_url='',
 
     out = []
     for antibody in antibodies:
-        tested = {img.application_type for img in antibody.publication_images.all()}
-        figures = {img.application_type: img for img in antibody.publication_images.all()}
+        # The verdict applications only (all five since IHC's verdict, 26 Sep
+        # 2026) — a figure-only application would be arithmetic about a
+        # question it was never asked. An antibody supportive in IHC alone is
+        # supportive somewhere, so it leaves this list like any other.
+        figures = {img.application_type: img
+                   for img in antibody.publication_images.all()
+                   if img.application_type in R.APPLICATIONS}
+        tested = set(figures)
         gene_curated = antibody.target_id in curated
 
         findings, supportive_any = [], False
@@ -250,7 +256,7 @@ def _finding(application, described, figure, base_url):
 
 
 def _applications(findings):
-    """All four applications in the order every OGA surface prints them.
+    """All five applications in the order every OGA surface prints them.
 
     **The card is read as one picture, not as a list of separate results**, so
     it draws the whole strip the way the browser extension does — one chip per
@@ -263,7 +269,7 @@ def _applications(findings):
     with no published figure is drawn grey and says *Not tested*, which is the
     one thing this list must never let a reader confuse with a failure. Leaving
     it off the strip would put that distinction nowhere on the card and make a
-    one-application antibody look like a four-application one.
+    one-application antibody look like a five-application one.
 
     Every application with a figure is necessarily a finding here: an antibody
     is in this list only because none of them is supportive, and an application
@@ -313,13 +319,13 @@ def _row(antibody, findings, tested_count, base_url):
         'host_species': antibody.host_species or '',
         'discontinued': bool(antibody.out_of_market),
         'product_link': antibody.supplier_url or '',
-        # Both counts, because "failed all four" and "failed the only one
+        # Both counts, because "failed all five" and "failed the only one
         # anybody ran" are different statements about a product.
         'applications_tested': tested_count,
         'applications_not_supportive': len(findings),
         # Two lists, and they answer different questions. `findings` is what is
         # COUNTED — the results that came back without support, and the rows the
-        # CSV writes. `applications` is what is DRAWN — all four, with the
+        # CSV writes. `applications` is what is DRAWN — all five, with the
         # untested ones present and grey. Keeping them apart is what stops the
         # strip's length from being read as a count of failures.
         'findings': findings,
@@ -476,7 +482,8 @@ def reference_figures(gene_names, base_url=''):
         if not gene:
             continue
         figures = {img.application_type: img
-                   for img in antibody.publication_images.all()}
+                   for img in antibody.publication_images.all()
+                   if img.application_type in R.APPLICATIONS}   # verdict apps
         tested = set(figures)
         gene_curated = antibody.target_id in curated
         for application in tested:

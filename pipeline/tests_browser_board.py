@@ -2859,7 +2859,7 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         self._wizard_to_step_3()
         self.page.wait_for_selector("#cl-ko-note:not(.hidden)")
         note = self.page.text_content("#cl-ko-note")
-        self.assertIn("No knockout line on file for SNCA", note)
+        self.assertIn("No knockout or knockdown line on file for SNCA", note)
         self.assertIn("cell lines board", note)
         link = self.page.get_attribute("#cl-ko-link", "href")
         self.assertIn("/pipeline/cell-lines/board/", link)
@@ -3013,140 +3013,6 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         self.assertFalse(Report.objects.using(DB).filter(pk=report.pk).exists())
         # A 400 is an expected part of this test — the refusal above.
         self.assertEqual([e for e in self.errors if "400 " not in e], [])
-
-    # ── Set recommendations ────────────────────────────────────────────────
-    #
-    # The twentieth field test's three findings on that page. All three are the
-    # shape this file exists for — the server answered correctly every time.
-
-    def _a_gene_with_a_published_figure(self):
-        """A target carrying one antibody with one WB figure on file."""
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        from pipeline.models import Antibody, Company, PublicationImage
-        company = Company.objects.using(DB).create(name="Abcam")
-        antibody = Antibody.objects.using(DB).create(
-            catalogue_number="ab58844", target=self.target,
-            company=company, site=self.site)
-        PublicationImage.objects.using(DB).create(
-            antibody=antibody, application_type="WB",
-            image=SimpleUploadedFile("wb.png", b"not-really-a-png"))
-        return antibody
-
-    def _js_errors(self):
-        """Only the page's own errors — the figure fixture is a few bytes of
-        text with a .png name and MEDIA is not served here, so its <img> 404s
-        and that is the environment rather than the page."""
-        import re as _re
-        return [e for e in self.errors if not _re.match(r"^\d{3} ", e)]
-
-    def test_the_navigation_survives_the_recommendations_page(self):
-        """Finding 17, and it is only visible in a browser.
-
-        The page declared `.hidden { display: none !important; }` for its own
-        image overlay. The chrome draws its desktop half with Tailwind's
-        `hidden md:flex`, and `!important` on a bare class beats `md:flex`
-        whatever the specificity or the order — so the top bar rendered with
-        nothing in it but the wordmark, and there was no way to sign out at all.
-        Every one of those elements was in the HTML, which is exactly why
-        `ChromeIsOnEveryPageTests` passed.
-
-        Asserted as *not* `none` rather than as `flex`, so it means the same
-        thing with the Tailwind CDN reachable and without it: offline the
-        utilities do not exist and these elements are their default display,
-        online `md:flex` wins at this width. The bug produces `none` either way,
-        because the rule it came from is the page's own.
-        """
-        self.page.set_viewport_size({"width": 1280, "height": 900})
-        self.page.goto(f"{self.live_server_url}/pipeline/recommendations/")
-        # `state="attached"`: an <option> is never "visible" to playwright, and
-        # the default wait is for visibility — the trap this file has hit before.
-        self.page.wait_for_selector("#filter-gene option", state="attached",
-                                    timeout=20000)
-
-        for label, selector in (
-                ("the search box", 'form[action="/pipeline/find/"]'),
-                ("the Browse menu", "#browse-btn"),
-                ("the sign-out form", 'form[action$="/logout/"]')):
-            with self.subTest(part=label):
-                self.assertIsNotNone(self.page.query_selector(selector),
-                                     f"{label} is not in the page at all")
-                display = self.page.eval_on_selector(
-                    selector, "el => getComputedStyle(el).display")
-                self.assertNotEqual(
-                    display, "none",
-                    f"{label} is in the page and invisible — the page's own "
-                    "stylesheet is overriding the chrome")
-
-    # the picker keeping its placeholder is the first thing on the page
-    @tag("commissioning")
-    def test_a_gene_in_the_url_opens_that_genes_figures(self):
-        """Finding 18. `?gene=` was read (the nav links on the page picked it
-        up and pointed at the boards filtered to it) and not used by the picker
-        it is for — so with a 160-item dropdown and no link here from a gene's
-        own page, setting a gene's recommendations meant scrolling to find it
-        by hand every time.
-
-        Driven rather than asserted at the source because the failure is in the
-        order of two things: the value can only be applied once `rec_genes` has
-        answered and the `<option>`s exist.
-        """
-        self._a_gene_with_a_published_figure()
-        self.page.goto(
-            f"{self.live_server_url}/pipeline/recommendations/?gene=snca")
-        self.page.wait_for_selector(".ab-card", timeout=20000)
-
-        # Resolved to the target's own spelling, or the select is handed a
-        # value no option carries and silently keeps its placeholder.
-        self.assertEqual(self.page.input_value("#filter-gene"), "SNCA")
-        self.assertIn("ab58844", self.page.text_content("#antibody-grid"))
-        self.assertEqual(self._js_errors(), [])
-
-    def test_enlarging_a_figure_is_a_button_and_does_not_recommend_it(self):
-        """Finding 20. The only way to enlarge one of these was right-click,
-        which is also how the browser's own menu opens — on the judgement that
-        decides which antibody the field is told to buy.
-
-        The half that must not regress is the second assertion: the thumbnail's
-        own click writes a recommendation, so a control sitting on top of it
-        that failed to stop the event would silently record a verdict every
-        time somebody wanted a closer look.
-        """
-        antibody = self._a_gene_with_a_published_figure()
-        self.page.goto(
-            f"{self.live_server_url}/pipeline/recommendations/?gene=SNCA")
-        self.page.wait_for_selector(".thumb-zoom", timeout=20000)
-
-        overlay = "#image-preview"
-        self.assertIn("rec-hidden", self.page.get_attribute(overlay, "class"))
-
-        self.page.click(".thumb-zoom")
-        self.page.wait_for_selector(f"{overlay}:not(.rec-hidden)", timeout=20000)
-        self.assertIn("ab58844", self.page.text_content("#preview-caption"))
-
-        # Escape dismisses whatever is open — the habit every pop-out teaches.
-        # `state="hidden"`, because that is the whole assertion: the default
-        # wait is for visibility and would sit here until it timed out.
-        self.page.keyboard.press("Escape")
-        self.page.wait_for_selector(overlay, state="hidden", timeout=20000)
-        self.assertIn("rec-hidden", self.page.get_attribute(overlay, "class"))
-
-        # Nothing was recommended by looking.
-        antibody.refresh_from_db(using=DB)
-        self.assertFalse(antibody.wb_recommended)
-        self.assertEqual(self._js_errors(), [])
-
-    def test_the_thumbnail_itself_still_records_the_verdict(self):
-        """The other side of the test above: adding a control on top of the
-        thumbnail must not stop the thumbnail doing its job."""
-        antibody = self._a_gene_with_a_published_figure()
-        self.page.goto(
-            f"{self.live_server_url}/pipeline/recommendations/?gene=SNCA")
-        self.page.wait_for_selector(".exp-thumb", timeout=20000)
-
-        self._posted(lambda: self.page.click(".exp-thumb img"))
-        antibody.refresh_from_db(using=DB)
-        self.assertTrue(antibody.wb_recommended)
-        self.assertEqual(self._js_errors(), [])
 
     def test_the_sites_cell_draws_a_site_only_the_import_recorded(self):
         """The board printed an empty SITES cell offering "set site" for every
@@ -3511,6 +3377,39 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         self.assertFalse(
             self.page.is_hidden("#add-batch-panel"),
             "the dialog closed on a refusal, losing what was typed")
+
+    # -- A knockdown's reagent, on the cell-lines board -----------------------
+    # Driven in a browser because the Knockdown column is five editable cells
+    # stacked inside one <td>, drawn only on a KD row — the shape that fails
+    # silently: the server answers every row correctly, the <thead> has the
+    # heading, and a `<td>` that renders a dash on the wrong condition, or an
+    # inline cell whose save never posts, is invisible to a response test.
+    def test_a_knockdown_rows_reagent_is_edited_in_the_grid_and_a_knockout_gets_a_dash(self):
+        wt = CellLine.objects.using(DB).get(name="HAP1", genotype="WT")
+        kd = CellLine.objects.using(DB).create(
+            name="HAP1", genotype="KD", site=self.site, target=self.target,
+            parent_line=wt, knockdown_method="siRNA")
+        ko = CellLine.objects.using(DB).create(
+            name="HAP1", genotype="KO", site=self.site, target=self.target,
+            parent_line=wt)
+        self.page.goto(f"{self.live_server_url}/pipeline/cell-lines/board/?gene=SNCA")
+        self.page.wait_for_selector(f'tr[data-row="{kd.pk}"]')
+        # The knockout's Knockdown cell is a dash, not five prompts.
+        self.assertIsNone(self.page.query_selector(
+            f'tr[data-row="{ko.pk}"] .edit[data-field="knockdown_catalogue"]'),
+            "a knockout row offered knockdown cells to fill in")
+        # The knockdown's is editable, and the save posts and redraws.
+        sel = f'tr[data-row="{kd.pk}"] .edit[data-field="knockdown_catalogue"]'
+        self.page.wait_for_selector(sel, state="attached")
+        self.page.click(sel)
+        self.page.fill(f'tr[data-row="{kd.pk}"] .edit input', "L-012345-00-0005")
+        self._posted(lambda: self.page.keyboard.press("Enter"))
+        kd.refresh_from_db()
+        self.assertEqual(kd.knockdown_catalogue, "L-012345-00-0005")
+        self.page.wait_for_function(
+            f"() => document.querySelector('tr[data-row=\"{kd.pk}\"]')"
+            ".textContent.includes('L-012345-00-0005')", timeout=20000)
+        self.assertEqual(self.errors, [])
 
 
 @unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
@@ -3942,3 +3841,773 @@ class JudgeOutcomesInARealBrowserTests(_RealBrowserHarness):
             f'#out-card-{ab.pk} button[data-value="selective"].on-selective',
             timeout=20000)
         self.assertEqual(self.errors, [])
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class ReviewQueueJudgementInARealBrowserTests(_RealBrowserHarness):
+    """The review queue's card carries both halves of the judgement.
+
+    Only true once the page has run: an answer pressed on the card is stored
+    and **redrawn from the reply**, the public line under it moves with it, and
+    neither the answer buttons nor the enlarge target tick the figure for
+    release — every control sits inside the card's ``<label>``, and a click a
+    label forwards selects a figure for publication without anybody meaning to.
+    """
+
+    def test_an_answer_redraws_its_card_and_does_not_select_the_figure(self):
+        import io
+        from PIL import Image
+        from pipeline.models import AntibodyOutcome, Company
+        from pipeline.services import review as review_svc
+        buf = io.BytesIO()
+        Image.new("RGB", (60, 60), (9, 9, 9)).save(buf, "PNG")
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number="ab175373", target=self.target, company=company,
+            site=self.site)
+        item = review_svc.stage(
+            antibody=ab, application_type="WB", content=buf.getvalue(),
+            filename="SNCA_ab175373_WB.png", recommended=False, staged_by="vera")
+
+        self.page.goto(f"{self.live_server_url}/pipeline/review/?gene=SNCA")
+        judge = f'[data-judge="{item.pk}"]'
+        self.page.wait_for_selector(f'{judge} .judge', state="attached")
+        self.page.click(f'{judge} .judge[data-axis="detects"][data-value="yes"]')
+        self.page.wait_for_selector(
+            f'{judge} .judge[data-axis="detects"][data-value="yes"][aria-pressed="true"]',
+            state="attached")
+
+        row = AntibodyOutcome.objects.using(DB).get(antibody=ab)
+        self.assertEqual((row.application_type, row.detects), ("WB", "yes"))
+        self.assertIn("set here", self.page.text_content(judge))
+
+        self.page.click(f'.zoom[data-zoom="{item.pk}"]')
+        self.assertNotIn("hidden",
+                         self.page.get_attribute("#zoom-overlay", "class"))
+        self.page.keyboard.press("Escape")
+        self.assertFalse(self.page.is_checked(f'.pick[data-id="{item.pk}"]'),
+                         "an answer or the enlarge ticked the figure for release")
+        self.assertEqual(self.errors, [])
+
+    def test_the_cards_still_to_answer_are_found_and_read_as_text(self):
+        """TP53 run, 26 Sep 2026: 113 cards was more page than a browser
+        agent could read, and the cards still to answer were somewhere in it.
+        The filter hides the rest — never unticks them — and the text list says
+        each card's answers in words."""
+        import io
+        from PIL import Image
+        from pipeline.models import Company
+        from pipeline.services import review as review_svc
+        buf = io.BytesIO()
+        Image.new("RGB", (60, 60), (9, 9, 9)).save(buf, "PNG")
+        company = Company.objects.using(DB).create(name="Abcam")
+        items = {}
+        for cat, who in (("ab1", "vera"), ("ab2", "vera"), ("ab3", "carl")):
+            ab = Antibody.objects.using(DB).create(
+                catalogue_number=cat, target=self.target, company=company,
+                site=self.site)
+            items[cat] = review_svc.stage(
+                antibody=ab, application_type="WB", content=buf.getvalue(),
+                filename=f"SNCA_{cat}_WB.png", recommended=False, staged_by=who)
+        self.page.goto(f"{self.live_server_url}/pipeline/review/?gene=SNCA")
+        judge = f'[data-judge="{items["ab1"].pk}"]'
+        self.page.wait_for_selector(f'{judge} .judge', state="attached")
+        for axis in ("detects", "selective"):
+            self.page.click(f'{judge} .judge[data-axis="{axis}"][data-value="yes"]')
+            self.page.wait_for_selector(
+                f'{judge} .judge[data-axis="{axis}"][data-value="yes"][aria-pressed="true"]',
+                state="attached")
+        self.page.select_option("#show", "mine-open")
+        self.assertIn("1 of 3 cards shown", self.page.text_content("#show-count"))
+        text = self.page.text_content("#queue-text-body")
+        self.assertIn("ab2 · WB · staged by vera", text)
+        self.assertNotIn("ab1", text)
+        self.assertNotIn("ab3", text)
+        self.page.select_option("#show", "all")
+        self.assertIn("ab1 · WB · staged by vera · not recommended · Detects the target: Yes",
+                      self.page.text_content("#queue-text-body"))
+        self.assertEqual(self.errors, [])
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class FlowCaveatAndWithdrawInARealBrowserTests(_RealBrowserHarness):
+    """Judge outcomes took over from Set recommendations on 25 Sep 2026.
+
+    Only true once the page runs: flow's background caveat is a set of buttons
+    on a recommended card and a sentence on one that is not, a press redraws
+    the public line under it, and the withdraw control is drawn — greyed with
+    its reason for a member, never simply absent.
+    """
+
+    def _fc(self, catalogue, recommended):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from pipeline.models import Company, PublicationImage
+        company, _ = Company.objects.using(DB).get_or_create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number=catalogue, target=self.target, company=company,
+            site=self.site, fc_recommended=recommended)
+        PublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="FC",
+            image=SimpleUploadedFile(f"{catalogue}.png", b"x"))
+        return ab
+
+    def _page_errors(self):
+        import re as _re
+        return [e for e in self.errors if not _re.match(r"^\d{3} ", e)]
+
+    def test_the_caveat_redraws_the_public_line_and_withdraw_is_drawn(self):
+        from pipeline.models import AntibodyOutcome
+        rec = self._fc("ab-rec", True)
+        plain = self._fc("ab-plain", False)
+        self.page.goto(f"{self.live_server_url}/pipeline/outcomes/?gene=SNCA&app=FC")
+        # Both drawn with "only what is still to judge" left ticked: a caveat
+        # is never a gap, and the filter hid every flow card until it knew.
+        self.page.wait_for_selector(f"#out-card-{rec.pk}", state="attached",
+                                    timeout=20000)
+        self.page.wait_for_selector(f"#out-card-{plain.pk}", state="attached")
+        self.assertEqual(self.page.locator(
+            f'#out-card-{plain.pk} .axis-btns button').count(), 0)
+        self.assertIn("caveat on a recommendation",
+                      self.page.text_content(f"#out-card-{plain.pk}"))
+
+        self.page.click(f'#out-card-{rec.pk} button[data-axis="background"][data-value="yes"]')
+        self.page.wait_for_function(
+            f"document.querySelector('#out-card-{rec.pk} .public-line')"
+            f".textContent.includes('non-specific background')", timeout=10000)
+        self.assertEqual(AntibodyOutcome.objects.using(DB).get(antibody=rec).background,
+                         "yes")
+
+        self.assertNotIn("out-hidden",
+                         self.page.get_attribute("#withdraw-bar", "class"))
+        self.assertTrue(self.page.is_disabled("#withdraw-open"))
+        self.assertIn("administrator", self.page.text_content("#withdraw-why"))
+        self.assertEqual(self._page_errors(), [])
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class CropperStacksAnIhcRowInARealBrowserTests(_RealBrowserHarness):
+    """IHC maps a whole row to one antibody and stacks its panels (26 Sep 2026).
+    Only true once the page runs: the reading-order guess, the row-level
+    mapping table and the preview are all browser-side, and a preview that
+    cropped each panel as its own antibody would still load without an error."""
+
+    def test_two_rows_of_three_panels_preview_as_two_stacked_crops(self):
+        import io
+        from PIL import Image as _Image
+        from pipeline.models import Company
+        company = Company.objects.using(DB).create(name="Abcam")
+        for cat in ("ab111", "ab222"):
+            Antibody.objects.using(DB).create(
+                catalogue_number=cat, target=self.target, company=company,
+                site=self.site)
+        buf = io.BytesIO()
+        _Image.new("RGB", (300, 200), (180, 90, 60)).save(buf, "PNG")
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.page.select_option("#app", "IHC")
+        self.page.fill("#nrows", "2")
+        self.page.dispatch_event("#nrows", "input")
+        for i in range(2):
+            self.page.fill(f'.rowcount[data-r="{i}"]', "3")
+        self.page.set_input_files("#file", files=[{
+            "name": "fig7.png", "mimeType": "image/png", "buffer": buf.getvalue()}])
+        self.page.wait_for_selector("rect.cell", state="attached", timeout=20000)
+        self.assertEqual(self.page.locator("rect.cell").count(), 6)
+        for i in range(6):
+            self.page.locator("rect.cell").nth(i).dispatch_event("click")
+        # One mapping row per antibody row, each with its three panels.
+        self.assertEqual(self.page.locator("#mapwrap select[data-keys]").count(), 2)
+        self.assertIn("SNCA KO", self.page.input_value("#ihclabels"))
+        self.page.click("#gen")
+        names = self.page.locator("#crops a.fn").all_text_contents()
+        self.assertEqual(names, ["SNCA_ab111_IHC.png", "SNCA_ab222_IHC.png"])
+        # Two labels over three panels is refused in the preview, as the save
+        # refuses it — never cropped under the wrong names.
+        self.page.fill("#ihclabels", "WT, KO")
+        self.page.dispatch_event("#ihclabels", "change")
+        self.page.click("#gen")
+        self.assertEqual(self.page.locator("#crops a.fn").count(), 0)
+        import re as _re
+        self.assertEqual([e for e in self.errors if not _re.match(r"^\d{3} ", e)], [])
+
+
+class TheAddLinkFillsTheGeneInARealBrowserTests(_RealBrowserHarness):
+    """`?gene=X&add=1` is the link every "not in the pipeline yet" refusal
+    sends you to (the cropper's banner, the antibody paste). It opened the Add
+    targets panel with the gene box empty — looked up by `getElementById(null)`
+    — so the reader retyped the gene into the page that had just been told it."""
+
+    def test_the_add_panel_opens_with_the_gene_filled_in(self):
+        self.page.goto(f"{self.live_server_url}/pipeline/targets/board/?gene=TRPA1&add=1")
+        self.page.wait_for_selector("#new-panel table tbody input", state="attached")
+        self.assertEqual(self.page.input_value(
+            "#new-panel table tbody tr:first-child input"), "TRPA1")
+
+
+class CropperPreviewsAnIccIfCropInARealBrowserTests(_RealBrowserHarness):
+    """The legend colours the ICC-IF and FC previews draw with were once lost
+    in an edit to the IHC helpers beside them (26 Sep 2026): the page loaded,
+    the IHC preview worked, and Generate threw a ReferenceError on every other
+    application. Only a preview that draws a legend can see it."""
+
+    def test_an_icc_if_preview_draws_without_an_error(self):
+        import io
+        from PIL import Image as _Image
+        from pipeline.models import Company
+        company = Company.objects.using(DB).create(name="Abcam")
+        Antibody.objects.using(DB).create(
+            catalogue_number="ab111", target=self.target, company=company,
+            site=self.site)
+        buf = io.BytesIO()
+        _Image.new("RGB", (200, 200), (180, 90, 60)).save(buf, "PNG")
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.page.select_option("#app", "ICC-IF")
+        self.page.fill("#nrows", "1")
+        self.page.dispatch_event("#nrows", "input")
+        self.page.fill('.rowcount[data-r="0"]', "1")
+        self.page.fill("#cellline", "HAP1")
+        self.page.set_input_files("#file", files=[{
+            "name": "if.png", "mimeType": "image/png", "buffer": buf.getvalue()}])
+        self.page.wait_for_selector("rect.cell", state="attached", timeout=20000)
+        self.page.locator("rect.cell").first.dispatch_event("click")
+        self.page.click("#gen")
+        self.assertEqual(self.page.locator("#crops a.fn").all_text_contents(),
+                         ["SNCA_ab111_IF.png"])
+        import re as _re
+        self.assertEqual([e for e in self.errors if not _re.match(r"^\d{3} ", e)], [])
+
+
+class CropperTakesItsAntibodiesFromThePipelineInARealBrowserTests(_RealBrowserHarness):
+    """The cropper's list comes from what is on file for the gene, not from a
+    pasted table (owner, 25 Sep 2026). Only true once the page runs: the gene
+    check fills an empty list, and unticking one takes it out of the list that
+    drives the mapping."""
+
+    def test_the_list_fills_from_the_gene_and_a_tick_removes_one(self):
+        from pipeline.models import Company
+        company = Company.objects.using(DB).create(name="Abcam")
+        for cat in ("ab111", "ab222"):
+            Antibody.objects.using(DB).create(
+                catalogue_number=cat, target=self.target, company=company,
+                site=self.site)
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.assertEqual(self.page.input_value("#abs").split("\n"),
+                         ["ab111", "ab222"])
+        self.page.uncheck('#onfile input.onfile[data-cat="ab111"]')
+        self.assertEqual(self.page.input_value("#abs"), "ab222")
+        self.assertEqual(self.page.locator("#metapaste").count(), 0,
+                         "the paste-a-table parser is still drawn")
+        import re as _re
+        self.assertEqual([e for e in self.errors if not _re.match(r"^\d{3} ", e)], [])
+
+
+class CropperAsksOnThePageInARealBrowserTests(_RealBrowserHarness):
+    """The cropper is driven by a Cowork browser agent that only clicks and
+    types (26 Sep 2026), so what it asks and refuses has to be on the page.
+    The save's consent was a native confirm() and every refusal an alert(),
+    which such an agent cannot read — and which a person answers by reflex.
+    Only true once the page runs: the panel, its buttons and the write they
+    trigger are all browser-side."""
+
+    def _figure(self, name="fig.png", size=(200, 120)):
+        import io
+        from PIL import Image as _Image
+        buf = io.BytesIO()
+        _Image.new("RGB", size, (180, 90, 60)).save(buf, "PNG")
+        return {"name": name, "mimeType": "image/png", "buffer": buf.getvalue()}
+
+    def _page_errors(self):
+        import re as _re
+        return [e for e in self.errors if not _re.match(r"^\d{3} ", e)]
+
+    def test_the_save_asks_in_the_page_and_queues_the_crop(self):
+        from pipeline.models import Company, PendingPublicationImage
+        company = Company.objects.using(DB).create(name="Abcam")
+        Antibody.objects.using(DB).create(
+            catalogue_number="ab111", target=self.target, company=company,
+            site=self.site)
+        dialogs = []
+        self.page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.page.fill("#nrows", "1")
+        self.page.dispatch_event("#nrows", "input")
+        self.page.fill("#rowcount-0", "1")
+        self.page.set_input_files("#file", files=[self._figure()])
+        self.page.wait_for_selector("#cell-0_0", state="attached", timeout=20000)
+        self.page.locator("#cell-0_0").dispatch_event("click")
+        self.page.click("#commit")
+        self.page.wait_for_selector("#commit-yes", timeout=20000)
+        self.assertTrue(self.page.evaluate(
+            "document.querySelector('#commitstatus').firstElementChild.contains("
+            "document.querySelector('#commit-yes'))"),
+            "the save's button must sit above its summary, not at the foot of it")
+        self.assertIn("Save 1 crop to the review queue",
+                      self.page.text_content("#commit-yes"))
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0,
+                         "the check wrote before anybody agreed")
+        self.page.click("#commit-yes")
+        self.page.wait_for_function(
+            "document.querySelector('#commitstatus').textContent.includes('Saved')",
+            timeout=20000)
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 1)
+        self.assertEqual(dialogs, [], "a native dialog was opened")
+        self.assertEqual(self._page_errors(), [])
+
+    def test_a_gene_not_on_file_is_refused_on_the_page(self):
+        dialogs = []
+        self.page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=NOPE1")
+        self.page.wait_for_function(
+            "document.querySelector('#genestatus').textContent.includes('not in the pipeline')",
+            timeout=20000)
+        self.assertIn("/pipeline/targets/board/",
+                      self.page.get_attribute("#genestatus #add-target-link", "href"))
+        self.page.fill("#abs", "abX")
+        self.page.fill("#nrows", "1")
+        self.page.dispatch_event("#nrows", "input")
+        self.page.fill("#rowcount-0", "1")
+        self.page.set_input_files("#file", files=[self._figure()])
+        self.page.wait_for_selector("#cell-0_0", state="attached", timeout=20000)
+        self.page.locator("#cell-0_0").dispatch_event("click")
+        self.page.click("#commit")
+        self.page.wait_for_selector('#commitstatus[role="alert"]', timeout=20000)
+        text = self.page.text_content("#commitstatus")
+        self.assertIn("not in the pipeline yet", text)
+        self.assertNotIn("ambiguous", text)
+        self.assertFalse(Target.objects.using(DB).filter(gene_name="NOPE1").exists())
+        self.assertEqual(dialogs, [])
+
+    def test_one_rows_edges_and_columns_copy_to_every_row(self):
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.select_option("#app", "IHC")
+        self.page.fill("#nrows", "3")
+        self.page.dispatch_event("#nrows", "input")
+        self.page.fill("#samepanels", "2")
+        self.assertEqual([self.page.input_value(f"#rowcount-{r}") for r in range(3)],
+                         ["2", "2", "2"])
+        self.page.set_input_files("#file", files=[self._figure(size=(400, 300))])
+        self.page.wait_for_selector("#cell-2_1", state="attached", timeout=20000)
+        # Fit row 1 by hand — the drag, done directly — then copy it.
+        self.page.evaluate("() => { S.bandLeft[0]=40; S.bandRight[0]=360;"
+                           " S.vLines[0]=[0.25,0.5,0.75]; render(); }")
+        self.page.select_option("#copyrow", "0")
+        self.page.click("#copyrow-apply")
+        self.assertEqual(self.page.locator("rect.cell").count(), 12)
+        for key in ("1_0", "2_0", "2_3"):
+            with self.subTest(cell=key):
+                row0 = "0_" + key.split("_")[1]
+                self.assertEqual(self.page.get_attribute(f"#cell-{key}", "x"),
+                                 self.page.get_attribute(f"#cell-{row0}", "x"))
+        self.assertIn("copied to the other 2 rows",
+                      self.page.text_content("#copyrow-status"))
+        self.assertEqual(self._page_errors(), [])
+
+
+class CropperKeepsTheWholeFigureInARealBrowserTests(_RealBrowserHarness):
+    """Box 6 — "Whole figure on the gene's IHC page" — is the one place a
+    figure's label, legend and antibodies for the IHC page are typed, and
+    they live in the browser's own copy of the session until it is saved.
+    A key the page did not put into `sessionPayload`, or did not read back in
+    `loadSession`, is dropped on every save with nothing on screen to say so,
+    and the server-side round trip cannot see that. So: type, save, reload,
+    resume, and read the boxes."""
+
+    def test_the_whole_figure_boxes_survive_save_reload_and_resume(self):
+        import io
+        from PIL import Image as _Image
+        from pipeline.models import Company, CropperImage
+        company = Company.objects.using(DB).create(name="Abcam")
+        Antibody.objects.using(DB).create(
+            catalogue_number="ab111", target=self.target, company=company,
+            site=self.site)
+        buf = io.BytesIO()
+        _Image.new("RGB", (200, 120), (180, 90, 60)).save(buf, "JPEG")
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.page.select_option("#app", "IHC")
+        self.page.set_input_files("#file", files=[{
+            "name": "fig5.jpg", "mimeType": "image/jpeg", "buffer": buf.getvalue()}])
+        self.page.wait_for_selector("#ihcpage-on", state="attached", timeout=20000)
+        self.page.check("#ihcpage-on")
+        self.page.uncheck("#ihcpage-crop")
+        self.page.fill("#ihcpage-label", "Figure 5")
+        self.page.fill("#ihcpage-legend", "Mouse tissue.\nAs published.")
+        self.page.check("#ihcpage-tissue")
+        self.page.fill("#ihcpage-organs", "lung")
+        self.page.check("#ihcpage-he")
+        self.page.check("#ihcpage-ab-0")
+        # Typed without leaving the box: the agent that drives this page
+        # does not press Tab.
+        self.page.wait_for_function(
+            "() => SESS.images.every(im => im.id)", timeout=20000)
+        self.page.click("#save")
+        self.page.wait_for_function(
+            "document.querySelector('#savestatus').textContent.includes('saved')",
+            timeout=20000)
+        page = CropperImage.objects.using(DB).get().grid["ihcPage"]
+        self.assertEqual((page["label"], page["crop"], page["antibodies"]),
+                         ("Figure 5", False, ["ab111"]))
+
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#sessionpick option[value]:not([value=""])',
+                                    state="attached", timeout=20000)
+        value = self.page.get_attribute(
+            '#sessionpick option[value]:not([value=""])', "value")
+        self.page.select_option("#sessionpick", value)
+        self.page.wait_for_selector("#ihcpage-label", state="attached", timeout=20000)
+        self.page.wait_for_selector("#ihcpage-ab-0", state="attached", timeout=20000)
+        self.assertEqual(self.page.input_value("#ihcpage-label"), "Figure 5")
+        self.assertEqual(self.page.input_value("#ihcpage-legend"),
+                         "Mouse tissue.\nAs published.")
+        self.assertEqual(self.page.input_value("#ihcpage-organs"), "lung")
+        self.assertTrue(self.page.is_checked("#ihcpage-on"))
+        self.assertFalse(self.page.is_checked("#ihcpage-crop"))
+        self.assertTrue(self.page.is_checked("#ihcpage-he"))
+        self.assertTrue(self.page.is_checked("#ihcpage-ab-0"))
+
+        # And the save: a figure-only session (nothing cropped) is a save of
+        # one whole figure, asked and answered on the page.
+        from pipeline.models import PendingIhcFigure, PendingPublicationImage
+        self.page.click("#commit")
+        self.page.wait_for_selector("#commit-yes", timeout=20000)
+        self.assertIn("Save 1 whole IHC figure to the review queue",
+                      self.page.text_content("#commit-yes"))
+        self.page.click("#commit-yes")
+        self.page.wait_for_function(
+            "document.querySelector('#commitstatus').textContent.includes('Saved')",
+            timeout=20000)
+        self.assertEqual(PendingIhcFigure.objects.using(DB).count(), 1)
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0)
+        import re as _re
+        self.assertEqual([e for e in self.errors if not _re.match(r"^\d{3} ", e)], [])
+
+
+class CropperPlacesLinesByNumberInARealBrowserTests(_RealBrowserHarness):
+    """Placing the grid lines (26 Sep 2026). A 2px line at 20% zoom could not
+    be grabbed by a browser agent, whose clicks land ~1.1x off, and a missed
+    drag landed on a cell and assigned it. So every line is also a box in
+    image pixels, a selected line moves with the arrow keys, the hit area is
+    screen-sized and reaches the image border, and a press that dragged is
+    not a click. All browser-side."""
+
+    def _load(self, size=(400, 300), panels=4):
+        import io
+        from PIL import Image as _Image
+        buf = io.BytesIO()
+        _Image.new("RGB", size, (180, 90, 60)).save(buf, "PNG")
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.fill("#nrows", "1")
+        self.page.dispatch_event("#nrows", "input")
+        self.page.fill("#rowcount-0", str(panels))
+        self.page.set_input_files("#file", files=[{
+            "name": "fig.png", "mimeType": "image/png", "buffer": buf.getvalue()}])
+        self.page.wait_for_selector("#line-row1-split3", state="attached", timeout=20000)
+
+    def _type(self, sel, value):
+        self.page.fill(sel, str(value))
+        self.page.dispatch_event(sel, "change")
+
+    def _screen(self, x, y):
+        """Image px -> page px, read off the drawn svg."""
+        return self.page.evaluate(
+            """([x, y]) => { const r = document.querySelector('#svgwrap svg')
+                 .getBoundingClientRect();
+               return [r.left + LINE_PAD + x*S.scale, r.top + LINE_PAD + y*S.scale]; }""",
+            [x, y])
+
+    def _errors(self):
+        import re as _re
+        return [e for e in self.errors if not _re.match(r"^\d{3} ", e)]
+
+    def test_typed_lines_move_the_grid_and_an_edge_keeps_the_splits(self):
+        self._load()
+        self.assertEqual(self.page.input_value("#line-row1-right"), "400")
+        self._type("#line-row1-split1", 150)
+        self._type("#line-row1-left", 50)
+        # The left edge moved; the splits stayed where they are on the image.
+        self.assertEqual([self.page.input_value(f"#line-row1-split{k}") for k in (1, 2, 3)],
+                         ["150", "200", "300"])
+        self.assertEqual(self.page.text_content("#line-summary"),
+                         "Row 1: left 50, right 400, splits 150 / 200 / 300; "
+                         "no dividers; top 0, bottom 300")
+        # What the cells are cut from is what the boxes say.
+        self.assertAlmostEqual(self.page.evaluate("cells()[1].rect.l"), 150, places=6)
+        # A split past its neighbour is refused beside the box; nothing moves.
+        self._type("#line-row1-split1", 250)
+        self.assertIn("150", self.page.evaluate("String(cells()[1].rect.l)"))
+        why = self.page.text_content("#line-row1-split1-why")
+        self.assertIn("51–199", why)
+        self.assertIn("split 2 (200)", why)
+        self._type("#line-row1-right", 401)
+        self.assertIn("400 px wide", self.page.text_content("#line-row1-right-why"))
+        self.assertEqual(self._errors(), [])
+
+    def test_a_border_line_is_grabbed_nudged_and_a_drag_assigns_nothing(self):
+        self._load()
+        # The right edge sits on the image's border; press 7 screen px outside it.
+        x, y = self._screen(400, 150)
+        self.page.mouse.click(x + 7, y)
+        self.assertIn("lp-on", self.page.get_attribute("#line-row1-right", "class"))
+        self.page.keyboard.press("Shift+ArrowLeft")
+        self.page.keyboard.press("ArrowLeft")
+        self.assertEqual(self.page.input_value("#line-row1-right"), "389")
+        self.assertEqual(self.page.input_value("#line-row1-split3"), "300")
+        # Not while a box has the keys.
+        self.page.focus("#cellline")
+        self.page.keyboard.press("ArrowLeft")
+        self.page.locator("#gene").click()
+        self.page.keyboard.press("ArrowUp")
+        self.assertEqual(self.page.input_value("#line-row1-right"), "389")
+
+        # A missed drag over a cell assigns nothing; a plain click does.
+        cx, cy = self._screen(250, 150)
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx + 30, cy + 10, steps=4)
+        self.page.mouse.up()
+        self.assertNotIn("assigned", self.page.get_attribute("#cell-0_2", "class"))
+        # A drag that starts on a line moves it and assigns nothing either.
+        lx, ly = self._screen(200, 150)
+        self.page.mouse.move(lx + 6, ly)
+        self.page.mouse.down()
+        self.page.mouse.move(lx + 6 + 20, ly, steps=4)
+        self.page.mouse.up()
+        self.assertNotEqual(self.page.input_value("#line-row1-split2"), "200")
+        self.assertEqual(self.page.locator("rect.cell.assigned").count(), 0)
+        cx, cy = self._screen(330, 150)
+        self.page.mouse.click(cx + 10, cy)
+        self.assertIn("assigned", self.page.get_attribute("#cell-0_3", "class"))
+        self.assertEqual(self._errors(), [])
+
+
+class CropperWorksByElementInARealBrowserTests(_RealBrowserHarness):
+    """Everything on the cropper an agent can do by element rather than by
+    canvas pixel (26 Sep 2026): each panel is a checkbox and an antibody
+    picker that stay in step with the figure, Preview and Save stay in the
+    window, the preview is summarised in words, and the reading-order box can
+    be cleared and retyped. All browser-side."""
+
+    def _load(self, app="WB", rows=1, panels=3, abs=("ab111", "ab222")):
+        import io
+        from PIL import Image as _Image
+        from pipeline.models import Company
+        company = Company.objects.using(DB).create(name="Abcam")
+        for cat in abs:
+            Antibody.objects.using(DB).create(
+                catalogue_number=cat, target=self.target, company=company,
+                site=self.site)
+        buf = io.BytesIO()
+        _Image.new("RGB", (300, 100 * rows), (180, 90, 60)).save(buf, "PNG")
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_selector('#onfile input.onfile', state="attached",
+                                    timeout=20000)
+        self.page.select_option("#app", app)
+        self.page.fill("#nrows", str(rows))
+        self.page.dispatch_event("#nrows", "input")
+        for r in range(rows):
+            self.page.fill(f"#rowcount-{r}", str(panels))
+        self.page.set_input_files("#file", files=[{
+            "name": "fig.png", "mimeType": "image/png", "buffer": buf.getvalue()}])
+        self.page.wait_for_selector(f"#cell-{rows - 1}_{panels - 1}",
+                                    state="attached", timeout=20000)
+
+    def _errors(self):
+        import re as _re
+        return [e for e in self.errors if not _re.match(r"^\d{3} ", e)]
+
+    def test_panels_are_assigned_by_element_and_the_preview_is_in_words(self):
+        self.page.set_viewport_size({"width": 1000, "height": 520})
+        self._load()
+        # Save is in the window with the panel scrolled to its top.
+        self.page.evaluate("document.querySelector('.panel').scrollTop = 0")
+        box = self.page.locator("#commit").bounding_box()
+        self.assertLessEqual(box["y"] + box["height"], 520)
+
+        self.page.click("#celllist-open")
+        self.page.check("#cell-0_1-toggle")
+        self.assertIn("assigned", self.page.get_attribute("#cell-0_1", "class"))
+        self.assertEqual(self.page.input_value("#cell-0_1-ab"), "0")
+        # The figure ticks the list.
+        self.page.locator("#cell-0_2").dispatch_event("click")
+        self.assertTrue(self.page.is_checked("#cell-0_2-toggle"))
+        self.page.select_option("#cell-0_2-ab", "0")
+        self.page.select_option("#cell-0_1-ab", "1")
+        self.assertEqual(self.page.input_value("#map-1"), "1")
+        self.page.uncheck("#cell-0_2-toggle")
+        self.assertNotIn("assigned", self.page.get_attribute("#cell-0_2", "class"))
+        self.assertTrue(self.page.is_disabled("#cell-0_2-ab"))
+
+        self.page.click("#gen")
+        text = self.page.text_content("#preview-summary")
+        self.assertIn("1 crop from 1 figure", text)
+        self.assertIn("SNCA_ab222_WB.png", text)
+
+        # The reading-order box can be emptied and retyped; it acts on Enter
+        # (or on leaving the box), never on each keystroke.
+        self.page.fill("#aboff", "")
+        self.assertEqual(self.page.input_value("#aboff"), "")
+        self.page.fill("#aboff", "2")
+        self.page.press("#aboff", "Enter")
+        self.assertEqual(self.page.evaluate("S.abOffset"), 1)
+        self.assertEqual(self._errors(), [])
+
+    def test_an_ihc_row_is_assigned_and_named_as_a_row(self):
+        from pipeline.models import Company  # noqa: F401  (fixture in _load)
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.select_option("#app", "IHC")
+        self.assertIn("already stacked and labelled",
+                      self.page.text_content("#panelcheck"))
+        self._load(app="IHC", rows=2, panels=3)
+        self.page.click("#celllist-open")
+        self.assertTrue(self.page.is_disabled("#cellrow-0-ab"))
+        self.page.click("#cellrow-0-all")
+        self.assertEqual(self.page.locator("#svgwrap rect.cell.assigned").count(), 3)
+        self.page.select_option("#cellrow-0-ab", "1")
+        self.assertEqual(self.page.evaluate(
+            "[0,1,2].map(c => S.cellState['0_'+c].ab)"), [1, 1, 1])
+        self.assertEqual(self.page.locator("#cell-0_0-ab").count(), 0)
+        self.page.click("#gen")
+        self.assertIn("SNCA_ab222_IHC.png", self.page.text_content("#preview-summary"))
+        self.assertEqual(self._errors(), [])
+
+
+class ReviewQueueReleasesAWholeFigureInARealBrowserTests(_RealBrowserHarness):
+    """The queue's one Release press, with a crop and a whole IHC figure
+    ticked: the panel is drawn from the server's manifest of the ticked set
+    and the count that goes back is the sum. All browser-side."""
+
+    @tag("commissioning")
+    def test_one_press_releases_a_crop_and_a_whole_figure(self):
+        import io
+        from django.core.files.base import ContentFile
+        from PIL import Image as _Image
+        from pipeline.models import Company, IhcFigure, PublicationImage
+        from pipeline.services import ihc_figures
+        from pipeline.services import review as review_svc
+        User.objects.using("academy_db").filter(username="vera").update(
+            is_superuser=True)
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number="ab111", target=self.target, company=company,
+            site=self.site)
+        buf = io.BytesIO()
+        _Image.new("RGB", (60, 40), (120, 60, 40)).save(buf, "PNG")
+        review_svc.stage(antibody=ab, application_type="IHC",
+                         content=buf.getvalue(), filename="SNCA_ab111_IHC.png")
+        ihc_figures.stage(
+            target=self.target,
+            spec=ihc_figures.normalise({"on": True, "label": "Figure 4",
+                                        "legend": "As published.",
+                                        "samples": {"hap1_pellets": True}}),
+            content=buf.getvalue(), width=60, height=40, antibodies=[ab])
+        self.page.goto(f"{self.live_server_url}/pipeline/review/?gene=SNCA")
+        self.page.wait_for_selector(".pick-fig", state="attached", timeout=20000)
+        self.page.click("#pick-all")
+        self.assertIn("2 figures", self.page.text_content("#release"))
+        self.page.click("#release")
+        self.page.wait_for_function(
+            "document.querySelector('#consent-body').textContent.includes('whole IHC figure')",
+            timeout=20000)
+        self.page.click("#release-confirm")
+        self.page.wait_for_function(
+            "document.querySelector('#done').textContent.includes('Published')",
+            timeout=20000)
+        self.assertEqual(PublicationImage.objects.using(DB).count(), 1)
+        self.assertEqual(IhcFigure.objects.using(DB).count(), 1)
+        self.assertIn("/antibodies/SNCA/ihc/",
+                      self.page.inner_html("#done"))
+        import re as _re
+        self.assertEqual([e for e in self.errors if not _re.match(r"^\d{3} ", e)], [])
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class IhcBenchSheetInARealBrowserTests(_RealBrowserHarness):
+    """The IHC bench sheet's conditions block reaches the session, and the
+    preview says what the report will still be missing (PLATFORM_ROADMAP #102).
+
+    A browser, because both halves are page wiring the server cannot see: the
+    block is parsed on the preview and must be *carried* by the drawer into
+    the commit's JSON — dropped there, the save reports success and the
+    antigen retrieval is gone — and the warning is drawn by `board.js` from a
+    list the server already answered correctly."""
+
+    def test_the_conditions_block_is_saved_and_the_gaps_are_named(self):
+        import io
+        import tempfile
+
+        import openpyxl
+
+        from pipeline.models import (Antibody, Company, ExperimentSession,
+                                     IhcResult)
+        from pipeline.services.planning import generate_bench_sheet
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab777", site_id=self.site.pk)
+        session = ExperimentSession.objects.using(DB).create(
+            target_id=self.target.pk, procedure_type="IHC", date="2026-09-26",
+            site_id=self.site.pk, experimenter_id=member.pk, status="planned")
+        IhcResult.objects.using(DB).create(session_id=session.pk, antibody_id=ab.pk)
+        session.refresh_from_db(using=DB)    # the date back as a date
+
+        buf = io.BytesIO()
+        generate_bench_sheet(session).save(buf)
+        buf.seek(0)
+        wb = openpyxl.load_workbook(buf)
+        ws = wb["IHC"]
+        header_row = next(i for i, r in enumerate(ws.iter_rows(values_only=True), 1)
+                          if "Ab#" in r)
+        header = [c.value for c in ws[header_row]]
+        ws.cell(row=header_row + 1, column=header.index("Specific staining") + 1,
+                value="Yes")
+        label_row = next(r for r in range(1, ws.max_row + 1)
+                         if ws.cell(row=r, column=1).value == "Antigen retrieval")
+        ws.cell(row=label_row, column=2, value="CC1, 95 °C, 64 min")
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as fh:
+            wb.save(fh)
+            path = fh.name
+
+        self.page.goto(f"{self.live_server_url}/pipeline/sessions/board/")
+        self.page.wait_for_selector(f'tr[data-row="{session.pk}"]')
+        self.page.click(f'tr[data-row="{session.pk}"] .results-btn')
+        self.page.wait_for_selector(
+            f'#results-drawer-body .bench-file[data-session="{session.pk}"]')
+        self.page.set_input_files(
+            f'#results-drawer-body .bench-file[data-session="{session.pk}"]', path)
+        self.page.click(f'#results-drawer-body .bench-preview[data-session="{session.pk}"]')
+        self.page.wait_for_selector("#results-drawer-body .report-needs", timeout=20000)
+        needs = self.page.text_content("#results-drawer-body .report-needs")
+        self.assertIn("[scanner]", needs)
+        self.assertNotIn("[antigen retrieval]", needs, "the sheet filled it")
+        self.assertIn("you can still save", needs)
+        out = self.page.text_content(f'#results-drawer-body .bench-out[data-session="{session.pk}"]')
+        self.assertIn("CC1, 95 °C, 64 min", out)
+
+        with self.page.expect_response(
+                lambda r: r.request.method == "POST" and "commit" in r.url,
+                timeout=20000):
+            self.page.click(f'#results-drawer-body .bench-commit[data-session="{session.pk}"]')
+        session.refresh_from_db(using=DB)
+        self.assertEqual(session.session_conditions.get("antigen_retrieval"),
+                         "CC1, 95 °C, 64 min")
+        self.assertEqual(IhcResult.objects.using(DB).get(session_id=session.pk)
+                         .specific_signal, "Yes")
+        self.page.wait_for_function(
+            "document.querySelector('#results-drawer-body').textContent.includes('Recorded.')",
+            timeout=20000)
+        self.assertIn("still be missing",
+                      self.page.text_content("#results-drawer-body"))
+        self.assertEqual([e for e in self.errors if not re.match(r"^\d{3} ", e)], [])

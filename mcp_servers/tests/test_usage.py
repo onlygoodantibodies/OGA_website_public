@@ -101,6 +101,23 @@ def test_a_plain_http_url_switches_reporting_off(monkeypatch):
     assert usage.enabled()
 
 
+def test_render_private_network_name_is_the_one_other_http_url(monkeypatch):
+    """Since 27 Sep 2026 the website has no public origin name, so the report
+    goes over Render's private network, which is plain http. A single-label host
+    is the only kind public DNS cannot resolve, so it is accepted and every
+    dotted one still switches reporting off — including the public site itself."""
+    monkeypatch.setenv(usage.ENV_TOKEN, "t0ken")
+    monkeypatch.setenv(usage.ENV_URL, "http://oga-website:10000/internal/mcp-usage/")
+    assert usage.enabled()
+    for url in ("http://onlygoodantibodies.co.uk/internal/mcp-usage/",
+                "http://oga-website.onrender.com/internal/mcp-usage/",
+                "http://10.0.0.5:10000/internal/mcp-usage/",
+                "http:///internal/mcp-usage/",
+                "ftp://oga-website/internal/mcp-usage/"):
+        monkeypatch.setenv(usage.ENV_URL, url)
+        assert not usage.enabled(), url
+
+
 def test_the_request_carries_the_token_and_names_itself(monkeypatch):
     """What actually goes on the wire.
 
@@ -222,3 +239,72 @@ def test_enabled_needs_both_halves(monkeypatch):
     assert not usage.enabled()
     monkeypatch.setenv(usage.ENV_TOKEN, "t")
     assert usage.enabled()
+
+
+# --- which client was it -----------------------------------------------------
+#
+# The hosted server is stateless, so the session that serves a tool call never
+# saw the client's `initialize` and `clientInfo` is gone by then. That cost the
+# name on 573 of 609 external calls, silently — the call succeeds and the page
+# prints "did not say". These drive the real streamable-HTTP transport, since
+# the only thing that can be wrong here is where the SDK keeps the request.
+
+
+def _call_over_http(stateless, user_agent):
+    import httpx
+    from asgi_lifespan import LifespanManager
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.server.fastmcp import FastMCP
+
+    mcp = FastMCP("test", stateless_http=stateless)
+
+    @mcp.tool()
+    def echo(word: str) -> str:
+        return word
+
+    app = usage.instrument(mcp).streamable_http_app()
+    # The SDK's DNS-rebinding guard wants a loopback host with a port.
+    base = "http://127.0.0.1:8000"
+
+    def factory(headers=None, timeout=None, auth=None):
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=base,
+            headers={**(headers or {}), "User-Agent": user_agent},
+            timeout=timeout, auth=auth)
+
+    async def run():
+        async with LifespanManager(app):
+            async with streamablehttp_client(
+                    f"{base}/mcp", httpx_client_factory=factory) as (r, w, _):
+                async with ClientSession(r, w) as session:
+                    await session.initialize()
+                    await session.call_tool("echo", {"word": "hi"})
+
+    asyncio.run(run())
+
+
+def test_a_stateless_call_is_named_by_its_user_agent(reporting_on):
+    _call_over_http(stateless=True, user_agent="Claude-User/1.0 (+https://x)")
+    assert reporting_on == [("echo", "Claude-User", False)]
+
+
+def test_clientinfo_still_wins_where_the_session_has_it(reporting_on):
+    """Stateful, the client's own `clientInfo` name is there and is the better
+    answer; the header is only the fallback. The SDK's client calls itself
+    `mcp`."""
+    _call_over_http(stateless=False, user_agent="Claude-User/1.0")
+    assert reporting_on == [("echo", "mcp", False)]
+
+
+@pytest.mark.parametrize("header, name", [
+    ("openai-mcp/1.0.0", "openai-mcp"),
+    ("Claude-User/1.0 (+https://support.anthropic.com/)", "Claude-User"),
+    ("python-httpx/0.28.1", "python-httpx"),
+    ("claude-code", "claude-code"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64)", ""),
+    ("", ""),
+    (None, ""),
+])
+def test_a_user_agent_names_the_product_not_the_release(header, name):
+    assert usage.user_agent_name(header) == name

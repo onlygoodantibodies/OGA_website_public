@@ -76,9 +76,18 @@ keep emitting ``verdict`` for whoever is already reading it.**
 """
 from __future__ import annotations
 
-# The four applications tested under the consensus protocols, in the order every
-# OGA surface prints them.
-APPLICATIONS = ('WB', 'IP', 'ICC-IF', 'FC')
+# The five applications OGA publishes a verdict for, in the order every OGA
+# surface prints them. IHC joined on 26 Sep 2026 (API 2.2.0): immunohistochemistry
+# on FFPE HAP1 cell pellets, not tissue, judged by eye on the ICC-IF model.
+#
+# Not every reader follows this tuple, and the ones that do not keep their own
+# four on purpose, each saying why beside it: the extension index
+# (`core/extension_index.py`, whose shipped builds read four keys), Europe PMC
+# (`core/europepmc_annotations.py`), the CiteAb citation bits
+# (`core/citations.py`), the MCP's scoring of a paper's own applications
+# (`mcp_servers/common/portal.py::_PAPER_APPS`) and all the bench and session
+# machinery, which records no IHC work yet.
+APPLICATIONS = ('WB', 'IP', 'ICC-IF', 'FC', 'IHC')
 
 #: The original three-valued vocabulary. **Legacy, and staying** — see
 #: ``SUPPORT_VALUES`` below for the one to write new code against.
@@ -142,7 +151,35 @@ _FLAG = {
     'IP': 'ip_recommended',
     'ICC-IF': 'if_recommended',
     'FC': 'fc_recommended',
+    'IHC': 'ihc_recommended',
 }
+
+#: Every recommendation flag on ``Antibody``, in ``APPLICATIONS`` order — the
+#: same tuple as ``Antibody.RECOMMENDATION_FIELDS`` (pinned).
+RECOMMENDATION_FIELDS = tuple(_FLAG[app] for app in APPLICATIONS)
+
+
+def any_recommendation_q(prefix=''):
+    """``Q`` matching an antibody carrying *any* OGA recommendation.
+
+    **The one reader for "is anything on this recommended"**, which is the
+    gene gate (``curated_gene_ids``) and every filter asking the same question
+    — the gene page, the API, the review queue, the MCP, the antibodies
+    board's ``?recommended=``. It was spelled out by hand in six places, four
+    flags long, and a fifth application is exactly the change that leaves one
+    of them a flag short: the gene page and the API then disagree about the
+    same gene. ``prefix`` reaches the flags across a relation
+    (``'antibodies__'`` from a target).
+
+    Django is imported here, not at module level, for the same reason as every
+    other import in this module.
+    """
+    from django.db.models import Q
+
+    q = Q()
+    for field in RECOMMENDATION_FIELDS:
+        q |= Q(**{f'{prefix}{field}': True})
+    return q
 
 #: The consensus protocols the results come from: Ayoubi et al., 2024, *Nature
 #: Protocols*, written with YCharOS, the industry–academic consortium. One copy,
@@ -153,6 +190,14 @@ _FLAG = {
 #: work — 32 experts rating interventions for funders, publishers and
 #: institutions — and it is what the roadmap pages are built on. The protocols
 #: were not written by that method, and the homepage card said they were.
+#:
+#: **"Consensus" is the review, not the paper** (owner, 26 Sep 2026). A
+#: protocol is a consensus protocol because the consortium's manufacturers
+#: and academics have reviewed and approved it; the publication is where three
+#: of them are written down. The paper covers WB, IP and ICC-IF. Flow and IHC
+#: have the same review and approval and are not yet published, so
+#: ``SCOPE_NOTE``'s "based on consensus protocols" is true of all five, while
+#: a sentence saying what the *paper* covers must name three.
 CONSENSUS_PROTOCOL_URL = 'https://www.nature.com/articles/s41596-024-01095-8'
 
 #: Said once, with the data, and not repeated per value.
@@ -282,6 +327,10 @@ CONDITIONS_QUALIFIER = 'under the consensus protocols'
 APPLICATION_FACT = {
     'ICC-IF': ('Immunofluorescence results are fixation and permeabilisation '
                'dependent.'),
+    # Drawn only on a gene page that draws an IHC column (`core/views.py`
+    # filters by the columns), and never in `APPLICATION_SCOPE` below, which
+    # iterates `_APPLICATION_VOCABULARY` and so never reaches `index.json`.
+    'IHC': 'Immunohistochemistry results are on HAP1 cell pellets, not tissue.',
 }
 
 #: What ‘not supportive’ leaves open, per application — the half that defers to
@@ -652,7 +701,7 @@ def qualified(application, verdict, axes):
     value = lambda axis: (axes.get(axis) or {}).get('value')
 
     if verdict == RECOMMENDED:
-        if application == 'ICC-IF':
+        if application in ('ICC-IF', 'IHC'):
             band = value('selective')
             # The band is the grade: how strongly, not whether. Both values
             # reinforce a supportive verdict, so neither is a caveat.
@@ -663,6 +712,12 @@ def qualified(application, verdict, axes):
             # only clause on this side that holds the verdict back.
             if outcome_svc.binary_of(value('selective')) == outcome_svc.NO:
                 return 'detects the target, but is not selective', True
+        if application == 'FC':
+            # Flow's one caveat, set from the figure on a recommended antibody
+            # (owner, 25 Sep 2026). It holds the verdict back, so it rides as
+            # the yellow tab the way "not selective" does on a western blot.
+            if value('background') == outcome_svc.YES:
+                return 'with non-specific background', True
         return '', False
 
     # A negative that did the thing the application is for. Every clause on this
@@ -671,7 +726,8 @@ def qualified(application, verdict, axes):
         return '', False
     clause = {'WB': 'detects the target',
               'IP': 'enriches the target, but not significantly',
-              'ICC-IF': 'some selective signal'}.get(application, '')
+              'ICC-IF': 'some selective signal',
+              'IHC': 'some selective signal'}.get(application, '')
     return clause, bool(clause)
 
 
@@ -701,6 +757,7 @@ QUALIFIER_CODES = {
     'si': ('some selective signal', True),
     'sl': ('selective', False),
     'xs': ('strongly selective', False),
+    'nb': ('with non-specific background', True),
 }
 _CODE_OF = {clause: code for code, (clause, _) in QUALIFIER_CODES.items()}
 
@@ -737,22 +794,31 @@ def cell_caption(application, verdict, axes):
     return f'{lead} — {clause}' if clause else lead
 
 
+#: The applications whose selectivity band can veto a flag — see ``verdict``.
+VETOED_BY_CAPABILITY = ('ICC-IF', 'IHC')
+
+
 def verdict(antibody, application, tested_applications, gene_is_curated,
             axes=None):
-    """The recommendation, with the immunofluorescence veto applied.
+    """The recommendation, with the selectivity veto applied.
 
     **A ratio below the floor cannot be supportive** (owner, 29 Aug 2026): for
     ICC-IF the measurement decides that much, whatever the flag says. It is a
     veto and not a promotion — clearing the floor never *confers* a supportive
     verdict, it earns the qualifier on a negative.
 
-    Only ICC-IF, and only where the axis was actually answered: an unjudged
+    **IHC has the same veto with no measurement behind it** (26 Sep 2026):
+    its one axis is the band a person judged from the HAP1 pellet figure, so a
+    flag over a judged "no selective signal" reads not supportive, exactly as
+    an ICC-IF flag over a judged band does. ``unclear`` does not veto.
+
+    Only these two, and only where the axis was actually answered: an unjudged
     figure is not evidence against itself.
     """
     value = recommendation(antibody, application, tested_applications,
                            gene_is_curated)
-    if (value == RECOMMENDED and application == 'ICC-IF'
-            and is_capable(axes, 'ICC-IF') is False):
+    if (value == RECOMMENDED and application in VETOED_BY_CAPABILITY
+            and is_capable(axes, application) is False):
         return NOT_RECOMMENDED
     return value
 
@@ -950,7 +1016,7 @@ def recommendation(antibody, application, tested_applications, gene_is_curated):
 
 
 def recommendations_for(antibody, tested_applications, gene_is_curated):
-    """All four recommendations for one antibody, keyed by application."""
+    """Every application's recommendation for one antibody, keyed by application."""
     return {
         app: recommendation(antibody, app, tested_applications, gene_is_curated)
         for app in APPLICATIONS
@@ -969,10 +1035,11 @@ def curated_gene_ids(target_ids=None):
     hundred ids into an ``IN`` clause to learn the same thing.
     """
     from pipeline.models import Antibody
-    from django.db.models import Q
 
-    any_flag = (Q(wb_recommended=True) | Q(ip_recommended=True)
-                | Q(if_recommended=True) | Q(fc_recommended=True))
+    # IHC counts (26 Sep 2026): a gene whose only recommendation is IHC is
+    # curated, so its unflagged WB/IP/IF/FC figures read not supportive — on
+    # every surface at once, because every surface asks this one reader.
+    any_flag = any_recommendation_q()
 
     qs = Antibody.objects.all()
     if target_ids is not None:

@@ -78,7 +78,11 @@ from .api_views import (
 # an `oga_recommendation` that cannot express *Limited support* — so this is
 # the half that makes "switch on what you print" true. Same reason for the
 # bump: the fingerprint carries it, so an ETag holder is told once.
-MANIFEST_VERSION = 4
+#
+# 5 since 26 Sep 2026 (API 2.2.0): the rows include IHC figures, with their
+# verdict. No column changed; the bump is how an ETag holder learns that the
+# scope did.
+MANIFEST_VERSION = 5
 
 # Default filename pattern, matching the portal's Settings panel default so a
 # consumer who set one there gets the same names from both routes.
@@ -228,10 +232,11 @@ def _fingerprint(qs, curated_ids):
     digest.update(('curated:' + ','.join(str(i) for i in sorted(curated_ids))
                    + '\n').encode())
     digest.update((f'outcomes:{R.outcome_stamp()}\n').encode())
+    # Every recommendation flag, from the one list — an IHC verdict moves the
+    # ETag like any other.
     rows = qs.values_list(
         'pk', 'image', 'application_type',
-        'antibody__wb_recommended', 'antibody__ip_recommended',
-        'antibody__if_recommended', 'antibody__fc_recommended',
+        *[f'antibody__{f}' for f in R.RECOMMENDATION_FIELDS],
     ).order_by('pk')
     count = 0
     for row in rows.iterator():
@@ -303,8 +308,8 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
     """Serialise the scoped figures, one row per downloadable file.
 
     Filename collisions are resolved rather than ignored: a pattern that omits
-    ``{application}`` gives one antibody's four figures one name, and the
-    browser zip silently keeps whichever landed last. A suffix keeps all four,
+    ``{application}`` gives one antibody's five figures one name, and the
+    browser zip silently keeps whichever landed last. A suffix keeps all five,
     and the count is reported so the consumer can fix their pattern.
 
     ``attach_images`` hangs the ``FieldFile`` on each row as ``_image``, for the
@@ -359,7 +364,7 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
             # the controlled value and never instead of it — the shape
             # `/v1/antibodies/` already ships as `oga_display` and
             # `oga_qualifiers`, flattened because a manifest row is one
-            # application and theirs are keyed by all four.
+            # application and theirs are keyed by all five.
             #
             # Two of the four rungs cannot be read off `oga_recommendation` at
             # all, which is the whole reason this is here: *Limited support* is

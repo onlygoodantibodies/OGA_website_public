@@ -6,6 +6,9 @@ urlpatterns = [
     path('', views.home, name='home'),  # Home page
     path('about/', views.about, name='about'),  # About Us page
     path('partners/', views.partners, name='partners'),  # Partners page
+    # Curated funder pages (`core/funders.py`): the public genes one funder's
+    # programmes paid for — /funders/mjff/ today.
+    path('funders/<slug:slug>/', views.funder_page, name='funder_page'),
     path('roadmap/', views.roadmap, name='roadmap'),
     path('roadmap/institutions/', views.roadmap_institutions, name='roadmap_institutions'),
     path('roadmap/funders/', views.roadmap_funders, name='roadmap_funders'),
@@ -21,6 +24,9 @@ urlpatterns = [
     path('data-access/', views.data_access, name='data_access'),
     path('data-access/api/', views.api_reference, name='api_reference'),
     path('antibodies/<str:gene_name>/', views.antibody_table, name='antibody_table'),
+    # The gene's whole IHC figures. `<str:>` never matches `/`, so this cannot
+    # be read as a gene called "PPP2R5D/ihc".
+    path('antibodies/<str:gene_name>/ihc/', views.antibody_ihc, name='antibody_ihc'),
     path('<int:gene_id>/', views.gene_redirect, name='gene_redirect'),  # Redirect old numeric URLs
     path('projects/', lambda request: redirect('about', permanent=True)),  # Old projects page → about
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),

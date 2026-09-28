@@ -52,10 +52,18 @@ def _member(request):
         return None
 
 
+def _image_url(im):
+    """Where the cropper draws a staged figure from: the members-only view,
+    never the storage's own URL — the upload is private (a whole IHC figure is
+    copied from it and is private until release; `pipeline/storages.py`)."""
+    from django.urls import reverse
+    return reverse("pipeline:cropper_image", args=[im.id]) if im.image else None
+
+
 def _image_payload(im):
     return {
         "id": im.id, "app": im.application_type, "name": im.name,
-        "order": im.order, "url": im.image.url if im.image else None,
+        "order": im.order, "url": _image_url(im),
         "nat_w": im.nat_w, "nat_h": im.nat_h, "grid": im.grid, "mapping": im.mapping,
     }
 
@@ -91,6 +99,18 @@ def cropper_gene_status(request):
         "antibody_count": status.antibody_count,
         "images_by_app": status.images_by_app,
         "existing_catalogues": [a.catalogue_number for a in status.antibodies],
+        # The gene's antibodies as the cropper offers them — the list a figure
+        # is mapped against, from the pipeline rather than a pasted table
+        # (owner, 25 Sep 2026: the cropper was built for backfilling; the
+        # pipeline is now where antibodies are entered, so they are on file
+        # before anybody crops). One entry per catalogue, since the commit
+        # resolves a crop to its antibody by catalogue.
+        "antibodies": list({
+            a.catalogue_number.strip().upper(): {
+                "catalogue": a.catalogue_number, "company": a.company,
+                "published": a.apps_with_images}
+            for a in status.antibodies if (a.catalogue_number or "").strip()
+        }.values()),
         # Which gene the crops will be filed under, and how it was reached. The
         # legend drawn on every IF/FC crop names the gene, so the page has to
         # draw the resolved one or the preview and the saved figure disagree.
@@ -98,6 +118,9 @@ def cropper_gene_status(request):
         "resolved_gene": status.resolved_gene or status.gene,
         "ambiguous": status.ambiguous,
         "blocked": status.blocked,
+        # The targets board with this gene filled in, when it is not on file —
+        # the cropper refuses to add genes, and a refusal names where to go.
+        "add_target_url": status.add_target_url,
         "banner": status.banner,
     })
 
@@ -223,7 +246,26 @@ def cropper_stage_image(request):
     )
     im.image.save(upload.name, upload, save=False)
     im.save(using=DB)
-    return JsonResponse({"id": im.id, "url": im.image.url, "nat_w": w, "nat_h": h})
+    return JsonResponse({"id": im.id, "url": _image_url(im), "nat_w": w, "nat_h": h})
+
+
+@pipeline_member_required
+@require_GET
+def cropper_image(request, pk):
+    """A staged figure's bytes, for the cropper's canvas. Members only: the
+    upload is on private storage, and this view is the way the app shows it —
+    same-origin, so the canvas can read it without the bucket's CORS."""
+    from django.http import FileResponse
+    im = CropperImage.objects.using(DB).filter(pk=pk).first()
+    if im is None or not im.image:
+        return JsonResponse({"error": "no staged figure here"}, status=404)
+    try:
+        handle = im.image.open("rb")
+    except Exception:
+        return JsonResponse({"error": (
+            "That figure could not be read from storage. The session is fine; "
+            "the file behind it is not — add the figure again.")}, status=502)
+    return FileResponse(handle, filename=im.image.name.rsplit("/", 1)[-1])
 
 
 @pipeline_member_required
@@ -331,6 +373,20 @@ def cropper_session_delete(request):
     return JsonResponse({"deleted": True})
 
 
+def _stale_note(summary) -> str:
+    """What an empty save leaves behind from this session — whole figures it
+    no longer declares, which only a save with something in it takes out of
+    the queue (`commit.stale_whole_figures`)."""
+    queued = summary.get("whole_figures_dropped") or []
+    if not queued:
+        return ""
+    return (f" This session's whole {'figure' if len(queued) == 1 else 'figures'} "
+            f"{', '.join(queued)} {'is' if len(queued) == 1 else 'are'} still "
+            f"waiting on the review queue — discard "
+            f"{'it' if len(queued) == 1 else 'them'} there if "
+            f"{'it is' if len(queued) == 1 else 'they are'} no longer wanted.")
+
+
 @pipeline_member_required
 @require_POST
 def cropper_commit(request):
@@ -341,11 +397,17 @@ def cropper_commit(request):
     ``services/review.py``. Releasing them is a separate act on
     ``/pipeline/review/``, which is where the reply points.
 
-    The overwrite acknowledgement is still asked for, and it is now a statement
-    about what *release* will do: a crop for an antibody+application that
-    already has a published figure is queued as a replacement for it. The
-    person who made the crop is the one who knows whether that is intended, and
-    they are standing here rather than at the review meeting.
+    The overwrite acknowledgement is still asked for, because a crop for an
+    antibody+application that already has a published figure replaces it —
+    and since crops are written at their public key, the file a live gene page
+    shows can change with this press, not only at release. The person who made
+    the crop is the one who knows whether that is intended.
+
+    ``consented_crops`` is the number the page's consent panel showed on its
+    button. The write refuses if the saved session now yields a different
+    number — the number on the button is what was consented to — and
+    ``consented_stamp`` (``commit.plan_stamp``) refuses the same count doing
+    something different.
     """
     from pipeline.services.cropper import commit as commit_mod
     try:
@@ -374,11 +436,49 @@ def cropper_commit(request):
         return JsonResponse({"error": summary["refusal"], "summary": summary},
                             status=400)
     if summary["images_overwrite"] > 0 and not sess.overwrite_ack:
-        return JsonResponse({"error": "overwrite not acknowledged",
+        n = summary["images_overwrite"]
+        return JsonResponse({"error": (
+            f"{n} of these crops replace{'s' if n == 1 else ''} a published figure, "
+            f"and the box “I understand these crops replace published figures” "
+            f"under the gene is not ticked. Tick it if that is what you mean, "
+            f"then save again."),
                              "summary": summary}, status=409)
-    if summary["crops"] == 0:
-        return JsonResponse({"error": "nothing to commit — assign and map some cells"},
-                            status=400)
+    if summary["crops"] == 0 and summary["whole_figures"] == 0:
+        return JsonResponse({"error": (
+            "Nothing to save — no assigned cell is set to an antibody yet, and "
+            "no figure is ticked for the gene's IHC page. Click the panels you "
+            "want in box 5 and check each has an antibody, or tick “Show this "
+            "whole figure on the gene's IHC page” under an IHC figure."
+            + _stale_note(summary))}, status=400)
+    # Two numbers were agreed to, and each is checked against its own count:
+    # a crop that became a whole figure keeps the total and changes the press.
+    for key, have, noun in (("consented_crops", summary["crops"], "crops"),
+                            ("consented_whole_figures", summary["whole_figures"],
+                             "whole IHC figures")):
+        consented = d.get(key)
+        if consented is None:
+            continue
+        try:
+            consented = int(consented)
+        except (TypeError, ValueError):
+            consented = None
+        if consented != have:
+            return JsonResponse({"error": (
+                f"You agreed to save {d.get(key)} {noun}, and the saved "
+                f"session now makes {have}. Nothing was saved — press "
+                f"Save to review queue again to see the new count."),
+                "summary": summary}, status=409)
+    # The count is not the whole consent: a figure released, or a crop queued
+    # from another tab, between the check and the press keeps the count and
+    # changes what these crops replace. The panel's stamp is compared too.
+    stamp = d.get("consented_stamp")
+    if stamp is not None and stamp != summary["stamp"]:
+        return JsonResponse({"error": (
+            "What these crops would replace has changed since you checked — a "
+            "figure for one of these antibodies was released or queued "
+            "meanwhile. Nothing was saved — press Save to review queue again "
+            "to see what they replace now."),
+            "summary": summary}, status=409)
 
     member = _member(request)
     try:

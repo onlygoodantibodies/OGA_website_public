@@ -44,6 +44,9 @@ from pipeline.services import depmap
 # Clonality from the enum and `is_recombinant` together — neither column
 # answers it alone. See pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
+# What a draft needs from the bench, declared once for this module and the
+# upload previews that warn about it.
+from pipeline.services import report_needs
 
 logger = logging.getLogger(__name__)
 
@@ -391,15 +394,12 @@ def _session_conditions(sessions):
     Method builder uses, gathered here so a paragraph outside them can ask the
     same question rather than hardcoding an answer.
     """
-    conditions = {}
     session = (sessions or [None])[0]
     if session is None:
-        return conditions
-    if session.protocol_template and session.protocol_template.conditions:
-        conditions.update(session.protocol_template.conditions)
-    if session.session_conditions:
-        conditions.update(session.session_conditions)
-    return conditions
+        return {}
+    # One merge for the report and the upload previews that warn about it
+    # (`services/report_needs.py`), so the two read the same conditions.
+    return report_needs.session_conditions(session)
 
 
 def _recorded(conditions, *keys, gap):
@@ -425,6 +425,33 @@ def _recorded(conditions, *keys, gap):
         if value not in (None, ''):
             return str(value)
     return f'[{gap}]'
+
+
+def _need(conditions, proc, name, rows=()):
+    """`_recorded` for a value the bench is told the report needs.
+
+    The keys and the gap's name come from `services/report_needs.py`, the one
+    declaration the upload previews also read — so a gap this prints is a gap
+    the preview warned about, and nothing else is.
+    """
+    return report_needs.value(proc, name, conditions, rows)
+
+
+_RESULT_RELATION = {'WB': 'wb_results', 'IP': 'ip_results', 'IF': 'if_results',
+                    'FC': 'fc_results', 'IHC': 'ihc_results'}
+
+
+def _first_rows(sessions):
+    """The first session's result rows — what `_need` reads a per-row value off.
+
+    The workbook's WB, IP and IF tabs record gel, membrane, fixative and the
+    rest per row as well as per session, and `report_needs` declares both, so
+    every builder reads the same rows its session conditions come from.
+    """
+    session = (sessions or [None])[0]
+    if session is None:
+        return []
+    return list(getattr(session, _RESULT_RELATION[session.procedure_type]).all())
 
 
 def _session_wt_name(session, cell_lines):
@@ -456,7 +483,7 @@ def _get_antibodies(target):
     Fetch antibodies for Table 2, ordered by company then catalogue number.
 
     Two filters applied to match F1000 report conventions:
-    1. Only antibodies with at least one experiment result (WB/IP/IF/FC)
+    1. Only antibodies with at least one experiment result (WB/IP/IF/FC/IHC)
     2. Deduplicated by (catalogue_number, company) — same antibody imported
        from multiple sites appears once, keeping the most complete record.
     """
@@ -471,11 +498,13 @@ def _get_antibodies(target):
             Q(wb_results__isnull=False) |
             Q(ip_results__isnull=False) |
             Q(if_results__isnull=False) |
-            Q(fc_results__isnull=False)
+            Q(fc_results__isnull=False) |
+            Q(ihc_results__isnull=False)
         )
         .select_related('company')
         .annotate(result_count=Count('wb_results') + Count('ip_results')
-                  + Count('if_results') + Count('fc_results'))
+                  + Count('if_results') + Count('fc_results')
+                  + Count('ihc_results'))
         .order_by('company__name', 'catalogue_number')
         .distinct()
     )
@@ -513,6 +542,7 @@ def _get_sessions(target):
             'ip_results__antibody__company',
             'if_results__antibody__company',
             'fc_results__antibody__company',
+            'ihc_results__antibody__company',
         )
         .order_by('procedure_type', 'date')
     ))
@@ -533,7 +563,8 @@ def _get_sessions(target):
 
 
 _RESULT_ACCESSOR = {'WB': 'wb_results', 'IP': 'ip_results',
-                    'IF': 'if_results', 'FC': 'fc_results'}
+                    'IF': 'if_results', 'FC': 'fc_results',
+                    'IHC': 'ihc_results'}
 
 
 def _readings_in(session) -> int:
@@ -699,6 +730,20 @@ def _get_secondary_antibodies(sessions_by_type):
                                 'catalogue': sec_cat,
                             }
 
+            # IHC secondary / detection, recorded per antibody
+            if proc_type == 'IHC':
+                for r in session.ihc_results.all():
+                    if r.secondary_ab:
+                        key = ('IHC', r.secondary_ab)
+                        if key not in secondaries:
+                            secondaries[key] = {
+                                'procedure': 'IHC',
+                                'antibody': r.secondary_ab,
+                                'dilution': '',
+                                'source': sec_source,
+                                'catalogue': sec_cat,
+                            }
+
             # IP secondary fields
             if proc_type == 'IP':
                 for r in session.ip_results.all():
@@ -734,7 +779,8 @@ def _get_wb_dilutions(sessions_by_type):
         for r in session.wb_results.all():
             ab = r.antibody
             cat = _cat_number_with_markers(ab)
-            dil = r.dilution or r.primary_ab_dilution or '-'
+            dil = report_needs.result_value(
+                report_needs.result_need('WB', 'dilution'), r) or '-'
             if cat not in dilutions:
                 dilutions[cat] = dil
     return dilutions
@@ -747,7 +793,8 @@ def _get_if_dilutions(sessions_by_type):
         for r in session.if_results.all():
             ab = r.antibody
             cat = _cat_number_with_markers(ab)
-            dil = r.primary_ab_dilution or r.best_concentration or '-'
+            dil = report_needs.result_value(
+                report_needs.result_need('IF', 'dilution'), r) or '-'
             if cat not in dilutions:
                 dilutions[cat] = dil
     return dilutions
@@ -766,6 +813,68 @@ def _get_fc_dilutions(sessions_by_type):
     return dilutions
 
 
+def _dilution_list(dilutions, proc):
+    """`cat at dil, …` for a legend, or the declared gap when none is recorded.
+
+    "None recorded" includes a list of dashes: `ab1 at -, ab2 at -` said the
+    same nothing as the gap in a form nobody would think to fill in, and it
+    disagreed with the upload preview, which warns that the draft will print
+    the gap (`report_needs.missing`).
+    """
+    parts = [f"{cat} at {dil}" for cat, dil in dilutions.items()]
+    gap = report_needs.result_need(proc, 'dilution').gap
+    if not parts or all(dil == '-' for dil in dilutions.values()):
+        return f'[{gap}]'
+    return ', '.join(parts)
+
+
+def _ihc_rows(sessions_by_type):
+    """The first IHC session's result rows — the session every IHC paragraph
+    describes, as each other procedure's paragraphs describe their first."""
+    sessions = sessions_by_type.get('IHC', [])
+    return list(sessions[0].ihc_results.all()) if sessions else []
+
+
+def _get_ihc_dilutions(sessions_by_type):
+    """`cat → "1/100 (as recommended by the supplier)"` for the Figure 5 legend.
+
+    Unlike the other legends, a missing dilution or dilution source is a
+    **named gap per antibody**, because the owner decided both are what an IHC
+    report needs (PLATFORM_ROADMAP #102) and a dash would read as "not
+    applicable". The PPP2R5D legend's "diluted at 1/100 as recommended by the
+    supplier" is the sentence this fills.
+    """
+    dil_need = report_needs.result_need('IHC', 'dilution')
+    src_need = report_needs.result_need('IHC', 'dilution_source')
+    out = OrderedDict()
+    for r in _ihc_rows(sessions_by_type):
+        cat = _cat_number_with_markers(r.antibody)
+        if cat in out:
+            continue
+        dil = report_needs.result_value(dil_need, r) or f'[{dil_need.gap}]'
+        src = report_needs.result_value(src_need, r) or f'[{src_need.gap}]'
+        out[cat] = f"{dil} ({src})"
+    return out
+
+
+def _ihc_secondaries(sessions_by_type):
+    """The secondary / detection reagents the first IHC session recorded, or
+    the declared gap when any antibody lacks one."""
+    need = report_needs.result_need('IHC', 'secondary')
+    rows = _ihc_rows(sessions_by_type)
+    names = []
+    lacking = False
+    for r in rows:
+        v = report_needs.result_value(need, r)
+        if not v:
+            lacking = True
+        elif v not in names:
+            names.append(v)
+    if lacking or not names:
+        names.append(f'[{need.gap}]')
+    return ' / '.join(names)
+
+
 # =============================================================================
 # Methods text generation
 # =============================================================================
@@ -779,31 +888,29 @@ def _build_wb_methods(target, sessions, cell_lines, antibodies):
         return None
 
     session = sessions[0]  # Use first WB session as representative
-    conditions = {}
-    if session.protocol_template and session.protocol_template.conditions:
-        conditions.update(session.protocol_template.conditions)
-    if session.session_conditions:
-        conditions.update(session.session_conditions)
+    conditions = _session_conditions(sessions)
 
     wt_name = _session_wt_name(session, cell_lines)
     ko_name = session.cell_line_ko.name if session.cell_line_ko else '[KO cell line]'
+    ctrl = _control_abbrev([session.cell_line_ko] if session.cell_line_ko else [])
     gene = target.gene_name or target.protein_name
 
-    lysis_buffer = _recorded(conditions, 'lysis_buffer', gap='lysis buffer')
-    protein_ug = _recorded(conditions, 'protein_loading_ug', gap='protein loading')
-    gel = _recorded(conditions, 'gel_chemistry', 'gel', gap='gel chemistry')
-    membrane = _recorded(conditions, 'membrane', gap='membrane')
-    blocking = _recorded(conditions, 'blocking', gap='blocking buffer')
-    ecl = _recorded(conditions, 'ecl_type', 'ecl', gap='ECL substrate')
-    imaging = _recorded(conditions, 'imaging_system', 'detection_system', gap='imaging system')
-    sec_ab = _recorded(conditions, 'secondary_antibody', 'secondary_ab', gap='secondary antibody')
+    rows = _first_rows(sessions)
+    lysis_buffer = _need(conditions, 'WB', 'lysis_buffer')
+    protein_ug = _need(conditions, 'WB', 'protein_loading')
+    gel = _need(conditions, 'WB', 'gel', rows)
+    membrane = _need(conditions, 'WB', 'membrane', rows)
+    blocking = _need(conditions, 'WB', 'blocking')
+    ecl = _need(conditions, 'WB', 'ecl', rows)
+    imaging = _need(conditions, 'WB', 'imaging', rows)
+    sec_ab = _need(conditions, 'WB', 'secondary', rows)
     sec_dil = conditions.get('secondary_dilution', '')
 
     num_abs = len(antibodies)
     mass_kda = _fmt_decimal(target.theoretical_mass_kda) if target.theoretical_mass_kda else '[XX]'
 
     text = (
-        f"For western blot experiments, {wt_name} WT and {gene} KO protein "
+        f"For western blot experiments, {wt_name} WT and {gene} {ctrl} protein "
         # No trailing "buffer": the recorded value is already a buffer name and
         # often carries the word itself ("Pierce IP Lysis Buffer"), and a gap
         # reads as "[lysis buffer] buffer" with it.
@@ -820,7 +927,7 @@ def _build_wb_methods(target, sessions, cell_lines, antibodies):
     text += (
         f" and {ecl} substrate, with images acquired on the {imaging}. "
         f"The Ponceau stained transfers of each blot are presented to show "
-        f"equal loading of WT and KO lysates and protein transfer efficiency. "
+        f"equal loading of WT and {ctrl} lysates and protein transfer efficiency. "
         f"Predicted band size: {mass_kda} kDa."
     )
     return text
@@ -832,26 +939,19 @@ def _build_ip_methods(target, sessions, cell_lines=None):
         return None
 
     session = sessions[0]
-    conditions = {}
-    if session.protocol_template and session.protocol_template.conditions:
-        conditions.update(session.protocol_template.conditions)
-    if session.session_conditions:
-        conditions.update(session.session_conditions)
+    conditions = _session_conditions(sessions)
 
     wt_name = _session_wt_name(session, cell_lines)
     gene = target.gene_name or target.protein_name
-    bead_type = _recorded(conditions, 'bead_type', gap='bead type')
-    ab_amount = _recorded(conditions, 'antibody_amount_ug', gap='antibody amount')
-    gel = _recorded(conditions, 'gel_chemistry', 'gel', gap='gel chemistry')
+    rows = _first_rows(sessions)
+    bead_type = _need(conditions, 'IP', 'bead_type', rows)
+    ab_amount = _need(conditions, 'IP', 'antibody_amount')
+    gel = _need(conditions, 'IP', 'gel', rows)
 
-    # Find the detection antibody used for IP-WB step
-    detection_ab = None
-    for r in session.ip_results.all():
-        if r.detection_ab:
-            detection_ab = r.detection_ab
-            break
-    if not detection_ab:
-        detection_ab = _recorded(conditions, 'detection_antibody', gap='detection antibody')
+    # The detection antibody used for the IP-WB step: a result row's first,
+    # then the session's condition (`report_needs` declares that order).
+    detection_ab = _need(conditions, 'IP', 'detection_antibody',
+                         rows=session.ip_results.all())
 
     detection_dil = ''
     for r in session.ip_results.all():
@@ -859,7 +959,10 @@ def _build_ip_methods(target, sessions, cell_lines=None):
             detection_dil = r.detection_ab_dilution
             break
     if not detection_dil:
-        detection_dil = conditions.get('detection_dilution', '')
+        # `detection_antibody_dilution` is what the form has always written;
+        # reading only `detection_dilution` dropped every recorded value.
+        detection_dil = (conditions.get('detection_dilution')
+                         or conditions.get('detection_antibody_dilution') or '')
 
     text = (
         f"{wt_name} lysates were prepared, and immunoprecipitation was "
@@ -885,34 +988,34 @@ def _build_if_methods(target, sessions, cell_lines):
         return None
 
     session = sessions[0]
-    conditions = {}
-    if session.protocol_template and session.protocol_template.conditions:
-        conditions.update(session.protocol_template.conditions)
-    if session.session_conditions:
-        conditions.update(session.session_conditions)
+    conditions = _session_conditions(sessions)
 
     wt_name = _session_wt_name(session, cell_lines)
     ko_name = session.cell_line_ko.name if session.cell_line_ko else '[KO cell line]'
+    ctrl = _control_abbrev([session.cell_line_ko] if session.cell_line_ko else [])
     gene = target.gene_name or target.protein_name
 
-    fixation = _recorded(conditions, 'fixation', 'fixative', gap='fixative')
-    permeab = _recorded(conditions, 'permeabilisation', gap='permeabilisation')
-    blocking = _recorded(conditions, 'blocking', gap='blocking buffer')
-    sec_ab = _recorded(conditions, 'secondary_antibody', 'secondary_ab', gap='secondary antibody')
+    rows = _first_rows(sessions)
+    fixation = _need(conditions, 'IF', 'fixation', rows)
+    permeab = _need(conditions, 'IF', 'permeabilisation', rows)
+    blocking = _need(conditions, 'IF', 'blocking', rows)
+    sec_ab = _need(conditions, 'IF', 'secondary', rows)
+    # Not a declared need: an unrecorded microscope drops its clause rather than
+    # printing a gap, so there is nothing for a preview to warn about.
     microscope = _recorded(conditions, 'microscope', gap='microscope')
     objective = conditions.get('objective', '')
 
     text = (
         f"For immunofluorescence, antibodies were screened using a mosaic "
-        f"strategy. {wt_name} WT and {gene} KO cells were labelled with "
+        f"strategy. {wt_name} WT and {gene} {ctrl} cells were labelled with "
         f"different fluorescent dyes in order to distinguish the two cell "
-        f"lines. WT and KO cells were mixed and plated at a 1:1 ratio in a "
+        f"lines. WT and {ctrl} cells were mixed and plated at a 1:1 ratio in a "
         f"96-well plate with optically clear flat-bottom. Cells were fixed with "
         f"{fixation}, permeabilised with {permeab}, and blocked with {blocking}. "
         f"Cells were stained with the indicated {target.protein_name} antibodies "
         f"and with the corresponding {sec_ab} including DAPI. "
         f"Acquisition of the blue (nucleus-DAPI), green (WT), red (antibody "
-        f"staining) and far-red (KO) channels was performed"
+        f"staining) and far-red ({ctrl}) channels was performed"
     )
     if microscope and microscope != '[microscope]':
         text += f" using the {microscope}"
@@ -936,33 +1039,29 @@ def _build_fc_methods(target, sessions, cell_lines=None):
         return None
 
     session = sessions[0]
-    conditions = {}
-    if session.protocol_template and session.protocol_template.conditions:
-        conditions.update(session.protocol_template.conditions)
-    if session.session_conditions:
-        conditions.update(session.session_conditions)
+    conditions = _session_conditions(sessions)
 
     wt_name = _session_wt_name(session, cell_lines)
     ko_name = session.cell_line_ko.name if session.cell_line_ko else '[KO cell line]'
+    ctrl = _control_abbrev([session.cell_line_ko] if session.cell_line_ko else [])
     gene = target.gene_name or target.protein_name
 
-    tracker_green = _recorded(conditions, 'tracker_dye_wt', gap='WT tracker dye')
-    tracker_violet = _recorded(conditions, 'tracker_dye_ko', gap='KO tracker dye')
-    fixative = _recorded(conditions, 'fixation', 'fixative', gap='fixative')
-    permeab = _recorded(conditions, 'permeabilisation', gap='permeabilisation')
-    blocking = _recorded(conditions, 'blocking', gap='blocking buffer')
-    sec_ab = _recorded(conditions, 'secondary_antibody', 'secondary_ab',
-                       gap='secondary antibody')
-    sec_conc = _recorded(conditions, 'secondary_concentration', gap='secondary concentration')
-    cytometer = _recorded(conditions, 'flow_cytometer', gap='flow cytometer')
-    analysis_sw = _recorded(conditions, 'analysis_software', gap='analysis software')
-    cell_count = _recorded(conditions, 'cell_count', gap='cell count')
+    tracker_green = _need(conditions, 'FC', 'tracker_wt')
+    tracker_violet = _need(conditions, 'FC', 'tracker_ko')
+    fixative = _need(conditions, 'FC', 'fixation')
+    permeab = _need(conditions, 'FC', 'permeabilisation')
+    blocking = _need(conditions, 'FC', 'blocking')
+    sec_ab = _need(conditions, 'FC', 'secondary')
+    sec_conc = _need(conditions, 'FC', 'secondary_concentration')
+    cytometer = _need(conditions, 'FC', 'cytometer')
+    analysis_sw = _need(conditions, 'FC', 'analysis_software')
+    cell_count = _need(conditions, 'FC', 'cell_count')
     sub_protocol = session.get_fc_sub_protocol_display() if session.fc_sub_protocol != 'na' else ''
 
     text = (
-        f"{wt_name} WT and {gene} KO cells were detached, and three million "
+        f"{wt_name} WT and {gene} {ctrl} cells were detached, and three million "
         f"cells were labelled with {tracker_green} or {tracker_violet} fluorescent "
-        f"dyes, respectively. WT and KO cells were then combined at a 1:1 ratio, "
+        f"dyes, respectively. WT and {ctrl} cells were then combined at a 1:1 ratio, "
         f"fixed with {fixative} for 20 min on ice, and permeabilised with "
         f"{permeab}. Cells were blocked with {blocking} for 30 min on ice. "
         f"{cell_count} cells were aliquoted into individually labelled tubes and "
@@ -977,44 +1076,119 @@ def _build_fc_methods(target, sessions, cell_lines=None):
     return text
 
 
+def _build_ihc_methods(target, sessions, cell_lines=None):
+    """IHC methods paragraph, written from the PPP2R5D report's "Antibody
+    screening by immunohistochemistry" (26 Sep 2026, PLATFORM_ROADMAP #102).
+
+    Every run-specific value is a declared need (`report_needs.SESSION_NEEDS
+    ["IHC"]`), so an unrecorded one prints a named gap — `[antigen retrieval]`
+    — and never the PPP2R5D value it was modelled on. The tissue sentence is
+    written only when the session recorded tissue on the slide; a HAP1-pellet
+    run has none, and a gap about tissue nobody used would be invented work.
+    The mosaic ratio, other cell lines and slide controls are optional clauses:
+    unrecorded, they are left out rather than bracketed.
+    """
+    if not sessions:
+        return None
+
+    session = sessions[0]
+    conditions = _session_conditions(sessions)
+    wt_name = _session_wt_name(session, cell_lines)
+    ctrl = _control_abbrev([session.cell_line_ko] if session.cell_line_ko else [])
+    gene = target.gene_name or target.protein_name
+
+    def need(name):
+        return _need(conditions, 'IHC', name)
+
+    secondary = _ihc_secondaries({'IHC': sessions})
+
+    text = (
+        f"{wt_name} WT and {gene} {ctrl} cells were washed and fixed with "
+        f"{need('fixation')}, then embedded ({need('embedding')})."
+    )
+    tissue_need = report_needs.need('IHC', 'tissue_species')
+    if tissue_need.applies(conditions):
+        text += (
+            f" WT and {gene} {ctrl} {need('tissue_species')} tissues "
+            f"({need('tissue_organs')}) were fixed with "
+            f"{need('tissue_fixation')}."
+        )
+    mosaic = str(conditions.get('mosaic_ratio') or '').strip()
+    if mosaic:
+        text += (f" A mosaic of WT and {ctrl} cells was prepared at a "
+                 f"{mosaic} (WT:{ctrl}) ratio.")
+    others = str(conditions.get('other_cell_lines') or '').strip()
+    if others:
+        text += f" The slide also carried {others}."
+    text += (
+        f" Sections were prepared as {need('section_format')}, and "
+        f"{need('section_thickness')} \u00b5m sections were stained using the "
+        f"{need('stainer')}. Antigen retrieval was "
+        f"performed with {need('antigen_retrieval')}. The indicated "
+        f"{target.protein_name} antibodies were applied at the dilutions "
+        f"indicated in Figure 5, followed by {secondary}. {need('chromogen')} "
+        f"was used as the chromogen and {need('counterstain')} as a "
+        f"counterstain."
+    )
+    controls = str(conditions.get('slide_controls') or '').strip()
+    if controls:
+        text += f" Controls on the slide: {controls}."
+    text += (
+        f" Bright-field images were acquired with the {need('scanner')} using a "
+        f"{need('objective')} objective and exported using "
+        f"{need('image_export_software')}."
+    )
+    return text
+
+
 # =============================================================================
 # Figure legend builders
 # =============================================================================
 
+def _control_abbrev(cell_lines) -> str:
+    """`KO`, `KD`, or `KO/KD` — what the genetic controls in these lines are.
+
+    The Data Note's standard prose says "WT and KO cells" in a dozen places,
+    and a knockdown study written through it would publish a sentence its own
+    Table 1 contradicts. One word, derived from the lines the document names,
+    so the prose and the table cannot disagree. Lines that are not controls are
+    ignored; no control at all reads `KO`, the document's historical default,
+    so an empty gene's draft is unchanged.
+    """
+    kinds = sorted({(cl.genotype or "").strip().upper() for cl in cell_lines
+                    if (cl.genotype or "").strip().upper() in ("KO", "KD")})
+    return "/".join(kinds) if kinds else "KO"
+
+
 def _wb_legend(target, sessions_by_type, cell_lines, antibodies):
     """Build the standardised WB figure legend matching SYT1 report Figure 1."""
     wt_names = [cl.name for cl in cell_lines if cl.genotype == 'WT']
-    ko_names = [cl.name for cl in cell_lines if cl.genotype == 'KO']
+    ko_names = [cl.name for cl in cell_lines if cl.genotype in ('KO', 'KD')]
+    ctrl = _control_abbrev(cell_lines)
     wt_str = ', '.join(wt_names) if wt_names else '[WT cell line]'
     ko_str = ', '.join(ko_names) if ko_names else '[KO cell line]'
     gene = target.gene_name or target.protein_name
 
     sessions = sessions_by_type.get('WB', [])
-    conditions = {}
-    if sessions:
-        s = sessions[0]
-        if s.protocol_template and s.protocol_template.conditions:
-            conditions.update(s.protocol_template.conditions)
-        if s.session_conditions:
-            conditions.update(s.session_conditions)
+    conditions = _session_conditions(sessions)
 
-    protein_ug = _recorded(conditions, 'protein_loading_ug', gap='protein loading')
-    gel = _recorded(conditions, 'gel_chemistry', 'gel', gap='gel chemistry')
-    membrane = _recorded(conditions, 'membrane', gap='membrane')
+    rows = _first_rows(sessions)
+    protein_ug = _need(conditions, 'WB', 'protein_loading')
+    gel = _need(conditions, 'WB', 'gel', rows)
+    membrane = _need(conditions, 'WB', 'membrane', rows)
     mass_kda = _fmt_decimal(target.theoretical_mass_kda) if target.theoretical_mass_kda else '[XX]'
 
     # Per-antibody dilutions
     dilutions = _get_wb_dilutions(sessions_by_type)
-    dil_parts = [f"{cat} at {dil}" for cat, dil in dilutions.items()]
-    dil_str = ', '.join(dil_parts) if dil_parts else '[dilutions to be added]'
+    dil_str = _dilution_list(dilutions, 'WB')
 
     legend = (
         f"{target.protein_name} antibody screening by western blot. "
-        f"Lysates of {wt_str} (WT and {gene} KO) were prepared and "
+        f"Lysates of {wt_str} (WT and {gene} {ctrl}) were prepared and "
         f"{protein_ug} \u00b5g of protein were processed for western blot "
         f"with the indicated {target.protein_name} antibodies. The Ponceau "
         f"stained transfers of each blot are presented to show equal loading "
-        f"of WT and KO lysates and protein transfer efficiency from the "
+        f"of WT and {ctrl} lysates and protein transfer efficiency from the "
         f"precast midi {gel} polyacrylamide gels to the {membrane} membrane. "
         f"Antibody dilutions were chosen according to the recommendations "
         f"of the antibody supplier. Antibody dilution used: {dil_str}. "
@@ -1031,28 +1205,21 @@ def _ip_legend(target, sessions_by_type, cell_lines):
     gene = target.gene_name or target.protein_name
 
     sessions = sessions_by_type.get('IP', [])
-    conditions = {}
-    if sessions:
-        s = sessions[0]
-        if s.protocol_template and s.protocol_template.conditions:
-            conditions.update(s.protocol_template.conditions)
-        if s.session_conditions:
-            conditions.update(s.session_conditions)
+    conditions = _session_conditions(sessions)
 
-    ab_amount = _recorded(conditions, 'antibody_amount_ug', gap='antibody amount')
-    bead_type = _recorded(conditions, 'bead_type', gap='bead type')
-    gel = _recorded(conditions, 'gel_chemistry', 'gel', gap='gel chemistry')
+    first_rows = _first_rows(sessions)
+    ab_amount = _need(conditions, 'IP', 'antibody_amount')
+    bead_type = _need(conditions, 'IP', 'bead_type', first_rows)
+    gel = _need(conditions, 'IP', 'gel', first_rows)
 
-    # Find detection antibody
-    detection_ab = '[detection antibody]'
+    # The detection antibody: the same need, and so the same answer, as the
+    # Method paragraph — the legend used to read the result rows only, and so
+    # printed a gap under a Method section naming the recorded antibody.
+    detection_ab = _need(conditions, 'IP', 'detection_antibody', rows=first_rows)
     detection_dil = ''
-    for session in sessions:
-        for r in session.ip_results.all():
-            if r.detection_ab:
-                detection_ab = r.detection_ab
-                detection_dil = r.detection_ab_dilution or ''
-                break
-        if detection_ab != '[detection antibody]':
+    for r in first_rows:
+        if r.detection_ab and r.detection_ab_dilution:
+            detection_dil = r.detection_ab_dilution
             break
 
     legend = (
@@ -1078,38 +1245,32 @@ def _ip_legend(target, sessions_by_type, cell_lines):
 def _if_legend(target, sessions_by_type, cell_lines):
     """Build the standardised IF figure legend matching SYT1 report Figure 3."""
     wt_names = [cl.name for cl in cell_lines if cl.genotype == 'WT']
-    ko_names = [cl.name for cl in cell_lines if cl.genotype == 'KO']
+    ko_names = [cl.name for cl in cell_lines if cl.genotype in ('KO', 'KD')]
+    ctrl = _control_abbrev(cell_lines)
     wt_str = ', '.join(wt_names) if wt_names else '[WT cell line]'
     ko_str = ', '.join(ko_names) if ko_names else '[KO cell line]'
     gene = target.gene_name or target.protein_name
 
     sessions = sessions_by_type.get('IF', [])
-    conditions = {}
-    if sessions:
-        s = sessions[0]
-        if s.protocol_template and s.protocol_template.conditions:
-            conditions.update(s.protocol_template.conditions)
-        if s.session_conditions:
-            conditions.update(s.session_conditions)
+    conditions = _session_conditions(sessions)
 
-    sec_ab = _recorded(conditions, 'secondary_antibody', 'secondary_ab', gap='secondary antibody')
+    sec_ab = _need(conditions, 'IF', 'secondary', _first_rows(sessions))
 
     # Per-antibody dilutions
     dilutions = _get_if_dilutions(sessions_by_type)
-    dil_parts = [f"{cat} at {dil}" for cat, dil in dilutions.items()]
-    dil_str = ', '.join(dil_parts) if dil_parts else '[dilutions to be added]'
+    dil_str = _dilution_list(dilutions, 'IF')
 
     legend = (
         f"{target.protein_name} antibody screening by immunofluorescence. "
-        f"{wt_str} WT and {gene} KO cells were labelled with a green or a "
-        f"far-red fluorescent dye, respectively. WT and KO cells were mixed "
+        f"{wt_str} WT and {gene} {ctrl} cells were labelled with a green or a "
+        f"far-red fluorescent dye, respectively. WT and {ctrl} cells were mixed "
         f"and plated to a 1:1 ratio in a 96-well plate with optically clear "
         f"flat-bottom. Cells were stained with the indicated "
         f"{target.protein_name} antibodies and with the corresponding "
         f"{sec_ab} including DAPI. Acquisition of the blue (nucleus-DAPI), "
-        f"green (WT), red (antibody staining) and far-red (KO) channels was "
+        f"green (WT), red (antibody staining) and far-red ({ctrl}) channels was "
         f"performed. Representative images of the merged blue and red "
-        f"(grayscale) channels are shown. WT and KO cells are outlined with "
+        f"(grayscale) channels are shown. WT and {ctrl} cells are outlined with "
         f"green and magenta dashed line, respectively. Antibody dilution "
         f"used: {dil_str}. Bars = 10 \u00b5m. "
         f"*Monoclonal antibody; **Recombinant antibody."
@@ -1120,36 +1281,29 @@ def _if_legend(target, sessions_by_type, cell_lines):
 def _fc_legend(target, sessions_by_type, cell_lines):
     """Build the standardised FC figure legend matching SYT1 report Figure 4."""
     wt_names = [cl.name for cl in cell_lines if cl.genotype == 'WT']
-    ko_names = [cl.name for cl in cell_lines if cl.genotype == 'KO']
+    ko_names = [cl.name for cl in cell_lines if cl.genotype in ('KO', 'KD')]
+    ctrl = _control_abbrev(cell_lines)
     wt_str = ', '.join(wt_names) if wt_names else '[WT cell line]'
     ko_str = ', '.join(ko_names) if ko_names else '[KO cell line]'
     gene = target.gene_name or target.protein_name
 
     sessions = sessions_by_type.get('FC', [])
-    conditions = {}
-    if sessions:
-        s = sessions[0]
-        if s.protocol_template and s.protocol_template.conditions:
-            conditions.update(s.protocol_template.conditions)
-        if s.session_conditions:
-            conditions.update(s.session_conditions)
+    conditions = _session_conditions(sessions)
 
-    fixative = _recorded(conditions, 'fixation', 'fixative', gap='fixative')
-    permeab = _recorded(conditions, 'permeabilisation', gap='permeabilisation')
-    sec_ab = _recorded(conditions, 'secondary_antibody', 'secondary_ab',
-                       gap='secondary antibody')
-    cytometer = _recorded(conditions, 'flow_cytometer', gap='flow cytometer')
+    fixative = _need(conditions, 'FC', 'fixation')
+    permeab = _need(conditions, 'FC', 'permeabilisation')
+    sec_ab = _need(conditions, 'FC', 'secondary')
+    cytometer = _need(conditions, 'FC', 'cytometer')
 
     # Per-antibody concentrations. The blanket "diluted to 1 \u00b5g/ml" was a number
     # nobody had recorded, stated about every antibody in the figure.
     dilutions = _get_fc_dilutions(sessions_by_type)
-    default_conc = _recorded(conditions, 'primary_concentration',
-                             gap='primary antibody concentration')
+    default_conc = _need(conditions, 'FC', 'primary_concentration')
 
     legend = (
         f"{target.protein_name} antibody screening by flow cytometry. "
-        f"{wt_str} WT and {gene} KO cells were labelled with a green or "
-        f"violet fluorescent dye, respectively. WT and KO cells were mixed "
+        f"{wt_str} WT and {gene} {ctrl} cells were labelled with a green or "
+        f"violet fluorescent dye, respectively. WT and {ctrl} cells were mixed "
         f"in a 1:1 ratio, fixed in {fixative} and permeabilised in {permeab}. "
         f"Cells were stained with the indicated {target.protein_name} "
         f"antibodies and {sec_ab}. Antibody staining was quantified using "
@@ -1157,11 +1311,43 @@ def _fc_legend(target, sessions_by_type, cell_lines):
         f"intensity in the KO population (pink histogram, dashed line) "
         f"compared to the WT cells (green histogram, solid line). Histograms "
         f"with dotted lines represent secondary antibody-only controls in "
-        f"both WT and KO cells. All primary antibodies were diluted to "
+        f"both WT and {ctrl} cells. All primary antibodies were diluted to "
         f"{default_conc} unless otherwise noted. "
         f"*Monoclonal antibody; **Recombinant antibody."
     )
     return legend
+
+
+def _ihc_legend(target, sessions_by_type, cell_lines):
+    """Figure 5 legend, after the PPP2R5D report's Figure 4 ("antibody
+    screening by immunohistochemistry on HAP1 cells")."""
+    wt_names = [cl.name for cl in cell_lines if cl.genotype == 'WT']
+    ctrl = _control_abbrev(cell_lines)
+    wt_str = ', '.join(wt_names) if wt_names else '[WT cell line]'
+    gene = target.gene_name or target.protein_name
+
+    sessions = sessions_by_type.get('IHC', [])
+    conditions = _session_conditions(sessions)
+    section_format = _need(conditions, 'IHC', 'section_format')
+    embedding = _need(conditions, 'IHC', 'embedding')
+    secondary = _ihc_secondaries(sessions_by_type)
+
+    dilutions = _get_ihc_dilutions(sessions_by_type)
+    parts = [f"{cat} at {dil}" for cat, dil in dilutions.items()]
+    dil_str = ', '.join(parts) if parts else '[dilutions to be added]'
+
+    return (
+        f"{target.protein_name} antibody screening by immunohistochemistry. "
+        # The embedding, the section format and the images are what was
+        # recorded — never the PPP2R5D run's paraffin and TMA cores.
+        f"{wt_str} WT and {gene} {ctrl} cell pellets were fixed and embedded "
+        f"({embedding}). Sections ({section_format}) were mounted onto slides "
+        f"and stained with the indicated {target.protein_name} antibodies "
+        f"followed by {secondary}. Chromogen image acquisition was performed, "
+        f"and representative images are shown. Antibody dilution "
+        f"used (and its source): {dil_str}. "
+        f"*Monoclonal antibody; **Recombinant antibody."
+    )
 
 
 # =============================================================================
@@ -1201,6 +1387,7 @@ def generate_report(target_pk, output_path=None):
     has_ip = 'IP' in sessions_by_type
     has_if = 'IF' in sessions_by_type
     has_fc = 'FC' in sessions_by_type
+    has_ihc = 'IHC' in sessions_by_type
 
     procedures_list = []
     if has_wb:
@@ -1211,6 +1398,8 @@ def generate_report(target_pk, output_path=None):
         procedures_list.append('immunofluorescence')
     if has_fc:
         procedures_list.append('flow cytometry')
+    if has_ihc:
+        procedures_list.append('immunohistochemistry')
     procedures_str = ', '.join(procedures_list[:-1])
     if len(procedures_list) > 1:
         procedures_str += f' and {procedures_list[-1]}'
@@ -1340,8 +1529,9 @@ def generate_report(target_pk, output_path=None):
 
     # DepMap / cell line selection paragraph
     wt_lines = [cl for cl in cell_lines if cl.genotype == 'WT']
-    ko_lines = [cl for cl in cell_lines if cl.genotype == 'KO']
+    ko_lines = [cl for cl in cell_lines if cl.genotype in ('KO', 'KD')]
     wt_name = wt_lines[0].name if wt_lines else '[cell line]'
+    ctrl = _control_abbrev(cell_lines)
 
     # \u2500\u2500 The cut-off sentence has to agree with the number it quotes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     #
@@ -1368,7 +1558,7 @@ def generate_report(target_pk, output_path=None):
                    f"line was used] \u2014 and was")
     results_intro = (
         f"Our standard protocol involves comparing readouts from WT (wild "
-        f"type) and KO cells. The first step is to identify a cell line(s) "
+        f"type) and {ctrl} cells. The first step is to identify a cell line(s) "
         f"that expresses sufficient levels of a given protein to generate a "
         f"measurable signal using antibodies. To this end, we examined the "
         f"DepMap transcriptomics database to identify all cell lines that "
@@ -1387,10 +1577,10 @@ def generate_report(target_pk, output_path=None):
         # The membrane was stated as fact — "transferred onto nitrocellulose
         # membranes" — whether or not anybody had recorded one. Same rule as the
         # Method section: name the gap, do not fill it with something plausible.
-        membrane = _recorded(_session_conditions(sessions_by_type.get('WB')),
-                             'membrane', gap='membrane')
+        membrane = _need(_session_conditions(sessions_by_type.get('WB')),
+                         'WB', 'membrane', _first_rows(sessions_by_type.get('WB')))
         wb_text = (
-            f"For western blot experiments, WT and {gene} KO protein lysates "
+            f"For western blot experiments, WT and {gene} {ctrl} protein lysates "
             f"were ran on SDS-PAGE, transferred onto {membrane} membranes, "
             f"and then probed with {num_abs} {protein} antibodies in parallel "
             f"(Table 2, Figure 1)."
@@ -1409,7 +1599,7 @@ def generate_report(target_pk, output_path=None):
     if has_if:
         if_text = (
             f"For immunofluorescence, antibodies were screened using a mosaic "
-            f"strategy. WT and KO cells were labelled with different "
+            f"strategy. WT and {ctrl} cells were labelled with different "
             f"fluorescent dyes, mixed and plated at a 1:1 ratio, and stained "
             f"with the indicated {protein} antibodies (Figure 3)."
         )
@@ -1417,18 +1607,28 @@ def generate_report(target_pk, output_path=None):
 
     if has_fc:
         fc_text = (
-            f"For flow cytometry, WT and KO cells were labelled with distinct "
+            f"For flow cytometry, WT and {ctrl} cells were labelled with distinct "
             f"fluorescent dyes and combined at a 1:1 ratio. Both cell lines "
             f"were fixed, permeabilized and blocked prior to antibody staining "
             f"(Figure 4)."
         )
         _add_styled_paragraph(doc, fc_text, space_after=Pt(6))
 
+    if has_ihc:
+        embedding = _need(_session_conditions(sessions_by_type.get('IHC')),
+                          'IHC', 'embedding')
+        ihc_text = (
+            f"For immunohistochemistry, WT and {ctrl} cell pellets were fixed, "
+            f"embedded ({embedding}) and sectioned, and the sections were stained "
+            f"with the indicated {protein} antibodies (Figure 5)."
+        )
+        _add_styled_paragraph(doc, ihc_text, space_after=Pt(6))
+
     # Conclusion paragraph
     conclusion = (
         f"In conclusion, we have screened {num_abs} {protein} commercial "
         f"antibodies by {procedures_str} by comparing the signal produced by "
-        f"the antibodies in human {wt_name} WT and {gene} KO cells."
+        f"the antibodies in human {wt_name} WT and {gene} {ctrl} cells."
     )
     _add_styled_paragraph(doc, conclusion, space_after=Pt(12))
 
@@ -1451,7 +1651,7 @@ def generate_report(target_pk, output_path=None):
             _or_dash(cl.catalogue_number),
             _or_dash(cl.cellosaurus_id),
             cl.name,
-            f"{cl.name} {cl.get_genotype_display()}" if cl.genotype == 'KO'
+            f"{cl.name} {cl.get_genotype_display()}" if cl.genotype in ('KO', 'KD')
             else cl.get_genotype_display(),
         ])
     # Genotype column: "WT", or "<gene> KO" naming **the gene the line is a
@@ -1460,10 +1660,13 @@ def generate_report(target_pk, output_path=None):
     # mistake that must not be dressed up as a correct one: this line stamped
     # every knockout with the report's gene, so a PRKN knockout that reached
     # Table 1 through a mis-resolved session was published as a STMN2 knockout.
+    # A knockdown says so — `GPNMB KD` — because a Data Note that called a
+    # siRNA-treated wild type a knockout would be the public site's own defect
+    # arriving in a deposited document.
     for i, cl in enumerate(cell_lines):
-        if cl.genotype == 'KO':
+        if cl.genotype in ('KO', 'KD'):
             own = getattr(getattr(cl, 'target', None), 'gene_name', '') or gene
-            table1_rows[i][4] = f"{own} KO"
+            table1_rows[i][4] = f"{own} {cl.genotype}"
         else:
             table1_rows[i][4] = 'WT'
 
@@ -1483,7 +1686,7 @@ def generate_report(target_pk, output_path=None):
 
     table2_headers = [
         'Company', 'Catalog\nnumber',
-        'Lot number\n(used in Wb,\nIP and IF)',
+        'Lot number\n(used in Wb,\nIP, IF and IHC)',
         'Lot number\n(used in FC)',
         'RRID\n(Antibody\nRegistry)', 'Clonality', 'Clone\nID',
         # \u00b5g/mL, because that is the unit `Antibody.concentration` is stored in.
@@ -1540,7 +1743,7 @@ def generate_report(target_pk, output_path=None):
     # Table 2 footnote
     footnote = (
         "Wb=western blot; IF=immunofluorescence; IP=immunoprecipitation; "
-        "FC=flow cytometry; n/a=not available.\n"
+        "FC=flow cytometry; IHC=immunohistochemistry; n/a=not available.\n"
         "*Monoclonal antibody.\n**Recombinant antibody."
     )
     _add_styled_paragraph(
@@ -1574,6 +1777,7 @@ def generate_report(target_pk, output_path=None):
                 'IP': 'Immunoprecipitation',
                 'IF': 'Immunofluorescence',
                 'FC': 'Flow cytometry',
+                'IHC': 'Immunohistochemistry',
             }.get(proc, proc)
             # **The lists have to line up positionally.** Collapsing each column
             # independently gave three antibodies against two dilutions — both
@@ -1636,6 +1840,14 @@ def generate_report(target_pk, output_path=None):
             _fc_legend(target, sessions_by_type, cell_lines)
         )
 
+    # ── Figure 5 — Immunohistochemistry ──────────────────────────────
+    if has_ihc:
+        doc.add_page_break()
+        _add_figure_placeholder(
+            doc, 5,
+            _ihc_legend(target, sessions_by_type, cell_lines)
+        )
+
     # ── Methods ───────────────────────────────────────────────────────
     doc.add_page_break()
     _add_heading(doc, 'Method', level=2)
@@ -1694,6 +1906,13 @@ def generate_report(target_pk, output_path=None):
         fc_methods = _build_fc_methods(target, sessions_by_type['FC'], cell_lines)
         if fc_methods:
             _add_styled_paragraph(doc, fc_methods, space_after=Pt(8))
+
+    # IHC methods (full text, as FC: newer than the Protocol Exchange protocols)
+    if has_ihc:
+        _add_heading(doc, 'Antibody screening by immunohistochemistry', level=3)
+        ihc_methods = _build_ihc_methods(target, sessions_by_type['IHC'], cell_lines)
+        if ihc_methods:
+            _add_styled_paragraph(doc, ihc_methods, space_after=Pt(8))
 
     # ── Data Availability ─────────────────────────────────────────────
     doc.add_page_break()

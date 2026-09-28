@@ -230,6 +230,32 @@
         padding: 0.45rem 0.9rem;
     }
 
+    /* ── Phones: the search box belongs on the first screen ── */
+    /* Measured at 390×844 before this block: header 152px, hero 249px, the
+       search input at 605–648px — so on a smaller phone, once the browser's
+       own bars are counted, the one thing the page is for sat below the fold
+       behind a logo and a banner. The header's desktop 30px padding and the
+       hero's three-line tagline were the whole of it.
+
+       Shrunk rather than moving the box into the hero: the counts and the
+       search answer are drawn for a light ground (see .stats-bar and
+       .search-answer), and the answer must stay directly under the box.
+
+       The tagline has a one-line phone form rather than a smaller font: at
+       390px the full sentence is three lines at any readable size. Both are
+       in the markup and one is `display: none`, so a screen reader hears one. */
+    .tagline-short { display: none; }
+    @media (max-width: 600px) {
+        body.home-page .header { padding: 12px 16px; }
+        body.home-page .header .logo-img { max-width: 104px; }
+        .oga-intro { padding: 20px 16px 18px; }
+        .oga-intro h1 { font-size: 1.6rem; margin-bottom: 6px; }
+        .oga-intro .tagline { font-size: 0.95rem; line-height: 1.4; margin-bottom: 0; }
+        .tagline-full { display: none; }
+        .tagline-short { display: inline; }
+        .db-search-heading { margin-top: 1.2rem; }
+    }
+
     /* ── Mobile fixes ── */
     @media (max-width: 600px) {
         .stats-bar {
@@ -242,6 +268,10 @@
             margin-top: 1.2rem;
         }
     }
+
+    /* ── "Or by funder" line under the gene-list heading ── */
+    .gene-list-areas { color: #4a5568; margin: -8px 0 18px; font-size: 0.98rem; }
+    .gene-list-areas a { color: #10428a; font-weight: 600; }
 
     /* ── Supporters strip ── */
     /* White, not the page's #f4f4f4 and not a tint: five of these ten logo
@@ -454,7 +484,7 @@
     <section class="oga-intro">
         <div class="oga-intro-inner">
         <h1>Only Good Antibodies</h1>
-        <p class="tagline">A community and toolbox to make best practices in antibody choice and use feasible, easy and rewarding.</p>
+        <p class="tagline"><span class="tagline-full">A community and toolbox to make best practices in antibody choice and use feasible, easy and rewarding.</span><span class="tagline-short">Antibody best practice, made feasible and easy.</span></p>
         </div>
     </section>
 
@@ -488,7 +518,7 @@
         </div>
     </div>
     <div class="search-bar-wrapper"
-         data-genes-url="{% url 'gene_search_index' %}"
+         data-genes-url="{% url 'gene_search_index' %}?v={{ search_index_version }}"
          data-antibodies-url="{% url 'antibody_search' %}"
          data-gene-url-template="{% url 'antibody_table' gene_name='OGA_GENE' %}"
          data-nominate-url="{% url 'nominate_gene' %}">
@@ -572,7 +602,7 @@
         </div>
         <div class="edu-box">
             <h3>How to Use the Data</h3>
-            <p>Learn how to read knockout-controlled characterisation data and make evidence-based purchasing decisions for western blot, IF, IP, and flow cytometry.</p>
+            <p>Learn how to read knockout-controlled characterisation data and make evidence-based purchasing decisions for western blot, IF, IP, flow cytometry and IHC.</p>
             <a href="{% url 'using_the_data' %}" class="learn-more-button">Learn More</a>
         </div>
         <div class="edu-box">
@@ -700,6 +730,8 @@
 
     <section class="gene-list">
         <h2 id="genes-available">Browse every gene in the database</h2>
+        <p class="gene-list-areas">Or by funder:
+            <a href="{% url 'funder_page' 'mjff' %}">Michael J. Fox Foundation</a></p>
         <div class="gene-list-container">
             {% for gene in genes %}
             <div class="gene-box" data-name="{{ gene.name }}" data-aliases="{{ gene.aliases|default:'' }}">

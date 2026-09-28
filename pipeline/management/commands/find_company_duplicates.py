@@ -40,6 +40,28 @@ class Command(BaseCommand):
             for c in sorted(comps, key=lambda x: -ab_counts.get(x.id, 0)):
                 self.stdout.write(f"   id={c.id:<4} antibodies={ab_counts.get(c.id, 0):<4} "
                                   f"name={c.name!r} display={c.display_name!r}")
-        if not dupes:
+
+        # A second record under another name the supplier is known by — its
+        # public name, or half of a bracketed one — is the same duplicate with a
+        # different spelling, and the name-only grouping above cannot see it.
+        # This is how DSHB came to be three records and SGC two.
+        from pipeline.services.cropper.db import alias_keys
+        by_key = defaultdict(list)
+        for c in Company.objects.all():
+            by_key[Company.canonical_key(c.name)].append(c)
+        aliased = []
+        for c in Company.objects.all():
+            for k in sorted(alias_keys(c)):
+                for other in by_key.get(k, []):
+                    if other.id != c.id:
+                        aliased.append((c, other))
+        if aliased:
+            self.stdout.write(f"\n  also known as another record: {len(aliased)}")
+            for c, other in aliased:
+                self.stdout.write(
+                    f"   id={other.id:<4} antibodies={ab_counts.get(other.id, 0):<4} "
+                    f"name={other.name!r} is another name for id={c.id} {c.name!r} "
+                    f"(antibodies={ab_counts.get(c.id, 0)})")
+        if not dupes and not aliased:
             self.stdout.write("\n  ✓ No duplicate company records.")
         self.stdout.write("=" * 70)

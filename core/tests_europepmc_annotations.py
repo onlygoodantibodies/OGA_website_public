@@ -4,8 +4,8 @@ The platform answers by email an hour after upload, so nothing here can be
 found by running it. Four silent failures are pinned:
 
 * a printed identifier the extension would mark that this does not (the
-  identifier rules drifting from ``matcher.js``), or a rung named differently
-  from the site (``TEMPERING`` drifting from ``QUALIFIER_CODES``);
+  identifier rules drifting from ``matcher.js``), or a tag carrying more than
+  the antibody's name (Europe PMC's schema has nowhere for it);
 * a span attributed to a reagent the snapshot did not say the paper used — the
   page must never widen what CiteAb asserted;
 * a row the platform would refuse, written anyway;
@@ -21,7 +21,6 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 from core import europepmc_annotations as E
-from core import recommendations as R
 
 
 JATS = """<?xml version="1.0"?>
@@ -69,26 +68,17 @@ class IdentifierRulesMirrorTheExtensionTests(SimpleTestCase):
     """The same printed strings the extension resolves must resolve here."""
 
     def test_typesetting_variants_key_the_same(self):
-        for printed in ("14 060\u20131-AP", "14,060-1-AP", "14\u200b060-1-AP"):
+        for printed in ("14 060–1-AP", "14,060-1-AP", "14​060-1-AP"):
             self.assertEqual(E.identifier_key(printed), "14060-1-ap", printed)
         self.assertEqual(E.collapse_identifier("14060-1AP"), "140601ap")
         self.assertEqual(E.collapse_identifier("ab12"), "", "short keys are never compared")
-        self.assertEqual(E.rrid_key("RRID: AB\u201310679421"), "AB_10679421")
+        self.assertEqual(E.rrid_key("RRID: AB–10679421"), "AB_10679421")
 
     def test_a_bare_short_clone_is_not_a_key(self):
         self.assertFalse(E.is_distinctive_clone("200"))
         self.assertFalse(E.is_distinctive_clone("5"))
         self.assertTrue(E.is_distinctive_clone("671834"))
         self.assertTrue(E.is_distinctive_clone("D11A10"))
-
-    def test_tempering_codes_are_the_sites(self):
-        expected = {code for code, (_, tempers) in R.QUALIFIER_CODES.items() if tempers}
-        self.assertEqual(set(E.TEMPERING), expected)
-        self.assertEqual(E.rung(1, "sd"), "limited support")
-        self.assertEqual(E.rung(1, None), "not supportive")
-        self.assertEqual(E.rung(2, "xs"), "supportive")
-        self.assertEqual(E.rung(0), "not tested")
-        self.assertEqual(R.words(R.NOT_RECOMMENDED, tempers=True).lower(), E.rung(1, "sd"))
 
     def test_runs_without_django(self):
         """The runner and the owner's laptop have python3 and nothing else."""
@@ -119,6 +109,12 @@ class TheArticleIsReadInOrderTests(SimpleTestCase):
         # A table row is one block with a space between cells.
         self.assertIn(("Table", "MAB7778 Bio-Techne"), blocks)
 
+    def test_a_pubmed_record_is_its_title_and_abstract_without_markup(self):
+        record = {"title": "TDP-43  in models.", "abstract": "<h4>Methods</h4>We used MAB7778 at 1:1000."}
+        self.assertEqual(E.abstract_blocks(record),
+                         [("Title", "TDP-43 in models."), ("Abstract", "Methods We used MAB7778 at 1:1000.")])
+        self.assertEqual(E.abstract_blocks({"title": "", "abstract": ""}), [])
+
     def test_sentences_do_not_split_on_a_catalogue_label(self):
         parts = E.sentences("anti-TDP-43 (Bio-Techne, cat. no. MAB7778) at 1:1000. "
                             "Blots were imaged. Fig. 2 shows it.")
@@ -140,7 +136,7 @@ class AnnotationsQuoteThePageAndNeverWidenTheSnapshotTests(SimpleTestCase):
 
     def test_a_reagent_the_snapshot_did_not_attribute_draws_nothing(self):
         self.assertFalse(any(a["exact"] == "ab9485" for a in self.anns))
-        self.assertFalse(any("GAPDH" in t["name"] for a in self.anns for t in a["tags"]))
+        self.assertFalse(any("ab9485" in t["name"] for a in self.anns for t in a["tags"]))
 
     def test_position_prefix_postfix_and_section(self):
         first = next(a for a in self.anns if a["exact"] == "MAB7778")
@@ -148,8 +144,9 @@ class AnnotationsQuoteThePageAndNeverWidenTheSnapshotTests(SimpleTestCase):
         self.assertTrue(first["prefix"].endswith("cat. no. "))
         self.assertTrue(first["postfix"].startswith(", RRID:AB_10679421"))
         self.assertEqual(first["section"], "Methods")
-        chunks = [a["position"] for a in self.anns if a["position"].startswith(first["position"].split(".")[0] + ".")]
-        self.assertEqual(chunks, [f"{first['position'].split('.')[0]}.{i}" for i in range(1, len(chunks) + 1)])
+        sentence = first["position"].split(".")[0]
+        chunks = [a["position"] for a in self.anns if a["position"].startswith(sentence + ".")]
+        self.assertEqual(chunks, [f"{sentence}.{i}" for i in range(1, len(chunks) + 1)])
         self.assertEqual(next(a["section"] for a in self.anns if a["prefix"] == "TDP-43 ("), "Figure")
 
     def test_an_identifier_alone_in_its_sentence_is_dropped_and_counted(self):
@@ -158,44 +155,35 @@ class AnnotationsQuoteThePageAndNeverWidenTheSnapshotTests(SimpleTestCase):
         for ann in self.anns:
             self.assertTrue(ann["prefix"] or ann["postfix"])
 
-    def test_tag_names_the_rungs_and_links_the_gene_page_focused_on_the_antibody(self):
-        tag = next(a for a in self.anns if a["exact"] == "MAB7778")["tags"][0]
-        self.assertEqual(tag["uri"], "https://onlygoodantibodies.co.uk/antibodies/TARDBP/?ab=MAB7778")
-        self.assertIn("used in this paper for WB, IF", tag["name"])
-        self.assertIn("WB not supportive; IP supportive; IF supportive; FC not tested", tag["name"])
-        ambiguous = next(a for a in self.anns if a["exact"] == "66 140-1-Ig")["tags"][0]
-        self.assertIn("used in this paper (application not recorded by CiteAb)", ambiguous["name"],
-                      "an ambiguous CiteAb attribution names the use and not the application")
-        self.assertIn("IP limited support", ambiguous["name"])
+    def test_every_annotation_is_a_named_entity(self):
+        """Europe PMC's review: named-entity annotations only, never a sentence."""
+        for ann in self.anns:
+            self.assertIn("position", ann)
+            self.assertTrue(ann["exact"])
+            self.assertLess(len(ann["exact"]), 40, "a span is an identifier, not a sentence")
 
-    def test_untested_applications_are_named_as_such(self):
-        reagent = E.reagents_for(
-            {"AB_10679421": {"applications": ["WB"], "ambiguous": False, "untested_terms": ["IHC"]}},
-            INDEX)[0]
-        self.assertEqual(E.use_clause(reagent), "used in this paper for WB and for IHC (which OGA does not test)")
-        reagent["used_for"] = []
-        self.assertEqual(E.use_clause(reagent), "used in this paper for IHC (which OGA does not test)")
+    def test_the_tag_is_the_canonical_name_and_nothing_else(self):
+        """Their review: the name field holds the antibody's canonical name; every
+        other fact goes on the linked page. The RRID citation form is that name."""
+        tag = next(a for a in self.anns if a["exact"] == "MAB7778")["tags"][0]
+        self.assertEqual(tag["name"], "Bio-Techne Cat# MAB7778, RRID:AB_10679421")
+        self.assertEqual(tag["uri"], "https://onlygoodantibodies.co.uk/antibodies/TARDBP/?ab=MAB7778")
+        for word in ("supportive", "tested", "used in this paper", "WB", "·"):
+            self.assertNotIn(word, tag["name"])
+        clone = next(a for a in self.anns if a["exact"] == "RRID:AB_10679421")["tags"][0]
+        self.assertEqual(clone["name"], tag["name"], "every way of printing one antibody gets one name")
+
+    def test_canonical_name_without_a_supplier_or_catalogue(self):
+        base = {"rrid": "AB_1", "catalogue": "", "supplier": "", "gene": "X", "clone": "",
+                "codes": {}, "qualifiers": {}, "discontinued": False, "used_for": [],
+                "untested_terms": [], "ambiguous": False}
+        self.assertEqual(E.canonical_name(base), "RRID:AB_1")
+        self.assertEqual(E.canonical_name({**base, "catalogue": "ab1"}), "Cat# ab1, RRID:AB_1")
+        self.assertEqual(E.canonical_name({**base, "supplier": "Abcam"}), "Abcam, RRID:AB_1")
 
     def test_every_row_is_submittable(self):
         row = E.row_for("PMC", "PMC1234567", "oga", self.anns)
         self.assertEqual(E.validate_row(row), [])
-
-
-class EveryPaperGetsATitleAnnotationTests(SimpleTestCase):
-
-    def test_one_sentence_one_tag_per_antibody(self):
-        ann = E.title_annotation("TDP-43 in  C9orf72\nmodels.", _reagents(), "https://x")
-        self.assertEqual(ann["exact"], "TDP-43 in C9orf72 models.")
-        self.assertEqual(ann["section"], "Title")
-        self.assertNotIn("position", ann)
-        self.assertEqual([t["uri"] for t in ann["tags"]],
-                         ["https://x/antibodies/TARDBP/?ab=MAB7778", "https://x/antibodies/C9orf72/?ab=66140-1-Ig"])
-        self.assertIn("used in this paper for WB, IF", ann["tags"][0]["name"])
-        self.assertEqual(E.validate_row(E.row_for("MED", "111", "oga", [ann])), [])
-
-    def test_no_title_or_no_reagent_is_nothing(self):
-        self.assertIsNone(E.title_annotation("", _reagents(), "https://x"))
-        self.assertIsNone(E.title_annotation("A title", [], "https://x"))
 
 
 class AShortCatalogueNumberNeedsItsSentenceToSaySoTests(SimpleTestCase):
@@ -252,10 +240,6 @@ class ValidationRefusesWhatThePlatformWouldTests(SimpleTestCase):
             self.assertTrue(any(fragment in p for p in problems), (fragment, problems))
         self.assertEqual(E.validate_row({"src": "MED", "id": "1", "provider": "x", "anns": []}),
                          ["anns is empty"])
-        sentence_based = {"src": "MED", "id": "1", "provider": "x",
-                          "anns": [{"exact": "A title", "section": "Title",
-                                    "tags": [{"name": "n", "uri": "http://u"}]}]}
-        self.assertEqual(E.validate_row(sentence_based), [])
 
 
 class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
@@ -274,9 +258,15 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
 
         def search(pmids, email):
             calls["search"] += 1
-            return {"111": {"pmcid": "PMC111", "open_access": True, "title": "Paper one"},
-                    "222": {"pmcid": "", "open_access": False, "title": "Paper two"},
-                    "333": {"pmcid": "PMC333", "open_access": True, "title": "Paper three"}}
+            return {
+                # Open access, identifiers in the full text, none in the abstract.
+                "111": {"pmcid": "PMC111", "open_access": True, "title": "Paper one", "abstract": ""},
+                # Abstract only, and the abstract prints the catalogue number.
+                "222": {"pmcid": "", "open_access": False, "title": "Paper two",
+                        "abstract": "<h4>Methods</h4>Blots used MAB7778 from Bio-Techne."},
+                # Open access, and nothing prints an identifier anywhere.
+                "333": {"pmcid": "PMC333", "open_access": True, "title": "Paper three", "abstract": "Nothing."},
+            }
             # 555 is not returned at all.
 
         def fetch(pmcid, email):
@@ -289,21 +279,24 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
             cache = E.Cache(tmp)
             rows, report = E.build(self._artefact(), INDEX, "oga", cache, search=search,
                                    fetch=fetch, sleep=lambda s: None)
-            self.assertEqual([(r["src"], r["id"]) for r in rows],
-                             [("MED", "111"), ("PMC", "PMC111"), ("MED", "222"), ("MED", "333")])
-            self.assertEqual(rows[0]["anns"][0]["exact"], "Paper one")
-            self.assertEqual(rows[0]["provider"], "oga")
-            self.assertEqual(report["papers_annotated"], 3)
-            self.assertEqual(report["rows"], 4)
+            self.assertEqual([(r["src"], r["id"]) for r in rows], [("PMC", "PMC111"), ("MED", "222")])
+            self.assertEqual(rows[1]["anns"][0]["exact"], "MAB7778")
+            self.assertEqual(rows[1]["anns"][0]["section"], "Abstract")
+            self.assertEqual(rows[1]["anns"][0]["position"], "2.1", "the title is sentence 1")
+            self.assertEqual(rows[1]["provider"], "oga")
+            self.assertEqual(report["papers_annotated"], 2)
+            self.assertEqual(report["rows"], 2)
+            self.assertEqual(report["where"]["abstract"], ["222"])
+            self.assertEqual(report["where"]["full_text"], ["111"])
+            self.assertEqual(report["where"]["open_access_not_printed"], ["333"])
+            self.assertEqual(report["where"]["no_open_access_full_text"], ["222"])
+            self.assertEqual(report["left_out"]["identifier_not_printed"], ["333"])
             self.assertEqual(report["left_out"]["preprint"], ["PPR999"])
             self.assertEqual(report["left_out"]["no_public_record"], ["444"])
             self.assertEqual(report["left_out"]["not_in_europe_pmc"], ["555"])
-            self.assertEqual(report["full_text"]["anchored"], ["111"])
-            self.assertEqual(report["full_text"]["no_open_access_full_text"], ["222"])
-            self.assertEqual(report["full_text"]["not_printed_in_text"], ["333"])
             self.assertEqual(report["contextless_spans"], 1)
             self.assertEqual(report["candidates"], 4)
-            self.assertEqual([E.validate_row(r) for r in rows], [[]] * 4)
+            self.assertEqual([E.validate_row(r) for r in rows], [[], []])
 
             # A second run asks nothing again: records and text are cached.
             rows2, _ = E.build(self._artefact(), INDEX, "oga", E.Cache(tmp), search=search,
@@ -316,8 +309,23 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
             E.print_report(report, say=lambda *a, **k: lines.append(" ".join(map(str, a))))
             text = "\n".join(lines)
             self.assertIn("PPR999", text)
-            self.assertIn("no open-access full text, title only", text)
-            self.assertIn("555", text)
+            self.assertIn("333", text)
+            self.assertIn("no identifier is printed", text)
+
+    def test_a_record_cached_without_an_abstract_is_asked_again(self):
+        asked = []
+
+        def search(pmids, email):
+            asked.extend(pmids)
+            return {p: {"pmcid": "", "open_access": False, "title": "T", "abstract": ""} for p in pmids}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = E.Cache(tmp)
+            cache.records["111"] = {"pmcid": "", "open_access": False, "title": "old shape"}
+            cache.save_records()
+            E.build(self._artefact(), INDEX, "oga", E.Cache(tmp), search=search,
+                    fetch=lambda p, e: "", sleep=lambda s: None)
+            self.assertIn("111", asked)
 
     def test_files_split_under_the_platforms_limit(self):
         row = E.row_for("PMC", "PMC1", "oga", [{"position": "1.1", "prefix": "x", "exact": "y",

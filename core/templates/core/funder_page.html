@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.short }}-funded genes — Only Good Antibodies</title>
+    <meta name="description" content="{{ count }} genes with antibodies independently characterised by YCharOS under {{ page.name }} funding, assessed with {{ controls }}, from Only Good Antibodies.">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   FUNDER PAGE
+   Prefix: fp-
+   ══════════════════════════════════════ */
+.fp-hero {
+  background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 64px 24px 48px; text-align: center;
+}
+.fp-hero-inner { max-width: 820px; margin: 0 auto; }
+.fp-hero-label {
+  display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  padding: 6px 18px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20px; color: rgba(255,255,255,0.9);
+}
+.fp-hero h1 {
+  font-family: 'Open Sans', sans-serif; font-size: clamp(1.7rem, 4.5vw, 2.6rem); font-weight: 800;
+  line-height: 1.2; margin: 0 0 16px; letter-spacing: -0.5px; color: #fff !important;
+}
+.fp-hero p { font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.88); max-width: 680px; margin: 0 auto; }
+.fp-hero .fp-count { font-weight: 700; color: #fff; }
+
+/* ── Logo band ── */
+/* White ground for the same reason as the home page's supporters strip: the
+   MJFF file carries its own opaque white background. */
+.fp-logo {
+  background: #fff; border-bottom: 1px solid #e3eaf5; padding: 28px 24px; text-align: center;
+}
+.fp-logo-label {
+  color: #10428a; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; margin: 0 0 14px;
+}
+.fp-logo img { max-height: 90px; max-width: 280px; width: auto; height: auto; display: inline-block; }
+
+/* ── Gene table ── */
+.fp-main { max-width: 1000px; margin: 0 auto; padding: 40px 16px 56px; }
+.fp-main h2 { color: #10428a; font-size: 1.5rem; margin: 0 0 8px; }
+.fp-main .fp-lede { color: #4a5568; margin: 0 0 24px; line-height: 1.6; }
+.fp-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.fp-table th {
+  text-align: left; padding: 10px 12px; background: #eef3fa; color: #10428a;
+  font-weight: 700; border-bottom: 2px solid #d5e0f0; white-space: nowrap;
+}
+.fp-table td { padding: 12px; border-bottom: 1px solid #e3eaf5; vertical-align: top; }
+.fp-table tr:hover td { background: #f7f9fd; }
+.fp-table a.fp-gene { font-weight: 700; color: #10428a; text-decoration: none; }
+.fp-table a.fp-gene:hover { text-decoration: underline; }
+.fp-protein { color: #4a5568; }
+.fp-apps { display: flex; flex-wrap: wrap; gap: 6px; }
+.fp-app {
+  display: inline-block; padding: 2px 9px; border-radius: 100px; background: #e8f0fb;
+  color: #10428a; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+}
+.fp-num { text-align: right; white-space: nowrap; }
+
+.fp-empty { padding: 24px; background: #f7f9fd; border-radius: 8px; color: #4a5568; }
+
+@media (max-width: 640px) {
+  .fp-table th.fp-optional, .fp-table td.fp-optional { display: none; }
+  .fp-table td { padding: 10px 8px; }
+}
+</style>
+</head>
+<body>
+
+{% include 'core/cookie_banner.html' %}
+{% include 'core/header.html' %}
+
+<section class="fp-hero">
+  <div class="fp-hero-inner">
+    <div class="fp-hero-label">Funder</div>
+    <h1>{{ page.name }}</h1>
+    <p>{{ page.intro }}</p>
+    <p style="margin-top:14px"><span class="fp-count">{{ count }} gene{{ count|pluralize }}</span> with public results ·
+      <span class="fp-count">{{ antibody_total }} antibod{{ antibody_total|pluralize:'y,ies' }}</span> characterised, assessed with {{ controls }}.</p>
+  </div>
+</section>
+
+<section class="fp-logo" aria-label="Funded by">
+  <p class="fp-logo-label">Funded by</p>
+  <a href="{{ page.url }}" target="_blank" rel="noopener">
+    <img src="{% static page.logo %}" alt="{{ page.logo_alt }}">
+  </a>
+</section>
+
+<main class="fp-main">
+  <h2>Genes with public characterisation data</h2>
+  <p class="fp-lede">One row per gene, each linking to its full page of results.</p>
+
+  {% if rows %}
+  <table class="fp-table">
+    <thead>
+      <tr>
+        <th scope="col">Gene</th>
+        <th scope="col" class="fp-optional">Protein</th>
+        <th scope="col" class="fp-num">Antibodies</th>
+        <th scope="col">Applications</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><a class="fp-gene" href="{% url 'antibody_table' row.gene %}">{{ row.gene }}</a></td>
+        <td class="fp-protein fp-optional">{{ row.protein }}</td>
+        <td class="fp-num">{{ row.antibodies }}</td>
+        <td>
+          <div class="fp-apps">
+            {% for code, label in row.applications %}<span class="fp-app" title="{{ label }}">{{ code }}</span>{% endfor %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="fp-empty">No gene on this list has public results yet. Every gene with a published figure appears here automatically.</p>
+  {% endif %}
+
+</main>
+
+{% include 'core/footer.html' %}
+</body>
+</html>

@@ -461,6 +461,7 @@
     si: "some selective signal",
     sl: "selective",
     xs: "strongly selective",
+    nb: "with non-specific background",
   };
 
   function yellowClause(status) {

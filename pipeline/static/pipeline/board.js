@@ -468,7 +468,34 @@ window.OGABoard = (function () {
 
   function saveNotes(result) {
     return concentrationSaved(result) + cNumberSaved(result)
-         + labNumbersIssued(result) + labNumbersDeferred(result);
+         + labNumbersIssued(result) + labNumbersDeferred(result)
+         + reportNeedsNote((result || {}).report_needs, 'saved');
+  }
+
+  /* What the draft Data Note will still print as a gap — `[antigen
+   * retrieval]` — once this sheet is saved. The server derives the list from
+   * the report generator's own declaration (`services/report_needs.py`), so
+   * this only draws it. A warning, never a refusal: nothing here disarms a
+   * save. `when` is 'check' (before the save) or 'saved' (the receipt).
+   * One writer for every panel that previews a bench sheet or a workbook. */
+  function reportNeedsNote(list, when) {
+    if (!list || !list.length) return '';
+    // `on_sheet: false` is a bench sheet with nowhere to type a session-level
+    // value (WB/IP/IF/FC — only IHC's sheet has a conditions block). A
+    // workbook's warnings carry no flag: every one of them has a column there.
+    const offSheet = list.filter(w => w.on_sheet === false).length;
+    const head = when === 'saved'
+      ? `Saved. The report will still be missing ${plural(list.length, 'field')}:`
+      : `${plural(list.length, 'field')} the report needs ${list.length === 1 ? 'is' : 'are'} blank — you can still save:`;
+    return `<div class="report-needs mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900" role="status">
+      <b>${head}</b>
+      <ul class="mt-1 list-disc pl-4">${list.map(w => `<li>${esc(w.message)}${
+        w.on_sheet === false ? ' <i>This sheet has no place for it — enter it in this session’s conditions on the sessions board.</i>' : ''}</li>`).join('')}</ul>
+      <p class="mt-1">${offSheet === list.length
+        ? `Enter ${list.length === 1 ? 'it' : 'them'} in this session’s conditions on the sessions board.`
+        : `Fill ${list.length === 1 ? 'it' : 'them'} in on the sheet and upload it again, or in
+      this session's conditions and results on the sessions board.`}</p>
+    </div>`;
   }
 
   /* Which sheet an upload was read from, when there was a choice.
@@ -3057,7 +3084,7 @@ window.OGABoard = (function () {
   return {esc, pill, cell, doiCell, dateText, formQuery, banner, requestJson, create, newEntry,
           previewRows, supplierLabel, uploadPanel, identityDialog, bringIntoView,
           concentrationWarning, concentrationSaved, targetAddSummary, rowDeleted,
-          labNumberNote, labNumbersIssued, checkNotes, saveNotes,
+          labNumberNote, labNumbersIssued, checkNotes, saveNotes, reportNeedsNote,
           targetAddDestination, targetAddGo,
           oneGene, geneGate, geneTerms, GENE_GATE,
           GENE_GATE_ANTIBODIES, GENE_GATE_CELL_LINES, GENE_GATE_SESSIONS,

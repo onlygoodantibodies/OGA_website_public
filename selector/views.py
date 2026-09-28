@@ -105,6 +105,8 @@ def _oga_status(gene):
                                               args=[target.gene_name])
             tested = target.antibodies.filter(
                 publication_images__isnull=False).distinct()
+            # Four, deliberately: the selection tool's shape is its own and
+            # IHC (26 Sep 2026) is not one of its applications yet.
             result["recommended"] = {
                 "WB": tested.filter(wb_recommended=True).count(),
                 "IP": tested.filter(ip_recommended=True).count(),

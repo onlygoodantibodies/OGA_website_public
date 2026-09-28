@@ -4,8 +4,13 @@ The companion to ``services/planning.py``: a session's bench sheet is printed,
 filled in at the bench, then uploaded here to record results. Rows are matched
 back to antibodies by the ``Ab#`` key column (falling back to catalogue number),
 and the filled result columns are written to the session's procedure result rows
-(``WbResult`` / ``IpResult`` / ``IfResult`` / ``FcResult``) — upserting one row
-per antibody. ``plan()`` previews; ``apply()`` writes.
+(``WbResult`` / ``IpResult`` / ``IfResult`` / ``FcResult`` / ``IhcResult``) —
+upserting one row per antibody. ``plan()`` previews; ``apply()`` writes.
+
+The preview also says what the **report** will be missing once this is saved
+(``report_needs``): every field a draft Data Note would print as a named gap
+(`[antigen retrieval]`), named while the notebook is still open. A warning,
+never a refusal — the save is not blocked by it.
 """
 from __future__ import annotations
 
@@ -15,9 +20,13 @@ from django.db import transaction
 
 from pipeline.models import Antibody
 from pipeline.services import lab_numbers
+from pipeline.services import report_needs
 from pipeline.services import sessions as sess
 from pipeline.services import workbook as wbk
-from pipeline.services.session_import import CONDITION_JOIN
+from pipeline.services.session_import import CONDITION_JOIN, SheetRefusal
+from pipeline.services.session_import import _condition_key as _si_condition_key
+from pipeline.services.session_import import condition_labels as _condition_labels
+from pipeline.services.session_import import label_norm as _label_norm
 
 DB = "pipeline_db"
 
@@ -54,13 +63,48 @@ RESULT_HEADER_ALIASES = {
         "mfi wt": "median_fluorescence_wt", "mfi ko": "median_fluorescence_ko",
         "gating strategy": "gating_strategy", "gating": "gating_strategy",
     },
+    # IHC (26 Sep 2026): the labels `planning.BENCH_RESULT_COLUMNS["IHC"]`
+    # writes. "Used dilution" and "Primary ab dilution" are shared with WB/IF
+    # and so say nothing about which sheet this is; the rest are IHC's alone
+    # and are how `sheet_procedure` recognises one. Deliberately *not*
+    # "specific signal", the IF plate map's only distinctive heading.
+    "IHC": {
+        "used dilution": "primary_ab_dilution",
+        "primary ab dilution": "primary_ab_dilution",
+        "dilution source": "dilution_source",
+        "secondary / detection": "secondary_ab", "secondary/detection": "secondary_ab",
+        "slide / core": "slide_position", "slide/core": "slide_position",
+        "specific staining": "specific_signal",
+        "staining location": "staining_location",
+        "tissue result": "tissue_result",
+        "image acquired by": "image_acquired_by",
+        "image analysed by": "image_analysed_by",
+        "image analyzed by": "image_analysed_by",
+        "comments": "comments",
+    },
 }
+
+# Headings a procedure reads that must never *identify* a sheet. `comments` is
+# a column anybody adds to any sheet; the two image headings name fields
+# `IfResult` has too, so an IF sheet somebody built by hand may carry them.
+# Distinctive, they would make such a sheet read as IHC and be refused.
+_NEVER_DISTINCTIVE = {"comments", "image acquired by", "image analysed by",
+                      "image analyzed by"}
 
 _KEY_HEADERS = {"ab#", "ab #", "antibody number", "antibodynumber", "ab number"}
 _CAT_HEADERS = {"catnumber", "cat number", "catalogue", "catalogue number", "cat #", "cat#"}
 _COMPANY_HEADERS = {"company", "supplier", "vendor"}
 # IF fields that are aggregated (many well rows → one result row per antibody).
 _IF_JOIN_FIELDS = {"primary_ab_dilution", "specific_signal"}
+# Per procedure, the fields several rows of one antibody are joined into rather
+# than last-wins. IF's are its wells; IHC's are its cores — one antibody is
+# read on a cell-pellet core and on each tissue core, and the second row's
+# staining must not silently replace the first's.
+_JOIN_FIELDS = {
+    "IF": _IF_JOIN_FIELDS,
+    "IHC": {"specific_signal", "staining_location", "slide_position",
+            "tissue_result", "comments"},
+}
 
 # Identity columns the sheet ships that are context, not readings, and not a
 # scientist's own invention. Everything else unrecognised is treated the way the
@@ -69,6 +113,7 @@ _CONTEXT_HEADERS = ({"gene", "tube", "clonality", "clone", "host",
                      "conc.", "conc", "concentration",
                      "conc. (µg/ml)", "conc. (ug/ml)", "conc. (mg/ml)",
                      "wb recommended dilution", "recommended dilution",
+                     "ihc recommended dilution",
                      "plate number", "well number", "name of histogram"}
                     | _KEY_HEADERS | _CAT_HEADERS | _COMPANY_HEADERS)
 
@@ -93,7 +138,8 @@ def _distinctive_headers():
             procs_by_header.setdefault(h, set()).add(proc)
     out = {proc: set() for proc in RESULT_HEADER_ALIASES}
     for h, procs in procs_by_header.items():
-        if len(procs) == 1 and h not in _CONTEXT_HEADERS:
+        if (len(procs) == 1 and h not in _CONTEXT_HEADERS
+                and h not in _NEVER_DISTINCTIVE):
             out[next(iter(procs))].add(h)
     return out
 
@@ -130,16 +176,17 @@ def _norm(v):
     return ("" if v is None else str(v)).strip()
 
 
-def _condition_key(header):
-    """The key an unrecognised column is stored under in ``session_conditions``.
-
-    Snake-cased, so it lands in the same namespace as every other condition and
-    the sessions board can round-trip it. Same rule, same spelling, as
-    ``session_import._condition_key`` — one convention across both importers, or
-    a column named `Owner notes` arrives once as ``owner_notes`` and once as
-    ``"owner notes"`` and nothing can read both.
+def _condition_key(header, proc=None):
+    """The key an unrecognised column is stored under in ``session_conditions``
+    — `session_import._condition_key`, the workbook's own, so both importers
+    spell a column one way: `Owner notes` is ``owner_notes`` from either, and a
+    heading that is one of this procedure's condition labels (`Section
+    thickness (µm)`) is that condition's key (`section_thickness_um`) from
+    either. Per procedure, because the same label names different keys on
+    different forms (IF's "Secondary Antibody" is `secondary_ab`, WB's is
+    `secondary_antibody`).
     """
-    return "_".join(str(header or "").strip().lower().split())
+    return _si_condition_key(header, proc)
 
 
 def _sheet_session_id(rows):
@@ -207,7 +254,7 @@ def parse(f, procedure):
     aliases = RESULT_HEADER_ALIASES.get(proc, {})
     rows = _read_rows(f)
     if not rows:
-        raise ValueError("the sheet is empty")
+        raise SheetRefusal("the sheet is empty")
 
     # Find the header row: the first row that names the Ab# key or a catalogue col.
     header_idx = None
@@ -217,7 +264,7 @@ def parse(f, procedure):
             header_idx = i
             break
     if header_idx is None:
-        raise ValueError("couldn't find the header row (no 'Ab#' or 'CatNumber' column)")
+        raise SheetRefusal("couldn't find the header row (no 'Ab#' or 'CatNumber' column)")
 
     header = [_norm(c).lower() for c in rows[header_idx]]
     col = {h: j for j, h in enumerate(header) if h}
@@ -236,9 +283,22 @@ def parse(f, procedure):
     extra_headers = [h for h in header
                      if h and h not in aliases and h not in _CONTEXT_HEADERS]
 
+    labels = _condition_labels(proc)
+    block = {}
     out = []
     for cells in rows[header_idx + 1:]:
         if not any(_norm(c) for c in cells):
+            continue
+        # A session-conditions row (`planning.CONDITIONS_BLOCK`): one of this
+        # procedure's condition labels in column A, the value in column B.
+        # Asked *before* the row is read as an antibody, because column B is
+        # the Ab# column of the table above it. Column B only — the form's
+        # example sits in column D, and a prompt is not a value.
+        first = _norm(cells[0]) if cells else ""
+        if first and _label_norm(first) in labels:
+            v = _norm(cells[1]) if len(cells) > 1 else ""
+            if v:
+                block[labels[_label_norm(first)]] = v
             continue
         ab_key = _get(cells, _KEY_HEADERS)
         catalogue = _get(cells, _CAT_HEADERS)
@@ -267,15 +327,21 @@ def parse(f, procedure):
     for h, values in _fold_condition_values(out, extra_headers).items():
         if not values:
             continue
+        key = _condition_key(h, proc)
         unknown.append({
             "header": h,
-            "key": _condition_key(h),
+            "key": key,
             "value": CONDITION_JOIN.join(values),
             "values": len(values),
             "rows": sum(1 for r in out if r["extra"].get(h, "")),
+            # A column named after one of this procedure's own conditions is
+            # not a stray: the panel draws it as a condition read, not as a
+            # column "not recognised".
+            "recognised": key in labels.values(),
         })
 
     return {"rows": out, "unknown": unknown,
+            "conditions": block,
             "sheet_session_id": _sheet_session_id(rows),
             "sheet_procedure": sheet_procedure(header)}
 
@@ -371,7 +437,7 @@ def _collapse(target, rows, proc, session=None):
         for field, val in r["fields"].items():
             if field not in allowed:
                 continue
-            if proc == "IF" and field in _IF_JOIN_FIELDS and acc.get(field):
+            if field in _JOIN_FIELDS.get(proc, ()) and acc.get(field):
                 if val not in acc[field].split(CONDITION_JOIN):
                     acc[field] = f"{acc[field]}{CONDITION_JOIN}{val}"
             else:
@@ -441,13 +507,112 @@ def unstamped_note(session, sheet_session_id) -> str:
             f"the readings against it before recording.")
 
 
+def _block_held(block, existing) -> set:
+    """Keys of the conditions block that differ from a value already on file.
+
+    **Fill-only-blank.** The block is downloaded pre-filled with what the
+    session holds (`planning._write_conditions_block`), so a differing value is
+    either a correction made on the board since the sheet was printed — which
+    an older paper copy must not put back — or an edit on paper, which is one
+    cell on the sessions board. Neither is the sheet's call; the preview names
+    each and the write leaves it alone.
+    """
+    existing = existing or {}
+    held = set()
+    for key, v in (block or {}).items():
+        on_file = str(existing.get(key) or "").strip()
+        if on_file and on_file != str(v or "").strip():
+            held.add(key)
+    return held
+
+
+def _sheet_conditions(rows, block, proc, existing=None):
+    """``{key: value}`` — every session condition this sheet will store.
+
+    One reader for the preview and the write. The sheet's own columns go
+    through the same fold the preview names (every distinct value joined);
+    the conditions block's rows are one value each. Merged by *key* rather
+    than by header, because two spellings of one column name snake_case to one
+    condition and the second must not silently replace the first. Blank never
+    appears here, so a blank never clears a stored condition.
+    """
+    headers = []
+    for r in rows:
+        for h in (r.get("extra") or {}):
+            if h not in headers:
+                headers.append(h)
+    stored = {}
+    for h, values in _fold_condition_values(rows, headers).items():
+        if not values:
+            continue
+        key = _condition_key(h, proc)
+        merged = stored[key].split(CONDITION_JOIN) if key in stored else []
+        merged += [v for v in values if v not in merged]
+        stored[key] = CONDITION_JOIN.join(merged)
+    held = _block_held(block, existing)
+    for key, v in (block or {}).items():
+        if str(v or "").strip() and key not in held:
+            stored[key] = str(v).strip()
+    return stored
+
+
+def _rows_after(session, collapsed):
+    """The session's result rows as they will stand after this save, as dicts
+    — what `report_needs.missing` checks the per-antibody needs against.
+
+    Stored rows first, the sheet's filled fields over them (the write sets
+    exactly those), and a new row for an antibody the session had none for.
+    """
+    ResultModel = sess.RESULT_MODEL_MAP[session.procedure_type]
+    names = [f.name for f in ResultModel._meta.fields]
+    by_ab = {}
+    for r in (ResultModel.objects.using(DB).filter(session=session)
+              .select_related("antibody", "antibody__company").order_by("pk")):
+        if r.antibody_id is None or r.antibody_id in by_ab:
+            continue
+        d = {n: getattr(r, n, None) for n in names}
+        d["antibody"] = str(r.antibody)
+        by_ab[r.antibody_id] = d
+    for entry in collapsed:
+        ab, fields = entry["ab"], entry["fields"]
+        if not fields:
+            continue
+        d = by_ab.setdefault(ab.pk, {"antibody": str(ab)})
+        d.update(fields)
+    return list(by_ab.values())
+
+
+def report_warnings(session, conditions_added, rows_after):
+    """What a draft Data Note would still print as a gap once this is saved.
+
+    Asked of the conditions the session will hold **after** the save —
+    template, stored and the sheet's own, merged the way the report merges
+    them (`report_needs.session_conditions`) — and never of what is on file
+    now, or a sheet that fills the gap would be warned about it.
+    """
+    proc = session.procedure_type
+    conditions = report_needs.session_conditions(session, extra=conditions_added)
+    warnings = report_needs.missing(proc, conditions, rows_after)
+    # **Where each one can be filled.** A per-antibody need is a column on every
+    # bench sheet; a session-level one has a place only on a sheet with a
+    # conditions block (IHC's). On the other four, "fill it in on the sheet"
+    # sent the reader to a row that does not exist — so the panel says the
+    # sessions board for those (`OGABoard.reportNeedsNote`).
+    from pipeline.services.planning import CONDITIONS_BLOCK
+    for w in warnings:
+        w["on_sheet"] = w["kind"] == "antibody" or proc in CONDITIONS_BLOCK
+    return warnings
+
+
 def plan(session, parsed):
     """Preview: which antibodies get results, create vs update, unmatched
-    references, and the columns the sheet did not ship.
+    references, the columns the sheet did not ship, the session conditions it
+    will store, and what the report will still be missing afterwards.
 
     Accepts the dict `parse` returns, or a bare row list from an older caller.
     """
     rows, unknown, sheet_id, sheet_proc = _unpack(parsed)
+    block = parsed.get("conditions") if isinstance(parsed, dict) else None
     refusal = wrong_session(session, sheet_id) or wrong_procedure(session, sheet_proc)
     if refusal:
         return {"ok": False, "error": refusal}
@@ -464,12 +629,31 @@ def plan(session, parsed):
             "action": "update" if exists else "create",
             "fields": entry["fields"],
         })
+    existing = session.session_conditions or {}
+    conditions_added = _sheet_conditions(rows, block, proc, existing)
+    # What the sheet's conditions block says, named for the panel. Only the
+    # block — a column the sheet carried is already listed under
+    # `unknown_columns`, with its fold spelled out. `held` is a value the save
+    # will not write, because a different one is already on file.
+    from pipeline.services.report_needs import condition_label
+    held = _block_held(block, existing)
+    block_read = [{"key": k, "label": condition_label(proc, k), "value": v,
+                   "stored": str(existing.get(k, "") or ""), "held": k in held}
+                  for k, v in (block or {}).items()]
+    warnings = report_warnings(session, conditions_added,
+                               _rows_after(session, collapsed))
     return {
         "ok": True,
         "procedure": proc,
         "items": items,
         "unmatched": unmatched,
-        "unknown_columns": unknown,
+        # Unrecognised first, recognised after: the panel draws the two apart.
+        "unknown_columns": [u for u in unknown if not u.get("recognised")],
+        "condition_columns": [u for u in unknown if u.get("recognised")],
+        "conditions_read": block_read,
+        # **What the report will be missing, said while the notebook is still
+        # open** (PLATFORM_ROADMAP #102). A warning: nothing here stops the save.
+        "report_needs": warnings,
         # Not an error — the panel draws it above the rows, because it is about
         # whether these readings belong here at all.
         "unstamped": unstamped_note(session, sheet_id),
@@ -478,7 +662,9 @@ def plan(session, parsed):
             "create": sum(1 for i in items if i["action"] == "create"),
             "update": sum(1 for i in items if i["action"] == "update"),
             "unmatched": len(unmatched),
-            "unknown_columns": len(unknown),
+            "unknown_columns": len([u for u in unknown if not u.get("recognised")]),
+            "conditions": len(conditions_added),
+            "report_needs": len(warnings),
         },
     }
 
@@ -502,6 +688,7 @@ def apply(session, parsed, member=None):
     """Upsert one result row per matched antibody with the filled fields, and
     fold the sheet's own columns into the session's conditions."""
     rows, _unknown, sheet_id, sheet_proc = _unpack(parsed)
+    block = parsed.get("conditions") if isinstance(parsed, dict) else None
     refusal = wrong_session(session, sheet_id) or wrong_procedure(session, sheet_proc)
     if refusal:
         return {"ok": False, "error": refusal}
@@ -512,26 +699,12 @@ def apply(session, parsed, member=None):
     created, updated = [], []
     with transaction.atomic(using=DB):
         # A column the sheet did not ship is a session condition — the rule the
-        # workbook already holds. Only the named keys are touched, so conditions
-        # recorded elsewhere survive: rebuilding this dict from scratch is how
-        # the full-page save used to wipe a workbook's own columns.
-        # Through the same fold the preview used, so the panel's list of what
-        # would be kept is what lands. Merged by *key* rather than by header,
-        # because two spellings of one column name snake_case to one condition
-        # and the second must not silently replace the first.
-        headers = []
-        for r in rows:
-            for h in (r.get("extra") or {}):
-                if h not in headers:
-                    headers.append(h)
-        stored = {}
-        for h, values in _fold_condition_values(rows, headers).items():
-            if not values:
-                continue
-            key = _condition_key(h)
-            merged = stored[key].split(CONDITION_JOIN) if key in stored else []
-            merged += [v for v in values if v not in merged]
-            stored[key] = CONDITION_JOIN.join(merged)
+        # workbook already holds — and so is a row of the conditions block.
+        # Only the named keys are touched, so conditions recorded elsewhere
+        # survive: rebuilding this dict from scratch is how the full-page save
+        # used to wipe a workbook's own columns. Through the same reader the
+        # preview used, so the panel's list of what would be kept is what lands.
+        stored = _sheet_conditions(rows, block, proc, session.session_conditions)
         if stored:
             conditions = dict(session.session_conditions or {})
             conditions.update(stored)
@@ -557,6 +730,10 @@ def apply(session, parsed, member=None):
                 setattr(row, field, val)
             row.save(using=DB)
             (created if is_new else updated).append(str(ab))
+    # Said again at the save, not only at the check: the receipt is what
+    # somebody reads last, and what is still missing is still missing.
+    warnings = report_warnings(session, {}, _rows_after(session, []))
     return {"ok": True, "created": created, "updated": updated,
             "unmatched": unmatched, "conditions_stored": sorted(stored),
-            "numbers_issued": numbers_issued}
+            "numbers_issued": numbers_issued,
+            "report_needs": warnings}

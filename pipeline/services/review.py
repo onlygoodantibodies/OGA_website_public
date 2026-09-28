@@ -53,16 +53,17 @@ PENDING = PendingPublicationImage.Status.PENDING
 RELEASED = PendingPublicationImage.Status.RELEASED
 
 #: image application code → the ``Antibody`` recommendation boolean it sets on
-#: release. Four, not six: this is OGA's own verdict about what OGA tested, and
-#: is a different question from ``commit._SUP_APP_FIELD``'s six, which is what
-#: the *supplier* claims. The two are drawn in adjacent columns and must not
-#: share a list.
+#: release. Five, not six: this is OGA's own verdict about what OGA tested
+#: (IHC since 26 Sep 2026, on HAP1 cell pellets), and is a different question
+#: from ``commit._SUP_APP_FIELD``'s six, which is what the *supplier* claims.
+#: The two are drawn in adjacent columns and must not share a list.
 RECOMMENDATION_FIELD = {"WB": "wb_recommended", "IP": "ip_recommended",
-                        "ICC-IF": "if_recommended", "FC": "fc_recommended"}
+                        "ICC-IF": "if_recommended", "FC": "fc_recommended",
+                        "IHC": "ihc_recommended"}
 
 #: The applications a figure can be filed under, in the order every OGA surface
 #: prints them.
-APPLICATIONS = ["WB", "IP", "ICC-IF", "FC"]
+APPLICATIONS = ["WB", "IP", "ICC-IF", "FC", "IHC"]
 
 
 class Refused(Exception):
@@ -92,7 +93,8 @@ def for_target(target_id, *, status=PENDING):
 
 
 def counts_for(target_ids) -> dict:
-    """``{target_id: n}`` — how many figures each gene has waiting.
+    """``{target_id: n}`` — how many figures each gene has waiting, crops and
+    whole IHC figures together.
 
     Its own query rather than a ``Count`` annotation on a queryset that already
     counts something else: joining a second multi-valued relation multiplies
@@ -100,29 +102,57 @@ def counts_for(target_ids) -> dict:
     as six of each on the gene page.
     """
     from django.db.models import Count
+
+    from pipeline.models import PendingIhcFigure
+    ids = list(target_ids)
+    out = {}
     rows = (PendingPublicationImage.objects.using(DB)
-            .filter(status=PENDING, antibody__target_id__in=list(target_ids))
+            .filter(status=PENDING, antibody__target_id__in=ids)
             .values("antibody__target_id")
             .annotate(n=Count("pk")))
-    return {r["antibody__target_id"]: r["n"] for r in rows}
+    for r in rows:
+        out[r["antibody__target_id"]] = r["n"]
+    for r in (PendingIhcFigure.objects.using(DB)
+              .filter(status=PENDING, target_id__in=ids)
+              .values("target_id").annotate(n=Count("pk"))):
+        out[r["target_id"]] = out.get(r["target_id"], 0) + r["n"]
+    return out
 
 
 def genes_waiting() -> list[dict]:
     """One row per gene with figures waiting, newest staging first.
 
     The review queue's index. Counts and the most recent stager come from one
-    grouped query, so the page does not grow a query per gene.
+    grouped query per table, so the page does not grow a query per gene. **Both
+    tables**: a gene whose only waiting item is a whole IHC figure would
+    otherwise never appear here, and its figure could never be reached.
     """
     from django.db.models import Count, Max
+
+    from pipeline.models import PendingIhcFigure
+    genes = {}
     rows = (PendingPublicationImage.objects.using(DB)
             .filter(status=PENDING)
             .values("antibody__target_id", "antibody__target__gene_name")
-            .annotate(n=Count("pk"), last=Max("updated_at"))
-            .order_by("-last"))
-    return [{"target_id": r["antibody__target_id"],
-             "gene": r["antibody__target__gene_name"] or "",
-             "count": r["n"], "staged_at": r["last"]}
-            for r in rows]
+            .annotate(n=Count("pk"), last=Max("updated_at")))
+    for r in rows:
+        genes[r["antibody__target_id"]] = {
+            "target_id": r["antibody__target_id"],
+            "gene": r["antibody__target__gene_name"] or "",
+            "count": r["n"], "crops": r["n"], "whole_figures": 0,
+            "staged_at": r["last"]}
+    for r in (PendingIhcFigure.objects.using(DB).filter(status=PENDING)
+              .values("target_id", "target__gene_name")
+              .annotate(n=Count("pk"), last=Max("updated_at"))):
+        g = genes.setdefault(r["target_id"], {
+            "target_id": r["target_id"], "gene": r["target__gene_name"] or "",
+            "count": 0, "crops": 0, "whole_figures": 0, "staged_at": r["last"]})
+        g["count"] += r["n"]
+        g["whole_figures"] = r["n"]
+        if r["last"] and (g["staged_at"] is None or r["last"] > g["staged_at"]):
+            g["staged_at"] = r["last"]
+    return sorted(genes.values(),
+                  key=lambda g: g["staged_at"] or timezone.now(), reverse=True)
 
 
 def published_pairs(rows) -> set:
@@ -221,18 +251,24 @@ def _supplier_of(ab) -> str:
     return company_label(ab.company)
 
 
-def manifest(rows) -> dict:
+def manifest(rows, figures=()) -> dict:
     """What a release would do, in the words the confirm panel prints.
 
     Counted rather than described, because the count is what comes back with
-    the press and is checked against what was shown.
+    the press and is checked against what was shown. ``figures`` are whole IHC
+    figures (``services/ihc_figures.py``) released by the same press; ``count``
+    is the **sum**, because one press is one consent.
     """
+    from pipeline.services import ihc_figures
     rows = list(rows)
+    figures = list(figures or ())
     replaces = published_pairs(rows)
     return {
-        "count": len(rows),
+        "count": len(rows) + len(figures),
+        "crops": len(rows),
         "genes": sorted({(r.antibody.target.gene_name or "")
-                         for r in rows if r.antibody.target_id and r.antibody.target}),
+                         for r in rows if r.antibody.target_id and r.antibody.target}
+                        | {(f.target.gene_name or "") for f in figures}),
         "antibodies": len({r.antibody_id for r in rows}),
         "applications": sorted({r.application_type for r in rows},
                                key=lambda a: APPLICATIONS.index(a)
@@ -240,30 +276,197 @@ def manifest(rows) -> dict:
         "replaces_published": len(replaces),
         "recommended": sum(1 for r in rows if r.recommended),
         "new_public_genes": genes_becoming_public(rows),
+        "whole_figures": len(figures),
+        "whole_figures_replacing": len(ihc_figures.live_slugs(figures)),
+        # Whole figures on a gene that will have no public page after this
+        # press — refused by `release_all`, named here so the panel says so
+        # before anybody presses.
+        "ihc_page_waits_for_gene": whole_figure_genes_not_public(rows, figures),
+        # Whole figures already released on a gene that has no public page now
+        # and gets one with this press — left behind when the gene went off the
+        # site some other way than `withdraw` (its antibodies deleted, or moved
+        # by a merge). They reappear on its IHC page with this press, so the
+        # panel says so; nothing about them is written.
+        "whole_figures_returning": whole_figures_returning(rows, figures),
     }
+
+
+def whole_figures_returning(rows, figures=()) -> list[dict]:
+    """``[{"gene", "count"}]`` — released whole figures that come back into
+    view because these crops give their gene its first public page now.
+
+    ``review.withdraw`` takes a gene's whole figures with it, but a gene can
+    leave the site without it — a superuser deletes the antibodies carrying its
+    crops, or ``merge_targets`` moves them — and its ``IhcFigure`` rows stay,
+    hidden only because ``ihc_figures.page_figures`` asks whether the gene is
+    public. A figure released by this same press is counted there, not here.
+    """
+    from pipeline.models import IhcFigure
+    from pipeline.public import public_targets
+    targets = {r.antibody.target_id: r.antibody.target for r in rows
+               if r.antibody.target_id and r.antibody.target
+               and r.antibody.target.gene_name}
+    if not targets:
+        return []
+    already = set(public_targets().using(DB).filter(pk__in=targets)
+                  .values_list("pk", flat=True))
+    new = set(targets) - already
+    if not new:
+        return []
+    this_press = {(f.target_id, f.slug) for f in (figures or ())}
+    counts = {}
+    for target_id, slug in (IhcFigure.objects.using(DB).filter(target_id__in=new)
+                            .values_list("target_id", "slug")):
+        if (target_id, slug) not in this_press:
+            counts[target_id] = counts.get(target_id, 0) + 1
+    return sorted(({"gene": targets[t].gene_name, "count": n}
+                   for t, n in counts.items()), key=lambda d: d["gene"])
+
+
+def _public_after(rows) -> set:
+    """Target ids that will have a public gene page once these crops are
+    released: public now, or given a figure by this press."""
+    from pipeline.public import public_targets
+    now = set(public_targets().using(DB).values_list("pk", flat=True))
+    return now | {r.antibody.target_id for r in rows
+                  if r.antibody.target_id and r.antibody.target
+                  and r.antibody.target.gene_name}
+
+
+def whole_figure_genes_not_public(rows, figures) -> list[str]:
+    """Genes whose whole figures would go out with no gene page to hang from.
+
+    The IHC page exists only while the gene page does
+    (``core/views.py::antibody_ihc``), so a whole figure released on a gene
+    that is not public would sit unseen and then appear, unreviewed by that
+    later press, the day a crop made the gene public. Refused instead.
+    """
+    figures = list(figures or ())
+    if not figures:
+        return []
+    public = _public_after(rows)
+    return sorted({f.target.gene_name or f"target {f.target_id}"
+                   for f in figures if f.target_id not in public})
+
+
+def judgements(rows) -> dict:
+    """``{pending pk: judgement}`` — the whole call for each waiting figure.
+
+    The queue could record one bit (recommended or not) while the public site
+    prints four rungs built from that bit *and* the outcome axes — detects and
+    selective for a western blot, the band for IF, enrichment for IP. So the
+    meeting could set the recommendation here and then had to open Judge
+    outcomes for the other half, which refused the figure anyway because it was
+    not published yet. Both halves are on the card now, and this says what the
+    public page will print once the figure is released.
+
+    The wording comes from ``core/recommendations.py::describe`` — the reader
+    every public surface asks — handed the antibody **as release will leave
+    it**: this figure's staged recommendation in place of the stored flag, and
+    the gene counted as curated if anything on it will be recommended once
+    everything waiting on it is released. That second half is the gene gate:
+    on a gene where nothing is recommended every negative reads *Not tested*,
+    and a card promising *Not supportive* there would be a preview that is not
+    compared against the write.
+
+    Batched: two queries per application for the axes, one for the gene gate.
+    """
+    import copy
+
+    from core import recommendations as recs
+    from pipeline.models import Antibody
+    from pipeline.services import outcomes as outcome_svc
+
+    rows = list(rows)
+    if not rows:
+        return {}
+
+    by_app = {}
+    for r in rows:
+        by_app.setdefault(r.application_type, set()).add(r.antibody_id)
+    axes_of = {}
+    for app, ids in by_app.items():
+        if outcome_svc.axes_for(app):
+            for ab_id, axes in outcome_svc.for_antibodies(ids, app).items():
+                axes_of[(ab_id, app)] = axes
+
+    # The gene gate, as it will stand once every waiting figure on these genes
+    # is released: the stored flags, overlaid with what the queue will write.
+    target_ids = {r.antibody.target_id for r in rows if r.antibody.target_id}
+    flags = {
+        a["pk"]: a for a in Antibody.objects.using(DB)
+        .filter(target_id__in=target_ids)
+        .values("pk", "target_id", *recs.RECOMMENDATION_FIELDS)
+    }
+    for q in for_target_ids(target_ids):
+        field_name = RECOMMENDATION_FIELD.get(q.application_type)
+        if field_name and q.antibody_id in flags:
+            flags[q.antibody_id][field_name] = bool(q.recommended)
+    # Every flag, from the one reader of what "curated" asks of a gene.
+    curated = {a["target_id"] for a in flags.values()
+               if any(a[f] for f in recs.RECOMMENDATION_FIELDS)}
+
+    out = {}
+    for r in rows:
+        app = r.application_type
+        axes = axes_of.get((r.antibody_id, app))
+        as_released = copy.copy(r.antibody)
+        field_name = RECOMMENDATION_FIELD.get(app)
+        if field_name:
+            setattr(as_released, field_name, bool(r.recommended))
+        public = recs.describe(as_released, app, {app},
+                               r.antibody.target_id in curated, axes)
+        out[r.pk] = {
+            "application": app,
+            "axes": axes or {},
+            # What the figure shows, in the outcome page's own words.
+            "outcome": outcome_svc.label(axes, app) if axes else None,
+            "is_gap": outcome_svc.is_gap(axes, app) if axes else False,
+            "conflict_direction": (outcome_svc.conflict_direction(
+                axes, bool(r.recommended), app) if axes else None),
+            "public_support": public["support"],
+            "public_sentence": public["sentence"],
+            "public_tone": public["tone"],
+            "gene_curated": r.antibody.target_id in curated,
+        }
+    return out
+
+
+def for_target_ids(target_ids):
+    """Everything waiting on a set of genes — ``for_target`` for several."""
+    return _base().filter(antibody__target_id__in=list(target_ids),
+                          status=PENDING)
 
 
 # ── Writing ──────────────────────────────────────────────────────────────────
 
-def _still_referenced(name: str, *, pending_pk=None, public_pk=None) -> bool:
+def _still_referenced(name: str, *, pending_pk=None, public_pk=None,
+                      pending_ihc_pk=None, public_ihc_pk=None) -> bool:
     """Does any row other than the one named still point at this object?
 
     Staged and published figures share one key now, so "delete my file" and
     "delete somebody else's figure" became the same call. Every delete in this
     module asks this first. The excluded pk is the row doing the deleting: it is
     about to stop pointing at the object, so it does not count as a reference.
+
+    **The one reader across all four figure tables** — the two crop tables and
+    the two whole-IHC-figure tables (``services/ihc_figures.py``). Nothing is
+    expected to share a key across the pairs (they have separate prefixes), but
+    "delete my file" is exactly where a second function would drift.
     """
+    from pipeline.models import IhcFigure, PendingIhcFigure
     if not name:
         return False
-    queued = PendingPublicationImage.objects.using(DB).filter(image=name)
-    if pending_pk is not None:
-        queued = queued.exclude(pk=pending_pk)
-    if queued.exists():
-        return True
-    live = PublicationImage.objects.using(DB).filter(image=name)
-    if public_pk is not None:
-        live = live.exclude(pk=public_pk)
-    return live.exists()
+    for model, excluded in ((PendingPublicationImage, pending_pk),
+                            (PublicationImage, public_pk),
+                            (PendingIhcFigure, pending_ihc_pk),
+                            (IhcFigure, public_ihc_pk)):
+        qs = model.objects.using(DB).filter(image=name)
+        if excluded is not None:
+            qs = qs.exclude(pk=excluded)
+        if qs.exists():
+            return True
+    return False
 
 
 def _free(storage, name: str) -> None:
@@ -277,14 +480,21 @@ def _free(storage, name: str) -> None:
 
 
 def stage(*, antibody, application_type, content: bytes | None, filename: str,
-          recommended: bool = False, staged_by: str = "", session=None,
-          notes: str = "") -> PendingPublicationImage:
+          recommended: bool | None = None, staged_by: str = "", session=None,
+          notes: str = "", control_genotype: str = "") -> PendingPublicationImage:
     """Put one crop in the waiting room, replacing whatever was staged before.
 
     Upserts on ``(antibody, application)`` — the same key the public table
     uses — so re-cropping a figure revises the pending row rather than queueing
     a second copy of it, and re-cropping something already released puts the row
     back to ``pending`` with the public figure left standing.
+
+    ``recommended=None`` — what the cropper passes, since it makes no judgement
+    (owner, 25 Sep 2026) — **keeps** the verdict a row waiting in the queue
+    already carries, and otherwise starts from the antibody's own flag. Never
+    ``False`` by default: ``release`` writes the row's value onto the antibody
+    in both directions, so re-cropping a recommended antibody would otherwise
+    un-recommend it at release with nobody having decided that.
     """
     item = (PendingPublicationImage.objects.using(DB)
             .filter(antibody=antibody, application_type=application_type).first())
@@ -307,7 +517,19 @@ def stage(*, antibody, application_type, content: bytes | None, filename: str,
                 previous, pending_pk=item.pk):
             _free(item.image.storage, previous)
 
+    if recommended is None:
+        if item.pk is None or item.status == RELEASED:
+            field_name = RECOMMENDATION_FIELD.get(application_type)
+            recommended = bool(field_name and getattr(antibody, field_name, False))
+        else:
+            recommended = item.recommended
     item.recommended = bool(recommended)
+    # Which kind of control the legend names — `KO` or `KD` from the cropper
+    # session, or the public row's own value when `withdraw` re-stages one.
+    # Blank leaves whatever the row had: a caller that does not know must not
+    # erase a value one that did know wrote.
+    if control_genotype:
+        item.control_genotype = control_genotype.strip().upper()[:4]
     item.status = PENDING
     item.staged_by = (staged_by or "")[:150]
     item.released_by = ""
@@ -380,10 +602,16 @@ def release(rows, *, actor: str, consented_count: int | None = None) -> ReleaseR
                 # An older figure at a different key: nothing will point at it
                 # after this, so free it once the row has moved.
                 superseded = live.image.name
+            # The control kind rides across only when the pending row knows
+            # it: a row staged before the column existed must not blank a
+            # value `backfill_control_genotype` has since put on the live row.
+            defaults = {"image": item.image.name}
+            if item.control_genotype:
+                defaults["control_genotype"] = item.control_genotype
             PublicationImage.objects.using(DB).update_or_create(
                 antibody_id=item.antibody_id,
                 application_type=item.application_type,
-                defaults={"image": item.image.name})
+                defaults=defaults)
             if superseded and not _still_referenced(superseded):
                 _free(item.image.storage, superseded)
 
@@ -405,6 +633,67 @@ def release(rows, *, actor: str, consented_count: int | None = None) -> ReleaseR
         for ab in touched.values():
             ab.save(using=DB, update_fields=list(RECOMMENDATION_FIELD.values()))
 
+    return result
+
+
+@dataclass
+class ReleaseAllResult:
+    crops: ReleaseResult = None
+    whole_figures: list = field(default_factory=list)   # {"gene", "label"}
+
+    @property
+    def genes(self) -> list:
+        return sorted(set(self.crops.genes if self.crops else [])
+                      | {f["gene"] for f in self.whole_figures if f["gene"]})
+
+
+def release_all(rows, figures=(), *, actor: str,
+                consented_count: int | None = None) -> ReleaseAllResult:
+    """The one Release press: crops and whole IHC figures, one consent.
+
+    ``consented_count`` is the **sum** the panel printed, checked here against
+    the sum of what is being released — one press, one number, never two
+    counts each checked against half of it. Whole figures on a gene that will
+    have no public page after this press are refused by name
+    (``whole_figure_genes_not_public``), checked again here rather than trusted
+    from the panel, since a preview is not a permission slip.
+
+    One transaction. The whole figures' bytes are copied inside it (they are
+    private until now) and, if the transaction fails, the copies it wrote are
+    freed — storage does not roll back with the database.
+    """
+    from pipeline.services import ihc_figures
+    rows, figures = list(rows), list(figures or ())
+    total = len(rows) + len(figures)
+    if not total:
+        raise Refused("Nothing selected — there is nothing to release.")
+    if consented_count is not None and consented_count != total:
+        raise Refused(
+            f"This would release {total} figure(s); the list you were shown "
+            f"had {consented_count}. Somebody has staged or released something "
+            f"since. Open the list again and check it before releasing.")
+    waits = whole_figure_genes_not_public(rows, figures)
+    if waits:
+        raise Refused(
+            f"The whole IHC figures for {', '.join(waits)} cannot be released on "
+            f"their own: {', '.join(waits)} has no public gene page, and the IHC "
+            f"page exists only beside it. Release a crop for "
+            f"{', '.join(waits)} with them, or leave them waiting.")
+
+    result = ReleaseAllResult()
+    written = []
+    try:
+        with transaction.atomic(using=DB):
+            if rows:
+                result.crops = release(rows, actor=actor)
+            if figures:
+                result.whole_figures = ihc_figures.release(
+                    figures, actor=actor, written=written)
+    except Exception:
+        storage = ihc_figures.IhcFigure._meta.get_field("image").storage
+        for name in written:
+            _free(storage, name)
+        raise
     return result
 
 
@@ -446,6 +735,21 @@ class WithdrawResult:
     restaged: int = 0
     already_queued: int = 0
     recommendations_cleared: int = 0
+    # (gene, label) of the whole IHC figures that went with the gene.
+    whole_figures_withdrawn: list = field(default_factory=list)
+
+
+def _genes_left_with_nothing(images, target_ids) -> set:
+    """Of these genes, the ones every published crop of which is in
+    ``images`` — the genes this withdrawal takes off the public site. Asked
+    before anything moves, so the consent can count what goes with them."""
+    chosen = {img.pk for img in images}
+    live = {}
+    for pk, tid in (PublicationImage.objects.using(DB)
+                    .filter(antibody__target_id__in=target_ids)
+                    .values_list("pk", "antibody__target_id")):
+        live.setdefault(tid, set()).add(pk)
+    return {tid for tid in target_ids if live.get(tid, set()) <= chosen}
 
 
 def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> WithdrawResult:
@@ -496,18 +800,28 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
     (``pipeline/public.py::public_targets``), so withdrawing the last one takes
     the page down, and that is the part a count does not show.
     """
+    from pipeline.models import IhcFigure
+    from pipeline.services import ihc_figures
     images = list(images)
     if not images:
         raise Refused("Nothing selected — there is nothing to withdraw.")
-    if consented_count is not None and consented_count != len(images):
+    target_ids = {img.antibody.target_id for img in images
+                  if img.antibody.target_id is not None}
+    # A gene leaving the public site takes its whole IHC figures with it, in
+    # this transaction and under this consent — or a later crop release would
+    # bring the old whole figures back with nobody having looked at them.
+    leaving = _genes_left_with_nothing(images, target_ids)
+    whole = list(IhcFigure.objects.using(DB).filter(target_id__in=leaving)
+                 .select_related("target")
+                 .prefetch_related("antibody_links__antibody"))
+    total = len(images) + len(whole)
+    if consented_count is not None and consented_count != total:
         raise Refused(
-            f"This would withdraw {len(images)} figure(s); the list you were "
+            f"This would withdraw {total} figure(s); the list you were "
             f"shown had {consented_count}. Somebody has released something "
             f"since. Open the gene again and check it before withdrawing.")
 
     result = WithdrawResult()
-    target_ids = {img.antibody.target_id for img in images
-                  if img.antibody.target_id is not None}
 
     with transaction.atomic(using=DB):
         touched = {}
@@ -531,7 +845,8 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
                       filename=img.image.name,
                       recommended=was_recommended,
                       staged_by=actor,
-                      notes="Withdrawn from the public site.")
+                      notes="Withdrawn from the public site.",
+                      control_genotype=img.control_genotype or "")
                 result.restaged += 1
             else:
                 # A row with no file cannot be re-staged and has nothing to lose.
@@ -558,6 +873,10 @@ def withdraw(images, *, actor: str = "", consented_count: int | None = None) -> 
 
         for ab in touched.values():
             ab.save(using=DB, update_fields=list(RECOMMENDATION_FIELD.values()))
+
+        if whole:
+            done = ihc_figures.withdraw(whole, actor=actor)
+            result.whole_figures_withdrawn = done.withdrawn
 
         still_public = set(
             PublicationImage.objects.using(DB)
@@ -601,8 +920,15 @@ def withdraw_manifest(target_id) -> dict:
         if field_name and getattr(img.antibody, field_name, False):
             recommendations += 1
 
+    from pipeline.models import IhcFigure
+    whole = IhcFigure.objects.using(DB).filter(target_id=target_id).count() \
+        if images else 0
     return {
         "figures": len(images),
+        # The gene's whole IHC figures leave with it (`withdraw`), so they are
+        # counted, and the number handed back is the sum.
+        "whole_figures": whole,
+        "consent_count": len(images) + whole,
         "antibodies": len({img.antibody_id for img in images}),
         "applications": sorted({img.application_type for img in images}),
         "recommendations": recommendations,
@@ -614,6 +940,23 @@ def withdraw_manifest(target_id) -> dict:
         # would make this false, and this page does a whole gene at a time.
         "leaves_public_site": bool(images),
     }
+
+
+def withdraw_whole_figures(figs, *, actor: str = "",
+                           consented_count: int | None = None):
+    """Take chosen whole IHC figures off a gene's IHC page. The gene page is
+    untouched. Superusers only — ``withdraw_refusal`` is asked by the caller."""
+    from pipeline.services import ihc_figures
+    figs = list(figs)
+    if not figs:
+        raise Refused("Nothing selected — there is nothing to withdraw.")
+    if consented_count is not None and consented_count != len(figs):
+        raise Refused(
+            f"This would withdraw {len(figs)} figure(s); the list you were "
+            f"shown had {consented_count}. Open the gene again and check it "
+            f"before withdrawing.")
+    with transaction.atomic(using=DB):
+        return ihc_figures.withdraw(figs, actor=actor)
 
 
 def withdraw_refusal(member, is_superuser) -> str:

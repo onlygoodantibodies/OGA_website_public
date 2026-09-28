@@ -1,0 +1,168 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Replace a figure{% endblock %}
+
+{% comment %}
+Find an antibody, upload the finished panel for one application, and it goes
+into the review queue — the same queue the cropper fills, so releasing is still
+the one act that publishes (`services/figure_replace.py`). The receipt says
+which of two things happened to the live page, because they differ: most
+figures sit at an older key and stay up until release, but a figure staged this
+year at the same key is overwritten at once (`services/review.py::stage`).
+{% endcomment %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+  <div class="mb-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Figures</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">Replace a figure</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+      Find an antibody by catalogue number, RRID, clone, A-number or gene, then upload
+      the finished panel for one application. The image goes into the
+      <a href="{% url 'pipeline:review_queue' %}" class="text-ycharos-600 underline">review queue</a>;
+      <strong>releasing it there is what puts it on the public gene page</strong>.
+      The antibody's recommendation and the figure's control (knockout or knockdown)
+      are carried over unchanged. The image is stored as uploaded, converted to PNG,
+      so it should already carry its own labels — use
+      <a href="{% url 'pipeline:cropper' %}" class="text-ycharos-600 underline">Publish figures</a>
+      to crop panels out of a composite instead.
+    </p>
+  </div>
+
+  {% if error %}
+    <div id="refusal" role="alert" class="mb-4 rounded border-l-4 border-red-400 bg-red-50 px-4 py-3 text-sm text-gray-800">
+      Nothing was uploaded. {{ error }}
+    </div>
+  {% endif %}
+
+  {% if receipt %}
+    <div id="receipt" role="status" class="mb-6 rounded border-l-4 border-emerald-400 bg-emerald-50 px-4 py-3 text-sm text-gray-800 flex gap-4 items-start">
+      <img src="{{ receipt.image_url }}" alt="The uploaded figure" class="h-40 w-auto border border-gray-200 bg-white">
+      <div>
+        <p class="font-semibold">
+          Queued: {{ receipt.gene }} · {{ receipt.item.antibody.catalogue_number }}
+          ({{ receipt.item.antibody.company.name|default:"no supplier" }}) — {{ receipt.label }}.
+        </p>
+        <p class="mt-1">
+          Recommendation carried over:
+          <strong>{% if receipt.item.recommended %}recommended{% else %}not recommended{% endif %}</strong>
+          — change it on the review queue before releasing if that is wrong.
+        </p>
+        {% if receipt.now %}
+          <p class="mt-1 text-amber-800">
+            The published figure was stored at the same file address, so the public
+            gene page is already showing the new image. Release it on the review queue
+            to record the replacement.
+          </p>
+        {% elif receipt.had_live %}
+          <p class="mt-1">
+            The public gene page keeps showing the current figure until this one is released.
+          </p>
+        {% else %}
+          <p class="mt-1">
+            There was no published {{ receipt.label|lower }} figure for this antibody;
+            releasing this one adds it.
+          </p>
+        {% endif %}
+        <p class="mt-1 text-gray-600">
+          Public gene pages are held in the website's cache for up to 7 days, so after
+          release the change shows once the cache is purged.
+        </p>
+        <p class="mt-2">
+          <a href="{% url 'pipeline:review_queue' %}?gene={{ receipt.gene|urlencode }}"
+             class="inline-block px-3 py-1.5 bg-ycharos-600 text-white rounded-lg text-xs font-semibold hover:bg-ycharos-700">
+            Review &amp; release {{ receipt.gene }}
+          </a>
+        </p>
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="get" action="{% url 'pipeline:figure_replace' %}" class="mb-6 flex flex-wrap items-end gap-3">
+    <label class="text-sm text-gray-700">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Antibody</span>
+      <input type="text" name="q" value="{{ q }}" placeholder="e.g. 9625"
+             class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64" autofocus>
+    </label>
+    <label class="text-sm text-gray-700">
+      <span class="block text-xs font-semibold text-gray-500 mb-1">Gene (optional, exact)</span>
+      <input type="text" name="gene" value="{{ gene }}" placeholder="e.g. RAB6A"
+             class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-40">
+    </label>
+    <button type="submit" class="px-4 py-2 bg-ycharos-600 text-white rounded-lg text-sm font-semibold hover:bg-ycharos-700">Search</button>
+  </form>
+
+  {% if searched %}
+    {% if rows %}
+      <p class="text-sm text-gray-600 mb-3">
+        {{ rows|length }} antibod{{ rows|length|pluralize:"y,ies" }} match{{ rows|length|pluralize:"es," }}
+        {% if rows|length >= max_results %}— showing the first {{ max_results }}; narrow the search to see the rest{% endif %}.
+      </p>
+      <div class="space-y-4">
+        {% for row in rows %}
+          {% with ab=row.ab %}
+          <div class="rounded-lg border border-gray-200 bg-white p-4">
+            <p class="text-sm">
+              {% if ab.target_id %}
+                <a href="{% url 'pipeline:target_detail' ab.target_id %}" class="font-semibold text-ycharos-700 underline">{{ ab.target.gene_name }}</a>
+              {% else %}<span class="text-gray-500">(no gene)</span>{% endif %}
+              · <strong>{{ ab.catalogue_number|default:"(no catalogue number)" }}</strong>
+              · {{ ab.company.name|default:"(no supplier)" }}
+              {% if ab.site %}· {{ ab.site.name }}{% endif %}
+              {% if ab.lot_number %}· lot {{ ab.lot_number }}{% endif %}
+              {% if ab.ab_number %}· A-{{ ab.ab_number }}{% endif %}
+              {% if ab.rrid %}· <span class="text-gray-500">{{ ab.rrid }}</span>{% endif %}
+            </p>
+            <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {% for app in row.apps %}
+                <div class="rounded border {% if error_ab == ab.pk and error_app == app.code %}border-red-400{% else %}border-gray-100{% endif %} p-2 text-xs">
+                  <p class="font-semibold text-gray-700">{{ app.label }}</p>
+                  {% if app.live %}
+                    <a href="{{ app.live }}" target="_blank" rel="noopener">
+                      <img src="{{ app.live }}" alt="Published {{ app.label|lower }} figure" class="mt-1 h-32 w-auto border border-gray-200 bg-white">
+                    </a>
+                    <p class="text-gray-500 mt-0.5">On the public site</p>
+                  {% else %}
+                    <p class="text-gray-500 mt-1">No published figure</p>
+                  {% endif %}
+                  {% if app.pending %}
+                    <img src="{{ app.pending }}" alt="Queued {{ app.label|lower }} figure" class="mt-2 h-20 w-auto border border-amber-300 bg-white">
+                    <p class="text-amber-800 mt-0.5">A newer one is waiting in the review queue — uploading replaces it.</p>
+                  {% endif %}
+                  <form method="post" action="{% url 'pipeline:figure_replace_upload' %}" enctype="multipart/form-data" class="mt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="antibody_id" value="{{ ab.pk }}">
+                    <input type="hidden" name="application_type" value="{{ app.code }}">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="gene" value="{{ gene }}">
+                    <input type="file" name="image" accept="image/png,image/jpeg" required class="block w-full text-xs">
+                    <button type="submit" class="mt-1 px-2 py-1 border border-gray-300 rounded text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                      {% if app.live %}Replace{% else %}Add{% endif %} {{ app.code }} figure
+                    </button>
+                  </form>
+                  {% if error_ab == ab.pk and error_app == app.code %}
+                    <p class="mt-1 text-red-700">{{ error }}</p>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-600">
+        No antibody matches{% if q %} “{{ q }}”{% endif %}{% if gene %} on {{ gene }}{% endif %}.
+        Check the catalogue number, or look on the
+        <a href="{% url 'pipeline:antibody_board' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="text-ycharos-600 underline">antibodies board</a>.
+      </p>
+    {% endif %}
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var el = document.getElementById('refusal') || document.getElementById('receipt');
+    if (el) el.scrollIntoView({block: 'center'});
+  })();
+</script>
+{% endblock %}

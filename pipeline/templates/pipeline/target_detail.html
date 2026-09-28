@@ -55,6 +55,65 @@
     </div>
   </div>
 
+  {% comment %}What the public site shows for this gene, at the top: the page
+  a funder, a supplier or a reader will land on, summarised in the numbers that
+  page draws (`pipeline/public.py::public_summary`, which asks the same
+  verdicts). Counts every published antibody, discontinued included, and says
+  how many the public page hides by default. A gene with no released figure has
+  no public page — said here rather than left out, since a reported gene with
+  nothing live is exactly the case somebody needs to notice.{% endcomment %}
+  {% if public_summary %}
+  <div class="bg-green-50 rounded-lg border border-green-200 p-5 mb-6" id="public-page-summary">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">On the public site</h2>
+        <p class="text-sm text-gray-700 mt-1">
+          {{ public_summary.control_phrase }} characterisation data for
+          <strong>{{ public_summary.antibody_count }}</strong> antibod{{ public_summary.antibody_count|pluralize:"y,ies" }}
+          across {{ public_summary.application_list }}
+          ({{ public_summary.figure_count }} published figure{{ public_summary.figure_count|pluralize }}).
+          {% if public_summary.discontinued %}
+            {{ public_summary.discontinued }} {{ public_summary.discontinued|pluralize:"is,are" }} discontinued and hidden on the public page unless a reader ticks <em>Show discontinued</em>.
+          {% endif %}
+        </p>
+      </div>
+      <a href="{{ public_url }}" target="_blank" rel="noopener"
+         class="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:text-blue-900">
+        Open the public page
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+      </a>
+    </div>
+    <table class="w-full text-sm bg-white rounded border border-green-100">
+      <thead>
+        <tr class="text-left text-xs text-gray-500">
+          <th class="px-3 py-2 font-medium">Application</th>
+          <th class="px-3 py-2 font-medium">Antibodies with a figure</th>
+          <th class="px-3 py-2 font-medium">Supportive</th>
+          <th class="px-3 py-2 font-medium">Limited support</th>
+          <th class="px-3 py-2 font-medium">Not supportive</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in public_summary.applications %}
+        <tr class="border-t border-gray-100">
+          <td class="px-3 py-2 font-semibold text-gray-900">{{ row.application }}</td>
+          <td class="px-3 py-2">{{ row.figures }}</td>
+          <td class="px-3 py-2 text-green-800 font-semibold">{{ row.supportive }}</td>
+          <td class="px-3 py-2 text-amber-700">{{ row.limited }}</td>
+          <td class="px-3 py-2 text-red-700">{{ row.not_supportive }}{% if row.unjudged %} <span class="text-gray-500 font-normal">· {{ row.unjudged }} not yet judged</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-xs text-gray-500 mt-2">The same verdicts the public page draws. An application with no row has no published figure.</p>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-500 mb-6" id="public-page-summary">
+    Not on the public site yet — a gene gets a public page when one of its figures is released on the
+    <a href="{% url 'pipeline:review_queue' %}" class="text-blue-600 hover:underline">review queue</a>.
+  </p>
+  {% endif %}
+
   {% comment %}Where a refused cell edit says so. `OGABoard.banner` scrolls it
   into view and gives it role="alert", because this page is long and a save
   refused in the Reports panel is a message a reader is otherwise nowhere near —
@@ -138,6 +197,21 @@
           {% endif %}
         </dd>
       </div>
+      {% if public_control %}
+      <div>
+        <dt class="text-xs text-gray-500">Public figures</dt>
+        {% comment %}The word the public gene page opens with, from the same
+        reader (`pipeline/public.py::control_phrase`). It is here because a
+        gene whose figures say "knockdown-controlled" and whose Cell Lines
+        panel lists only a knockout is a page contradicting itself, and the
+        reader should see that here rather than on the public site.{% endcomment %}
+        <dd class="text-sm font-medium text-gray-900">{{ public_control }}
+          {% if 'nockdown' in public_control and not has_kd_line %}
+            <span class="text-xs text-amber-700">— but no knockdown line is recorded under Cell Lines yet</span>
+          {% endif %}
+        </dd>
+      </div>
+      {% endif %}
       <div>
         <dt class="text-xs text-gray-500">KO Validated</dt>
         {% comment %}
@@ -302,7 +376,7 @@
   {# ================================================================ #}
   <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
     <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Procedure Status</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
       {% for proc_code, proc_data in procedure_summary.items %}
       <div class="text-center p-3 rounded-lg {% if proc_data.complete %}bg-green-50 border border-green-200{% elif proc_data.sessions > 0 %}bg-blue-50 border border-blue-200{% else %}bg-gray-50 border border-gray-200{% endif %}">
         <p class="text-lg font-bold {% if proc_data.complete %}text-green-700{% elif proc_data.sessions > 0 %}text-blue-700{% else %}text-gray-400{% endif %}">
@@ -410,10 +484,9 @@
         160-item dropdown scrolled by hand, for a gene whose page you were
         already standing on. It takes `?gene=` like the four boards do
         (twentieth field test).{% endcomment %}
-        <a href="{% url 'pipeline:recommendations' %}?gene={{ target.gene_name|urlencode }}"
-           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200"
-           title="Review this gene's published figures and mark which antibodies are recommended">
-          ★ Set recommendations
+        <a href="{% url 'pipeline:outcomes' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          ★ Judge outcomes &amp; recommendations
         </a>
         {% comment %}Assign or rearrange this gene's A-numbers without leaving
         the page. The board has the same button and the same panel — one
@@ -559,6 +632,10 @@
            class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
           Crop figures
         </a>
+        <a href="{% url 'pipeline:figure_replace' %}?gene={{ target.gene_name|urlencode }}"
+           class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
+          Replace a figure
+        </a>
         {% if pending_count %}
         {% comment %}Releasing is a superuser's press (`services/review.py::
         release_refusal`), and this link is drawn for everybody on purpose: the
@@ -574,11 +651,17 @@
     </div>
 
     {% if pending_count %}
+      {% comment %}Said as it is since 23 Aug 2026: a crop's file is already at
+      its public address, so "nobody else can see it" was false; and the
+      cropper has set no verdict since 25 Sep. Whole IHC figures are the
+      opposite — private until released.{% endcomment %}
       <p class="text-xs text-gray-600 mb-3">
-        Cropped and <strong>not on the public website</strong>. The supplier whose
-        reagent each one is can see it in the data portal before release; nobody else
-        outside the pipeline can. Releasing publishes the figure and applies the
-        recommendation set in the cropper.
+        <strong>Not listed on the public website</strong> until somebody releases them.
+        A crop's file is already at its public address, so anyone given its link can
+        open it, and the supplier whose reagent it is sees it in the data portal. A
+        whole IHC figure is on no public page until released. Releasing lists the crops on the
+        gene page, applies the verdict set on the review queue, and puts whole
+        figures on the gene's IHC page.
         {% if pending_manifest.replaces_published %}
           <span class="block mt-1 text-amber-800">{{ pending_manifest.replaces_published }}
           of these would replace a figure already on the site.</span>
@@ -606,11 +689,31 @@
             </figcaption>
           </figure>
         {% endfor %}
+        {% for f in pending_figure_rows %}
+          <figure class="rounded border border-gray-200 overflow-hidden">
+            <img src="{{ f.image_url }}" loading="lazy"
+                 alt="Whole IHC figure {{ f.label }} for {{ target.gene_name }}"
+                 class="w-full bg-gray-50">
+            <figcaption class="px-2 py-1.5 text-[11px] text-gray-600">
+              <span class="font-semibold text-gray-800">{{ f.label }}</span>
+              · whole figure for the IHC page
+              {% if f.replaces_live %}
+                <span class="block text-amber-700">revises a figure on the IHC page</span>
+              {% endif %}
+            </figcaption>
+          </figure>
+        {% endfor %}
       </div>
     {% else %}
       <p class="text-sm text-gray-500">
         Nothing is waiting. Figures made in the cropper wait here for the review
         meeting before they go on the public gene page.
+      </p>
+    {% endif %}
+    {% if ihc_page_url %}
+      <p class="text-xs text-gray-600 mt-3">
+        Whole IHC figures are public on
+        <a href="{{ ihc_page_url }}" target="_blank" class="text-ycharos-600 underline">{{ target.gene_name }}'s IHC page ↗</a>.
       </p>
     {% endif %}
   </div>
@@ -679,7 +782,7 @@
         <thead class="bg-gray-50">
           <tr>
             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">WT Line</th>
-            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">KO Line</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">KO / KD Line</th>
             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cat #</th>
             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cellosaurus</th>
@@ -702,6 +805,18 @@
             <td class="px-3 py-2 text-gray-900">
               {% if pair.ko %}
                 {{ pair.ko.name }}
+                {% comment %}A knockdown says so beside its name, and says what
+                it was made with — `knockdown_summary` is services/cell_lines.py,
+                the same line the board's Knockdown column shows — because a
+                siRNA-treated wild type listed under "KO line" with nothing
+                beside it is the public site's own defect on the page that
+                feeds it.{% endcomment %}
+                {% if pair.ko.genotype == 'KD' %}
+                  <span class="ml-1 text-xs font-semibold text-amber-700" title="A knockdown, not a knockout">KD</span>
+                  {% if pair.ko.knockdown_summary %}
+                    <span class="ml-1 text-xs text-gray-500">{{ pair.ko.knockdown_summary }}</span>
+                  {% endif %}
+                {% endif %}
                 {% comment %}Which clone this knockout is. A gene and a
                 background define the KO; the clone says which single-cell line
                 it came from, often from a different guide — so two rows here
@@ -888,6 +1003,7 @@
           {% elif proc_code == 'IP' %}bg-purple-100 text-purple-700
           {% elif proc_code == 'IF' %}bg-teal-100 text-teal-700
           {% elif proc_code == 'FC' %}bg-orange-100 text-orange-700
+          {% elif proc_code == 'IHC' %}bg-pink-100 text-pink-700
           {% endif %}">
           {{ proc_code }}
         </span>
@@ -896,6 +1012,7 @@
           {% elif proc_code == 'IP' %}Immunoprecipitation
           {% elif proc_code == 'IF' %}Immunofluorescence
           {% elif proc_code == 'FC' %}Flow Cytometry
+          {% elif proc_code == 'IHC' %}Immunohistochemistry
           {% endif %}
         </span>
         <span class="text-gray-400">({{ proc_sessions|length }})</span>
@@ -1515,7 +1632,9 @@ by the same renderer at load and again after every save.{% endcomment %}
               <span class="font-mono">HAP1</span>, <span class="font-mono">HeLa</span> —
               with the gene in its own column, not in the name.
               <span class="block mt-1">A <b>KO</b> line needs its gene and its
-              <b>parent</b> — that pairing is what makes a knockout mean anything.</span>
+              <b>parent</b> — that pairing is what makes a knockout mean anything.
+              A <b>KD</b> line (siRNA, shRNA, CRISPRi) is recorded the same way, with
+              the reagent in the knockdown columns.</span>
               <span class="block mt-1">A <b>WT</b> parental line is recorded
               <b>once, with no gene</b>: leave its gene column blank or write
               <span class="font-mono">NA</span>, or you make a second, wrong line.</span>

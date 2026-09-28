@@ -16,7 +16,9 @@ from, so a sitemap built on it cannot disagree with them.
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
+from core.funders import PAGES
 from pipeline.public import public_targets
+from pipeline.services.ihc_figures import page_targets as ihc_page_targets
 
 
 class StaticViewSitemap(Sitemap):
@@ -66,3 +68,28 @@ class GeneSitemap(Sitemap):
 
     def location(self, obj):
         return reverse('antibody_table', kwargs={'gene_name': obj.gene_name})
+
+
+class GeneIhcSitemap(Sitemap):
+    """A gene's IHC page — only for genes that have one, from the same reader
+    the page answers 404 from, so the sitemap never offers a dead link."""
+    changefreq = 'weekly'
+    priority = 0.6
+
+    def items(self):
+        return ihc_page_targets().order_by('gene_name')
+
+    def location(self, obj):
+        return reverse('antibody_ihc', kwargs={'gene_name': obj.gene_name})
+
+
+class FunderSitemap(Sitemap):
+    """The curated funder pages — one per entry in `PAGES`."""
+    changefreq = 'weekly'
+    priority = 0.8
+
+    def items(self):
+        return sorted(PAGES)
+
+    def location(self, slug):
+        return reverse('funder_page', kwargs={'slug': slug})

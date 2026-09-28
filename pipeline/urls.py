@@ -166,6 +166,7 @@ urlpatterns = [
     path('cropper/ocr/', views.cropper_ocr, name='cropper_ocr'),
     path('cropper/parse-metadata/', views.cropper_parse_metadata, name='cropper_parse_metadata'),
     path('cropper/stage-image/', views.cropper_stage_image, name='cropper_stage_image'),
+    path('cropper/image/<int:pk>/', views.cropper_image, name='cropper_image'),
     path('cropper/session/save/', views.cropper_session_save, name='cropper_session_save'),
     path('cropper/session/load/', views.cropper_session_load, name='cropper_session_load'),
     path('cropper/session/list/', views.cropper_session_list, name='cropper_session_list'),
@@ -179,6 +180,18 @@ urlpatterns = [
     path('review/release/', views.review_release, name='review_release'),
     path('review/recommend/', views.review_recommend, name='review_recommend'),
     path('review/discard/', views.review_discard, name='review_discard'),
+    path('review/judge/', views.review_judge, name='review_judge'),
+    # Whole IHC figures for a gene's IHC page: private until released, so the
+    # queue serves their bytes itself; the consent panel asks the server what
+    # the *chosen* set would do; a released one can be withdrawn on its own.
+    path('review/ihc-image/<int:pk>/', views.review_ihc_image, name='review_ihc_image'),
+    path('review/manifest/', views.review_manifest, name='review_manifest'),
+    path('review/ihc-withdraw/', views.review_ihc_withdraw, name='review_ihc_withdraw'),
+    # Replacing one antibody's figure with a finished panel: stages into the
+    # same review queue, so releasing is still what publishes it.
+    path('figures/replace/', views.figure_replace, name='figure_replace'),
+    path('figures/replace/upload/', views.figure_replace_upload,
+         name='figure_replace_upload'),
 
     # === Target board (cross-site master target list; replaces Carl's Excel) ===
     path('targets/board/', views.target_board, name='target_board'),
@@ -214,12 +227,14 @@ urlpatterns = [
     path('users/board/commit/', views.user_board_commit, name='user_board_commit'),
     path('users/board/password/', views.user_reset_password, name='user_reset_password'),
 
-    # === Recommendation manager (visual, gene-at-a-time curation of OGA flags) ===
-    path('recommendations/', views.recommendations, name='recommendations'),
-    path('recommendations/genes/', views.rec_genes, name='rec_genes'),
-    path('recommendations/antibodies/', views.rec_antibodies, name='rec_antibodies'),
-    path('recommendations/toggle/', views.rec_toggle, name='rec_toggle'),
-    path('recommendations/withdraw/', views.rec_withdraw, name='rec_withdraw'),
+    # Set recommendations retired on 25 Sep 2026: Judge outcomes sets every
+    # recommendation (FC included) beside the judgement it rests on, and holds
+    # the withdraw button. The name and a redirect stay, carrying `?gene=`,
+    # because people bookmarked it.
+    path('recommendations/',
+         RedirectView.as_view(pattern_name='pipeline:outcomes',
+                              permanent=False, query_string=True),
+         name='recommendations'),
 
     # === Judge outcomes (two-axis verdict behind the recommendation) ===
     path('outcomes/', views.outcomes, name='outcomes'),
@@ -228,4 +243,6 @@ urlpatterns = [
     path('outcomes/save/', views.outcome_save, name='outcome_save'),
     path('outcomes/recommend/', views.outcome_recommend,
          name='outcome_recommend'),
+    path('outcomes/withdraw/', views.outcome_withdraw,
+         name='outcome_withdraw'),
     ]

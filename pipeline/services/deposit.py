@@ -42,7 +42,7 @@ DB = "pipeline_db"
 # The folder each procedure's raw files go into inside the zip. Matches the
 # published records rather than inventing a layout — somebody who has downloaded
 # a YCharOS dataset before should not have to learn a second one.
-ZIP_FOLDER = {"WB": "Wb", "IP": "IP", "IF": "IF", "FC": "FC"}
+ZIP_FOLDER = {"WB": "Wb", "IP": "IP", "IF": "IF", "FC": "FC", "IHC": "IHC"}
 
 LICENCE = "cc-by-4.0"
 
@@ -72,7 +72,7 @@ def _sessions_with_readings(target):
     """
     out = []
     for s in (ExperimentSession.objects.using(DB)
-              .filter(target_id=target.pk).select_related("experimenter")):
+              .filter(target_id=target.pk).select_related("experimenter__user")):
         rows = session_board.results_for(s)["rows"]
         fields = session_board.result_field_names(s.procedure_type)
         if any(any(str(r["values"].get(f, "")).strip() for f in fields)
@@ -114,7 +114,8 @@ def description_for(target, sessions, antibodies) -> str:
     """
     procedures = sorted({s.procedure_type for s in sessions if s.procedure_type})
     names = {"WB": "western blot", "IP": "immunoprecipitation",
-             "IF": "immunofluorescence", "FC": "flow cytometry"}
+             "IF": "immunofluorescence", "FC": "flow cytometry",
+             "IHC": "immunohistochemistry"}
     did = ", ".join(names.get(p, p) for p in procedures)
     return (
         f"<p>Antibody characterisation data for {_protein(target)} "

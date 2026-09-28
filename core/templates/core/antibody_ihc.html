@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ gene_name }} immunohistochemistry figures | Only Good Antibodies</title>
+    <meta name="description" content="{{ meta_description }}">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+{% comment %}
+A gene's whole IHC figures, as the report published them (26 Sep 2026).
+
+Standalone like `funder_page.html`, which is the chrome to copy. Everything on
+it is read from `IhcFigure` through `core/views.py::antibody_ihc`, and every
+sentence in "How to read these figures" is drawn only when a figure declares
+the thing it explains (`services/ihc_figures.py::reading_notes`) — no method
+fact nobody typed. The legend is quoted as published, including the report's
+own words; OGA's result sits in its own column, from the one verdict reader.
+{% endcomment %}
+<style>
+/* Prefix: ihc- */
+.ihc-hero { background: linear-gradient(160deg, #0d2b5e 0%, #10428a 40%, #4a8ec9 100%);
+  color: #fff; padding: 48px 16px 36px; text-align: center; }
+.ihc-hero-inner { max-width: 820px; margin: 0 auto; }
+.ihc-hero h1 { font-family: 'Open Sans', sans-serif; font-size: clamp(1.5rem, 4vw, 2.3rem);
+  font-weight: 800; line-height: 1.2; margin: 0 0 12px; color: #fff !important; }
+.ihc-hero p { font-size: 1rem; line-height: 1.6; color: rgba(255,255,255,0.9); margin: 0 auto; max-width: 680px; }
+.ihc-hero a { color: #fff; text-decoration: underline; }
+.ihc-main { max-width: 1000px; margin: 0 auto; padding: 32px 16px 56px; }
+.ihc-read { background: #f7f9fd; border: 1px solid #d5e0f0; border-radius: 8px; padding: 16px 20px; margin: 0 0 32px; }
+.ihc-read h2 { color: #10428a; font-size: 1.15rem; margin: 0 0 8px; }
+.ihc-read ul { margin: 0; padding-left: 1.2rem; line-height: 1.6; color: #334155; }
+.ihc-figure { margin: 0 0 48px; }
+.ihc-figure h2 { color: #10428a; font-size: 1.4rem; margin: 0 0 12px; }
+.ihc-figure img { max-width: 100%; height: auto; display: block; border: 1px solid #e3eaf5; background: #fff; }
+.ihc-meta { color: #4a5568; font-size: 0.92rem; margin: 10px 0; line-height: 1.6; }
+.ihc-legend { margin: 12px 0; padding: 12px 16px; border-left: 4px solid #4a8ec9; background: #f7f9fd;
+  color: #1e293b; line-height: 1.6; white-space: pre-line; }
+.ihc-legend-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #10428a; margin: 16px 0 4px; }
+.ihc-table-wrap { overflow-x: auto; }
+.ihc-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.ihc-table th { text-align: left; padding: 8px 10px; background: #eef3fa; color: #10428a; font-weight: 700;
+  border-bottom: 2px solid #d5e0f0; }
+.ihc-table td { padding: 10px; border-bottom: 1px solid #e3eaf5; vertical-align: top; }
+.ihc-table a { color: #10428a; font-weight: 600; }
+.ihc-discontinued { display: inline-block; margin-top: 2px; font-size: 0.78rem; font-weight: 700; color: #92400e; }
+.ihc-result-supportive { color: #166534; font-weight: 600; }
+.ihc-result-qualified { color: #92400e; font-weight: 600; }
+.ihc-result-not-supportive { color: #991b1b; font-weight: 600; }
+.ihc-back { display: inline-block; margin: 0 0 20px; color: #10428a; font-weight: 600; }
+@media (max-width: 640px) {
+  .ihc-table th.ihc-optional, .ihc-table td.ihc-optional { display: none; }
+}
+</style>
+</head>
+<body>
+
+{% include 'core/cookie_banner.html' %}
+{% include 'core/header.html' %}
+
+<section class="ihc-hero">
+  <div class="ihc-hero-inner">
+    <h1>{{ gene_name }} immunohistochemistry figures</h1>
+    <p>{{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:'y,ies' }}
+      stained in wild-type and knockout tissue, each figure with its legend as published.
+      Their HAP1 cell pellet results are on the <a href="{% url 'antibody_table' gene_name %}">{{ gene_name }} page</a>.
+      Free to reuse under <a href="{{ licence_url }}" target="_blank" rel="noopener license">{{ licence_name }}</a>{% if report_link %} —
+      please cite <a href="{{ report_link }}" target="_blank" rel="noopener">the {{ gene_name }} report</a>{% endif %}.</p>
+  </div>
+</section>
+
+<main class="ihc-main">
+  <a class="ihc-back" href="{% url 'antibody_table' gene_name %}">← {{ gene_name }} antibody characterisation</a>
+
+  <section class="ihc-read" aria-labelledby="ihc-read-title">
+    <h2 id="ihc-read-title">How to read these figures</h2>
+    <ul>
+      {% for note in reading_notes %}<li>{{ note }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  {% for fig in figures %}
+  <article class="ihc-figure" id="{{ fig.slug }}">
+    <h2>{{ fig.label }}</h2>
+    {% if fig.image_url %}
+    <a href="{{ fig.image_url }}" target="_blank" rel="noopener">
+      <img src="{{ fig.image_url }}" alt="{{ gene_name }} IHC {{ fig.label }}"
+           {% if fig.width %}width="{{ fig.width }}"{% endif %} {% if fig.height %}height="{{ fig.height }}"{% endif %}
+           loading="lazy">
+    </a>
+    {% endif %}
+
+    <p class="ihc-legend-label">Legend as published</p>
+    <blockquote class="ihc-legend">{{ fig.legend }}</blockquote>
+
+    <p class="ihc-meta">
+      {% if fig.samples %}Shows: {{ fig.samples|join:"; " }}.<br>{% endif %}
+      {% if fig.controls %}Controls: {{ fig.controls|join:", " }}.<br>{% endif %}
+      Scale bar: {% if fig.scale %}{{ fig.scale }}{% else %}length not stated in the source report{% endif %}.<br>
+      Source:
+      {% if fig.source_url %}
+        <a href="{{ fig.source_url }}" target="_blank" rel="noopener">{{ fig.source_label }}</a>
+        {% if fig.source_is_own %}(this figure's own source){% else %}(the {{ gene_name }} report){% endif %}
+      {% else %}
+        the {{ gene_name }} report — not yet published with a DOI
+      {% endif %}
+    </p>
+
+    <div class="ihc-table-wrap">
+    <table class="ihc-table">
+      <caption class="ihc-meta" style="text-align:left">Antibodies in {{ fig.label }}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Catalogue</th>
+          <th scope="col">Supplier</th>
+          <th scope="col" class="ihc-optional">Host</th>
+          <th scope="col" class="ihc-optional">Clonality</th>
+          <th scope="col" class="ihc-optional">RRID</th>
+          <th scope="col">Supplier lists IHC</th>
+          <th scope="col">OGA result on HAP1 pellets</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ab in fig.antibodies %}
+        <tr>
+          <td>
+            {% if ab.gene_page_url %}<a href="{{ ab.gene_page_url }}">{{ ab.catalogue }}</a>{% else %}{{ ab.catalogue }}{% endif %}
+            {% if ab.discontinued %}<br><span class="ihc-discontinued">Discontinued by the supplier</span>{% endif %}
+          </td>
+          <td>{{ ab.supplier|default:"—" }}</td>
+          <td class="ihc-optional">{{ ab.host|default:"—" }}</td>
+          <td class="ihc-optional">{{ ab.clonality|default:"—" }}</td>
+          <td class="ihc-optional">{% if ab.rrid %}{% if ab.rrid_link %}<a href="{{ ab.rrid_link }}" target="_blank" rel="noopener">{{ ab.rrid }}</a>{% else %}{{ ab.rrid }}{% endif %}{% else %}—{% endif %}</td>
+          <td>{% if ab.supplier_ihc %}yes{% else %}not on file{% endif %}</td>
+          <td><span class="ihc-result-{{ ab.oga_tone|default:'untested' }}">{{ ab.oga_result }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </article>
+  {% endfor %}
+</main>
+
+{% include 'core/footer.html' %}
+</body>
+</html>

@@ -544,13 +544,27 @@ function levelBadge(level){
 
 // ── Build Leaflet map ──
 (function(){
+  // Leaflet comes from unpkg, which a university firewall or an ad-blocker
+  // can block. Without this, L.map throws and takes the rest of this script
+  // with it — the policy-text accordions and copy buttons below.
+  if (typeof window.L === 'undefined') {
+    var box = document.getElementById('ins-map');
+    box.innerHTML = '<p style="padding:24px;margin:0;color:#555;line-height:1.6">' +
+      'The map could not be loaded on this network. Every institution is listed below.</p>';
+    return;
+  }
   var map = L.map('ins-map', {
     scrollWheelZoom: false,
     attributionControl: true
   }).setView([54.5, -3.2], 5);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // OSM's tile policy refuses a request with no Referer ("Access blocked",
+  // 403), and the site's own Referrer-Policy is Django's same-origin, which
+  // sends none cross-origin. So the tiles ask for the origin to be sent —
+  // the same reason the YouTube iframe above carries its own policy.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
+    referrerPolicy: 'strict-origin-when-cross-origin',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(map);
 

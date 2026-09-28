@@ -56,7 +56,11 @@ DB = "pipeline_db"
 # cropper stopped writing straight to the public site.
 # 3 since 28 Aug 2026: ``AntibodyOutcome`` joined — the two-axis judgement made
 # from a published figure, which exists nowhere else once it is made.
-FORMAT_VERSION = 3
+# 4 since 26 Sep 2026: the whole IHC figures for a gene's IHC page joined —
+# ``PendingIhcFigure``/``IhcFigure`` and their explicit antibody tables, which
+# is the only place the figure-to-antibody links exist.
+# 5 since 26 Sep 2026: ``IhcResult`` joined — IHC readings at the bench.
+FORMAT_VERSION = 5
 
 # Everything the lab authors, in dependency order — the order a restore would
 # want, and the order that reads sensibly in a diff.
@@ -67,7 +71,10 @@ CAPTURED = [
     "Antibody", "InventoryLocation", "Sample",
     "ProtocolTemplate",
     "ExperimentSession", "WbResult", "IpResult", "IfResult", "FcResult",
+    "IhcResult",
     "Report", "PublicationImage", "PendingPublicationImage", "AntibodyOutcome",
+    "PendingIhcFigure", "PendingIhcFigureAntibody",
+    "IhcFigure", "IhcFigureAntibody",
     "FileAttachment",
     "ManufacturerContact", "ReagentRequestBatch", "ReagentRequest", "Shipment",
 ]
@@ -122,16 +129,40 @@ def _rows(model):
             for row in model.objects.using(DB).values()]
 
 
+def _tables_on_file() -> set:
+    """The table names the database actually has, or ``None`` if it cannot say.
+
+    **The capture runs from a cron job that deploys on a merge and never
+    migrates** (CLAUDE.md, Deploy). So between a merge that adds a model and
+    the Manual Deploy that migrates it, the 03:17 capture runs code that names a
+    table the database does not have yet — and a query against it raises and
+    takes the whole backup with it, unattended. Asked once, up front, rather
+    than caught per query: on PostgreSQL a failed statement poisons the rest
+    of a transaction.
+    """
+    from django.db import connections
+    try:
+        return set(connections[DB].introspection.table_names())
+    except Exception:
+        return None
+
+
 def build(captured=None) -> dict:
     """The whole capture, manifest first."""
     names = list(captured or CAPTURED)
     by_name = {m.__name__: m for m in apps.get_app_config("pipeline").get_models()}
+    on_file = _tables_on_file()
 
     tables, counts = {}, {}
     missing = []
     for name in names:
         model = by_name.get(name)
         if model is None:            # a model renamed or removed since
+            missing.append(name)
+            continue
+        if on_file is not None and model._meta.db_table not in on_file:
+            # In the code, not yet in the database — named under `not_found`
+            # rather than failing the whole capture.
             missing.append(name)
             continue
         rows = _rows(model)

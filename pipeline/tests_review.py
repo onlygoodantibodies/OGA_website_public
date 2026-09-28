@@ -88,6 +88,31 @@ class CroppingDoesNotPublishTests(TestCase):
             "nobody deciding it should be")
         self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 1)
 
+    def test_a_recrop_of_a_released_figure_says_the_live_page_changes_now(self):
+        """The crop is written at the public key (`review.stage`), so a re-crop
+        of a figure released at that key replaces the file the gene page is
+        showing as the save lands. The consent panel said "when released";
+        `images_overwrite_live` is the count that lets it say what happens."""
+        commit_mod.apply(self.session, actor_member=self.member)
+        svc.release(list(svc.pending_qs()), actor="carl")
+        target, items, match = commit_mod.build_plan(self.session)
+        summary = commit_mod.summarize(self.session, target, items, match)
+        self.assertEqual(summary["images_overwrite"], 1)
+        self.assertEqual(summary["images_overwrite_live"], 1)
+
+    def test_a_consent_for_a_different_count_writes_nothing(self):
+        """The number on the button is what was consented to."""
+        CropperSession.objects.using(DB).filter(pk=self.session.pk).update(
+            owner_username="carl")
+        response = self.client.post(
+            "/pipeline/cropper/commit/",
+            data=json.dumps({"session_id": self.session.pk, "dry_run": False,
+                             "consented_crops": 3}),
+            content_type="application/json")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("agreed to save 3", response.json()["error"])
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0)
+
     def test_the_gene_does_not_become_public(self):
         commit_mod.apply(self.session, actor_member=self.member)
         self.assertFalse(
@@ -95,15 +120,14 @@ class CroppingDoesNotPublishTests(TestCase):
         # …and the public gene page says so, which is the surface a reader hits.
         self.assertEqual(self.client.get("/antibodies/TRPA1/").status_code, 404)
 
-    def test_the_recommendation_is_held_until_release(self):
-        """A recommendation on a gene changes the public verdict on every OTHER
-        antibody on it (``core/recommendations.py::curated_gene_ids`` separates
-        "tested and not recommended" from "never assessed" on exactly this), so
-        writing it while withholding the figure is its own leak."""
+    def test_the_cropper_sets_no_verdict(self):
+        """The cropper makes no judgement (owner, 25 Sep 2026) — a session that
+        still carries an old "recommended" tick from before is not read. The
+        verdict is made on the review queue; nothing touches the antibody."""
         commit_mod.apply(self.session, actor_member=self.member)
         antibody = Antibody.objects.using(DB).get(catalogue_number="ab138501")
         self.assertFalse(antibody.wb_recommended)
-        self.assertTrue(
+        self.assertFalse(
             PendingPublicationImage.objects.using(DB).get().recommended)
 
     def test_recropping_revises_the_queued_crop_rather_than_queueing_a_second(self):
@@ -230,6 +254,8 @@ class DeletingASessionKeepsWhatIsQueuedTests(TestCase):
         image.image.save("fig1.png", ContentFile(_png()), save=False)
         image.save(using=DB)
         commit_mod.apply(self.session, actor_member=self.member)
+        # The verdict is set on the queue since the cropper stopped judging.
+        svc.set_recommended(list(svc.pending_qs()), True)
 
     def test_the_queued_crop_survives_the_session_being_deleted(self):
         queued = PendingPublicationImage.objects.using(DB).get()
@@ -354,20 +380,88 @@ class AnOldGeneNameDoesNotBecomeANewGeneTests(TestCase):
         self.assertIn("CALM1", response.json()["error"])
         self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0)
 
-    def test_a_genuinely_new_gene_is_still_created(self):
-        target, summary = commit_mod.apply(self._session("TRPA1"),
-                                           actor_member=self.member)
-        self.assertEqual(target.gene_name, "TRPA1")
-        self.assertEqual(summary["target"], "create")
-        self.assertEqual(summary["gene_matched_via"], "")
+    def test_a_gene_not_on_file_is_refused_and_never_created(self):
+        """**Reversed on 26 Sep 2026**, by rule rather than taste. This pinned
+        that a genuinely new gene was created from the cropper (and, beside it,
+        that `c9orf72` was created as `C9orf72`). A target is added on the
+        targets doors and nowhere else (CLAUDE.md, "Adding a gene") — the door
+        that checks the symbol against UniProt — so the cropper refuses by name
+        and names the board, and a typo in its gene box can no longer become a
+        permanent gene with figures hanging off it."""
+        session = self._session("TRPA1")
+        target, items, match = commit_mod.build_plan(session)
+        summary = commit_mod.summarize(session, target, items, match)
+        self.assertIn("not in the pipeline yet", summary["refusal"])
+        self.assertIn("targets board", summary["refusal"])
+        self.assertIn("/pipeline/targets/board/", summary["add_target_url"])
+        self.assertIn("gene=TRPA1", summary["add_target_url"])
+        with self.assertRaises(commit_mod.Refused):
+            commit_mod.apply(session, actor_member=self.member)
+        self.assertFalse(Target.objects.using(DB).filter(gene_name="TRPA1").exists())
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0)
 
-    def test_a_new_gene_is_created_in_the_conventional_case(self):
-        """Uppercase is the rule and `orf` is the exception, so this goes
-        through `gene_symbol.canonical` rather than being stored as typed —
-        the write-path half of the eight mis-cased symbols already on file."""
-        target, _ = commit_mod.apply(self._session("c9orf72"),
-                                     actor_member=self.member)
-        self.assertEqual(target.gene_name, "C9orf72")
+    def test_the_banner_says_so_before_any_cropping(self):
+        from pipeline.services.cropper import db as cdb
+        banner = cdb.gene_status("TRPA1").banner
+        self.assertTrue(banner["blocked"])
+        self.assertNotIn("will be created", banner["text"])
+        self.assertIn("targets board", banner["text"])
+        self.assertIn("gene=TRPA1", banner["add_target_url"])
+
+    def test_the_endpoint_refuses_a_new_gene_with_the_same_sentence(self):
+        response = self.client.post(
+            "/pipeline/cropper/commit/",
+            data=json.dumps({"session_id": self._session("TRPA1").pk,
+                             "dry_run": False}),
+            content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not in the pipeline yet", response.json()["error"])
+        self.assertFalse(Target.objects.using(DB).filter(gene_name="TRPA1").exists())
+
+
+class ABlankCellLineIsRefusedForALegendThatPrintsItTests(TestCase):
+    """An ICC-IF or FC crop burns "<cell line> wild-type cell line" into its
+    legend, so a blank box printed " wild-type cell line" on a public figure."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        self.member = Member.objects.using(DB).get(site_id=self.site.pk)
+        Target.objects.using(DB).create(gene_name="SNCA")
+
+    def _session(self, app, cell_line):
+        session = CropperSession.objects.using(DB).create(
+            owner_username="member", gene="SNCA", cell_line=cell_line,
+            antibody_list="ab1", metadata={"ab1": {"company": "Abcam"}})
+        image = CropperImage(
+            session=session, application_type=app, name="fig.png",
+            nat_w=120, nat_h=120,
+            grid={"bounds": {"top": 0, "bottom": 120}, "hLines": [],
+                  "bandLeft": [0], "bandRight": [120], "vLines": [[]]},
+            mapping={"0_0": {"assigned": True, "ab": 0}})
+        image.image.save("fig.png", ContentFile(_png()), save=False)
+        image.save(using=DB)
+        return session
+
+    def _refusal(self, session):
+        target, items, match = commit_mod.build_plan(session)
+        return commit_mod.summarize(session, target, items, match)["refusal"]
+
+    def test_icc_if_and_fc_are_refused_by_name_and_wb_is_not(self):
+        for app in ("ICC-IF", "FC"):
+            with self.subTest(app=app):
+                why = self._refusal(self._session(app, ""))
+                self.assertIn("Cell line box is blank", why)
+                self.assertIn(app, why)
+        self.assertEqual(self._refusal(self._session("WB", "")), "")
+        self.assertEqual(self._refusal(self._session("ICC-IF", "HAP1")), "")
+
+    def test_the_save_writes_nothing(self):
+        with self.assertRaises(commit_mod.Refused):
+            commit_mod.apply(self._session("FC", "  "), actor_member=self.member)
+        self.assertEqual(PendingPublicationImage.objects.using(DB).count(), 0)
 
 
 class TheVerdictCanBeChangedAtTheMeetingTests(TestCase):
@@ -480,6 +574,113 @@ class TheVerdictCanBeChangedAtTheMeetingTests(TestCase):
         self.assertEqual(svc.set_recommended([self.item], True), 0)
         self.item.refresh_from_db()
         self.assertFalse(self.item.recommended)
+
+
+class TheWholeJudgementIsMadeAtTheMeetingTests(TestCase):
+    """Both halves of the call are made on the queue's card, and the card's
+    public line is what release actually prints.
+
+    The queue held one bit — recommended or not — while every public surface
+    prints a rung built from that bit *and* the outcome axes. Judge outcomes,
+    the only place the axes could be set, refuses a figure that is not
+    published. The silent failures worth pinning: an answer landing on the
+    wrong antibody or application, a judgement moving the recommendation
+    early, and a preview that says something the released page does not.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.site)
+        company = Company.objects.using(DB).create(name="Abcam")
+        self.target = Target.objects.using(DB).create(gene_name="SLC27A2")
+        self.antibody = Antibody.objects.using(DB).create(
+            target=self.target, company=company, catalogue_number="ab175373",
+            site=self.site)
+        self.other = Antibody.objects.using(DB).create(
+            target=self.target, company=company, catalogue_number="ab228784",
+            site=self.site)
+        self.item = svc.stage(
+            antibody=self.antibody, application_type="WB", content=_png(),
+            filename="SLC27A2_ab175373_WB.png", recommended=False,
+            staged_by="hsv6")
+        self.other_item = svc.stage(
+            antibody=self.other, application_type="WB",
+            content=_png((1, 2, 3)), filename="SLC27A2_ab228784_WB.png",
+            recommended=False, staged_by="hsv6")
+
+    def _judge(self, axis, value, item=None):
+        return self.client.post(
+            "/pipeline/review/judge/",
+            data=json.dumps({"ids": [(item or self.item).pk], "axis": axis,
+                             "value": value}),
+            content_type="application/json")
+
+    def _row(self, data, item=None):
+        pk = (item or self.item).pk
+        return next(r for r in data["rows"] if r["id"] == pk)
+
+    def test_an_answer_lands_on_that_antibody_and_application_only(self):
+        from pipeline.models import AntibodyOutcome
+        self.assertEqual(self._judge("detects", "yes").status_code, 200)
+        rows = list(AntibodyOutcome.objects.using(DB).values_list(
+            "antibody_id", "application_type", "detects"))
+        self.assertEqual(rows, [(self.antibody.pk, "WB", "yes")])
+
+    def test_it_does_not_move_the_recommendation_or_publish(self):
+        self._judge("detects", "yes")
+        self.antibody.refresh_from_db()
+        self.assertFalse(self.antibody.wb_recommended)
+        self.assertEqual(PublicationImage.objects.using(DB).count(), 0)
+
+    def test_a_value_the_axis_does_not_take_is_refused_and_writes_nothing(self):
+        from pipeline.models import AntibodyOutcome
+        self.assertEqual(self._judge("detects", "strongly_selective").status_code, 400)
+        self.assertEqual(self._judge("enriches", "yes").status_code, 400)
+        self.assertFalse(AntibodyOutcome.objects.using(DB).exists())
+
+    def test_on_a_gene_with_nothing_recommended_the_card_says_not_tested(self):
+        """The gene gate: the public site cannot tell a negative from never
+        assessed until something on the gene is recommended, and a card
+        promising *Limited support* there would be a preview of a write that
+        does not happen."""
+        self._judge("detects", "yes")
+        data = self._judge("selective", "no").json()
+        self.assertEqual(self._row(data)["judgement"]["public_support"],
+                         "not_tested")
+
+    def test_recommending_a_neighbour_changes_this_card_s_public_line(self):
+        self._judge("detects", "yes")
+        self._judge("selective", "no")
+        data = self.client.post(
+            "/pipeline/review/recommend/",
+            data=json.dumps({"ids": [self.other_item.pk], "recommended": True}),
+            content_type="application/json").json()
+        self.assertEqual(self._row(data)["judgement"]["public_support"],
+                         "limited_support")
+
+    def test_the_preview_is_what_release_prints(self):
+        """Compared against the write: release everything, then ask the public
+        reader the question the card answered."""
+        from core import recommendations as recs
+        svc.set_recommended([self.other_item], True)
+        self._judge("detects", "yes")
+        data = self._judge("selective", "no").json()
+        promised = {r["id"]: r["judgement"]["public_sentence"]
+                    for r in data["rows"]}
+
+        svc.release(list(svc.pending_qs()), actor="hsv6")
+        curated = recs.curated_gene_ids([self.target.pk])
+        axes = recs.capability_axes([self.antibody.pk, self.other.pk])
+        for item, ab in ((self.item, self.antibody),
+                         (self.other_item, self.other)):
+            ab.refresh_from_db()
+            public = recs.describe(ab, "WB", {"WB"},
+                                   self.target.pk in curated,
+                                   axes.get((ab.pk, "WB")))
+            self.assertEqual(promised[item.pk], public["sentence"],
+                             ab.catalogue_number)
 
 
 class AnOversizedFigureIsRefusedNotDecodedTests(TestCase):
@@ -989,7 +1190,7 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
         return client
 
     def _manifest(self):
-        resp = self.client.get("/pipeline/recommendations/antibodies/?gene=TRPA1")
+        resp = self.client.get("/pipeline/outcomes/antibodies/?gene=TRPA1")
         self.assertEqual(resp.status_code, 200)
         return resp.json()["withdraw"]
 
@@ -1011,7 +1212,7 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
     def test_the_endpoint_refuses_a_member_too(self):
         """The greyed button and the refusal are one reader, or they drift."""
         resp = self.client.post(
-            "/pipeline/recommendations/withdraw/",
+            "/pipeline/outcomes/withdraw/",
             data=json.dumps({"gene": "TRPA1", "count": 1}),
             content_type="application/json")
         self.assertEqual(resp.status_code, 403)
@@ -1020,7 +1221,7 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
     def test_a_superuser_withdraws_the_gene(self):
         self.client = self._superuser_client()
         resp = self.client.post(
-            "/pipeline/recommendations/withdraw/",
+            "/pipeline/outcomes/withdraw/",
             data=json.dumps({"gene": "TRPA1", "count": 1}),
             content_type="application/json")
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -1038,7 +1239,7 @@ class TheGenePageOffersTheWithdrawalTests(TestCase):
             image=ContentFile(_png(), name="TRPA1_ab138501_IP.png"))
 
         resp = self.client.post(
-            "/pipeline/recommendations/withdraw/",
+            "/pipeline/outcomes/withdraw/",
             data=json.dumps({"gene": "TRPA1", "count": 1}),   # the panel saw one
             content_type="application/json")
 
@@ -1136,3 +1337,117 @@ class OneObjectAtOnePublicKeyTests(TestCase):
         self.assertEqual(second.image.name, name,
                          "a re-crop landed on a suffixed key, so the public URL "
                          "a partner was given stopped being the live one")
+
+
+class OneProductHasOnePublicFigurePerApplicationTests(TestCase):
+    """A crop's file is `{GENE}_{catalogue}_{TYPE}.png` — per *product* — while
+    a product can hold a row per vial. The cropper picked the lowest-id row and
+    asked only it whether a figure was published, so a re-crop filed on
+    Leicester's unpublished vial overwrote the file McGill's released vial was
+    serving: no tick asked for, "0 replace a published figure" on the panel,
+    and the live page's bytes changed. Asked of the file now."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        import tempfile
+        self.enterContext(
+            self.settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="review-vials-")))
+        self.lei = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.mcg = Site.objects.using(DB).create(name="McGill", short_code="MTL")
+        self.client = _member_client(self, self.lei)
+        self.member = Member.objects.using(DB).get(site_id=self.lei.pk)
+        self.target = Target.objects.using(DB).create(gene_name="TRPA1")
+        # Leicester's row first, so it is the one the catalogue alone picks.
+        self.leicester = Antibody.objects.using(DB).create(
+            catalogue_number="ab1", target=self.target, site=self.lei)
+        self.mcgill = Antibody.objects.using(DB).create(
+            catalogue_number="ab1", target=self.target, site=self.mcg)
+        item = svc.stage(antibody=self.mcgill, application_type="WB",
+                         content=_png((10, 20, 30)),
+                         filename=engine.filename_for("TRPA1", "ab1", "WB"),
+                         staged_by="carl")
+        svc.release([item], actor="carl", consented_count=1)
+        self.live = PublicationImage.objects.using(DB).get(antibody=self.mcgill)
+        with self.live.image.open("rb") as fh:
+            self.live_bytes = fh.read()
+        self.session = CropperSession.objects.using(DB).create(
+            owner_username="carl", gene="TRPA1", cell_line="HAP1",
+            antibody_list="ab1")
+        image = CropperImage(
+            session=self.session, application_type="WB", name="fig.png",
+            nat_w=120, nat_h=120,
+            grid={"bounds": {"top": 0, "bottom": 120}, "hLines": [],
+                  "bandLeft": [0], "bandRight": [120], "vLines": [[]]},
+            mapping={"0_0": {"assigned": True, "ab": 0}})
+        image.image.save("fig.png", ContentFile(_png((200, 200, 0))), save=False)
+        image.save(using=DB)
+
+    def _summary(self):
+        target, items, match = commit_mod.build_plan(self.session)
+        return items, commit_mod.summarize(self.session, target, items, match)
+
+    def test_the_other_vials_published_figure_is_counted_as_replaced_live(self):
+        items, summary = self._summary()
+        self.assertEqual(items[0]["existing_ab"].pk, self.mcgill.pk,
+                         "filed on a vial other than the one holding the file")
+        self.assertEqual(summary["images_overwrite"], 1)
+        self.assertEqual(summary["images_overwrite_live"], 1)
+        self.assertTrue(any("McGill" in w for w in summary["warnings"]),
+                        "the panel does not say which vial the crop is filed on")
+
+    def test_without_the_tick_the_live_figure_is_untouched(self):
+        response = self.client.post(
+            "/pipeline/cropper/commit/",
+            data=json.dumps({"session_id": self.session.pk, "dry_run": False,
+                             "consented_crops": 1}),
+            content_type="application/json")
+        self.assertEqual(response.status_code, 409)
+        with self.live.image.open("rb") as fh:
+            self.assertEqual(fh.read(), self.live_bytes,
+                             "the live gene page's figure was overwritten")
+
+    def test_a_key_held_by_a_record_of_another_product_is_refused(self):
+        """`ab1*` files under the same name as `ab1` — two products, one file."""
+        CropperSession.objects.using(DB).filter(pk=self.session.pk).update(
+            antibody_list="ab1*")
+        self.session.refresh_from_db()
+        Antibody.objects.using(DB).create(
+            catalogue_number="ab1*", target=self.target, site=self.lei)
+        _items, summary = self._summary()
+        self.assertIn("already belongs to", summary["refusal"])
+        self.assertIn("McGill", summary["refusal"])
+
+    def test_a_release_between_the_check_and_the_press_is_refused(self):
+        """The same count can mean something different by the time of the press."""
+        PublicationImage.objects.using(DB).filter(pk=self.live.pk).delete()
+        _items, before = self._summary()
+        self.assertEqual(before["images_overwrite"], 0)
+        # …and then somebody releases a figure for this antibody.
+        PublicationImage.objects.using(DB).create(
+            antibody=self.mcgill, application_type="WB", image=self.live.image.name)
+        CropperSession.objects.using(DB).filter(pk=self.session.pk).update(
+            overwrite_ack=True)
+        response = self.client.post(
+            "/pipeline/cropper/commit/",
+            data=json.dumps({"session_id": self.session.pk, "dry_run": False,
+                             "consented_crops": 1,
+                             "consented_stamp": before["stamp"]}),
+            content_type="application/json")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("has changed since you checked", response.json()["error"])
+
+
+class NAIsNotAGeneToAddTests(TestCase):
+    """`NA` is the placeholder for "no gene", so sending the reader to the
+    targets board to add a gene called NA sends them nowhere useful."""
+
+    databases = {"pipeline_db"}
+
+    def test_the_banner_names_the_gene_box_and_offers_no_add_link(self):
+        from pipeline.services.cropper import db as cdb
+        banner = cdb.gene_status("NA").banner
+        self.assertTrue(banner["blocked"])
+        self.assertIn("means no gene", banner["text"])
+        self.assertEqual(banner["add_target_url"], "")
+        self.assertNotIn("targets board", banner["text"])

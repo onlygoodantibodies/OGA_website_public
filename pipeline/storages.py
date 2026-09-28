@@ -13,6 +13,18 @@ guesses the key, and "we don't show the URL" is not the same as "there is no
 URL". The other half is here: attachments get their own storage, which never
 uses the public custom domain and signs the URLs it does produce.
 
+**Queued whole IHC figures use it too** (``PendingIhcFigure.image``, 26 Sep
+2026): they show several suppliers' unreleased results, so they are private
+until ``services/ihc_figures.py`` copies them to the public key at release.
+
+**So do the cropper's own uploads** (``CropperImage.image``, via
+``cropper_storage``, 26 Sep 2026). A whole IHC figure is copied byte for byte
+*from* the upload, so while the upload sat in the public media bucket under its
+own filename, "private until release" was only unlinked — the same bytes were a
+guessable public URL from the moment they were added, through release and past
+a withdrawal. The cropper draws them through ``views/cropper.py::
+cropper_image``, a members-only view, never a storage URL.
+
 **Set ``R2_ATTACHMENTS_BUCKET`` to a bucket with no public route.** Without it
 this falls back to the media bucket, which keeps every file readable and
 downloadable — nothing breaks — but leaves the object reachable on the public
@@ -23,7 +35,7 @@ gap, which is the worse trade. ``manage.py check`` says so instead.
 from __future__ import annotations
 
 from django.conf import settings
-from django.core.files.storage import default_storage
+from django.core.files.storage import Storage, default_storage
 
 
 def attachment_storage():
@@ -62,3 +74,61 @@ def attachments_are_public() -> bool:
     """
     return bool(getattr(settings, "USE_R2", False)
                 and not getattr(settings, "R2_ATTACHMENTS_BUCKET", ""))
+
+
+class _PrivateFirst(Storage):
+    """Writes to private storage; reads private first, then the public media
+    bucket — where every cropper upload staged before ``cropper_storage``
+    existed still sits, and a resumed session must go on finding it.
+
+    Deletes from both, so removing a session's figures removes them wherever
+    they are. ``url`` is never what the cropper shows (see
+    ``views/cropper.py::cropper_image``)."""
+
+    def __init__(self, primary, legacy):
+        self.primary, self.legacy = primary, legacy
+
+    def _holder(self, name):
+        try:
+            if self.primary.exists(name):
+                return self.primary
+        except Exception:
+            pass
+        return self.legacy
+
+    def _open(self, name, mode="rb"):
+        return self._holder(name).open(name, mode)
+
+    def _save(self, name, content):
+        return self.primary.save(name, content)
+
+    def get_valid_name(self, name):
+        return self.primary.get_valid_name(name)
+
+    def get_available_name(self, name, max_length=None):
+        return self.primary.get_available_name(name, max_length=max_length)
+
+    def exists(self, name):
+        return self.primary.exists(name) or self.legacy.exists(name)
+
+    def delete(self, name):
+        for storage in (self.primary, self.legacy):
+            try:
+                storage.delete(name)
+            except Exception:
+                pass
+
+    def size(self, name):
+        return self._holder(name).size(name)
+
+    def url(self, name):
+        return self._holder(name).url(name)
+
+
+def cropper_storage():
+    """The storage ``CropperImage.image`` uses — the attachments storage for
+    new uploads, falling back to the media bucket for older ones."""
+    primary = attachment_storage()
+    if primary is default_storage:
+        return default_storage
+    return _PrivateFirst(primary, default_storage)

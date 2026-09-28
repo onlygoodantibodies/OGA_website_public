@@ -25,18 +25,40 @@ the press and the server refuses a mismatch (`services/review.py::release`).
     <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Review queue</p>
     <h1 class="text-2xl font-bold text-gray-900 mt-1">Figures waiting to be published</h1>
     <p class="text-gray-600 mt-1 max-w-3xl text-sm">
-      Everything the figure cropper makes waits here. Nothing on this page is on the
-      public website, and nothing on it is visible to anyone outside the pipeline —
-      except the supplier whose reagent it is, who can see their own figures through
-      the data portal before release. <strong>Releasing is what publishes</strong>:
-      the crop goes onto the gene's public page and OGA's recommendation is applied
-      to the antibody at the same moment.
+      Everything the figure cropper makes waits here. No gene page lists a figure
+      from this page until it is released, and the data portal shows it only to
+      the supplier whose reagent it is. The crop file itself is already at its
+      public address, though, so anyone given its link can open it — a figure
+      held back here is unlisted, not locked away. <strong>Releasing is what
+      publishes</strong>: the crop goes onto the gene's public page and OGA's
+      recommendation is applied to the antibody at the same moment. The one
+      exception is a crop that <em>replaces</em> a published figure (the card says
+      so): the cropper writes it to the file the gene page is showing, so that
+      page can show it already.
     </p>
     <p class="text-gray-600 mt-2 max-w-3xl text-sm">
-      The <strong>recommended / not recommended</strong> button on each figure is
-      OGA's verdict for that antibody in that application. It starts as whatever the
-      cropper set and can be changed here up until release — which is the point of
-      the meeting. Changing it alters nothing on the public site by itself.
+      Each figure carries the <strong>whole judgement</strong>, in two halves. Under
+      the image: what the figure shows — for a western blot, <em>does it detect the
+      target</em> and <em>is it selective</em>; for IF, how selective; for IP, does it
+      enrich; for IHC, how selective, judged by eye from the HAP1 pellet figure —
+      staining in wild-type cells and none in the knockout is selective, and in a
+      mosaic pellet stained and unstained cells share one field. Beside the name: the <strong>recommended / not recommended</strong>
+      button, which starts from the antibody's own recommendation (or, for a figure
+      re-cropped while it waits here, from what was set on this card) — the
+      cropper sets none. The line at the foot of each
+      card is what the public page will print once it is released, built from both.
+      Click a figure to see it full size.
+    </p>
+    <p class="text-gray-600 mt-2 max-w-3xl text-sm">
+      The recommendation waits here until release. The outcome answers are stored
+      on the antibody straight away, the same as on Judge outcomes — so on a figure
+      that <em>replaces</em> a published one they reach that public page now, and
+      the card says so.
+    </p>
+    <p class="text-gray-600 mt-2 max-w-3xl text-sm">
+      Have a finished panel to swap in for one antibody?
+      <a href="{% url 'pipeline:figure_replace' %}{% if focus %}?gene={{ focus.gene_name|urlencode }}{% endif %}" class="text-ycharos-600 underline">Replace a figure</a>
+      finds the antibody and queues the new image here.
     </p>
   </div>
 
@@ -110,7 +132,47 @@ the press and the server refuses a mismatch (`services/review.py::release`).
           </div>
         </div>
 
+        {% comment %}A long queue is a long page: 113 cards was more than a browser
+        agent's page tools could read, and a person looking for the cards still to
+        answer scrolls past the rest. The filter changes what is drawn, never what
+        is ticked; the text list is the same cards and answers in words.{% endcomment %}
+        <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <label for="show" class="font-semibold">Show</label>
+          <select id="show" class="rounded border border-gray-300 px-1 py-0.5 text-xs">
+            <option value="all">every waiting card</option>
+            <option value="mine">cards staged by me</option>
+            <option value="mine-open">staged by me, with a question still unanswered</option>
+          </select>
+          <span id="show-count"></span>
+        </div>
+        <details id="queue-text" class="mb-3 text-xs">
+          <summary class="cursor-pointer text-ycharos-600 underline">These cards as text</summary>
+          <pre id="queue-text-body" class="mt-1 whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-2 font-mono text-[11px]"></pre>
+        </details>
+
         <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+
+        {% comment %}Whole IHC figures for the gene's IHC page — the report's
+        figure as published, several suppliers' antibodies in one image. Private
+        until released (the thumbnail comes from this app, never a public URL),
+        released by the same press as the crops under one count, and judged
+        nowhere here: the verdict lives on the crops.{% endcomment %}
+        <div id="figures-wrap" class="mt-6 hidden">
+          <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">
+            Whole figures for the IHC page (<span id="figures-count">0</span>)
+          </h3>
+          <p class="text-xs text-gray-600 mb-3 max-w-3xl">
+            Not on the public site until they are released, when they go on the gene's IHC page with their legend as
+            published. They are released with the crops, by the same button.
+          </p>
+          <div id="figure-grid" class="grid grid-cols-1 gap-4"></div>
+        </div>
+
+        <div id="zoom-overlay" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-6 cursor-zoom-out" role="dialog" aria-label="Figure, full size">
+          <img id="zoom-img" alt="" class="max-h-[85vh] max-w-full bg-white">
+          <p id="zoom-caption" class="mt-3 text-sm text-white"></p>
+          <p class="mt-1 text-xs text-gray-300">Click anywhere or press Escape to close.</p>
+        </div>
 
         {% comment %}The consent panel. Drawn from the server's manifest, never
         from the checkboxes alone: what a release *does* — replace a live
@@ -121,13 +183,14 @@ the press and the server refuses a mismatch (`services/review.py::release`).
           <div id="consent-body" class="mt-2 text-sm text-gray-800"></div>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" id="release-confirm"
-                    class="rounded bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">
+                    class="rounded bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:bg-gray-400 disabled:cursor-not-allowed">
               Publish them
             </button>
             <button type="button" id="release-cancel"
                     class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700">
               Not yet
             </button>
+            <span id="release-confirm-why" class="text-xs text-red-800"></span>
           </div>
         </div>
 
@@ -147,6 +210,18 @@ the press and the server refuses a mismatch (`services/review.py::release`).
           all to somebody who does not hover a button that looks broken.
           {% endcomment %}
           <span id="why" class="text-xs text-gray-500"></span>
+        </div>
+
+        <div id="released-figures-wrap" class="mt-8{% if not released_figures %} hidden{% endif %}">
+          <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">
+            On the IHC page now
+            {% if ihc_page_url %}<a href="{{ ihc_page_url }}" target="_blank" class="ml-2 text-xs font-normal normal-case tracking-normal text-ycharos-600 underline">open it ↗</a>{% endif %}
+          </h3>
+          {% comment %}Withdraw is drawn for everybody and greyed with the reason
+          beside it — the same gate as withdrawing a gene. It unpublishes: the
+          public copy is deleted and the figure goes back into this queue.{% endcomment %}
+          <ul id="released-figures" class="text-sm text-gray-700 divide-y divide-gray-100 rounded border border-gray-200 bg-white"></ul>
+          <p id="withdraw-fig-why" class="mt-1 text-xs text-gray-500"></p>
         </div>
 
         {% if released %}
@@ -182,8 +257,12 @@ rendered straight into a script block is `True`, `None` and single quotes —
 valid Python and not valid JavaScript, so the page would parse until the first
 boolean and then silently do nothing.{% endcomment %}
 {{ rows|json_script:"review-rows" }}
+{{ figures|json_script:"review-figures" }}
+{{ released_figures|json_script:"review-released-figures" }}
 {{ manifest|json_script:"review-manifest" }}
 {{ why_not_release|json_script:"why-not-release" }}
+{{ why_not_withdraw|json_script:"why-not-withdraw" }}
+{{ vocabulary|json_script:"review-vocabulary" }}
 
 <script>
 (function () {
@@ -196,6 +275,12 @@ boolean and then silently do nothing.{% endcomment %}
   var RELEASE_URL = "{% url 'pipeline:review_release' %}";
   var RECOMMEND_URL = "{% url 'pipeline:review_recommend' %}";
   var DISCARD_URL = "{% url 'pipeline:review_discard' %}";
+  var JUDGE_URL = "{% url 'pipeline:review_judge' %}";
+  var MANIFEST_URL = "{% url 'pipeline:review_manifest' %}";
+  var IHC_WITHDRAW_URL = "{% url 'pipeline:review_ihc_withdraw' %}";
+  var WHY_NOT_WITHDRAW = JSON.parse(
+    document.getElementById('why-not-withdraw').textContent);
+  var VOCAB = JSON.parse(document.getElementById('review-vocabulary').textContent);
   var TARGET_ID = {{ focus.pk|default:0 }};
   // The server's answer, from `services/review.py::release_refusal` — the same
   // reader the endpoint uses, so the button and the save cannot disagree about
@@ -206,10 +291,14 @@ boolean and then silently do nothing.{% endcomment %}
   var CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
   var banner = B.banner('banner', 'banner-text', 'banner-close');
 
+  var ME = "{{ request.user.username|escapejs }}";
   var state = {
     rows: JSON.parse(document.getElementById('review-rows').textContent),
+    figures: JSON.parse(document.getElementById('review-figures').textContent),
+    released: JSON.parse(document.getElementById('review-released-figures').textContent),
     manifest: JSON.parse(document.getElementById('review-manifest').textContent),
-    chosen: new Set()
+    chosen: new Set(),
+    chosenFigs: new Set()
   };
 
   function post(url, body, onError) {
@@ -222,12 +311,15 @@ boolean and then silently do nothing.{% endcomment %}
 
   /* One card per waiting figure. The thumbnail is served by this app
      (`review_image`), not by the bucket: an unreleased figure on a public URL
-     is released to anybody who has the URL, whatever the database says. */
+     is released to anybody who has the URL, whatever the database says.
+
+     Three slots are redrawn in place — the tick ring, the recommendation and
+     the judgement — so pressing an answer does not re-fetch every image on the
+     page. `draw()` builds the grid once; `refresh()` updates those slots. */
   function card(r) {
     var replaces = r.replaces_published;
-    return '<label class="block rounded-lg border ' +
-      (state.chosen.has(r.id) ? 'border-ycharos-500 ring-1 ring-ycharos-300' : 'border-gray-200') +
-      ' bg-white overflow-hidden cursor-pointer">' +
+    return '<label data-card="' + r.id + '" class="block rounded-lg border ' +
+      ringClass(r) + ' bg-white overflow-hidden cursor-pointer">' +
       '<div class="flex items-start gap-2 px-3 py-2 border-b border-gray-100">' +
         '<input type="checkbox" data-id="' + r.id + '" class="pick mt-1"' +
           (state.chosen.has(r.id) ? ' checked' : '') + '>' +
@@ -235,55 +327,358 @@ boolean and then silently do nothing.{% endcomment %}
           '<div class="font-semibold text-sm text-gray-900">' + B.esc(r.catalogue) + '</div>' +
           '<div class="text-xs text-gray-500">' + B.esc(r.supplier || '—') + '</div>' +
         '</div>' +
-        '<div class="ml-auto text-right">' +
-          B.pill(r.application, 'cool') +
-          /* The verdict is a control, not a label. It was a pill that appeared
-             only when true, so the review meeting — the one place a group looks
-             at a blot together and decides whether the field should buy that
-             antibody — could not record the answer, and changing your mind
-             meant re-cropping the figure.
-
-             An off state says the OPPOSITE WORD, never the same word greyed: a
-             faint "recommended" scans as recommended.
-
-             A <button> rather than a styled <span>, and that is the part doing
-             the work: this sits inside the card's <label>, and a label forwards
-             a click to the control it wraps *unless the target is interactive
-             content*. A button is; a span is not. Made a span, pressing the
-             verdict would also tick the figure for release. The handler's
-             preventDefault/stopPropagation are belt and braces on top of that —
-             measured, they change nothing today. */
-          ' <button type="button" class="rec-toggle ml-1 rounded-full px-2 py-0.5 ' +
-            'text-[11px] font-semibold border ' +
-            (r.recommended
-              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-              : 'bg-gray-100 text-gray-500 border-gray-200') +
-            '" data-id="' + r.id + '" data-on="' + (r.recommended ? '1' : '0') +
-            '" aria-pressed="' + (r.recommended ? 'true' : 'false') +
-            '" title="OGA\'s verdict for this antibody in ' + B.esc(r.application) +
-            '. Applied to the antibody when the figure is released.">' +
-            (r.recommended ? 'recommended' : 'not recommended') +
-          '</button>' +
-        '</div>' +
+        '<div class="ml-auto text-right" data-rec-slot="' + r.id + '">' + recSlot(r) + '</div>' +
       '</div>' +
-      '<img src="' + B.esc(r.image_url) + '" alt="Staged ' + B.esc(r.application) +
-        ' figure for ' + B.esc(r.catalogue) + '" class="w-full bg-gray-50" loading="lazy">' +
-      '<div class="px-3 py-2 text-xs text-gray-500">' +
+      /* A <button>, so the card's <label> does not forward the click to the
+         tick box: enlarging is how the judgement below gets made, and it must
+         not also select the figure for release. */
+      '<button type="button" class="zoom block w-full bg-gray-50 cursor-zoom-in" data-zoom="' + r.id + '">' +
+        '<img src="' + B.esc(r.image_url) + '" alt="Staged ' + B.esc(r.application) +
+        ' figure for ' + B.esc(r.catalogue) + ' — click to enlarge" class="w-full" loading="lazy">' +
+      '</button>' +
+      '<div class="px-3 py-2 border-t border-gray-100 cursor-default" data-judge="' + r.id + '">' +
+        judgeSlot(r) +
+      '</div>' +
+      '<div class="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">' +
         'staged by ' + B.esc(r.staged_by || '—') +
         (replaces ? '<span class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">replaces a published figure</span>' : '') +
       '</div>' +
     '</label>';
   }
 
+  function ringClass(r) {
+    return state.chosen.has(r.id) ? 'border-ycharos-500 ring-1 ring-ycharos-300' : 'border-gray-200';
+  }
+
+  function recSlot(r) {
+    return B.pill(r.application, 'cool') +
+      /* The verdict is a control, not a label. It was a pill that appeared
+         only when true, so the review meeting — the one place a group looks
+         at a blot together and decides whether the field should buy that
+         antibody — could not record the answer, and changing your mind
+         meant re-cropping the figure.
+
+         An off state says the OPPOSITE WORD, never the same word greyed: a
+         faint "recommended" scans as recommended.
+
+         A <button> rather than a styled <span>, and that is the part doing
+         the work: this sits inside the card's <label>, and a label forwards
+         a click to the control it wraps *unless the target is interactive
+         content*. A button is; a span is not. Made a span, pressing the
+         verdict would also tick the figure for release. */
+      ' <button type="button" class="rec-toggle ml-1 rounded-full px-2 py-0.5 ' +
+        'text-[11px] font-semibold border ' +
+        (r.recommended
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+          : 'bg-gray-100 text-gray-500 border-gray-200') +
+        '" data-id="' + r.id + '" data-on="' + (r.recommended ? '1' : '0') +
+        '" aria-pressed="' + (r.recommended ? 'true' : 'false') + '">' +
+        (r.recommended ? 'recommended' : 'not recommended') +
+      '</button>';
+  }
+
+  /* Where an axis's answer came from, in a few words — so an answer typed
+     here over a bench reading is visibly an override, never a reading nobody
+     questioned (`services/outcomes.py::merge`). */
+  function axisNote(a) {
+    var label = function (v) { return VOCAB.verdict_labels[v] || v; };
+    if (a.overridden) {
+      return 'set here · the bench recorded “' + B.esc(a.raw || label(a.session_value)) + '”';
+    }
+    if (a.settled) return 'set here · the runs disagreed';
+    if (a.source === 'review') return 'set here';
+    if (a.conflict) return 'the runs disagree' + (a.raw ? ' (' + B.esc(a.raw) + ')' : '') + ' — pick one';
+    if (a.ratio !== null && a.ratio !== undefined) return 'from the measured WT/KO ratio ' + B.esc(a.ratio);
+    if (a.source === 'session') {
+      return 'recorded at the bench' + (a.runs > 1 ? ' across ' + a.runs + ' runs' : '');
+    }
+    return 'nothing recorded yet';
+  }
+
+  var CONFLICT_TEXT = {
+    flagged_but_not_capable:
+      'Marked recommended, but the answers above say it did not do what the application is for.',
+    supportive_but_not_selective:
+      'Recommended and recorded as not selective. That is publishable — the page will say so — but check the blot agrees.',
+    strongest_but_not_flagged:
+      'Everything recorded is positive and it is not recommended. Deliberate?'
+  };
+
+  var TONE_CLASS = {
+    'supportive': 'border-emerald-300 bg-emerald-50 text-emerald-900',
+    'qualified': 'border-amber-300 bg-amber-50 text-amber-900',
+    'not-supportive': 'border-red-200 bg-red-50 text-red-900',
+    '': 'border-gray-200 bg-gray-50 text-gray-700'
+  };
+
+  var BUTTON_TONE = {
+    good: 'bg-emerald-100 border-emerald-400 text-emerald-800 font-semibold',
+    qualified: 'bg-amber-100 border-amber-300 text-amber-800 font-semibold',
+    bad: 'bg-red-100 border-red-300 text-red-800 font-semibold',
+    neutral: 'bg-gray-200 border-gray-400 text-gray-800 font-semibold'
+  };
+
+  function judgeSlot(r) {
+    var j = r.judgement;
+    if (!j) return '';
+    var axes = VOCAB.axes[r.application] || [];
+    var html = '';
+    var caveats = VOCAB.caveat_axes || [];
+    axes.forEach(function (axis) {
+      var a = j.axes[axis] || {};
+      /* Flow's background caveat rides on a recommendation, so on a figure
+         that is not recommended it is a sentence, not a set of buttons — and
+         never simply missing, which would read as a control that failed. */
+      if (caveats.indexOf(axis) !== -1 && !r.recommended) {
+        html += '<p class="mb-2 text-xs text-gray-500"><span class="font-semibold text-gray-700">' +
+          B.esc(VOCAB.axis_labels[axis] || axis) + '</span> is a caveat on a ' +
+          'recommendation. Mark this figure recommended to set it.</p>';
+        return;
+      }
+      var opts = VOCAB.values[r.application + '|' + axis] || [];
+      html += '<div class="mb-2">' +
+        '<div class="flex items-baseline justify-between gap-2">' +
+          '<span class="text-xs font-semibold text-gray-700">' + B.esc(VOCAB.axis_labels[axis] || axis) + '?</span>' +
+          '<span class="text-[11px] text-gray-500 text-right">' + axisNote(a) + '</span>' +
+        '</div>' +
+        '<div class="mt-1 flex gap-1">' +
+        opts.map(function (o) {
+          var on = a.value === o.value;
+          /* Coloured by whether the answer is good news, which the server
+             decides (outcomes.tone_of) — never by the word: "No" non-specific
+             background is the clean result. */
+          var tone = on ? (BUTTON_TONE[o.tone] || BUTTON_TONE.neutral)
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-500';
+          return '<button type="button" class="judge flex-1 rounded border px-1 py-1 text-[11px] ' + tone + '"' +
+            ' data-id="' + r.id + '" data-axis="' + B.esc(axis) + '" data-value="' + B.esc(o.value) + '"' +
+            ' aria-pressed="' + (on ? 'true' : 'false') + '">' + B.esc(o.label) + '</button>';
+        }).join('') +
+        '</div></div>';
+    });
+
+    if (j.conflict_direction && CONFLICT_TEXT[j.conflict_direction]) {
+      html += '<p class="mb-2 rounded border-l-4 border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900">' +
+              CONFLICT_TEXT[j.conflict_direction] + '</p>';
+    }
+
+    /* What release will print, from the reader every public surface asks —
+       never composed here. */
+    html += '<div class="rounded border px-2 py-1.5 text-xs ' + (TONE_CLASS[j.public_tone] || TONE_CLASS['']) + '">' +
+      '<span class="text-[10px] uppercase tracking-wider opacity-70">Public page, once released</span><br>' +
+      '<strong>' + B.esc(j.public_sentence || '—') + '</strong>';
+    if (!j.gene_curated && !r.recommended) {
+      /* The gene gate: with nothing on a gene recommended, the public site
+         cannot tell "tested and not supported" from "never assessed", so
+         every negative reads Not tested. Said here because it is the one
+         thing about this card that another card decides. */
+      html += '<br><span class="text-[11px]">Nothing on this gene is recommended, so ' +
+              'every figure on it reads “not tested” until one is.</span>';
+    }
+    if (r.replaces_published && axes.length) {
+      html += '<br><span class="text-[11px]">This antibody is already public for ' +
+              B.esc(r.application) + ', so an answer changed above reaches that page now.</span>';
+    }
+    return html + '</div>';
+  }
+
+  /* Update the three slots on each drawn card from `state.rows`, without
+     touching the images. Falls back to a full draw if the set of cards has
+     changed underneath. */
+  function refresh() {
+    var drawn = grid.querySelectorAll('[data-card]');
+    if (drawn.length !== state.rows.length) { draw(); return; }
+    for (var i = 0; i < state.rows.length; i++) {
+      if (Number(drawn[i].dataset.card) !== state.rows[i].id) { draw(); return; }
+    }
+    state.rows.forEach(function (r, i) {
+      var el = drawn[i];
+      el.className = el.className.replace(
+        /border-ycharos-500 ring-1 ring-ycharos-300|border-gray-200/, ringClass(r));
+      el.querySelector('[data-rec-slot]').innerHTML = recSlot(r);
+      el.querySelector('[data-judge]').innerHTML = judgeSlot(r);
+    });
+    buttons();
+    applyShow();
+  }
+
+  /* The questions on a card nobody has answered yet — flow's caveat only on
+     a recommended figure, where the card offers it. */
+  function openAxes(r) {
+    var j = r.judgement;
+    if (!j) return [];
+    var caveats = VOCAB.caveat_axes || [];
+    return (VOCAB.axes[r.application] || []).filter(function (a) {
+      if (caveats.indexOf(a) !== -1 && !r.recommended) return false;
+      return !((j.axes[a] || {}).value);
+    });
+  }
+  function shown(r) {
+    var m = document.getElementById('show').value;
+    if (m === 'all') return true;
+    if ((r.staged_by || '') !== ME) return false;
+    return m === 'mine' || openAxes(r).length > 0;
+  }
+  function valueLabel(r, axis, v) {
+    var o = (VOCAB.values[r.application + '|' + axis] || []).filter(function (x) { return x.value === v; })[0];
+    return o ? o.label : v;
+  }
+  function applyShow() {
+    var n = 0;
+    grid.querySelectorAll('[data-card]').forEach(function (el) {
+      var r = state.rows.filter(function (x) { return x.id === Number(el.dataset.card); })[0];
+      var on = !!r && shown(r);
+      el.classList.toggle('hidden', !on);
+      if (on) n++;
+    });
+    document.getElementById('show-count').textContent = state.rows.length
+      ? n + ' of ' + state.rows.length + ' card' + (state.rows.length === 1 ? '' : 's') + ' shown' +
+        (n < state.rows.length ? ' — "select all" still ticks every card' : '')
+      : '';
+    var lines = state.rows.filter(shown).map(function (r) {
+      var j = r.judgement || {axes: {}};
+      var caveats = VOCAB.caveat_axes || [];
+      var axes = (VOCAB.axes[r.application] || []).filter(function (a) {
+        return caveats.indexOf(a) === -1 || r.recommended; });
+      return '#' + r.id + ' · ' + r.catalogue + ' · ' + r.application +
+        ' · staged by ' + (r.staged_by || '—') +
+        ' · ' + (r.recommended ? 'recommended' : 'not recommended') +
+        axes.map(function (a) {
+          var v = (j.axes[a] || {}).value;
+          return ' · ' + (VOCAB.axis_labels[a] || a) + ': ' + (v ? valueLabel(r, a, v) : '—');
+        }).join('') +
+        (r.replaces_published ? ' · already public for ' + r.application : '');
+    });
+    document.getElementById('queue-text-body').textContent =
+      lines.length ? lines.join('\n') : 'No cards match.';
+  }
+  document.getElementById('show').addEventListener('change', applyShow);
+
   function draw() {
     if (!state.rows.length) {
       grid.innerHTML = '<p class="text-sm text-gray-600 sm:col-span-2">' +
-        'Nothing is waiting for this gene. Anything already published stays on ' +
-        'the public page — this list is only what has not been released yet.</p>';
+        (state.figures.length
+          ? 'No crops are waiting for this gene — only the whole figures below.'
+          : 'Nothing is waiting for this gene. Anything already published stays on ' +
+            'the public page — this list is only what has not been released yet.') +
+        '</p>';
     } else {
       grid.innerHTML = state.rows.map(card).join('');
     }
-    var n = state.chosen.size;
+    drawFigures();
+    drawReleasedFigures();
+    buttons();
+    applyShow();
+  }
+
+  /* ── Whole IHC figures ──────────────────────────────────────────────── */
+  var figGrid = document.getElementById('figure-grid');
+
+  function figureCard(f) {
+    var on = state.chosenFigs.has(f.id);
+    var abs = (f.antibodies || []).map(function (a) {
+      return B.esc(a.catalogue) + (a.supplier ? ' <span class="text-gray-500">(' + B.esc(a.supplier) + ')</span>' : '');
+    }).join(', ');
+    return '<div data-fig-card="' + f.id + '" class="rounded-lg border ' +
+      (on ? 'border-ycharos-500 ring-1 ring-ycharos-300' : 'border-gray-200') +
+      ' bg-white overflow-hidden">' +
+      '<label class="flex items-start gap-2 px-3 py-2 border-b border-gray-100 cursor-pointer">' +
+        '<input type="checkbox" class="pick-fig mt-1" id="pick-fig-' + f.id + '" data-id="' + f.id + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="min-w-0"><span class="font-semibold text-sm text-gray-900">' + B.esc(f.label) + '</span>' +
+        '<span class="block text-xs text-gray-500">whole figure for the IHC page · staged by ' + B.esc(f.staged_by || '—') + '</span></span>' +
+        (f.replaces_live ? '<span class="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">replaces the live figure “' + B.esc(f.label) + '”</span>' : '') +
+      '</label>' +
+      '<button type="button" class="zoom-fig block w-full bg-gray-50 cursor-zoom-in" data-zoom-fig="' + f.id + '">' +
+        '<img src="' + B.esc(f.image_url) + '" alt="Whole IHC figure ' + B.esc(f.label) + ' — click to enlarge" class="w-full max-h-96 object-contain" loading="lazy">' +
+      '</button>' +
+      '<div class="px-3 py-2 text-xs text-gray-700 border-t border-gray-100 space-y-1">' +
+        '<p class="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Legend as published</p>' +
+        '<p class="whitespace-pre-line">' + B.esc(f.legend) + '</p>' +
+        '<p><span class="font-semibold">Antibodies:</span> ' + (abs || '—') + '</p>' +
+        (f.samples.length ? '<p><span class="font-semibold">Shows:</span> ' + B.esc(f.samples.join('; ')) + '</p>' : '') +
+        (f.controls.length ? '<p><span class="font-semibold">Controls:</span> ' + B.esc(f.controls.join(', ')) + '</p>' : '') +
+        '<p><span class="font-semibold">Scale bar:</span> ' + (f.scale ? B.esc(f.scale) : 'not stated') + '</p>' +
+        (f.supplier_key ? '<p>Antibody names are coloured by the supplier\u2019s recommendation.</p>' : '') +
+        (f.source ? '<p><span class="font-semibold">Source:</span> ' + B.esc(f.source) + '</p>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function drawFigures() {
+    var wrap = document.getElementById('figures-wrap');
+    document.getElementById('figures-count').textContent = state.figures.length;
+    wrap.classList.toggle('hidden', !state.figures.length);
+    figGrid.innerHTML = state.figures.map(figureCard).join('');
+  }
+
+  function drawReleasedFigures() {
+    var wrap = document.getElementById('released-figures-wrap');
+    var list = document.getElementById('released-figures');
+    wrap.classList.toggle('hidden', !state.released.length);
+    list.innerHTML = state.released.map(function (f) {
+      return '<li class="px-3 py-2 flex flex-wrap items-center gap-2" data-released-fig="' + f.id + '">' +
+        '<span class="font-semibold">' + B.esc(f.label) + '</span>' +
+        '<span class="text-xs text-gray-500">released by ' + B.esc(f.released_by || '—') + '</span>' +
+        '<span class="ml-auto" data-withdraw-slot="' + f.id + '">' +
+          '<button type="button" class="withdraw-fig rounded border border-red-300 bg-white px-2 py-1 text-xs text-red-800 disabled:opacity-40"' +
+          ' id="withdraw-fig-' + f.id + '" data-id="' + f.id + '"' + (WHY_NOT_WITHDRAW ? ' disabled' : '') + '>Withdraw from the IHC page</button>' +
+        '</span></li>';
+    }).join('');
+    document.getElementById('withdraw-fig-why').textContent = WHY_NOT_WITHDRAW || '';
+  }
+
+  if (figGrid) {
+    figGrid.addEventListener('change', function (e) {
+      var box = e.target.closest('.pick-fig');
+      if (!box) return;
+      var id = Number(box.dataset.id);
+      if (box.checked) state.chosenFigs.add(id); else state.chosenFigs.delete(id);
+      hideConsent();
+      drawFigures();
+      buttons();
+    });
+    figGrid.addEventListener('click', function (e) {
+      var z = e.target.closest('.zoom-fig');
+      if (!z) return;
+      e.preventDefault();
+      var f = state.figures.find(function (x) { return x.id === Number(z.dataset.zoomFig); });
+      if (!f) return;
+      document.getElementById('zoom-img').src = f.image_url;
+      document.getElementById('zoom-caption').textContent = f.label + ' · whole figure for the IHC page';
+      document.getElementById('zoom-overlay').classList.remove('hidden');
+    });
+  }
+
+  /* Withdraw one released whole figure: an in-page question, then the press
+     with count 1. The server purges the edge after it commits. */
+  document.getElementById('released-figures').addEventListener('click', async function (e) {
+    var start = e.target.closest('.withdraw-fig');
+    var yes = e.target.closest('.withdraw-fig-yes');
+    var no = e.target.closest('.withdraw-fig-no');
+    if (start && !start.disabled) {
+      var id = Number(start.dataset.id);
+      var f = state.released.find(function (x) { return x.id === id; });
+      document.querySelector('[data-withdraw-slot="' + id + '"]').innerHTML =
+        '<span class="text-xs text-gray-700">Take “' + B.esc(f ? f.label : '') + '” off the IHC page? The public copy is deleted; it comes back here. </span>' +
+        '<button type="button" class="withdraw-fig-yes rounded bg-red-700 px-2 py-1 text-xs font-semibold text-white" id="withdraw-fig-yes-' + id + '" data-id="' + id + '">Withdraw 1 figure</button> ' +
+        '<button type="button" class="withdraw-fig-no rounded border border-gray-300 bg-white px-2 py-1 text-xs" data-id="' + id + '">Keep it</button>';
+      return;
+    }
+    if (no) { drawReleasedFigures(); return; }
+    if (yes) {
+      yes.disabled = true;
+      var data = await post(IHC_WITHDRAW_URL, {figure_ids: [Number(yes.dataset.id)], count: 1}, banner.show);
+      if (!data || !data.ok) { drawReleasedFigures(); return; }
+      await reload();
+      var done = document.getElementById('done');
+      done.innerHTML = '<strong>Withdrawn.</strong> The figure is off the IHC page and back in this queue.' +
+        '<br><span class="text-xs">' + B.esc(data.purge_note || '') + '</span>';
+      done.classList.remove('hidden');
+      B.bringIntoView(done);
+    }
+  });
+
+  function buttons() {
+    var n = state.chosen.size + state.chosenFigs.size;
     document.getElementById('release').disabled = !n || !CAN_RELEASE;
     document.getElementById('discard').disabled = !n;
     document.getElementById('release').textContent = n && CAN_RELEASE
@@ -302,7 +697,7 @@ boolean and then silently do nothing.{% endcomment %}
     var id = Number(box.dataset.id);
     if (box.checked) state.chosen.add(id); else state.chosen.delete(id);
     hideConsent();
-    draw();
+    refresh();
   });
 
   /* Toggling OGA's verdict. Inside the card's <label>, so the press has to be
@@ -322,24 +717,85 @@ boolean and then silently do nothing.{% endcomment %}
     if (btn.disabled) return;
     var id = Number(btn.dataset.id);
     var wanted = btn.dataset.on !== '1';
+    /* Say at once that the press was taken. The reply redraws every card and
+       takes a second or two on a long queue; a button that looked untouched
+       for that long got pressed again, which undid the first press (TP53
+       run, 26 Sep 2026). It stays disabled until the redraw replaces it. */
+    var was = btn.textContent;
     btn.disabled = true;
+    btn.textContent = 'saving…';
     var data = await post(RECOMMEND_URL, {ids: [id], recommended: wanted},
                           banner.show);
-    btn.disabled = false;
-    if (!data || !data.ok) return;          // the banner has already said why
+    if (!data || !data.ok) { btn.disabled = false; btn.textContent = was; return; }
     state.rows = data.rows;
+    state.figures = data.figures || state.figures;
     state.manifest = data.manifest;
     /* The consent panel described the old verdicts, so it is no longer a
        description of this press — the rule the tick boxes already follow. */
     hideConsent();
-    draw();
+    refresh();
+  });
+
+  /* The other half of the judgement. Same shape as the recommendation: the
+     reply is the gene's rows as the SERVER now has them, because the public
+     line on the card is derived from both halves and must not be redrawn from
+     what was clicked. Pressing the answer already on is how it is cleared. */
+  grid.addEventListener('click', async function (e) {
+    var btn = e.target.closest('.judge');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (btn.disabled) return;
+    var id = Number(btn.dataset.id);
+    var value = btn.getAttribute('aria-pressed') === 'true' ? '' : btn.dataset.value;
+    /* The card's buttons stay disabled until the server's redraw replaces
+       them, and the press shows at once — the same reason as the
+       recommendation above: a slow redraw invited a second press, and a
+       second press on the answer now on clears it. */
+    var cardButtons = grid.querySelectorAll('[data-judge="' + id + '"] .judge');
+    cardButtons.forEach(function (b) { b.disabled = true; });
+    btn.classList.add('ring-2', 'ring-sky-400');
+    btn.setAttribute('aria-busy', 'true');
+    var data = await post(JUDGE_URL, {ids: [id], axis: btn.dataset.axis, value: value},
+                          banner.show);
+    if (!data || !data.ok) {                // the banner has already said why
+      cardButtons.forEach(function (b) { b.disabled = false; });
+      btn.classList.remove('ring-2', 'ring-sky-400');
+      btn.removeAttribute('aria-busy');
+      return;
+    }
+    state.rows = data.rows;
+    state.figures = data.figures || state.figures;
+    state.manifest = data.manifest;
+    hideConsent();
+    refresh();
+  });
+
+  /* Full size, over the page. Escape or a click anywhere closes it. */
+  var overlay = document.getElementById('zoom-overlay');
+  grid.addEventListener('click', function (e) {
+    var z = e.target.closest('.zoom');
+    if (!z) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var r = state.rows.find(function (x) { return x.id === Number(z.dataset.zoom); });
+    if (!r) return;
+    document.getElementById('zoom-img').src = r.image_url;
+    document.getElementById('zoom-caption').textContent =
+      r.catalogue + ' · ' + (r.supplier || '—') + ' · ' + r.application;
+    overlay.classList.remove('hidden');
+  });
+  overlay.addEventListener('click', function () { overlay.classList.add('hidden'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') overlay.classList.add('hidden');
   });
   document.getElementById('pick-all').addEventListener('click', function () {
     state.rows.forEach(function (r) { state.chosen.add(r.id); });
-    hideConsent(); draw();
+    state.figures.forEach(function (f) { state.chosenFigs.add(f.id); });
+    hideConsent(); refresh(); drawFigures();
   });
   document.getElementById('pick-none').addEventListener('click', function () {
-    state.chosen.clear(); hideConsent(); draw();
+    state.chosen.clear(); state.chosenFigs.clear(); hideConsent(); refresh(); drawFigures();
   });
 
   function hideConsent() {
@@ -349,13 +805,46 @@ boolean and then silently do nothing.{% endcomment %}
   /* Two presses with the list between them. The first draws what publishing
      would do; the second carries the count back so a set that has grown since
      is refused rather than published. */
-  document.getElementById('release').addEventListener('click', function () {
+  function chosenIds() {
+    return {
+      ids: state.rows.filter(function (r) { return state.chosen.has(r.id); })
+                     .map(function (r) { return r.id; }),
+      figure_ids: state.figures.filter(function (f) { return state.chosenFigs.has(f.id); })
+                               .map(function (f) { return f.id; })
+    };
+  }
+
+  /* The panel is drawn from the server's manifest of the TICKED set — "this
+     gives the gene its first public page" and "these whole figures have no
+     gene page" change as soon as a crop is unticked. The count it prints goes
+     back with the press and the server checks it again. */
+  document.getElementById('release').addEventListener('click', async function () {
+    var pick = chosenIds();
+    var reply = await post(MANIFEST_URL, pick, banner.show);
+    if (!reply || !reply.ok) return;
+    var m = reply.manifest;
+    state.consented = m.count;
     var chosen = state.rows.filter(function (r) { return state.chosen.has(r.id); });
-    var replaces = chosen.filter(function (r) { return r.replaces_published; }).length;
-    var newPages = (state.manifest && state.manifest.new_public_genes) || [];
-    var recommends = chosen.filter(function (r) { return r.recommended; }).length;
-    var lines = ['<p><strong>' + B.plural(chosen.length, 'figure') +
-                 '</strong> will appear on the public gene page immediately.</p>'];
+    var replaces = m.replaces_published;
+    var newPages = m.new_public_genes || [];
+    var recommends = m.recommended;
+    var lines = [];
+    if (chosen.length) {
+      lines.push('<p><strong>' + B.plural(chosen.length, 'figure') +
+                 '</strong> will appear on the public gene page immediately.</p>');
+    }
+    if (m.whole_figures) {
+      lines.push('<p><strong>' + B.plural(m.whole_figures, 'whole IHC figure') +
+                 '</strong> will be copied to the public site and appear on the gene\u2019s IHC page' +
+                 (m.whole_figures_replacing ? ', ' + m.whole_figures_replacing + ' of them replacing the live figure with the same label' : '') +
+                 '.</p>');
+    }
+    if (m.ihc_page_waits_for_gene && m.ihc_page_waits_for_gene.length) {
+      lines.push('<p class="font-semibold text-red-800">The whole figures for ' +
+                 B.esc(m.ihc_page_waits_for_gene.join(', ')) + ' cannot go out on their own: the gene ' +
+                 'has no public page, and the IHC page exists only beside it. Tick a crop for it too, ' +
+                 'or untick the whole figures.</p>');
+    }
     if (replaces) {
       lines.push('<p>' + B.plural(replaces, 'figure') +
                  ' will <strong>replace</strong> what is on the site now.</p>');
@@ -369,7 +858,25 @@ boolean and then silently do nothing.{% endcomment %}
       lines.push('<p>This gives <strong>' + B.esc(newPages.join(', ')) +
                  '</strong> a public page for the first time.</p>');
     }
+    /* Released before, and hidden only because the gene left the site some
+       other way than Withdraw — this press brings them back into view. */
+    (m.whole_figures_returning || []).forEach(function (g) {
+      lines.push('<p><strong>' + B.plural(g.count, 'whole IHC figure') + '</strong> released for ' +
+                 B.esc(g.gene) + ' before it left the site ' + (g.count === 1 ? 'returns' : 'return') +
+                 ' to its IHC page with this. Withdraw ' + (g.count === 1 ? 'it' : 'them') +
+                 ' from the released list afterwards if ' + (g.count === 1 ? 'it is' : 'they are') +
+                 ' no longer wanted.</p>');
+    });
     document.getElementById('consent-body').innerHTML = lines.join('');
+    /* A press the server will refuse is not offered: the reason is drawn
+       beside the button, which stays on the page, greyed. */
+    var waits = (m.ihc_page_waits_for_gene || []).length > 0;
+    var confirmBtn = document.getElementById('release-confirm');
+    confirmBtn.disabled = waits;
+    document.getElementById('release-confirm-why').textContent = waits
+      ? 'Not available: the whole figures for ' + m.ihc_page_waits_for_gene.join(', ') +
+        ' have no gene page to go on. Tick a crop for that gene, or untick them.'
+      : '';
     var panel = document.getElementById('consent');
     panel.classList.remove('hidden');
     B.bringIntoView(panel);
@@ -378,11 +885,11 @@ boolean and then silently do nothing.{% endcomment %}
   document.getElementById('release-cancel').addEventListener('click', hideConsent);
 
   document.getElementById('release-confirm').addEventListener('click', async function () {
-    var ids = state.rows.filter(function (r) { return state.chosen.has(r.id); })
-                        .map(function (r) { return r.id; });
+    var pick = chosenIds();
     var btn = this;
     btn.disabled = true; btn.textContent = 'Publishing…';
-    var data = await post(RELEASE_URL, {ids: ids, count: ids.length}, banner.show);
+    var data = await post(RELEASE_URL, {ids: pick.ids, figure_ids: pick.figure_ids,
+                                        count: state.consented}, banner.show);
     btn.disabled = false; btn.textContent = 'Publish them';
     if (!data) return;
     if (!data.ok) { banner.show(data.error || 'Nothing was published.'); return; }
@@ -392,24 +899,30 @@ boolean and then silently do nothing.{% endcomment %}
       return '<a class="underline" href="' + B.esc(g.url) + '" target="_blank">' +
              B.esc(g.gene) + ' ↗</a>';
     }).join(' · ');
-    done.innerHTML = '<strong>Published.</strong> ' + B.plural(data.released, 'figure') +
-      ' is now on the public site' + (data.replaced ? ', ' + B.plural(data.replaced, 'figure') +
-      ' replaced' : '') + '. ' + links;
+    var what = [data.released ? B.plural(data.released, 'figure') : '',
+                data.whole_figures ? B.plural(data.whole_figures, 'whole IHC figure') : '']
+               .filter(Boolean).join(' and ');
+    done.innerHTML = '<strong>Published.</strong> ' + what +
+      ((data.released + data.whole_figures) === 1 ? ' is' : ' are') + ' now on the public site' +
+      (data.replaced ? ', ' + B.plural(data.replaced, 'figure') + ' replaced' : '') + '. ' + links +
+      /* Said either way: a purge that did not happen is a week of the old
+         page with nothing on screen to say so. */
+      '<br><span class="text-xs">' + B.esc(data.purge_note || '') + '</span>';
     done.classList.remove('hidden');
     B.bringIntoView(done);
-    state.chosen.clear();
+    state.chosen.clear(); state.chosenFigs.clear();
     await reload();
   });
 
   document.getElementById('discard').addEventListener('click', async function () {
-    var ids = state.rows.filter(function (r) { return state.chosen.has(r.id); })
-                        .map(function (r) { return r.id; });
-    if (!window.confirm('Take ' + B.plural(ids.length, 'figure') +
-        ' out of the queue? The crop is deleted. Nothing on the public site changes.')) return;
-    var data = await post(DISCARD_URL, {ids: ids}, banner.show);
+    var pick = chosenIds();
+    var n = pick.ids.length + pick.figure_ids.length;
+    if (!window.confirm('Take ' + B.plural(n, 'figure') +
+        ' out of the queue? The file is deleted. Nothing on the public site changes.')) return;
+    var data = await post(DISCARD_URL, pick, banner.show);
     if (!data) return;
     if (!data.ok) { banner.show(data.error || 'Nothing was discarded.'); return; }
-    state.chosen.clear();
+    state.chosen.clear(); state.chosenFigs.clear();
     await reload();
   });
 
@@ -420,6 +933,8 @@ boolean and then silently do nothing.{% endcomment %}
                                    banner.show, 'read');
     if (!data || !data.ok) return;
     state.rows = data.rows;
+    state.figures = data.figures || [];
+    state.released = data.released_figures || [];
     state.manifest = data.manifest;
     draw();
   }

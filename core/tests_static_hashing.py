@@ -99,3 +99,91 @@ class NoVendoredBundlePointsAtAMapWeDoNotShipTests(SimpleTestCase):
                     f"{rel} references a source map that is not in this repo, "
                     f"which fails collectstatic once static names are hashed. "
                     f"Drop the trailing sourceMappingURL comment as before.")
+
+
+# Two names are legitimately absent from a checkout and must not fail this.
+#
+# `pipeline/tailwind.css` is built by the Build Command and deliberately not in
+# git, so that it cannot drift from the templates it is derived from; the app
+# already falls back to the CDN and says so with `pipeline.W003`.
+#
+# `pipeline/ocr/` is a *directory*. The cropper concatenates `worker.min.js`,
+# whichever wasm core the browser can run, and `eng.traineddata` onto it at
+# runtime, because that is the shape Tesseract's loader wants.
+STATIC_MAY_BE_ABSENT = (
+    "pipeline/tailwind.css",
+    "pipeline/ocr/",
+)
+
+_STATIC_CALL = re.compile(r"""\{%\s*static\s+['"]([^'"]+)['"]""")
+
+
+class EveryStaticReferenceResolvesTests(SimpleTestCase):
+    """A `{% static %}` name that resolves to nothing is silent by design.
+
+    The test above pins that a missing file *renders* rather than raising, and
+    that is deliberate — a hand-deployed site must not be taken down by an
+    absent stylesheet (see `OGA_website/storages.py`). The cost of that trade is
+    this: a name nobody ever typed correctly produces a page that looks fine and
+    one 404 on an asset, and no screen anywhere says so.
+
+    It is not hypothetical. Seventeen templates asked for
+    `academy/css/style.css` — the whole allauth account area (login, signup, all
+    four password-reset pages) plus the Academy's own lesson, quiz and account
+    pages — against a path that has never existed in this repository's history,
+    while the file they meant, `academy/styles.css`, sat referenced by nothing.
+    It was found in the origin's access log on 20 Sep 2026, after a real learner
+    opened an email-confirmation link, then a lesson, then a quiz, and took a
+    404 on each.
+
+    Cheap enough to be worth it for every template at once: a regex sweep and
+    one `finders.find` per distinct name.
+    """
+
+    def test_every_static_name_in_a_template_points_at_a_real_file(self):
+        from django.contrib.staticfiles import finders
+
+        root = Path(settings.BASE_DIR)
+        skip = {"staticfiles", ".venv", "node_modules", ".git"}
+        missing = []
+        for path in sorted(root.rglob("*.html")):
+            if skip & set(path.relative_to(root).parts):
+                continue
+            for name in _STATIC_CALL.findall(path.read_text(errors="replace")):
+                if name.startswith(STATIC_MAY_BE_ABSENT):
+                    continue
+                if finders.find(name) is None:
+                    missing.append(f"{path.relative_to(root)} -> {name}")
+
+        self.assertEqual(
+            missing, [],
+            "These templates name a static file that does not exist. The page "
+            "will render and the asset will 404, so nothing else will tell "
+            "you:\n  " + "\n  ".join(missing))
+
+
+class RootIconRequestsAreAnsweredTests(SimpleTestCase):
+    """The other half of the sweep above: requests that read no template.
+
+    Forty-five templates carry `<link rel="icon">`, and the origin's access log
+    for 19-20 Sep 2026 is still full of 404s for `/favicon.ico` and the two
+    apple-touch names — several of them with the home page, which *does* set an
+    icon, as the referer. A root request does not parse HTML first, so no tag
+    anywhere could have answered it.
+    """
+
+    def test_each_root_icon_redirects_to_a_file_that_exists(self):
+        from django.contrib.staticfiles import finders
+        from core.views import ROOT_ICONS
+
+        for name, target in ROOT_ICONS.items():
+            with self.subTest(name=name):
+                answer = self.client.get(f"/{name}")
+                # 302: the target carries a content hash, so a permanent
+                # redirect would be cached against a name that stops existing
+                # the next time the image changes.
+                self.assertEqual(answer.status_code, 302)
+                self.assertIsNotNone(
+                    finders.find(target),
+                    f"/{name} redirects to {target}, which does not exist.")
+                self.assertIn(Path(target).stem, answer["Location"])

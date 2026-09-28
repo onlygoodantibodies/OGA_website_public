@@ -36,8 +36,9 @@ nothing from the rest.
 
 The result columns are different for each application. Western blot records
 exposure time and band pattern; immunofluorescence records microscope,
-objective, plate and well; flow cytometry records median fluorescence. There are
-16 columns for WB, 24 for IP, 24 for IF and 8 for FC, and almost nothing in
+objective, plate and well; flow cytometry records median fluorescence;
+immunohistochemistry records the staining, where it is, and the dilution and
+detection used. Each application has its own set, with almost nothing in
 common between WB and IF. That is why results open per session rather than all
 sitting in one flat sheet — a single grid would be mostly empty cells.
 
@@ -112,7 +113,7 @@ part of the record.
 ## Working in Excel
 
 1. **Download** gives you the sessions currently on screen, filtered exactly as
-   you have filtered them. One sheet per application: WB, IP, IF, FC.
+   you have filtered them. One sheet per application: WB, IP, IF, FC, IHC.
 2. Edit it.
 3. **Upload a sheet → Preview**. Nothing is written yet. You get a count of what
    would change, and a list of anything that disagrees with the database.

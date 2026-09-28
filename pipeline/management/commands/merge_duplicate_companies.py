@@ -1,6 +1,6 @@
 """
 Merge the known duplicate Company records into one canonical record each, and
-delete the drained generic "Bio-Techne" (id139).
+delete the empty ones listed in DELETE_EMPTY.
 
 See AUDIT.md §3. 52 company records include duplicate manufacturers stored under
 formatting-variant names (e.g. "abcam"/"Abcam"). This command merges the eight
@@ -32,25 +32,32 @@ from django.db import transaction
 from pipeline.models import Company, Antibody
 from pipeline.dedup_utils import normcat, payload, is_empty, apply_merge
 
-# (survivor_id, [loser_ids], label) — verified from the 2026-07-14 company audit.
+# (survivor_id, [loser_ids], label) — verified from the 2026-07-14 company audit;
+# 182, 184 and 183 added 2026-09-25 against live (each a straight move: no two
+# antibodies across a group share catalogue, gene, lot and site). A group whose
+# losers are already gone reports "[done]", so re-running this is safe.
 MERGES = [
     (130, [176], "Abcam"),
     (131, [178], "ABclonal"),
     (137, [173], "BioLegend"),
     (151, [180], "Santa Cruz"),
-    (142, [177], "DSHB"),
+    (142, [177, 182, 184], "DSHB"),
     (148, [179], "MilliporeSigma (Sigma)"),
     (174, [134], "BD Biosciences"),
     (147, [171], "Atlas Antibodies"),
+    (165, [183], "Institute for Protein Innovation (IPI)"),
 ]
-# Companies expected to be empty (drained by fix_biotechne_brands) — delete them.
-DELETE_EMPTY = [139]
+# Companies expected to be empty — delete them. 139 was drained by
+# fix_biotechne_brands. 187 and 190 are SGC's and Santa-Cruz's own public names
+# held as empty records: while they exist, a paste typing that name matches them
+# exactly and files the antibody under an empty second supplier.
+DELETE_EMPTY = [139, 187, 190]
 
 COMPANY_BACKFILL = ["display_name", "website"]
 
 
 class Command(BaseCommand):
-    help = "Merge known duplicate Company records + delete drained id139. Dry-run by default."
+    help = "Merge known duplicate Company records + delete the empty ones. Dry-run by default."
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true",

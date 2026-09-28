@@ -126,15 +126,24 @@ def _report_dois(reports):
 # ---------------------------------------------------------------------------
 
 _APP_REC = {"WB": "wb_recommended", "IP": "ip_recommended",
-            "IF": "if_recommended", "FC": "fc_recommended"}
+            "IF": "if_recommended", "FC": "fc_recommended",
+            "IHC": "ihc_recommended"}
 # application code -> the PublicationImage.application_type it is stored under
-_APP_IMG = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC"}
+_APP_IMG = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC", "IHC": "IHC"}
 #: inverse of _APP_IMG — a PublicationImage.application_type back to the code the
 #: `assessment` dict is keyed by. Images are stored as "ICC-IF" while every verdict
 #: is keyed "IF", so anything joining a figure to its verdict had to know that
 #: quirk. Normalise once here instead.
 _IMG_APP = {v: k for k, v in _APP_IMG.items()}
-_APPS = ("WB", "IP", "IF", "FC")
+#: The applications OGA reports a result for — IHC since 26 Sep 2026, and
+#: OGA's IHC is on FFPE HAP1 cell PELLETS, never tissue.
+_APPS = ("WB", "IP", "IF", "FC", "IHC")
+#: The applications a PAPER's own reported use can be scored against. Not IHC:
+#: a paper's IHC is tissue (`_TISSUE_APPS`), and OGA's pellet result is context
+#: for it, never a verdict on it. Every place that resolves a paper's
+#: application to OGA's reads this, never `_APPS` — `_APPS` gaining IHC would
+#: otherwise have scored every paper's IHC against the pellets in silence.
+_PAPER_APPS = ("WB", "IP", "IF", "FC")
 
 
 def _assessment(ab, image_types, gene_has_recommendations,
@@ -201,6 +210,10 @@ def _assessment(ab, image_types, gene_has_recommendations,
                  "recommended": recommended, "tested_from": basis}
         if clause:
             entry["qualifier"] = clause
+        if app == "IHC":
+            # Beside the result, every time: a model reading `assessment.IHC`
+            # will otherwise take it for tissue IHC, which it is not.
+            entry["sample"] = _IHC_SAMPLE
         if not words:
             # `_wording_for` degrades to "" when the site's module is not
             # importable in this process. A key holding an empty string reads
@@ -216,6 +229,16 @@ def _assessment(ab, image_types, gene_has_recommendations,
                 "application's figure")
         out[app] = entry
     return out
+
+
+#: What OGA's IHC result is ON, said wherever a model reads one.
+_IHC_SAMPLE = "FFPE HAP1 cell pellets (wild type, knockout, mosaic) — not tissue"
+
+
+def _app_label(app):
+    """An application as the summary sentence names it — IHC with its sample,
+    because "supports IHC" alone is read as tissue IHC."""
+    return "IHC (on HAP1 cell pellets, not tissue)" if app == "IHC" else app
 
 
 #: What a rung degrades to when the site's module is not importable in this
@@ -279,7 +302,8 @@ def _wording_for(ab, app, status, axes_by_app):
 
 
 #: This module keys immunofluorescence `IF`; the database says `ICC-IF`.
-_APP_FIELD_TO_DB = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC"}
+_APP_FIELD_TO_DB = {"WB": "WB", "IP": "IP", "IF": "ICC-IF", "FC": "FC",
+                    "IHC": "IHC"}
 
 
 def _factual_summary(ab, assessment, dois):
@@ -293,7 +317,8 @@ def _factual_summary(ab, assessment, dois):
     # most likely to quote verbatim was the one place the distinction was lost
     # after being carried correctly everywhere else in the response.
     def _of(rung):
-        return [a for a in _APPS if assessment[a].get("support") == rung]
+        return [_app_label(a) for a in _APPS
+                if assessment[a].get("support") == rung]
 
     supportive = _of("supportive")
     limited = _of("limited_support")
@@ -318,12 +343,17 @@ def _factual_summary(ab, assessment, dois):
     # blot that is not selective, or a negative that did detect, enrich or give
     # a selective signal. A model asked "is this any good" is exactly the caller
     # that should not get a bare yes/no when there is more.
-    qualified = [f"{a} — {assessment[a]['qualifier']}"
+    qualified = [f"{_app_label(a)} — {assessment[a]['qualifier']}"
                  for a in _APPS if assessment[a].get("qualifier")]
     if qualified:
         parts.append("With qualifications: " + "; ".join(qualified) + ".")
     if dois:
-        parts.append("Assessed with knockout controls under the consensus "
+        # "knockout controls", "knockdown controls" or both — read off the
+        # figures rather than assumed, since a model quotes this sentence.
+        from pipeline.public import control_noun
+        kinds = {(img.control_genotype or "").strip().upper() or "KO"
+                 for img in ab.publication_images.all()}
+        parts.append(f"Assessed with {control_noun(kinds)} under the consensus "
                      "protocol described in " + "; ".join(dois) + ".")
     return " ".join(parts)
 
@@ -365,7 +395,7 @@ def _enrich(ab, axes=None):
     dois = _report_dois(reports)
     image_types = {img.application_type for img in ab.publication_images.all()}
     per_app = {app: (axes or {}).get((ab.pk, app))
-               for app in ("WB", "IP", "ICC-IF", "FC")}
+               for app in _APP_FIELD_TO_DB.values()}
     assessment = _assessment(ab, image_types, rec, per_app)
     d["assessment"] = assessment
     d["summary"] = _factual_summary(ab, assessment, dois)
@@ -401,10 +431,8 @@ def list_targets(only_with_recommendations=False):
     from django.db.models import Q
     qs = _public_targets()
     if only_with_recommendations:
-        qs = qs.filter(
-            Q(antibodies__wb_recommended=True) | Q(antibodies__ip_recommended=True)
-            | Q(antibodies__if_recommended=True) | Q(antibodies__fc_recommended=True)
-        ).distinct()
+        from core.recommendations import any_recommendation_q
+        qs = qs.filter(any_recommendation_q("antibodies__")).distinct()
     rows = [{"id": t.id, "gene_name": t.gene_name, "protein_name": t.protein_name,
              "uniprot_id": t.uniprot_id}
             for t in qs.order_by("gene_name")]
@@ -536,7 +564,9 @@ def gene_detail(gene):
         supplier = s["metadata"].get("supplier") or "Unknown"
         ss = supplier_summary.setdefault(supplier, {"count": 0, "recommended": 0})
         ss["count"] += 1
-        if any(s["recommendations"].get(a) for a in ("WB", "ICC-IF", "IP", "FC")):
+        # Every application, from the site's own tuple — a literal four here
+        # would disagree with `has_recommendations` on an IHC-only gene.
+        if any(s["recommendations"].get(a) for a in _site_applications()):
             ss["recommended"] += 1
 
     return {
@@ -555,7 +585,15 @@ def gene_detail(gene):
 
 _APP_FIELD = {"WB": "wb_recommended", "IP": "ip_recommended",
               "IF": "if_recommended", "ICC-IF": "if_recommended",
-              "FC": "fc_recommended"}
+              "FC": "fc_recommended", "IHC": "ihc_recommended"}
+
+
+def _site_applications():
+    """The site's own application tuple (``core/recommendations.py``), in the
+    database's spelling — what the public API's ``recommendations`` is keyed
+    by."""
+    from core.recommendations import APPLICATIONS
+    return APPLICATIONS
 
 
 #: The four rungs this connector can be asked for, and what each one is.
@@ -704,8 +742,13 @@ _MAN_NOTE = (
 def _overall_bucket(assessment):
     """One headline bucket per antibody for scannability. The per-application
     ``assessment`` is ALWAYS carried on the hit too, so nothing generalises a
-    single-application verdict — this is only an index."""
-    statuses = [assessment[a]["status"] for a in _APPS]
+    single-application verdict — this is only an index.
+
+    Over the applications a paper can be scored against (``_PAPER_APPS``), not
+    IHC: a reagent a paper blotted with, recommended only for IHC on pellets,
+    is not a "recommended" hit for that paper. ``assessment.IHC`` still says
+    what OGA found."""
+    statuses = [assessment[a]["status"] for a in _PAPER_APPS]
     if "recommended" in statuses:
         return "recommended"
     if "not_recommended" in statuses:
@@ -720,7 +763,10 @@ def _manuscript_hit(found, kind, enriched):
         "matched_as": kind,
         "antibody_name": enriched.get("antibody_name"),
         "gene": enriched.get("gene"),
-        "applications": {app: a[app]["status"] for app in _APPS},
+        # The paper-scorable four: this feeds `_is_concern_hit` and
+        # scan_controls' `oga_result`, and OGA's pellet IHC must never be scored
+        # against a paper's (tissue) IHC. The full `assessment` carries IHC.
+        "applications": {app: a[app]["status"] for app in _PAPER_APPS},
         "assessment": a,                     # full per-application verdict + evidence flags
         "summary": enriched.get("summary"),
         "rrid": enriched["provenance"]["rrid"],
@@ -1073,7 +1119,10 @@ _TISSUE_APP_NOTE = (
     "not what separates them. This use is therefore NOT scored against the IF "
     "verdict. What is known about the antibody is in `oga_result`, which covers "
     "the applications OGA did test — report that as context, and be explicit that "
-    "it is not a result in this preparation.")
+    "it is not a result in this preparation. "
+    "OGA's IHC result, where `assessment.IHC` has one, is on FFPE HAP1 "
+    "cell pellets — a cell line prepared like tissue. Report it as the "
+    "closest context; it is not a result in tissue.")
 
 #: Staining terms that name the assay but NOT the preparation. "Immunostaining"
 #: is done on sections and on coverslips alike, and the whole point of the tissue
@@ -1132,7 +1181,7 @@ def _application_notes(values):
         elif key in _AMBIGUOUS_APPS:
             if raw not in ambiguous:
                 ambiguous.append(raw)
-        elif (key not in _APP_ALIASES and raw.upper() not in _APPS
+        elif (key not in _APP_ALIASES and raw.upper() not in _PAPER_APPS
                 and raw not in unknown):
             unknown.append(raw)
     if tissue:
@@ -1174,7 +1223,10 @@ def _normalise_apps(values):
         v = (str(v) if v is not None else "").strip().lower()
         if not v:
             continue
-        code = _APP_ALIASES.get(v) or (v.upper() if v.upper() in _APPS else None)
+        # `_PAPER_APPS`, never `_APPS`: a paper's IHC is tissue and is never
+        # scored against OGA's pellet result.
+        code = _APP_ALIASES.get(v) or (v.upper() if v.upper() in _PAPER_APPS
+                                       else None)
         if code:
             out.add(code)
     return out
@@ -1250,24 +1302,34 @@ def _recommended_alternatives(target, wanted=None, cap=5, exclude_pks=()):
     already in their hands.
 
     Returns ``(rows, total, matching)``:
-      * ``total``   — every recommended antibody on the gene, whatever the
-        application. Not the length of the capped list: reporting the cap as the
-        total understated a gene with eleven recommended antibodies as having five.
+      * ``total``   — every antibody on the gene recommended for one of the
+        four applications a paper can be scored against (``_PAPER_APPS``) —
+        so not one whose only recommendation is IHC on HAP1 pellets. Not the
+        length of the capped list: reporting the cap as the total understated
+        a gene with eleven recommended antibodies as having five.
       * ``matching`` — how many cover ``wanted``; ``None`` when no application was
         named. This is the honest denominator for "N of M" once the caller has said
         what they need, where ``total`` would overstate what is available to them.
     """
     from django.db.models import Q
     A = _api()
+    # `_PAPER_APPS`, never `_APPS` or `any_recommendation_q`: an alternative is
+    # offered FOR a paper's application, and a paper's IHC is tissue. An
+    # antibody recommended only for IHC on HAP1 pellets is no alternative for
+    # anything a paper did, and a WB+IHC one must not outrank a WB-only one on
+    # the strength of the pellets. The gene gate (`gene_has_recommendations`)
+    # still counts IHC — that is a different question, asked of the gene.
+    paper_rec = Q()
+    for app in _PAPER_APPS:
+        paper_rec |= Q(**{_APP_REC[app]: True})
     qs = (_published_antibodies().filter(target=target)
-          .filter(Q(wb_recommended=True) | Q(ip_recommended=True)
-                  | Q(if_recommended=True) | Q(fc_recommended=True))
+          .filter(paper_rec)
           .order_by("company__name", "catalogue_number"))
     if exclude_pks:
         qs = qs.exclude(pk__in=list(exclude_pks))
     rows = []
     for ab in qs:
-        apps = [app for app in _APPS if getattr(ab, _APP_REC[app])]
+        apps = [app for app in _PAPER_APPS if getattr(ab, _APP_REC[app])]
         img = next((i for i in ab.publication_images.all()
                     if _IMG_APP.get(i.application_type) in apps and i.image), None)
         rows.append({
@@ -1653,8 +1715,12 @@ def check_manuscript(reagents=None, genes=None, cap=200,
 
 def _concise_verdict(applications):
     """A short per-application verdict string, e.g.
-    "recommended: WB; not recommended: IP/IF; not tested: FC"."""
-    order = ["WB", "IP", "IF", "FC"]
+    "recommended: WB; not recommended: IP/IF; not tested: FC".
+
+    Four, ``_PAPER_APPS``: it is fed ``_manuscript_hit``'s ``applications``,
+    which are the applications a paper can be scored against, and OGA's pellet
+    IHC is never one of them."""
+    order = list(_PAPER_APPS)
     groups = {"recommended": [], "not recommended": [], "not tested": []}
     label = {"recommended": "recommended", "not_recommended": "not recommended",
              "not_tested": "not tested"}
@@ -2707,15 +2773,27 @@ def _build_table(base, controls, reagents, apps_for=None, app_notes_for=None,
                 # that silence is not.
                 assessed = [a for a, v in hit["applications"].items()
                             if v in ("recommended", "not_recommended")]
+                # OGA's own IHC is on HAP1 cell pellets: named as context, never
+                # as a verdict on the paper's tissue, and never in `assessed`
+                # (which `hit["applications"]` keeps to the paper-scorable four).
+                ihc = (hit.get("assessment") or {}).get("IHC") or {}
+                pellet = (
+                    " OGA's own IHC result for this antibody — "
+                    f"{ihc.get('verdict') or ihc.get('support')} — is on FFPE "
+                    "HAP1 cell pellets, not tissue (`assessment.IHC`): the "
+                    "closest context, not a result in this paper's preparation."
+                    if ihc.get("tested") else "")
                 row["oga_result_context"] = (
-                    f"OGA has no verdict for {', '.join(unscoped_apps)}. "
+                    f"OGA has no verdict for {', '.join(unscoped_apps)} in "
+                    f"tissue. "
                     + (f"It did test this antibody in "
                        f"{'/'.join(sorted(assessed))} — see `oga_result`. That is "
                        f"context for judging the reagent, NOT a result in the "
                        f"preparation this paper used."
                        if assessed else
-                       "It has not been tested in any application OGA assesses, so "
-                       "there is no result either way."))
+                       "It has not been tested in the other applications OGA "
+                       "assesses, so there is no result there either way.")
+                    + pellet)
             # Link the direct validation-image MEDIA files (not the embed cards).
             exps = [e for e in (hit.get("experiments") or []) if e.get("image_url")]
             row["images"] = [{"application": _IMG_APP.get(e.get("experiment_type"),

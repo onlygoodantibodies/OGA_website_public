@@ -207,3 +207,20 @@ class TheLastLegacyPagesAreGoneTests(TestCase):
                 body = self.client.get(url).content.decode()
                 self.assertIn(reverse(endpoint), body)
                 self.assertIn('class="identity', body)
+
+
+class AKnockdownIsAControlTests(TestCase):
+    """A knockdown line is identity like a knockout: it needs its gene, and the
+    dialog's refusal says knockdown rather than knockout."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def test_a_knockdown_without_a_gene_is_refused_by_name(self):
+        from pipeline.models import CellLine, Site
+        from pipeline.services import identity
+        site = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        line = CellLine.objects.using(DB).create(name="U-87 MG", genotype="WT", site=site)
+        with self.assertRaises(identity.Refused) as ctx:
+            identity.change_cell_line_identity(line, {"name": "U-87 MG", "genotype": "KD",
+                                                      "gene": "", "parent": "", "clone": ""})
+        self.assertIn("knockdown", str(ctx.exception))

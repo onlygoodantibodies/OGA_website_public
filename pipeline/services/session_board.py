@@ -23,8 +23,9 @@ from collections import defaultdict
 
 from django.db.models import Count, Q
 
-from pipeline.models import (ExperimentSession, FcResult, IfResult, IpResult,
-                             Member, Site, WbResult)
+from pipeline import saved_by as saved_by_stamp
+from pipeline.models import (ExperimentSession, FcResult, IfResult, IhcResult,
+                             IpResult, Member, Site, WbResult)
 from pipeline.services import board_page as board_page_svc
 from pipeline.services import find
 from pipeline.services import members
@@ -33,12 +34,19 @@ from pipeline.services import targets as target_svc
 
 DB = "pipeline_db"
 
-PROCEDURES = ["WB", "IP", "IF", "FC"]
+# Five procedures — IHC joined the bench on 26 Sep 2026 (PLATFORM_ROADMAP
+# #102). Its bench code is `IHC`, the same word the figure vocabulary uses, so
+# unlike ICC-IF (`IF` here, `ICC-IF` on a figure) it needs no mapping.
+PROCEDURES = ["WB", "IP", "IF", "FC", "IHC"]
 
-RESULT_MODELS = {"WB": WbResult, "IP": IpResult, "IF": IfResult, "FC": FcResult}
+RESULT_MODELS = {"WB": WbResult, "IP": IpResult, "IF": IfResult, "FC": FcResult,
+                 "IHC": IhcResult}
 
 # Never a column on the results grid: identity, plumbing, or edited elsewhere.
-_RESULT_SKIP = {"id", "session", "antibody", "access_id", "extra_lanes"}
+# `saved_by.FIELDS` are stamps, not readings: left in, every row saved
+# through the website would count as "a reading" and print as a sheet column.
+_RESULT_SKIP = {"id", "session", "antibody", "access_id", "extra_lanes",
+                *saved_by_stamp.FIELDS}
 
 # Session fields the board may edit in place. procedure_type and target are
 # absent on purpose — they are the session's identity. Changing either means
@@ -307,7 +315,8 @@ def cell_choices(site_id=None) -> dict:
             {(m.display_name or "").strip() for m in members_svc.experimenters()}
             - {""})},
         "cell_line_wt": lines("WT"),
-        "cell_line_ko": lines("KO"),
+        # Knockouts and knockdowns alike: the slot is the genetic control.
+        "cell_line_ko": lines(cell_lines_svc.CONTROL),
     }
 
 
@@ -347,7 +356,7 @@ def _line_label(line) -> str:
 
 def board_queryset():
     return (ExperimentSession.objects.using(DB)
-            .select_related("target", "experimenter", "site",
+            .select_related("target", "experimenter__user", "site",
                             "cell_line_wt", "cell_line_ko",
                             "cell_line_wt__site", "cell_line_ko__site",
                             "cell_line_ko__target"))
@@ -395,9 +404,9 @@ def apply_filters(qs, *, q="", gene="", procedure="", site="", experimenter="",
 
 
 def result_counts(session_ids) -> dict:
-    """{session_id: n} across all four result tables.
+    """{session_id: n} across all five result tables.
 
-    Four queries whatever the board's size — the count must not scale with the
+    One query per table whatever the board's size — the count must not scale with the
     number of sessions on screen, which is what an annotate-per-relation would
     do via a fan-out join.
     """
@@ -417,21 +426,48 @@ def reading_counts(session_ids) -> dict:
     Beside ``result_counts`` rather than replacing it, because the board needs
     both numbers to say the useful thing: twenty-two rows and no readings is
     *"22 antibodies, none done yet"*, and the difference between the two is what
-    is left to do. Four more queries, and like ``result_counts`` the number of
+    is left to do. One more query per table, and like ``result_counts`` the number of
     them does not grow with the board's size.
     """
-    out = defaultdict(int)
+    return readings_and_savers(session_ids)[0]
+
+
+def readings_and_savers(session_ids) -> tuple[dict, dict]:
+    """``reading_counts``, plus ``{session_id: [username, …]}`` — who saved
+    those readings, off the same queries.
+
+    A bench sheet's readings are written to the result rows and need not touch
+    the session at all, so the session's own ``saved_by`` would name whoever
+    planned it rather than whoever wrote the readings down. Asked of the rows
+    that *are* readings, so a blank row stamped at planning names nobody. See
+    ``pipeline/saved_by.py``.
+    """
+    counts, savers = defaultdict(int), defaultdict(set)
     if not session_ids:
-        return {}
+        return {}, {}
     for procedure, model in RESULT_MODELS.items():
         for row in (model.objects.using(DB)
                     .filter(Q(session_id__in=session_ids) & reading_q(procedure))
-                    .values("session_id").annotate(n=Count("id"))):
-            out[row["session_id"]] += row["n"]
-    return dict(out)
+                    .values("session_id", "saved_by").annotate(n=Count("id"))):
+            counts[row["session_id"]] += row["n"]
+            if row["saved_by"]:
+                savers[row["session_id"]].add(row["saved_by"])
+    return dict(counts), {k: sorted(v) for k, v in savers.items()}
 
 
-def row_for(session, counts=None, readings=None) -> dict:
+def _provenance(session, reading_savers_) -> str:
+    """Who entered this session — the experimenter is a choice in a form, not
+    the person at the keyboard, so the two are drawn apart."""
+    line = saved_by_stamp.describe(session.added_by, session.saved_by,
+                                   session.updated_at)
+    others = [n for n in reading_savers_ if n not in (session.added_by, session.saved_by)]
+    if others:
+        names = ", ".join(saved_by_stamp.who(n) for n in others)
+        line = " · ".join(p for p in (line, f"readings saved by {names}") if p)
+    return line
+
+
+def row_for(session, counts=None, readings=None, savers=None) -> dict:
     return {
         "id": session.pk,
         "gene": session.target.gene_name if session.target_id else "",
@@ -470,6 +506,8 @@ def row_for(session, counts=None, readings=None) -> dict:
         # full set of cells (owner, 5 Aug). So the board reports both numbers
         # and draws no conclusion from the difference.
         "reading_count": (readings or {}).get(session.pk, 0),
+        # "added by mickey · readings saved by …", or "" before 27 Sep 2026.
+        "provenance": _provenance(session, (savers or {}).get(session.pk, [])),
     }
 
 
@@ -478,8 +516,9 @@ def board_rows(**filters) -> list[dict]:
     qs = apply_filters(board_queryset(), **filters).order_by("-date", "-pk")
     sessions = list(qs)
     ids = [s.pk for s in sessions]
-    counts, readings = result_counts(ids), reading_counts(ids)
-    return [row_for(s, counts, readings) for s in sessions]
+    counts = result_counts(ids)
+    readings, savers = readings_and_savers(ids)
+    return [row_for(s, counts, readings, savers) for s in sessions]
 
 
 def board_page(*, page=1, per_page=board_page_svc.DEFAULT_PER_PAGE, locate=None,
@@ -499,8 +538,10 @@ def board_page(*, page=1, per_page=board_page_svc.DEFAULT_PER_PAGE, locate=None,
     start = (page - 1) * per_page
     sessions = list(qs[start:start + per_page])
     ids = [s.pk for s in sessions]
-    counts, readings = result_counts(ids), reading_counts(ids)
-    return {"rows": [row_for(s, counts, readings) for s in sessions], "count": count,
+    counts = result_counts(ids)
+    readings, savers = readings_and_savers(ids)
+    return {"rows": [row_for(s, counts, readings, savers) for s in sessions],
+            "count": count,
             "page": page, "pages": pages, "per_page": per_page,
             "located": (bool(located) if locate else None)}
 
@@ -523,6 +564,10 @@ _READING_FIELDS = {
     # method, but folding one field away would cost a click and save nothing.
     "FC": ("concentration", "histogram_shift", "median_fluorescence_wt",
            "median_fluorescence_ko", "gating_strategy", "comments"),
+    # IHC: what was seen and where. Dilution, detection, slide position and
+    # who imaged it are method, folded away like IF's.
+    "IHC": ("specific_signal", "staining_location", "tissue_result",
+            "comments"),
 }
 
 

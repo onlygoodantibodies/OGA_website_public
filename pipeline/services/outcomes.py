@@ -46,7 +46,7 @@ DB = "pipeline_db"
 
 #: Every axis this module knows, in the order every surface prints them. The
 #: model row carries a column per axis; an application uses the ones below.
-AXES = ("detects", "selective", "enriches")
+AXES = ("detects", "selective", "enriches", "background")
 
 #: **Which questions each application actually answers**, checked against the
 #: data rather than assumed. Forcing western blot's two axes onto the other
@@ -61,13 +61,34 @@ AXES = ("detects", "selective", "enriches")
 #:   three-fraction columns (``sm_``/``ub_``/``ip_assessment``) exist on the
 #:   model and are blank in all 1,754 live rows, so there is no second axis to
 #:   read (owner, 28 Aug 2026).
-#: * **FC** is absent: ``histogram_shift`` is blank on all 22 live rows, so a
-#:   page offering it would be an empty box with no source behind it.
+#: * **FC** has no outcome axis — ``histogram_shift`` is blank on all 22 live
+#:   rows — and one **caveat**: non-specific background, which a person sets
+#:   from the figure and only on a recommended antibody (owner, 25 Sep 2026).
+#:   It never makes a figure a gap and never decides a verdict; it qualifies a
+#:   supportive one (``core/recommendations.py::qualified``).
+#: * **IHC** has one, ``selective``, graded **by eye** from the HAP1 pellet
+#:   figure on ICC-IF's bands (26 Sep 2026): staining in wild-type cells and
+#:   none in the knockout is selective. The bench records IHC readings since
+#:   the same day (``IhcResult``, PLATFORM_ROADMAP #102), and **they are
+#:   deliberately not in ``RESULT_MODELS`` below**: the owner decided the
+#:   verdict stays a judgement by eye, so nothing is derived from them, and
+#:   ``_assemble`` runs on the MCP's grant-checked path, where a query on a
+#:   table the ``mcp_readonly`` role has no grant for is the 29 Aug outage
+#:   again. A quantitative score later is ``RESULT_MODELS["IHC"]`` plus an
+#:   ``_ihc_selective`` modelled on ``_if_selective`` *and* a grant on
+#:   ``pipeline_ihcresult`` (``mcp_servers/common/grants.py``).
 APPLICATION_AXES = {
     "WB": ("detects", "selective"),
     "ICC-IF": ("selective",),
     "IP": ("enriches",),
+    "FC": ("background",),
+    "IHC": ("selective",),
 }
+
+#: Axes that are a caveat on a recommendation rather than half of a verdict:
+#: offered only while the antibody is recommended for that application, and
+#: never counted as something still to judge.
+CAVEAT_AXES = {"background"}
 
 #: Human wording for each axis — one name per fact, so the page, the receipt and
 #: any future public surface all call it the same thing.
@@ -75,6 +96,7 @@ AXIS_LABELS = {
     "detects": "Detects the target",
     "selective": "Selective for the target",
     "enriches": "Enriches the target",
+    "background": "Non-specific background",
 }
 
 
@@ -129,12 +151,40 @@ AXIS_VALUES = {
     ("WB", "selective"): _YES_NO,
     ("IP", "enriches"): _YES_NO,
     ("ICC-IF", "selective"): BANDS + ("unclear",),
+    # By eye, on the same bands ICC-IF is graded on where it has no ratio.
+    ("IHC", "selective"): BANDS + ("unclear",),
+    ("FC", "background"): ("yes", "no"),
 }
 
 
 def values_for(application, axis):
     """The values this axis accepts. Empty for an axis it does not answer."""
     return AXIS_VALUES.get((application, axis), ())
+
+
+#: Whether a button's answer is good news, and so which colour it is drawn in.
+#: Decided here, beside the values, because the word does not say: on every
+#: other axis "Yes" is the good answer, while on the background caveat "Yes"
+#: means there *is* non-specific background — a qualified recommendation, not a
+#: failed one — and "No" is the clean result. Colouring by the word drew a
+#: clean flow figure's "No" in red (owner, 26 Sep 2026).
+_VALUE_TONES = {
+    "yes": "good",
+    "no": "bad",
+    "strongly_selective": "good",
+    "selective": "qualified",
+    "no_selective_signal": "bad",
+    "unclear": "neutral",
+}
+_AXIS_VALUE_TONES = {
+    ("background", "yes"): "qualified",
+    ("background", "no"): "good",
+}
+
+
+def tone_of(axis, value):
+    """``good``, ``qualified``, ``bad`` or ``neutral`` for one button."""
+    return _AXIS_VALUE_TONES.get((axis, value), _VALUE_TONES.get(value, "neutral"))
 
 
 def binary_of(value):
@@ -590,9 +640,10 @@ def by_gene(application="WB"):
 
 #: Which axis carries "did it do the thing this application is for" — the half
 #: of the outcome a recommendation is layered over. WB asks whether it detects,
-#: IP whether it enriches, ICC-IF whether it is selective. FC is absent because
-#: nothing records an outcome for it.
-CAPABILITY_AXIS = {"WB": "detects", "IP": "enriches", "ICC-IF": "selective"}
+#: IP whether it enriches, ICC-IF and IHC whether it is selective. FC is absent
+#: because nothing records an outcome for it.
+CAPABILITY_AXIS = {"WB": "detects", "IP": "enriches", "ICC-IF": "selective",
+                   "IHC": "selective"}
 
 
 def for_antibodies(antibody_ids, application="WB"):
@@ -624,7 +675,8 @@ def capability(axes, application="WB"):
 #: owns what the flag *means* publicly; this is the column, so the conflict
 #: query below can ask whether it agrees with what the bench recorded.
 REC_FIELD = {"WB": "wb_recommended", "IP": "ip_recommended",
-             "ICC-IF": "if_recommended", "FC": "fc_recommended"}
+             "ICC-IF": "if_recommended", "FC": "fc_recommended",
+             "IHC": "ihc_recommended"}
 
 
 def strongest_evidence(axes, application="WB"):
@@ -641,8 +693,9 @@ def strongest_evidence(axes, application="WB"):
     * **IP** — nothing. Its flag is the finer judgement (*enriched
       significantly*) on its only axis, so "enriches but not flagged" is the
       ordinary amber and there is no stronger evidence to disagree with.
+    * **IHC** — as ICC-IF: judged *strongly selective* by eye.
     """
-    if application == "ICC-IF":
+    if application in ("ICC-IF", "IHC"):
         return (axes.get("selective") or {}).get("value") == "strongly_selective"
     if application == "WB":
         return all(binary_of((axes.get(a) or {}).get("value")) == YES
@@ -853,6 +906,65 @@ def _rows_where(application, keep):
     return out
 
 
+def record(antibody_id, application, axis, value, *, actor, note=None):
+    """Store one axis of a judgement — the one writer, for both doors.
+
+    Judge outcomes judges a published figure; the review queue judges one that
+    is waiting to be. Same row, same field, same refusals, so the two cannot
+    disagree about which values an axis takes. Refuses with ``ValueError``
+    carrying a sentence for the page. ``""`` clears the axis.
+
+    Nothing here touches a session row: the runs are the record of what
+    happened on a day, and ``merge`` prints anything this overrides.
+    """
+    if axis not in axes_for(application):
+        raise ValueError(f"{application} does not answer “{axis}”.")
+    if value not in set(values_for(application, axis)) | {""}:
+        raise ValueError(
+            f"“{value}” is not one of the answers "
+            f"{AXIS_LABELS[axis].lower()} takes for {application}.")
+    row, _ = AntibodyOutcome.objects.using(DB).get_or_create(
+        antibody_id=antibody_id, application_type=application)
+    setattr(row, axis, value)
+    if note is not None:
+        row.note = note or ""
+    row.assessed_by = actor or ""
+    row.save(using=DB)
+    return row
+
+
+def fc_recommended():
+    """Every published FC figure whose antibody is recommended for flow.
+
+    The fast pass the background caveat needs: it only applies to a
+    recommended antibody, so this is the whole of the work, across every gene,
+    with the unanswered ones a page can put first. Shaped like
+    ``_rows_where``'s answer so the same card builder draws it.
+    """
+    rows = list(
+        PublicationImage.objects.using(DB)
+        .filter(application_type="FC", antibody__fc_recommended=True)
+        .exclude(antibody__target__gene_name="")
+        .filter(antibody__target__gene_name__isnull=False)
+        .values_list("antibody_id", "antibody__target__gene_name")
+    )
+    if not rows:
+        return {}
+    merged = _assemble("FC", [r[0] for r in rows])
+    return {ab_id: {"axes": merged[ab_id], "flag": True, "gene": gene,
+                    "direction": None}
+            for ab_id, gene in rows}
+
+
+def caveat_refusal(axis, recommended, application):
+    """Why this caveat cannot be set, or ``""``. Asked by every door."""
+    if axis in CAVEAT_AXES and not recommended:
+        return (f"{AXIS_LABELS[axis]} is a caveat on a recommendation, and "
+                f"this antibody is not recommended for {application}. Mark it "
+                "recommended first.")
+    return ""
+
+
 def is_gap(axes, application="WB"):
     """Is there still something to judge here?
 
@@ -860,7 +972,8 @@ def is_gap(axes, application="WB"):
     is a thing to look at, counted separately, because filling it in is not what
     resolves it.
     """
-    wanted = axes_for(application) or tuple(axes)
+    wanted = [a for a in (axes_for(application) or tuple(axes))
+              if a not in CAVEAT_AXES]
     return any(axes[axis]["value"] is None for axis in wanted)
 
 
@@ -891,12 +1004,20 @@ def label(axes, application="WB"):
     mistake ``core/recommendations.py`` was written to undo. Nothing public
     reads it yet.
     """
-    if application == "ICC-IF":
+    if application in ("ICC-IF", "IHC"):
         # The value *is* the band — measured from a ratio, or graded by eye
-        # where none was recorded. Both carry the same words on purpose; the
+        # where none was recorded (IHC: always by eye). Both carry the same words on purpose; the
         # axis's `source` and `ratio` say which route produced it.
         value = (axes.get("selective") or {}).get("value")
         return value if value in BANDS else None
+
+    if application == "FC":
+        value = (axes.get("background") or {}).get("value")
+        if value == YES:
+            return "nonspecific_background"
+        if value == NO:
+            return "clean_background"
+        return None
 
     if application == "IP":
         value = (axes.get("enriches") or {}).get("value")
@@ -928,6 +1049,8 @@ VERDICT_LABELS = {
     "strongly_selective": "Strongly selective",
     "enriches": "Enriches the target",
     "does_not_enrich": "Does not enrich the target",
+    "nonspecific_background": "Non-specific background",
+    "clean_background": "No non-specific background",
     # The button wording for the plain yes/no axes, so one dict answers both
     # "what does this verdict say" and "what goes on this control".
     "yes": "Yes",

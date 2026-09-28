@@ -28,9 +28,9 @@ Four things it deliberately will not do.
 later cannot be left behind pointing at a target that no longer exists. Eight
 today, and a hand-written list would be wrong within a month.
 
-**It never merges records.** Three constraints include the target
+**It never merges records.** Five constraints include the target
 (``unique_antibody_per_site_lot``, ``unique_assignment_per_site_task``,
-``unique_target_class_per_source``), so a row whose twin already sits on the
+``unique_target_class_per_source`` and the two whole-IHC-figure slugs), so a row whose twin already sits on the
 survivor is reported and left where it is. Deciding two rows are one antibody is
 ``merge_duplicate_antibodies``'s job, with its own dry run and its own evidence.
 
@@ -61,13 +61,17 @@ from pipeline.models import PublicationImage, Target
 
 DB = "pipeline_db"
 
-# The three constraints that include the target. Moving a row onto a target that
+# The constraints that include the target. Moving a row onto a target that
 # already holds its twin would violate these, so those rows are held back. The
 # tuple is the rest of each constraint, with target_id removed.
 GUARDED = {
     "Antibody": ("catalogue_number", "company_id", "lot_number", "site_id"),
     "TargetAssignment": ("site_id", "task_type"),
     "TargetClassification": ("label", "source"),
+    # A gene's whole IHC figures are one per label slug; a twin on the
+    # survivor is the same figure, held back rather than raising.
+    "IhcFigure": ("slug",),
+    "PendingIhcFigure": ("slug",),
 }
 
 
@@ -237,6 +241,19 @@ class Command(BaseCommand):
     def _check_published(self, loser, winner, allowed):
         """A published figure is on the public site, so moving one is a change to
         what a gene page says about somebody's product."""
+        from pipeline.models import IhcFigure
+        whole = IhcFigure.objects.using(DB).filter(target=loser).count()
+        if whole and not allowed:
+            raise CommandError(
+                f"{whole} whole IHC figure(s) are on {self._label(loser)}'s public "
+                f"IHC page. Merging would move them onto {self._label(winner)}'s, "
+                f"changing a public page with nobody reviewing it.\n"
+                f"  If that is what you mean, re-run with --allow-published-figures.\n"
+                f"  If it is not, withdraw them on /pipeline/review/ first.")
+        if whole:
+            self.stdout.write(self.style.WARNING(
+                f"  {whole:>6}  whole IHC figure(s) will move onto "
+                f"{self._label(winner)}'s IHC page."))
         moving = published_figures(loser)
         count = moving.count()
         if not count:

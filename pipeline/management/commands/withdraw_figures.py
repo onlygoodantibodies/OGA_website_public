@@ -103,6 +103,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 "  no longer on the public site:     "
                 + ", ".join(result.genes_leaving_public)))
+        if result.whole_figures_withdrawn:
+            self.stdout.write(
+                f"  whole IHC figures withdrawn with them "
+                f"{len(result.whole_figures_withdrawn)}")
+        # Withdrawing is the case a stale edge copy hurts most: the gene page
+        # would go on showing figures somebody decided to take down.
+        from OGA_website import edge_cache
+        purged, note = edge_cache.purge_everything()
+        self.stdout.write((self.style.SUCCESS if purged else self.style.WARNING)(
+            "\n" + note))
         self.stdout.write(
             "\nThe figures are at /pipeline/review/ and can be released again.")
 
@@ -145,6 +155,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 f"\n  These gene pages would come off the public site entirely: "
                 f"{', '.join(n for n in names if n)}"))
+            # Their IHC pages go with them (`review.withdraw`), so the dry run
+            # counts the whole figures that would come off too.
+            from pipeline.models import IhcFigure
+            whole = IhcFigure.objects.using(DB).filter(target_id__in=leaving).count()
+            if whole:
+                self.stdout.write(self.style.WARNING(
+                    f"  and {whole} whole IHC figure(s) come off their IHC pages "
+                    f"with them, back into the review queue."))
 
         queued = sum(
             1 for i in images

@@ -162,7 +162,8 @@ def steps_for(target: Target) -> list[dict]:
         else:
             out.append(_step(
                 f"app_{app}", app, False, "",
-                f"No {app} session recorded. Many targets never need all four — "
+                f"No {app} session recorded. Many targets never need every "
+                f"application — "
                 f"this is only worth chasing if {app} is part of the plan.",
                 url))
         # Straight after WB, wherever WB sits in APPLICATIONS — reading the
@@ -210,7 +211,7 @@ def headline(steps) -> dict:
 def next_step(steps) -> dict | None:
     """The first step with no evidence behind it.
 
-    The four applications are skipped when *any* of them has been run: once a
+    The applications are skipped when *any* of them has been run: once a
     gene has WB and IF, the missing IP is a choice rather than a gap, and
     pointing at it would nag about work nobody planned.
     """

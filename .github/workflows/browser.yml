@@ -15,6 +15,7 @@ on:
       - 'pipeline/views/**'
       - 'templates/**'
       - 'pipeline/tests_browser_board.py'
+      - 'pipeline/tests_browser_cropper_controls.py'
       - 'core/templates/**'
       - 'core/static/**'
       - 'core/views.py'
@@ -35,6 +36,7 @@ on:
       - 'pipeline/views/**'
       - 'templates/**'
       - 'pipeline/tests_browser_board.py'
+      - 'pipeline/tests_browser_cropper_controls.py'
       - 'core/templates/**'
       - 'core/static/**'
       - 'core/views.py'
@@ -127,7 +129,7 @@ jobs:
             EXCLUDE="--exclude-tag commissioning"
           fi
           echo "running with: ${EXCLUDE:-<everything>}"
-          python manage.py test pipeline.tests_browser_board core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline core.tests_browser_portal_not_supportive $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
+          python manage.py test pipeline.tests_browser_board pipeline.tests_browser_cropper_controls core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline core.tests_browser_portal_not_supportive $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
           if grep -q "needs playwright and the bundled Chromium" /tmp/browser.log; then
             echo "::error::Browser tests skipped — Chromium was not found where the suite looks for it."
             exit 1

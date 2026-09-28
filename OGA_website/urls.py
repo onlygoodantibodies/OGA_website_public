@@ -26,16 +26,23 @@ from django.views.static import serve
 from django.http import HttpResponsePermanentRedirect
 
 from django.contrib.sitemaps.views import sitemap
-from core.sitemaps import StaticViewSitemap, GeneSitemap
-from core.views import robots_txt
+from core.sitemaps import (StaticViewSitemap, GeneSitemap, GeneIhcSitemap,
+                           FunderSitemap)
+from core.views import robots_txt, root_icon, ROOT_ICONS
 
 sitemaps = {
     'static': StaticViewSitemap,
     'genes': GeneSitemap,
+    'gene-ihc': GeneIhcSitemap,
+    'funders': FunderSitemap,
 }
 
 urlpatterns = [
     path('robots.txt', robots_txt),
+    # /favicon.ico and the two apple-touch names, derived from the one mapping
+    # in core/views.py rather than listed again here. See ROOT_ICONS for why a
+    # root request cannot be answered by a tag in a template.
+    *[path(name, root_icon, {'name': name}) for name in ROOT_ICONS],
     path('admin/', admin.site.urls),
     path('', include('core.urls')), 
     path('certificate/<int:cert_id>/pdf/', academy_views.generate_pdf, name='generate_pdf'),  

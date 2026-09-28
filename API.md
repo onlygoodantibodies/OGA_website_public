@@ -37,7 +37,7 @@ Postman and Insomnia both import that URL directly and give you every endpoint,
 parameter and example as a ready collection.
 
 It is generated from the code rather than kept alongside it, so the rate limits,
-the result values, the four applications and the CSV column order are the
+the result values, the five applications and the CSV column order are the
 same objects the server uses — they cannot say one thing while the API does
 another.
 
@@ -627,7 +627,8 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
         "WB": "supportive",
         "IP": "limited_support",
         "ICC-IF": "not_tested",
-        "FC": "not_tested"
+        "FC": "not_tested",
+        "IHC": "not_tested"
       },
       "oga_display": {
         "WB": {
@@ -647,22 +648,25 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
           "tab": false
         },
         "ICC-IF": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false },
-        "FC": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false }
+        "FC": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false },
+        "IHC": { "support": "not_tested", "words": "Not tested", "qualifier": "", "sentence": "Not tested", "tone": "", "tab": false }
       },
       "oga_qualifiers": {
         "IP": "enriches the target, but not significantly"
       },
-      "recommendations": { "WB": true, "ICC-IF": false, "IP": false, "FC": false },
+      "recommendations": { "WB": true, "ICC-IF": false, "IP": false, "FC": false, "IHC": false },
       "oga_recommendations": {
         "WB": "recommended",
         "IP": "not_recommended",
         "ICC-IF": "not_tested",
-        "FC": "not_tested"
+        "FC": "not_tested",
+        "IHC": "not_tested"
       },
       "experiments": [
         {
           "experiment_type": "WB",
           "experiment_type_display": "Western Blot",
+          "control": "knockout",
           "image_url": "https://onlygoodantibodies.co.uk/media/publication_images/2026/ab254222_WB.png"
         }
       ],
@@ -704,7 +708,7 @@ depends on server-side state.
 | `advance_cursor` | `false` = read the delta without consuming it |
 | `since` | ISO 8601 or `YYYY-MM-DD` |
 | `gene` | Exact gene symbol, e.g. `ACE` |
-| `application` | `WB`, `IP`, `ICC-IF` or `FC` — recommended for that application |
+| `application` | `WB`, `IP`, `ICC-IF`, `FC` or `IHC` — recommended for that application |
 | `recommended_only` | `true` = recommended for at least one application |
 | `limit`, `offset` | Paging. A capped reply sets `complete: false`. |
 
@@ -974,7 +978,8 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
         "WB": {"published": true, "awaiting_release": false, "run_at_sites": ["McGill"]},
         "IP": {"published": false, "awaiting_release": true, "run_at_sites": []},
         "ICC-IF": {"published": false, "awaiting_release": false, "run_at_sites": []},
-        "FC": {"published": false, "awaiting_release": false, "run_at_sites": []}
+        "FC": {"published": false, "awaiting_release": false, "run_at_sites": []},
+        "IHC": {"published": false, "awaiting_release": false, "run_at_sites": []}
       },
       "report": {"status": "published", "doi": "10.5281/zenodo.1", "url": "https://doi.org/10.5281/zenodo.1", "date": "2026-08-01"}
     }
@@ -1030,7 +1035,7 @@ before flipping it.
 **`applications` is the whole strip; `findings` is what is counted.** Every row
 carries both. `findings` is the results that came back without support — the
 rows the CSV writes and the numbers the manifest counts. `applications` is all
-four in the order every OGA surface prints them, with the ones nobody ran
+five in the order every OGA surface prints them, with the ones nobody ran
 marked `tested: false` and `oga_recommendation: "not_tested"`. Nothing in
 either list is ever `recommended`: an antibody is in this reply only because no
 application was supportive.
@@ -1090,7 +1095,8 @@ is all on the public gene page each row links to.
         {"application": "WB", "finding": "Not supportive", "tested": true},
         {"application": "IP", "finding": "Not supportive", "tested": true},
         {"application": "ICC-IF", "finding": "Not tested", "tested": false},
-        {"application": "FC", "finding": "Not tested", "tested": false}
+        {"application": "FC", "finding": "Not tested", "tested": false},
+        {"application": "IHC", "finding": "Not tested", "tested": false}
       ]
     }
   ]
@@ -1098,12 +1104,12 @@ is all on the public gene page each row links to.
 ```
 
 `applications_tested` and `applications_not_supportive` are both on every row on
-purpose: *failed all four* and *failed the only one anybody ran* are different
+purpose: *failed all five* and *failed the only one anybody ran* are different
 statements about a product, and a reader who cannot tell them apart has been
 handed the stronger one.
 
 **`GET /not-supportive/csv/`** is the same set as a spreadsheet, **one row per
-application result** rather than per antibody — a wide row with four result
+application result** rather than per antibody — a wide row with five result
 columns would leave you deciding which blank meant *not tested*. The two counts
 above ride on every row so the antibody-level fact survives the flattening.
 
@@ -1303,6 +1309,41 @@ until something actually changes.
 
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
+
+### 2.2.0 — 26 September 2026
+
+**Added: IHC, a fifth application.** Immunohistochemistry, and the result is
+on **FFPE HAP1 cell pellets** — wild-type, knockout and mosaic pellets side by
+side — **not on tissue**. How an antibody performs on a tissue section is a
+further question these pellets do not answer. It is judged by eye on the same
+scale as immunofluorescence (selective / strongly selective, or not), and it
+carries the same four rungs as every other application.
+
+- `oga_support`, `oga_display`, `oga_recommendations`, `oga_qualifiers` and the
+  raw `recommendations` booleans on `/antibodies/` gain an `IHC` key. Every
+  antibody has one, and nearly all of them read `not_tested`.
+- **`IHC` is a new value** of `experiments[].experiment_type`, of the
+  manifest's `application` (and so of the CSV and the bulk archive), of
+  `?application=` on `/antibodies/`, of `/not-supportive/`'s applications and
+  of `/gene-progress/`'s `applications`. A new key is invisible to a parser
+  that does not ask for it; **a new enum value is not**, which is why this is a
+  version bump: a client generated strictly from `openapi.json` should be
+  regenerated, and a client that switches on the application should decide
+  what to do with IHC rather than meet it.
+- **An IHC recommendation counts towards a gene being curated**, like any other.
+  On a gene whose only recommendation is for IHC, an unflagged figure in
+  another application now reads `not_supportive` rather than `not_tested` —
+  the gene has been assessed, and that figure was not picked.
+- **`embed_urls` has no `IHC` key yet.** The embed card has no IHC view, so
+  `?application=IHC` there draws the all-applications card.
+- `/genes/`: `recommendations_by_application` gains `IHC`, and
+  `experiment_count` counts IHC figures.
+
+**Manifest body version 5.** No column changed; the rows now include IHC
+figures, and the bump is how a client holding an ETag learns that the scope did.
+
+Nothing was removed or renamed. Every field any response carried on 25
+September it still carries, with the same meaning.
 
 ### 2.1.0 — 14 September 2026
 

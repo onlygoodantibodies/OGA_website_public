@@ -58,7 +58,16 @@ _RESULT_REL = {
     "IP": "ip_results",
     "ICC-IF": "if_results",
     "FC": "fc_results",
+    # IHC readings at the bench since 26 Sep 2026 (PLATFORM_ROADMAP #102).
+    "IHC": "ihc_results",
 }
+
+
+def _readings(antibody, application):
+    """How many readings of this application are on file — 0 where the
+    application has no result model."""
+    rel = _RESULT_REL.get(application)
+    return getattr(antibody, rel).using(DB).count() if rel else 0
 
 
 class Command(BaseCommand):
@@ -169,8 +178,8 @@ class Command(BaseCommand):
 
             # Whether the readings agree — the evidence that the figure, and not
             # the label on the readings, is the thing that is wrong.
-            here = getattr(ab, _RESULT_REL[from_app]).using(DB).count()
-            there = getattr(ab, _RESULT_REL[to_app]).using(DB).count()
+            here = _readings(ab, from_app)
+            there = _readings(ab, to_app)
             self.stdout.write(
                 f"      readings on file: {there} {to_app}, {here} {from_app}")
             if here and not there:

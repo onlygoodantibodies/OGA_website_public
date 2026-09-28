@@ -27,6 +27,23 @@
   link present in the markup and none of it visible, which is why the
   source-level chrome test passed (twentieth field test).{% endcomment %}
   #out-preview.out-hidden { display: none; }
+  #withdraw-bar.out-hidden, #withdraw-panel.out-hidden { display: none; }
+  #withdraw-bar { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .withdraw-btn { background: #b91c1c; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+  .withdraw-btn:disabled { background: #d4d4d8; color: #52525b; cursor: not-allowed; }
+  .withdraw-why { font-size: .82rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; max-width: 52ch; }
+  #withdraw-panel { position: fixed; inset: 0; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 20px; }
+  .withdraw-card { background: #fff; border-radius: 10px; padding: 22px; max-width: 34rem; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .withdraw-card h2 { margin: 0 0 12px; font-size: 1.15rem; }
+  .withdraw-card ul { margin: 0 0 12px; padding-left: 1.2rem; font-size: .9rem; list-style: disc; }
+  .withdraw-note { font-size: .85rem; color: #475569; margin: 0 0 16px; }
+  .withdraw-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .withdraw-cancel { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 14px; font-size: .9rem; cursor: pointer; }
+  .public-line { margin-top: 8px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--grey-bg); font-size: 0.8rem; }
+  .public-line small { display: block; text-transform: uppercase; letter-spacing: .05em; font-size: 0.65rem; color: var(--muted); }
+  .public-line.tone-supportive { background: var(--green-bg); border-color: var(--green); }
+  .public-line.tone-qualified { background: var(--amber-bg); border-color: var(--amber); }
+  .public-line.tone-not-supportive { background: var(--red-bg); border-color: var(--red); }
   #out-banner.out-hidden { display: none; }
   .out-hidden { display: none; }
 
@@ -53,12 +70,15 @@
   .axis-btns button, .rec-btns button { flex: 1; font-family: inherit; font-size: 0.78rem; padding: 5px 4px; border: 1px solid var(--border); border-radius: 5px; background: #fff; color: #555; cursor: pointer; }
   .axis-btns button:hover:not(:disabled), .rec-btns button:hover:not(:disabled) { border-color: var(--mid); }
   .axis-btns button:disabled { cursor: default; opacity: 0.75; }
-  .axis-btns button.on-yes, .rec-btns button.on-yes { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
-  .axis-btns button.on-no, .rec-btns button.on-no { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
-  .axis-btns button.on-unclear { background: #f3f4f6; border-color: #9ca3af; color: #4b5563; font-weight: 700; }
-  .axis-btns button.on-no_selective_signal { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
-  .axis-btns button.on-selective { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); font-weight: 700; }
-  .axis-btns button.on-strongly_selective { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
+  .rec-btns button.on-yes { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
+  .rec-btns button.on-no { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
+  /* An axis button is coloured by whether its answer is good news, which the
+     server decides (outcomes.tone_of) — never by its word: "No" non-specific
+     background is the clean result. */
+  .axis-btns button.tone-good { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
+  .axis-btns button.tone-qualified { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+  .axis-btns button.tone-bad { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
+  .axis-btns button.tone-neutral { background: #f3f4f6; border-color: #9ca3af; color: #4b5563; font-weight: 700; }
   .axis-why { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
   .axis-why.conflict { color: var(--amber); font-weight: 600; }
 
@@ -113,13 +133,21 @@
     nothing else being there with it — while immunofluorescence has one measured
     number and immunoprecipitation one call. Most of the dataset sits in between
     the two verdicts a boolean can hold.
-    {% comment %}A page must say what a control does before somebody presses it,
-    and this one writes to a table nothing public reads yet. Saying so here is
-    the difference between a scientist judging freely and a scientist worrying
-    they have just changed the website.{% endcomment %}
-    Nothing here changes the public site: the recommendations shown on each card
-    stay in charge until the browser extension and the API are built to carry
-    this.
+    Flow cytometry records no outcome, so there the one thing to judge is a
+    caveat on a recommended antibody: <b>non-specific background</b>.
+    Immunohistochemistry is judged by eye from the HAP1 pellet figure:
+    staining in wild-type cells and none in the knockout is <b>selective</b>;
+    in a mosaic pellet, stained and unstained cells share one field.
+    {% comment %}A page must say what a control does before somebody presses it.
+    This used to say nothing here reached the public site, which stopped being
+    true when the public pages began reading these answers (29 Aug 2026) and was
+    never true of the recommendation buttons. Saying it wrongly is the
+    difference between a scientist judging carefully and a scientist believing
+    nothing they press matters.{% endcomment %}
+    <b>Everything here is live on the public gene page</b>: the recommendation
+    and the answers under each figure are what it prints, and the line at the
+    foot of each card is that wording. This page replaced Set recommendations,
+    and a gene is withdrawn from the public site from here.
   </p>
 
   <div class="out-stats">
@@ -146,6 +174,36 @@
     <span class="gene-stats" id="out-gene-stats"></span>
   </div>
 
+  {% comment %}Withdrawing a gene from the public site. Here because this is the
+  screen where a gene's figures are judged — "none of this should be public
+  yet" belongs beside "this is the antibody to buy". A manifest, not a wall: the
+  panel says what goes before it goes, and the count it prints goes back as
+  `count` so a set that grew underneath it is refused. Disabled with the reason
+  ON THE PAGE, never on a title.{% endcomment %}
+  <div id="withdraw-bar" class="out-hidden">
+    <button type="button" id="withdraw-open" class="withdraw-btn">
+      Withdraw this gene from the public site
+    </button>
+    <span id="withdraw-why" class="withdraw-why"></span>
+  </div>
+
+  <div id="withdraw-panel" class="out-hidden" role="dialog" aria-modal="true"
+       aria-labelledby="withdraw-title">
+    <div class="withdraw-card">
+      <h2 id="withdraw-title">Withdraw <span id="withdraw-gene"></span>?</h2>
+      <div id="withdraw-manifest"></div>
+      <p class="withdraw-note">
+        This is not a delete. The figures go back to the
+        <a href="{% url 'pipeline:review_queue' %}">review queue</a>, where they
+        can be released again once the question is settled.
+      </p>
+      <div class="withdraw-actions">
+        <button type="button" id="withdraw-cancel" class="withdraw-cancel">Cancel</button>
+        <button type="button" id="withdraw-confirm" class="withdraw-btn"></button>
+      </div>
+    </div>
+  </div>
+
   <div id="out-banner" class="out-hidden" role="alert"></div>
 
   <div id="out-grid">
@@ -153,7 +211,7 @@
   </div>
 
   <div id="out-preview" class="out-hidden" role="dialog" aria-modal="true" aria-label="Enlarged figure">
-    <img id="out-preview-img" src="" alt="Enlarged western blot figure">
+    <img id="out-preview-img" src="" alt="Enlarged figure">
     <p id="out-preview-caption"></p>
   </div>
 </div>
@@ -168,6 +226,7 @@ const URL_GENES = "{% url 'pipeline:outcome_genes' %}";
 const URL_ANTIBODIES = "{% url 'pipeline:outcome_antibodies' %}";
 const URL_SAVE = "{% url 'pipeline:outcome_save' %}";
 const URL_RECOMMEND = "{% url 'pipeline:outcome_recommend' %}";
+const URL_WITHDRAW = "{% url 'pipeline:outcome_withdraw' %}";
 /* Resolved server-side to the target's own spelling, so `?gene=trpa1` and the
    eight mis-cased symbols still select the right option. Empty when nothing was
    asked for or the request could not be honoured — and in that second case the
@@ -189,6 +248,8 @@ let application = '{{ application|escapejs }}';
 const CONFLICTS = '\u0000conflicts';
 const REVIEW = '\u0000review';
 const UNUSED = '\u0000unused';
+const FCREVIEW = '\u0000fcreview';
+let caveatAxes = [];
 let antibodies = [];
 let changeCount = 0;
 
@@ -219,7 +280,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('out-gaps-only').addEventListener('change', renderGrid);
   document.getElementById('out-preview').addEventListener('click', closePreview);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closePreview(); closeWithdraw(); }
+  });
+  document.getElementById('withdraw-open').addEventListener('click', openWithdraw);
+  document.getElementById('withdraw-cancel').addEventListener('click', closeWithdraw);
+  document.getElementById('withdraw-confirm').addEventListener('click', doWithdraw);
 
   await loadGenes(WANTED_GENE);
 });
@@ -269,6 +335,15 @@ async function loadGenes(wanted) {
       + data.unused_total + ' across every gene';
     sel.appendChild(opt);
   }
+  /* Flow's fast pass: every recommended figure across every gene, the
+     unanswered ones first — the background caveat is only ever set on those. */
+  if (data.fc_total) {
+    const opt = document.createElement('option');
+    opt.value = FCREVIEW;
+    opt.textContent = '\u2605 Recommended for flow \u2014 set the background caveat \u2014 '
+      + data.fc_total + ' across every gene';
+    sel.appendChild(opt);
+  }
   data.genes.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g.name;
@@ -302,6 +377,10 @@ async function loadGene() {
   const gene = document.getElementById('out-gene').value;
   const grid = document.getElementById('out-grid');
   clearBanner();
+  /* Cleared on every load: a button left over from the previous gene would
+     withdraw the gene the reader is no longer looking at. */
+  withdrawInfo = null;
+  drawWithdrawButton();
   if (!gene) {
     antibodies = [];
     grid.innerHTML = '<div class="empty-state">Pick a gene above. The list is ordered by how much is left to judge.</div>';
@@ -312,7 +391,7 @@ async function loadGene() {
   let data;
   try {
     const WORKLIST = {[CONFLICTS]: 'conflicts', [REVIEW]: 'review',
-                      [UNUSED]: 'unused'};
+                      [UNUSED]: 'unused', [FCREVIEW]: 'fcreview'};
     const query = WORKLIST[gene]
       ? '?' + WORKLIST[gene] + '=1&app=' + encodeURIComponent(application)
       : '?gene=' + encodeURIComponent(gene) + '&app=' + encodeURIComponent(application);
@@ -334,6 +413,9 @@ async function loadGene() {
   verdictLabels = data.verdict_labels || verdictLabels;
   axisValues = data.axis_values || {};
   thresholds = data.thresholds || thresholds;
+  caveatAxes = data.caveat_axes || [];
+  withdrawInfo = data.withdraw || null;
+  drawWithdrawButton();
   showGeneStats(data.summary);
   renderGrid();
 }
@@ -365,10 +447,15 @@ function renderGrid() {
   /* Every row on the conflicts list is there because somebody has to look at
      it, and most of them already carry an answer — filtering to "still to
      judge" would empty the screen you just asked for. */
-  const gapsOnly = !conflictsView
+  /* Nor on an application whose only question is a caveat (flow): a caveat
+     is never "still to judge", so the filter would hide every card. */
+  const caveatOnly = AXES.length && AXES.every(a => caveatAxes.includes(a));
+  const gapsOnly = !conflictsView && !caveatOnly
     && document.getElementById('out-gaps-only').checked;
   if (!antibodies.length) {
-    grid.innerHTML = '<div class="empty-state">No published western blot figures for this gene.</div>';
+    grid.innerHTML = '<div class="empty-state">No published '
+      + esc(document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase())
+      + ' figures here.</div>';
     return;
   }
   const shown = gapsOnly ? antibodies.filter(a => a.is_gap) : antibodies;
@@ -411,6 +498,17 @@ function renderCard(ab) {
 
 function renderAxis(ab, axis) {
   const a = ab.axes[axis];
+  /* A caveat on a recommendation, offered only where there is one. Said, not
+     hidden: a control that is merely absent reads as one that does not exist. */
+  if (caveatAxes.includes(axis) && !ab.recommended) {
+    return '<div class="axis-row">'
+      + '<span class="axis-name">' + esc(axisLabels[axis] || axis) + '</span>'
+      + '<div class="axis-why">A caveat on a recommendation — mark this antibody '
+      + 'recommended below to set it.'
+      + (a.value ? ' Currently recorded as “' + esc(verdictLabels[a.value] || a.value)
+                   + '”, which says nothing publicly while it is not recommended.' : '')
+      + '</div></div>';
+  }
   const measured = a.ratio !== null && a.ratio !== undefined;
   /* Every axis is judgeable here, including one the bench answered and one a
      ratio decided. Nothing is disabled and nothing is filtered out: a control
@@ -421,7 +519,8 @@ function renderAxis(ab, axis) {
   const btns = '<div class="axis-btns">' + opts.map(o =>
     '<button type="button" data-ab="' + ab.id + '" data-axis="' + axis + '"'
     + ' data-value="' + esc(o.value) + '"'
-    + (a.value === o.value ? ' class="on-' + esc(o.value) + '"' : '')
+    + (a.value === o.value
+       ? ' class="on-' + esc(o.value) + ' tone-' + esc(o.tone || 'neutral') + '"' : '')
     + '>' + esc(o.label) + '</button>'
   ).join('') + '</div>';
 
@@ -577,7 +676,8 @@ function renderVerdict(ab) {
   const words = ab.verdict
     ? (verdictLabels[ab.verdict] || ab.verdict)
     : (AXES.length > 1 ? 'Both answers needed before this reads as anything.'
-                       : 'Nothing judged yet.');
+       : caveatAxes.includes(AXES[0]) ? 'No caveat set.'
+       : 'Nothing judged yet.');
   const on = v => ' class="' + (ab.recommended === v ? (v ? 'on-yes' : 'on-no') : '') + '"';
   const button = (v, label) =>
     '<button type="button" data-rec="' + ab.id + '" data-rec-value="' + v + '"'
@@ -588,7 +688,13 @@ function renderVerdict(ab) {
     + '<span class="rec-label">Recommended for ' + esc(app) + '?</span>'
     + '<div class="rec-btns">'
     + button(true, 'Recommended') + button(false, 'Not recommended')
-    + '</div></div></div>';
+    + '</div></div>'
+    /* What the public gene page prints, from the server's one reader. */
+    + (ab.public_sentence
+       ? '<div class="public-line tone-' + esc(ab.public_tone || 'none') + '">'
+         + '<small>Public gene page</small><b>' + esc(ab.public_sentence) + '</b></div>'
+       : '')
+    + '</div>';
 }
 
 /* One delegated listener rather than an inline handler per button: a catalogue
@@ -644,6 +750,10 @@ function applySaved(ab, data) {
   ab.verdict = data.verdict;
   ab.is_gap = data.is_gap;
   if ('recommended' in data) ab.recommended = data.recommended;
+  if ('public_sentence' in data) {
+    ab.public_sentence = data.public_sentence;
+    ab.public_tone = data.public_tone;
+  }
   ab.conflict_direction = data.conflict_direction;
   const card = document.getElementById('out-card-' + ab.id);
   if (card) card.outerHTML = renderCard(ab);
@@ -694,12 +804,109 @@ async function save(btn) {
   clearBanner();
 }
 
+/* ── Withdraw this gene from the public site ──────────────────────────────
+   Moved here from Set recommendations. Not a delete — review.withdraw
+   re-stages the crops into the review queue first. The count printed on the
+   button is handed back, and a set that has grown since is refused. */
+let withdrawInfo = null;
+
+function drawWithdrawButton() {
+  const bar = document.getElementById('withdraw-bar');
+  if (!withdrawInfo || !withdrawInfo.figures) { bar.classList.add('out-hidden'); return; }
+  bar.classList.remove('out-hidden');
+  const why = document.getElementById('withdraw-why');
+  document.getElementById('withdraw-open').disabled = !!withdrawInfo.why_not;
+  why.textContent = withdrawInfo.why_not || '';
+  why.style.display = withdrawInfo.why_not ? '' : 'none';
+}
+
+function openWithdraw() {
+  if (!withdrawInfo || withdrawInfo.why_not) return;
+  const w = withdrawInfo;
+  const s = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  document.getElementById('withdraw-gene').textContent = w.gene;
+  const items = ['<li><b>' + s(w.figures, 'published figure', 'published figures')
+    + '</b> come' + (w.figures === 1 ? 's' : '') + ' off the site, across <b>'
+    + s(w.antibodies, 'antibody', 'antibodies') + '</b> ('
+    + esc(w.applications.join(', ')) + ').</li>'];
+  if (w.recommendations) {
+    items.push('<li><b>' + s(w.recommendations, 'recommendation', 'recommendations')
+      + '</b> come off the antibodies and ride back with the figures.</li>');
+  }
+  if (w.already_queued) {
+    items.push('<li><b>' + w.already_queued + '</b> already '
+      + (w.already_queued === 1 ? 'has' : 'have') + ' a newer crop queued; '
+      + 'those crops are left as they are.</li>');
+  }
+  if (w.leaves_public_site) {
+    items.push('<li>This was ' + esc(w.gene) + '\u2019s last published figure, so '
+      + '<b>onlygoodantibodies.co.uk/antibodies/' + esc(w.gene) + '/ stops being a page</b>.</li>');
+  }
+  /* A gene leaving the site takes its IHC page with it: the whole figures
+     are withdrawn in the same press, and counted in the number on the button. */
+  if (w.whole_figures) {
+    items.push('<li><b>' + s(w.whole_figures, 'whole IHC figure', 'whole IHC figures')
+      + '</b> come off ' + esc(w.gene) + '\u2019s IHC page too, back into the review queue.</li>');
+  }
+  document.getElementById('withdraw-manifest').innerHTML = '<ul>' + items.join('') + '</ul>';
+  /* The number on the button is what is being consented to. */
+  document.getElementById('withdraw-confirm').textContent =
+    'Withdraw ' + s(consentCount(w), 'figure', 'figures');
+  document.getElementById('withdraw-panel').classList.remove('out-hidden');
+  document.getElementById('withdraw-cancel').focus();
+}
+
+/* Crops and whole IHC figures together — the sum the server compares. */
+function consentCount(w) {
+  return (w.consent_count !== undefined && w.consent_count !== null)
+    ? w.consent_count : w.figures;
+}
+
+function closeWithdraw() {
+  document.getElementById('withdraw-panel').classList.add('out-hidden');
+}
+
+async function doWithdraw() {
+  if (!withdrawInfo) return;
+  const gene = withdrawInfo.gene;
+  const btn = document.getElementById('withdraw-confirm');
+  btn.disabled = true;
+  let data, resp;
+  try {
+    resp = await fetch(URL_WITHDRAW, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({gene: gene, count: consentCount(withdrawInfo)}),
+    });
+    data = await resp.json();
+  } catch (err) {
+    data = null;
+  }
+  btn.disabled = false;
+  closeWithdraw();
+  if (!resp || !resp.ok || !data || !data.ok) {
+    banner((data && data.error) || ('Could not withdraw ' + gene + '. Nothing was changed.'), true);
+    return;
+  }
+  /* The gene leaves the picker it was chosen from, so the picker is redrawn —
+     and the banner is posted AFTER that redraw, which clears messages. */
+  await loadGenes('');
+  banner(data.gene + ' is off the public website. ' + data.withdrawn + ' figure'
+    + (data.withdrawn === 1 ? '' : 's') + ' now waiting in the review queue, where '
+    + (data.withdrawn === 1 ? 'it' : 'they') + ' can be released again. '
+    + (data.purge_note || ''), false);
+}
+
 function openPreview(id) {
   const ab = antibodies.find(a => a.id === id);
   if (!ab || !ab.image_url) return;
-  document.getElementById('out-preview-img').src = ab.image_url;
+  const img = document.getElementById('out-preview-img');
+  img.src = ab.image_url;
+  img.alt = 'Enlarged ' + document.getElementById('out-app')
+    .selectedOptions[0].textContent.toLowerCase() + ' figure';
   document.getElementById('out-preview-caption').textContent =
-    ab.name + ' — ' + ab.gene + ' western blot';
+    ab.name + ' — ' + ab.gene + ' '
+    + document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase();
   document.getElementById('out-preview').classList.remove('out-hidden');
 }
 function closePreview() {
