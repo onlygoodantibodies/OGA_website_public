@@ -416,8 +416,8 @@ def partners(request):
 def funder_page(request, slug):
     """A curated funder page: the public genes that funder's programmes paid
     for, with the reason on each row. The mapping lives in `core/funders.py`;
-    the genes come from `public_targets`, so nothing appears here before it
-    has a gene page to link to."""
+    the linked genes come from `public_targets`. Genes under way are a second,
+    names-only list (`funders.in_progress`) with nothing about the work itself."""
     from core import funders
     from pipeline.public import control_noun
 
@@ -425,10 +425,13 @@ def funder_page(request, slug):
     if page is None:
         raise Http404("No such funder page")
     rows = funders.rows_for(page)
+    in_progress = funders.in_progress(page)
     return render(request, 'core/funder_page.html', {
         'page': page,
         'rows': rows,
         'count': len(rows),
+        'in_progress': in_progress,
+        'in_progress_count': len(in_progress),
         'antibody_total': sum(r.antibodies for r in rows),
         'controls': control_noun(funders.control_kinds_for(page)),
     })
@@ -517,6 +520,52 @@ def data_access(request):
         'licence_name': R.LICENCE_NAME,
         'licence_url': R.LICENCE_URL,
     })
+
+
+#: A request this often from one address is somebody testing the form. Same
+#: shape and same approximation as ``NOMINATION_LIMIT_PER_HOUR``.
+KEY_REQUEST_LIMIT_PER_HOUR = 5
+
+
+def request_key(request):
+    """Ask for your organisation's portal key — sent at once if your address is theirs.
+
+    ``core/key_requests.py`` decides. The page never shows the key, and says
+    the same thing whether the domain matched or not. The inbox is where the
+    person learns which it was.
+    """
+    from django.core.cache import cache
+    from credentials.institutional import is_free_provider, is_institutional_email
+    from . import key_requests
+
+    form = {'email': (request.GET.get('email') or '').strip(),
+            'name': '', 'organisation': ''}
+    errors = {}
+    if request.method == 'POST':
+        form = {k: (request.POST.get(k) or '').strip()[:200]
+                for k in ('email', 'name', 'organisation')}
+        if not form['email']:
+            errors['email'] = 'Enter your work email address, for example name@abcam.com.'
+        elif is_free_provider(form['email']):
+            errors['email'] = (
+                "That is a personal email address. A key is sent only to an "
+                "address on your organisation's own domain, for example "
+                "name@abcam.com, because the domain is how we know which "
+                "organisation's key is yours.")
+        elif not is_institutional_email(form['email']):
+            errors['email'] = 'That does not look like an email address. For example: name@abcam.com.'
+
+        throttle_key = 'key_request_count:' + _nomination_throttle_key(request)
+        if not errors and cache.get(throttle_key, 0) >= KEY_REQUEST_LIMIT_PER_HOUR:
+            errors['email'] = (
+                'Too many requests from this connection in the last hour. '
+                'Please try again later, or email onlygoodantibodies@gmail.com.')
+        if not errors:
+            cache.set(throttle_key, cache.get(throttle_key, 0) + 1, 3600)
+            key_requests.handle(form['email'], form['name'], form['organisation'])
+            return render(request, 'core/request_key_sent.html', {'email': form['email']})
+
+    return render(request, 'core/request_key.html', {'form': form, 'errors': errors})
 
 
 def api_reference(request):

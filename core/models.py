@@ -95,9 +95,41 @@ class APIConsumer(models.Model):
                   "headline totals and counted separately beneath them.",
     )
 
+    #: The email domains whose people may have this organisation's key sent to
+    #: them without asking us (``core/key_requests.py``). **One key per
+    #: organisation, shared** (owner, 29 Sep 2026): a request from a matching
+    #: address is sent *this* key, never a new one, so a company's staff cannot
+    #: end up on five keys with five review cursors between them.
+    #:
+    #: Exact domains, comma-separated (``abcam.com``); a subdomain of one
+    #: matches too (``uk.abcam.com``). Never a free-mail provider — refused by
+    #: name on save, since ``gmail.com`` here would post the key to anybody.
+    email_domains = models.CharField(
+        max_length=500, blank=True, default='', db_default='',
+        help_text="Comma-separated email domains (e.g. 'abcam.com') whose "
+                  "addresses are sent this organisation's key on request. "
+                  "The key is shared: a request never creates a second one.",
+    )
+
     class Meta:
         verbose_name = "API Consumer"
         verbose_name_plural = "API Consumers"
+
+    def get_email_domains(self):
+        """The domains, lower-cased, blanks and leading ``@`` dropped."""
+        return [d.strip().lower().lstrip('@')
+                for d in (self.email_domains or '').split(',')
+                if d.strip().lstrip('@')]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from credentials.institutional import FREE_EMAIL_DOMAINS
+        free = [d for d in self.get_email_domains() if d in FREE_EMAIL_DOMAINS]
+        if free:
+            raise ValidationError({'email_domains': (
+                f"{', '.join(free)} is a personal email provider, so anybody "
+                "could receive this key. Use the organisation's own domain, "
+                "for example 'abcam.com'.")})
 
     def __str__(self):
         return f"{self.name} ({self.get_consumer_type_display()})"
@@ -279,3 +311,113 @@ class McpUsageDay(models.Model):
 
     def __str__(self):
         return f"{self.date} {self.tool} — {self.client or 'unnamed client'}: {self.count}"
+
+
+class SupplierContact(models.Model):
+    """A person at a manufacturer who is sent that manufacturer's results.
+
+    Hangs off the organisation's one ``APIConsumer``, because the key, the
+    supplier scope and the people are one organisation. ``role`` decides which
+    line of the email they are on; OGA's own copies (``SUPPLIER_MAILING_CC``)
+    are a setting, not rows, so nobody at OGA is ever filed under a company.
+    """
+
+    TO = 'to'
+    CC = 'cc'
+    ROLE_CHOICES = [(TO, 'To'), (CC, 'Cc')]
+
+    consumer = models.ForeignKey(
+        APIConsumer, on_delete=models.CASCADE, related_name='contacts')
+    name = models.CharField(max_length=200, blank=True)
+    email = models.EmailField()
+    role = models.CharField(max_length=2, choices=ROLE_CHOICES, default=TO)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Untick to stop emailing this person without losing the row.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Supplier contact"
+        verbose_name_plural = "Supplier contacts"
+        ordering = ['consumer__name', 'role', 'email']
+        constraints = [
+            models.UniqueConstraint(fields=['consumer', 'email'],
+                                    name='one_contact_row_per_consumer_email'),
+        ]
+
+    def __str__(self):
+        return f"{self.name or self.email} ({self.consumer.name})"
+
+
+class SupplierMailing(models.Model):
+    """One results email that went to one manufacturer — the record *and* the cursor.
+
+    ``fingerprint`` is what the email reported (``{"<antibody>:<app>":
+    support}``, and the pending figures under ``"pending"``), so the next run
+    can say exactly what is new since, and send nothing when nothing is. A
+    row is written only after the send succeeded: a failed send leaves the
+    cursor where it was, so the same news goes out next time rather than
+    never.
+    """
+
+    LAUNCH = 'launch'
+    UPDATE = 'update'
+    KIND_CHOICES = [(LAUNCH, 'First summary'), (UPDATE, 'Update')]
+
+    consumer = models.ForeignKey(
+        APIConsumer, on_delete=models.CASCADE, related_name='mailings')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    sent_at = models.DateTimeField(default=timezone.now, db_index=True)
+    subject = models.CharField(max_length=300)
+    recipients = models.TextField(help_text="To, then Cc, as sent.")
+    attachment = models.CharField(max_length=200, blank=True)
+    antibodies = models.PositiveIntegerField(default=0)
+    not_supportive = models.PositiveIntegerField(default=0)
+    changes = models.PositiveIntegerField(
+        default=0, help_text="Results new or changed since the previous email.")
+    fingerprint = models.JSONField(default=dict)
+
+    class Meta:
+        verbose_name = "Supplier mailing"
+        verbose_name_plural = "Supplier mailings"
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"{self.consumer.name} — {self.get_kind_display()} {self.sent_at:%d %b %Y}"
+
+
+class KeyRequest(models.Model):
+    """Somebody asked for their organisation's key at ``/data-access/key/``.
+
+    Kept so "who has been sent our key" has an answer, and so an address we
+    did not recognise is a row somebody can act on rather than an email that
+    scrolled away.
+    """
+
+    SENT = 'sent'
+    UNMATCHED = 'unmatched'
+    REFUSED = 'refused'
+    FAILED = 'failed'
+    OUTCOME_CHOICES = [
+        (SENT, "Key emailed — the address is on the organisation's domain"),
+        (UNMATCHED, "No organisation on file for this domain — passed to OGA"),
+        (REFUSED, "Personal email provider — refused"),
+        (FAILED, "Matched, but the email could not be sent"),
+    ]
+
+    email = models.EmailField()
+    name = models.CharField(max_length=200, blank=True)
+    organisation = models.CharField(max_length=200, blank=True)
+    consumer = models.ForeignKey(
+        APIConsumer, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='key_requests')
+    outcome = models.CharField(max_length=10, choices=OUTCOME_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Key request"
+        verbose_name_plural = "Key requests"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.email} — {self.get_outcome_display()}"

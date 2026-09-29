@@ -23,6 +23,7 @@ urlpatterns = [
     path('using-the-data/', views.using_the_data, name='using_the_data'),
     path('data-access/', views.data_access, name='data_access'),
     path('data-access/api/', views.api_reference, name='api_reference'),
+    path('data-access/key/', views.request_key, name='request_key'),
     path('antibodies/<str:gene_name>/', views.antibody_table, name='antibody_table'),
     # The gene's whole IHC figures. `<str:>` never matches `/`, so this cannot
     # be read as a gene called "PPP2R5D/ihc".

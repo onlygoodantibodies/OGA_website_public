@@ -66,6 +66,32 @@ class MjffPageTests(TestCase):
         Antibody.objects.create(
             target=cls.pink1, company=company, catalogue_number="BC100-494")
 
+        # MJFF-funded, nominated, nothing on file: not promised as under way.
+        cls.lrrk2 = Target.objects.create(
+            protein_name="LRRK2", gene_name="LRRK2")
+        TargetNomination.objects.create(target=cls.lrrk2, granting_agency=mjff)
+
+        # MJFF-funded, reagents on file, but cancelled.
+        cls.snca = Target.objects.create(
+            protein_name="Alpha-synuclein", gene_name="SNCA",
+            granting_agency=mjff, status="cancelled")
+        Antibody.objects.create(
+            target=cls.snca, company=company, catalogue_number="SNCA-1")
+
+        # Access status "published" over a preliminary Zenodo report, figures
+        # unreleased: still under way, so listed (ATP13A2 on live, 29 Sep 2026).
+        cls.atp13a2 = Target.objects.create(
+            protein_name="ATPase 13A2", gene_name="ATP13A2",
+            granting_agency=mjff, status="published")
+        Antibody.objects.create(
+            target=cls.atp13a2, company=company, catalogue_number="ATP-1")
+
+        # Another funder's gene, under way.
+        cls.app = Target.objects.create(
+            protein_name="APP", gene_name="APP", project=ad, granting_agency=nih)
+        Antibody.objects.create(
+            target=cls.app, company=company, catalogue_number="APP-1")
+
         # Public, but another funder's gene.
         cls.mapt = Target.objects.create(
             protein_name="Tau", gene_name="MAPT", project=ad, granting_agency=nih)
@@ -99,8 +125,37 @@ class MjffPageTests(TestCase):
         self.assertIn("4 antibodies", html)
         for gene in ("PRKN", "BECN1", "CTSB"):
             self.assertIn(reverse("antibody_table", kwargs={"gene_name": gene}), html)
-        for gene in ("PINK1", "MAPT"):
+        self.assertNotIn("MAPT", html)
+        self.assertNotIn(
+            reverse("antibody_table", kwargs={"gene_name": "PINK1"}), html)
+
+    # --- in progress (names only) ---
+
+    def test_in_progress_is_funded_with_an_antibody_and_not_public(self):
+        # Not LRRK2 (no antibody), SNCA (cancelled), APP (another funder) or
+        # any public gene.
+        self.assertEqual(funders.in_progress(MJFF),
+                         [("ATP13A2", "ATPase 13A2"), ("PINK1", "PINK1")])
+
+    def test_in_progress_names_the_gene_and_nothing_about_the_work(self):
+        resp = self.client.get(self.url)
+        html = resp.content.decode()
+        self.assertEqual(resp.context["in_progress_count"],
+                         len(resp.context["in_progress"]))
+        self.assertIn("In progress", html)
+        self.assertIn("2 more</span> in progress", html)
+        self.assertIn('<span class="fp-progress-gene">PINK1</span>', html)
+        self.assertNotIn("BC100-494", html)  # its logged antibody
+        self.assertNotIn(
+            reverse("antibody_table", kwargs={"gene_name": "ATP13A2"}), html)
+        for gene in ("LRRK2", "SNCA", "APP<"):
             self.assertNotIn(gene, html)
+
+    def test_no_in_progress_section_when_there_is_none(self):
+        Antibody.objects.filter(target__in=(self.pink1, self.atp13a2)).delete()
+        html = self.client.get(self.url).content.decode()
+        self.assertNotIn("In progress", html)
+        self.assertNotIn("more</span> in progress", html)
 
     def test_the_page_carries_the_mjff_logo_with_alt_text(self):
         html = self.client.get(self.url).content.decode()

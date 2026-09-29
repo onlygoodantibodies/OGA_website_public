@@ -15,10 +15,18 @@ Leicester's work was built and withdrawn the same day.
 
 Two rules, both inherited.
 
-**Only public genes.** The list is drawn from ``pipeline.public.public_targets``,
-so a target that is funded, nominated and half-way through the bench does not
-appear until a figure is released. A gene listed here is one with a page to go
-to.
+**Only public genes in the main list.** It is drawn from
+``pipeline.public.public_targets``, so a gene listed there is one with a page to
+go to.
+
+**In progress is a second list, and it is names only** (29 Sep 2026, asked for
+by MJFF — "so folks know what is coming down the pipeline"). A funded gene
+whose work has started and that has no public page yet is listed by symbol and
+protein name, with no link, no antibody count, no supplier and no result: the
+supplier-scoped rule in ``core/api_pipeline.py`` still holds for everything
+*about* the unpublished work. A gene is listed once at least one antibody is
+logged against it (``in_progress``). The two lists cannot share a gene: one is
+``public_targets``, the other excludes it.
 
 **Both columns, like ``targets.sites_of``.** The funder and project live on the
 ``Target`` row (written once by the 2019 import and dead for writes since) *and*
@@ -71,13 +79,9 @@ MJFF = FunderPage(
 PAGES: dict[str, FunderPage] = {p.slug: p for p in (MJFF,)}
 
 
-def funder_targets(page: FunderPage):
-    """The public genes on a funder's page — one row per target, by symbol.
-
-    Membership is a matching label on the ``Target`` row or on any of its
-    nominations. ``Exists`` rather than a join on nominations keeps it one row
-    per target, so ``.count()`` and the drawn list cannot disagree.
-    """
+def _funded_q(page: FunderPage) -> Q:
+    """A matching label on the ``Target`` row or on any of its nominations.
+    ``Exists`` rather than a join keeps it one row per target."""
     from pipeline.models import TargetNomination
 
     labelled = (Q(project__name__in=page.projects)
@@ -86,13 +90,45 @@ def funder_targets(page: FunderPage):
         target_id=OuterRef("pk")).filter(
         Q(project__name__in=page.projects)
         | Q(granting_agency__name__in=page.agencies))
+    return labelled | Q(Exists(nominated))
+
+
+def funder_targets(page: FunderPage):
+    """The public genes on a funder's page — one row per target, by symbol.
+
+    Membership is a matching label on the ``Target`` row or on any of its
+    nominations. ``Exists`` rather than a join on nominations keeps it one row
+    per target, so ``.count()`` and the drawn list cannot disagree.
+    """
     return (public_targets()
-            .filter(labelled | Q(Exists(nominated)))
+            .filter(_funded_q(page))
             .annotate(published_antibody_count=Count(
                 "antibodies",
                 filter=Q(antibodies__publication_images__isnull=False),
                 distinct=True))
             .order_by("gene_name"))
+
+
+def in_progress(page: FunderPage) -> list[tuple[str, str]]:
+    """``(gene, protein)`` for the funder's genes under way and not yet public.
+
+    Under way means **at least one antibody logged** (owner, 29 Sep 2026) —
+    so a gene with only a preliminary Zenodo report (ATP13A2) is here,
+    and a nomination nothing has arrived for is not. Cancelled and on-hold are
+    left out: those are decisions somebody took, and this list is a promise.
+    Names only, by design — see the module docstring. The count on the page is
+    ``len()`` of this list.
+    """
+    from pipeline.models import Antibody
+    from pipeline.public import unpublished_targets
+
+    logged = Antibody.objects.filter(target_id=OuterRef("pk"))
+    return list(unpublished_targets()
+                .filter(_funded_q(page))
+                .filter(Exists(logged))
+                .exclude(status__in=("cancelled", "on_hold"))
+                .order_by("gene_name")
+                .values_list("gene_name", "protein_name"))
 
 
 @dataclass

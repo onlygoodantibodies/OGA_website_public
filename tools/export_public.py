@@ -87,6 +87,9 @@ RULES: list[tuple[str, str, str]] = [
      "which read the retired core models and was deleted with them on 23 Aug "
      "2026 -- so this file is a frozen snapshot, and the numbers in it are "
      "the legacy dataset's, not the pipeline's."),
+    ("core/data/supplier_contacts.csv", DROP,
+     "Named people at each manufacturer and their work email addresses -- "
+     "third-party personal data; excluded by the owner's decision, 29 Sep 2026."),
     ("no_recommended_antibodies.csv", DROP,
      "OWNER'S CALL. Named suppliers and catalogue numbers whose reagents "
      "carry no recommendation. Publishable, but it is a negative-result list "
@@ -161,6 +164,10 @@ RULES: list[tuple[str, str, str]] = [
      "Shared test vectors both suites read."),
     ("core/data/europepmc_ne_annotation_schema.json", SHIP,
      "Europe PMC's own published annotation schema, vendored so the test reads it."),
+    ("core/data/europepmc_ne_annotation_schema_github.json", SHIP,
+     "The same schema as it stands in Europe PMC's public validator repository."),
+    ("core/data/europepmc_sentence_annotation_schema_github.json", SHIP,
+     "Europe PMC's sentence-based annotation schema, from the same public repository."),
     ("browser-extension/data/index.json", SHIP, "The published dataset the extension ships with."),
     ("browser-extension/data/aliases.json", SHIP, "Gene alias table, public."),
     ("browser-extension/manifest.json", SHIP, "Extension manifest."),

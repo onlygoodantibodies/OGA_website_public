@@ -303,6 +303,7 @@
   </style>
 </head>
 <body>
+<style>.login-help { margin-top: 16px; font-size: 0.9rem; color: #52627a; line-height: 1.5; }</style>
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">Only Good Antibodies<span> Data Portal</span></div>
@@ -310,6 +311,8 @@
     <input type="text" id="api-key-input" placeholder="API Key (e.g. a1b2c3d4-e5f6-...)" autocomplete="off" spellcheck="false">
     <button class="btn-primary" onclick="connect()">Connect</button>
     <div id="login-error" class="error-msg"></div>
+    <p class="login-help">No key? <a href="{% url 'request_key' %}">Have your company's key emailed to you</a>.
+       There is one per company, and everyone there shares it.</p>
   </div>
 </div>
 <div id="dashboard" class="hidden">

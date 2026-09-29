@@ -65,6 +65,17 @@
 }
 .fp-num { text-align: right; white-space: nowrap; }
 
+.fp-progress { margin-top: 48px; }
+.fp-progress-list {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+}
+.fp-progress-list li {
+  padding: 10px 12px; border: 1px solid #e3eaf5; border-radius: 8px; background: #f7f9fd;
+}
+.fp-progress-gene { font-weight: 700; color: #10428a; display: block; }
+.fp-progress-protein { color: #4a5568; font-size: 0.85rem; }
+
 .fp-empty { padding: 24px; background: #f7f9fd; border-radius: 8px; color: #4a5568; }
 
 @media (max-width: 640px) {
@@ -84,7 +95,8 @@
     <h1>{{ page.name }}</h1>
     <p>{{ page.intro }}</p>
     <p style="margin-top:14px"><span class="fp-count">{{ count }} gene{{ count|pluralize }}</span> with public results ·
-      <span class="fp-count">{{ antibody_total }} antibod{{ antibody_total|pluralize:'y,ies' }}</span> characterised, assessed with {{ controls }}.</p>
+      <span class="fp-count">{{ antibody_total }} antibod{{ antibody_total|pluralize:'y,ies' }}</span> characterised, assessed with {{ controls }}.{% if in_progress_count %}
+      <span class="fp-count">{{ in_progress_count }} more</span> in progress.{% endif %}</p>
   </div>
 </section>
 
@@ -126,6 +138,18 @@
   </table>
   {% else %}
   <p class="fp-empty">No gene on this list has public results yet. Every gene with a published figure appears here automatically.</p>
+  {% endif %}
+
+  {% if in_progress %}
+  <section class="fp-progress" aria-labelledby="fp-progress-heading">
+    <h2 id="fp-progress-heading">In progress</h2>
+    <p class="fp-lede">{{ in_progress_count }} gene{{ in_progress_count|pluralize }} under characterisation now, with no public results yet. Each will appear in the table above, with its own page, once its results are released.</p>
+    <ul class="fp-progress-list">
+      {% for gene, protein in in_progress %}
+      <li><span class="fp-progress-gene">{{ gene }}</span>{% if protein %}<span class="fp-progress-protein">{{ protein }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
   {% endif %}
 
 </main>

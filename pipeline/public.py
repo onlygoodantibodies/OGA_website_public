@@ -15,7 +15,9 @@ extension's gene list. Copies drift; this module exists so there is only one.
 The distinction gets sharper as the pipeline fills up: importing a site's target
 list adds hundreds of `Target` rows for work that has not started. None of those
 are public, and none of them should appear on the site, in the extension, or in
-the MCP dataset until there is a figure behind them.
+the MCP dataset until there is a figure behind them. **One exception, names
+only**: a funder page lists its genes under way by symbol
+(``core/funders.py::in_progress``), with nothing about the work behind them.
 """
 from __future__ import annotations
 

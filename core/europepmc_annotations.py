@@ -60,23 +60,43 @@ of the abstract-only papers, since catalogue numbers live in Methods — gets
 nothing, and the report counts and lists it as such. That is the cost of the
 named-entity rule and it is stated rather than worked around.
 
+**Two routes since 29 Sep 2026, by what Europe PMC holds** (the owner's rule):
+a paper with open-access full text gets the named-entity annotations above; a
+paper held as title and abstract only gets, with ``--abstract-route``, **one**
+sentence-based annotation on its title whose tags name every antibody the
+snapshot says it used. That second kind is the one the review asked us not to
+send, so it goes in its own file (the validator checks one kind per file),
+``--submit`` never sends it, and it waits on Europe PMC agreeing. **Preprints go
+through the journal article they became** (``Preprint of`` on the preprint's
+record): ``PPR`` is not a source the platform takes, and 1,529 of the 3,005
+preprints with a public record have a PubMed version -- 288 of them articles
+the snapshot did not hold.
+
 What the verdicts lose by leaving the tag, the link keeps: the gene page
 focused on the antibody is drawn from the live database, so the reader who
 clicks sees the current result, whatever the annotation's date.
 
 The platform's own validator settles most of what was assumed (29 Sep 2026).
-It is a Python program, not a page — github.com/EuropePMC/EuropePMC-Annotation-
-Validator — and its named-entity schema is vendored at
-``core/data/europepmc_ne_annotation_schema.json``. A row is exactly ``src``,
-``id``, ``provider`` and ``anns``; ``src`` is one of nine codes and ``PPR`` is
-not among them, so preprints (3,006 of the snapshot's 29,207 papers) are left
-out and counted rather than guessed at; ``position`` is a free string whose
-example is ``1.2``, so ``<sentence>.<chunk>`` — sentences numbered from 1 across
-the article in reading order, chunks within the sentence — is a reading it
-allows rather than one it prescribes; every annotation carries a ``type``
-(``ANNOTATION_TYPE``, the type registered with the platform for this provider);
-and a prefix or a postfix is mandatory. ``validate_row`` mirrors all of that, so
-a build refuses to write what the validator would refuse.
+It is a Python program, not a page -- github.com/EuropePMC/EuropePMC-Annotation-
+Validator -- and **it validates against the schema it downloads at run time from
+europepmc.org/docs/ne_annotation_schema.json, not the copy in its repository.
+The two differ** (read from the owner's browser, 29 Sep 2026; the cloud session
+is challenged by Cloudflare there): the live one requires ``position``,
+``exact`` and ``tags`` on every annotation and has no ``type`` field, while the
+repository's requires ``exact``, ``type`` and ``tags``. Both are vendored --
+``core/data/europepmc_ne_annotation_schema.json`` (live, the authority) and
+``..._github.json`` -- and a row must satisfy both, which it does by carrying
+``position`` *and* ``type``: neither schema forbids a key it does not name. A row
+is exactly ``src``, ``id``, ``provider`` and ``anns``; ``src`` is one of nine
+codes and ``PPR`` is not among them, so preprints (3,006 of the snapshot's 29,207
+papers) are left out and counted rather than guessed at; ``position`` is a free
+string whose example is ``1.2``, so ``<sentence>.<chunk>`` -- sentences numbered
+from 1 across the article in reading order, chunks within the sentence -- is a
+reading it allows rather than one it prescribes; a row that is not full text
+takes only the sections Title and Abstract; a prefix or a postfix is mandatory
+(both keys present, since the validator's code reads both); and every row's
+``provider`` must equal the name the validator is run with. ``validate_row``
+mirrors all of that, so a build refuses to write what the validator would refuse.
 
 Two things it does not settle, and the run's ``--check`` prints enough to judge:
 
@@ -137,6 +157,9 @@ FULL_TEXT_SECTIONS = (
     "Competing Interests", "Article",
 )
 DEFAULT_SECTION = "Article"
+#: Every source but full text takes only these two (the submission page:
+#: "For any other article source the possible values are: Title, Abstract").
+ABSTRACT_SECTIONS = ("Title", "Abstract")
 
 #: Characters of the sentence kept either side of the span. The submission
 #: page's examples carry about this much; it is context for a reader, not a
@@ -153,8 +176,11 @@ APPLICATIONS = ("WB", "IP", "IF", "FC")
 #: every row in the file.
 SUBMISSION_KEYS = ("src", "id", "provider", "anns")
 
-#: The ``type`` every named-entity annotation must carry (a required field in
-#: ``core/data/europepmc_ne_annotation_schema.json``). It is the annotation type
+#: The ``type`` every named-entity annotation carries. The schema in the
+#: validator's GitHub repository requires it
+#: (``core/data/europepmc_ne_annotation_schema_github.json``); the one the
+#: validator downloads at run time has no such field and no
+#: ``additionalProperties`` rule, so it is allowed there and required here. It is the annotation type
 #: registered with the platform for this provider, so this word and the word in
 #: the email to annotations@europepmc.org are one word.
 ANNOTATION_TYPE = "antibody"
@@ -589,13 +615,16 @@ def row_for(src, article_id, provider, anns):
     return {"src": src, "id": str(article_id), "provider": provider, "anns": anns}
 
 
-def validate_row(row):
+def validate_row(row, provider=None):
     """Every rule Europe PMC's own validator applies to a named-entity row, as a
-    list of problems; empty means submittable.
+    list of problems; empty means submittable. ``provider`` is the name the
+    validator is run with; left ``None`` (a dry run, which has no id yet) the
+    row's own is only required to be there.
 
     The validator (github.com/EuropePMC/EuropePMC-Annotation-Validator) is a
     Python 2 program that checks each line against ``ne_annotation_schema.json``
-    — vendored at ``core/data/europepmc_ne_annotation_schema.json``, and the
+    — vendored at ``core/data/europepmc_ne_annotation_schema.json`` (the live
+    copy it downloads) beside its repository's ``..._github.json``, and the
     test derives the required keys from that file rather than retyping them —
     plus two rules in its code: the ``provider`` on every row must be the one
     supplied, and an annotation must carry a ``prefix`` or a ``postfix``. Run
@@ -613,6 +642,10 @@ def validate_row(row):
         problems.append("id is empty")
     if not str(row.get("provider") or "").strip():
         problems.append("provider is empty")
+    elif provider is not None and row.get("provider") != provider:
+        # The validator's first rule in code: every row names the provider it
+        # is run with, character for character.
+        problems.append(f"provider {row.get('provider')!r} is not the supplied {provider!r}")
     anns = row.get("anns")
     if not anns:
         problems.append("anns is empty")
@@ -623,12 +656,23 @@ def validate_row(row):
             problems.append(f"{where}.exact is empty")
         if not str(ann.get("type") or "").strip():
             problems.append(f"{where}.type is empty (every annotation carries {ANNOTATION_TYPE!r})")
+        # The validator reads `annotation['prefix'] or annotation['postfix']`,
+        # so a missing key is a KeyError there, not a pass: both keys are
+        # present on every annotation, and at least one is not empty.
+        missing = [k for k in ("prefix", "postfix") if k not in ann]
+        if missing:
+            problems.append(f"{where} lacks {missing}: the validator reads both keys")
         if not (ann.get("prefix") or ann.get("postfix")):
             problems.append(f"{where} has neither prefix nor postfix")
-        if "position" in ann and not re.fullmatch(r"\d+\.\d+", str(ann.get("position") or "")):
+        # Required by the schema the validator downloads (not by its GitHub copy).
+        if "position" not in ann:
+            problems.append(f"{where}.position is missing (the live schema requires it)")
+        elif not re.fullmatch(r"\d+\.\d+", str(ann.get("position") or "")):
             problems.append(f"{where}.position {ann.get('position')!r} is not <sentence>.<chunk>")
-        if ann.get("section") and ann["section"] not in FULL_TEXT_SECTIONS:
-            problems.append(f"{where}.section {ann['section']!r} is not in the vocabulary")
+        allowed = FULL_TEXT_SECTIONS if row.get("src") == "PMC" else ABSTRACT_SECTIONS
+        if ann.get("section") and ann["section"] not in allowed:
+            problems.append(f"{where}.section {ann['section']!r} is not one of {list(allowed)} "
+                            f"for src {row.get('src')!r}")
         tags = ann.get("tags")
         if not tags:
             problems.append(f"{where}.tags is empty")
@@ -690,6 +734,29 @@ def full_text(pmcid, email):
     return fetch_text(FULLTEXT_ENDPOINT.format(pmcid=pmcid), email)
 
 
+def journal_versions_from(payload):
+    """``{preprint id: PubMed id of its journal version, or ""}`` out of one
+    search response. Europe PMC links a preprint to the article it became with
+    a ``commentCorrection`` of type ``Preprint of`` whose source is ``MED``."""
+    out = {}
+    for row in (payload.get("resultList") or {}).get("result") or []:
+        ppr = (row.get("id") or "").strip()
+        if not ppr:
+            continue
+        links = ((row.get("commentCorrectionList") or {}).get("commentCorrection") or [])
+        pmids = [str(c.get("id") or "").strip() for c in links
+                 if c.get("type") == "Preprint of" and c.get("source") == "MED"]
+        out[ppr] = next((p for p in pmids if p.isdigit()), "")
+    return out
+
+
+def search_preprints(ids, email):
+    query = "(" + " OR ".join(f"EXT_ID:{i}" for i in ids) + ") AND SRC:PPR"
+    url = SEARCH_ENDPOINT + "?" + urlencode({"query": query, "format": "json",
+                                             "resultType": "core", "pageSize": PAGE_SIZE})
+    return journal_versions_from(fetch_json(url, email))
+
+
 class Cache:
     """What Europe PMC has already answered, on disk, so a run that stops
     part-way does not ask again. One JSON of records; one XML file per PMC id."""
@@ -703,6 +770,15 @@ class Cache:
         self.records = {}
         if self.records_path.exists():
             self.records = json.loads(self.records_path.read_text(encoding="utf-8"))
+        self.preprints_path = self.directory / "preprints.json"
+        self.preprints = {}
+        if self.preprints_path.exists():
+            self.preprints = json.loads(self.preprints_path.read_text(encoding="utf-8"))
+
+    def save_preprints(self):
+        temporary = self.preprints_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(self.preprints), encoding="utf-8")
+        temporary.replace(self.preprints_path)
 
     def save_records(self):
         temporary = self.records_path.with_suffix(".tmp")
@@ -743,26 +819,88 @@ def papers_with_reagents(artefact, index):
 
 
 def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SECONDS,
-          base_url=None, say=_say, search=search_records, fetch=full_text, sleep=time.sleep):
+          base_url=None, say=_say, search=search_records, fetch=full_text, sleep=time.sleep,
+          preprint_search=search_preprints, sentence_rows=None):
     """Every submittable row, and a report that names what was left out.
 
     Returns ``(rows, report)``. ``report["left_out"]`` is a dict of reason ->
     list of identifiers, printed by the caller: a count with no list under it
-    invents the noun, and here four different nouns share one count.
+    invents the noun, and here several different nouns share one count.
+
+    **Two routes, decided by what Europe PMC holds for the paper** (the owner,
+    29 Sep 2026). A paper with open-access full text gets named-entity
+    annotations wherever an identifier is printed. A paper Europe PMC holds as
+    title and abstract only gets, when ``sentence_rows`` is a list, **one**
+    sentence-based annotation on its title instead, whose tags name every
+    antibody the snapshot says it used -- filled into that list, since the
+    platform validates one annotation kind per file. Left ``None``, an
+    abstract-only paper is annotated only where its abstract prints an
+    identifier, which is what Europe PMC's review of 28 Sep asked for; the
+    title route waits on their agreement.
+
+    **A preprint is annotated through the journal article it became**, which
+    Europe PMC records as ``Preprint of``: its reagents join that PubMed id's,
+    and only an identifier printed in that article is marked, so the
+    preprint's attribution never draws a mark on text that does not name the
+    reagent. A preprint with no journal version is left out and listed; the
+    platform's source list has no ``PPR``.
     """
     base_url = base_url or index.get("source") or "https://onlygoodantibodies.co.uk"
-    left_out = {"preprint": [], "no_public_record": [], "not_in_europe_pmc": [],
-                "text_fetch_failed": [], "identifier_not_printed": []}
+    left_out = {"preprint_no_journal_version": [], "preprint_not_in_europe_pmc": [],
+                "no_public_record": [],
+                "not_in_europe_pmc": [], "text_fetch_failed": [],
+                "identifier_not_printed": [], "no_title_for_abstract_route": []}
     where = {"abstract": [], "full_text": [], "no_open_access_full_text": [],
-             "open_access_not_printed": []}
-    candidates = []
+             "open_access_not_printed": [], "abstract_route": []}
+    preprints = {"via_journal_version": [], "journal_version_added": [],
+                 "journal_version_already_in_snapshot": [], "lookup_failed": []}
+    candidates, pending = {}, []
     for identifier, reagents in papers_with_reagents(artefact, index):
         if not reagents:
             left_out["no_public_record"].append(identifier)
         elif not identifier.isdigit():
-            left_out["preprint"].append(identifier)
+            pending.append((identifier, reagents))
         else:
-            candidates.append((identifier, reagents))
+            candidates[identifier] = list(reagents)
+    failures = 0
+
+    # Preprints: which journal article each became, asked once and cached.
+    unknown = [i for i, _ in pending if i not in cache.preprints]
+    if unknown:
+        say(f"Asking Europe PMC which journal article {len(unknown):,} preprints became...")
+    for batch in _batches(unknown, BATCH):
+        try:
+            found = preprint_search(batch, email)
+        except (HTTPError, URLError, ValueError) as exc:
+            failures += 1
+            say(f"  preprint batch failed ({exc}); continuing")
+            continue
+        for ppr in batch:
+            # None: Europe PMC holds no such preprint. "": it holds it, and
+            # it has not become a journal article. Two facts, listed apart.
+            cache.preprints[ppr] = found.get(ppr)
+        cache.save_preprints()
+        sleep(delay)
+    for ppr, reagents in pending:
+        if ppr not in cache.preprints:
+            preprints["lookup_failed"].append(ppr)
+            continue
+        pmid = cache.preprints[ppr]
+        if pmid is None:
+            left_out["preprint_not_in_europe_pmc"].append(ppr)
+            continue
+        if not pmid:
+            left_out["preprint_no_journal_version"].append(ppr)
+            continue
+        preprints["via_journal_version"].append(ppr)
+        if pmid in candidates:
+            preprints["journal_version_already_in_snapshot"].append(pmid)
+            have = {r["rrid"] for r in candidates[pmid]}
+            candidates[pmid] += [r for r in reagents if r["rrid"] not in have]
+        else:
+            preprints["journal_version_added"].append(pmid)
+            candidates[pmid] = list(reagents)
+    candidates = list(candidates.items())
     if limit:
         candidates = candidates[:limit]
 
@@ -772,7 +910,6 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
     if unknown:
         say(f"Asking Europe PMC about {len(unknown):,} papers "
             f"({len(cache.records):,} already cached)...")
-    failures = 0
     for batch in _batches(unknown, BATCH):
         try:
             found = search(batch, email)
@@ -797,6 +934,18 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
         if not (record.get("title") or record.get("abstract")):
             left_out["not_in_europe_pmc"].append(pmid)
             continue
+        pmcid = record.get("pmcid")
+        has_full_text = bool(pmcid and record.get("open_access"))
+        if not has_full_text and sentence_rows is not None:
+            # Abstract only: one link on the title, naming every antibody.
+            where["no_open_access_full_text"].append(pmid)
+            row = abstract_route_row(record, pmid, provider, reagents, base_url)
+            if row is None:
+                left_out["no_title_for_abstract_route"].append(pmid)
+            else:
+                sentence_rows.append(row)
+                where["abstract_route"].append(pmid)
+            continue
         annotated = False
         # Every paper: the identifiers printed in the title or abstract, on
         # the PubMed record, which is all Europe PMC shows without full text.
@@ -808,8 +957,7 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
             annotated = True
         # Open-access full text: the identifiers printed anywhere in it, on
         # the PMC record, which is the view a reader of the full text is on.
-        pmcid = record.get("pmcid")
-        if pmcid and record.get("open_access"):
+        if has_full_text:
             xml_text = cache.get_text(pmcid)
             if xml_text is None:
                 try:
@@ -852,15 +1000,84 @@ def build(artefact, index, provider, cache, email=None, limit=0, delay=DELAY_SEC
         "papers_annotated": len(set(where["abstract"]) | set(where["full_text"])),
         "rows": len(rows),
         "annotations": sum(len(r["anns"]) for r in rows),
+        "abstract_route_rows": len(sentence_rows) if sentence_rows is not None else None,
         # Named, because a total cannot show one paper carrying thousands: the
         # first run put 2,519 on one article and the total read as plausible.
         "most_annotated": {"id": busiest[1], "annotations": busiest[0]},
         "contextless_spans": contextless,
         "where": where,
+        "preprints": preprints,
         "left_out": left_out,
         "failures": failures,
     }
     return rows, report
+
+
+def abstract_route_row(record, pmid, provider, reagents, base_url):
+    """One sentence-based row for a paper Europe PMC holds as title and
+    abstract only: the title is the sentence, and each antibody the snapshot
+    says the paper used is a tag -- its canonical name, and the page that
+    carries what OGA found. ``None`` when there is no title to anchor on."""
+    title = next((text for section, text in abstract_blocks(record) if section == "Title"), "")
+    if not title:
+        return None
+    tags, seen = [], set()
+    for reagent in reagents:
+        tag = tag_for(reagent, base_url)
+        if tag["uri"] not in seen:
+            seen.add(tag["uri"])
+            tags.append(tag)
+    return row_for("MED", pmid, provider, [{
+        "exact": title, "section": "Title", "type": ANNOTATION_TYPE, "tags": tags}])
+
+
+def validate_sentence_row(row, provider=None):
+    """The validator's rules for a sentence-based row, as a list of problems.
+
+    From ``core/data/europepmc_sentence_annotation_schema_github.json`` and
+    the validator's code: exactly four keys, ``exact`` and ``tags`` on every
+    annotation, ``name`` and ``uri`` on every tag, the provider it is run with,
+    and no ``position``, ``prefix`` or ``postfix`` -- the validator's SENTENCE
+    branch reports those as the other kind's fields. Which copy of this schema
+    it downloads at run time has not been read; the named-entity one differed
+    from its repository copy (DECISIONS.md, 29 Sep 2026).
+    """
+    problems = []
+    extra = sorted(set(row) - set(SUBMISSION_KEYS))
+    if extra:
+        problems.append(f"unexpected key(s) {extra}: a row is exactly {list(SUBMISSION_KEYS)}")
+    if row.get("src") not in SOURCES:
+        problems.append(f"src {row.get('src')!r} is not one of {sorted(SOURCES)}")
+    if not str(row.get("id") or "").strip():
+        problems.append("id is empty")
+    if not str(row.get("provider") or "").strip():
+        problems.append("provider is empty")
+    elif provider is not None and row.get("provider") != provider:
+        problems.append(f"provider {row.get('provider')!r} is not the supplied {provider!r}")
+    anns = row.get("anns")
+    if not anns:
+        problems.append("anns is empty")
+        return problems
+    for i, ann in enumerate(anns):
+        where = f"anns[{i}]"
+        if not ann.get("exact"):
+            problems.append(f"{where}.exact is empty")
+        for key in ("position", "prefix", "postfix"):
+            if key in ann:
+                problems.append(f"{where}.{key} belongs to named-entity rows, not sentence rows")
+        allowed = FULL_TEXT_SECTIONS if row.get("src") == "PMC" else ABSTRACT_SECTIONS
+        if ann.get("section") and ann["section"] not in allowed:
+            problems.append(f"{where}.section {ann['section']!r} is not one of {list(allowed)}")
+        tags = ann.get("tags")
+        if not tags:
+            problems.append(f"{where}.tags is empty")
+            continue
+        for j, tag in enumerate(tags):
+            if not str(tag.get("name") or "").strip():
+                problems.append(f"{where}.tags[{j}].name is empty")
+            if not str(tag.get("uri") or "").startswith("http"):
+                problems.append(f"{where}.tags[{j}].uri is not absolute")
+    return problems
 
 
 def print_report(report, say=_say):
@@ -873,6 +1090,17 @@ def print_report(report, say=_say):
     say(f"    in open-access full text    {len(where['full_text']):>7,}  (src PMC)")
     say(f"  rows                          {report['rows']:>7,}")
     say(f"  annotations                   {report['annotations']:>7,}")
+    if report.get("abstract_route_rows") is not None:
+        say(f"  abstract-only papers linked   {report['abstract_route_rows']:>7,}  (one title "
+            f"link each, in its own file; waits on Europe PMC agreeing to it)")
+    pre = report.get("preprints") or {}
+    if pre.get("via_journal_version"):
+        say(f"  preprints via journal version {len(pre['via_journal_version']):>7,}  "
+            f"({len(pre['journal_version_added']):,} journal articles added, "
+            f"{len(pre['journal_version_already_in_snapshot']):,} already in the snapshot)")
+    if pre.get("lookup_failed"):
+        say(f"  preprints not looked up       {len(pre['lookup_failed']):>7,}  (Europe PMC "
+            f"could not be asked -- rerun)")
     most = report.get("most_annotated") or {}
     if most.get("id"):
         say(f"  most on one article           {most['annotations']:>7,}  ({most['id']} — more "
@@ -883,12 +1111,15 @@ def print_report(report, say=_say):
             f"platform needs text on one side)")
     say("  left out:")
     words = {
-        "preprint": "preprint ids — PPR is not on the platform's source list; ask",
+        "preprint_no_journal_version": ("preprints with no journal version on Europe PMC -- "
+                                        "PPR is not on the platform's source list"),
         "no_public_record": "no antibody with a published OGA figure",
         "not_in_europe_pmc": "Europe PMC returned no record or no title for the PubMed id",
         "text_fetch_failed": "Europe PMC could not be asked, or the text could not be read — rerun",
         "identifier_not_printed": ("CiteAb says the paper used it, but no identifier is printed in "
                                    "any text Europe PMC holds — a named entity needs the characters"),
+        "no_title_for_abstract_route": "abstract-only, and Europe PMC holds no title to link on",
+        "preprint_not_in_europe_pmc": "preprint ids Europe PMC returned no record for",
     }
     for reason, ids in report["left_out"].items():
         sample = ", ".join(ids[:5]) + (" …" if len(ids) > 5 else "")
@@ -987,8 +1218,31 @@ def storage_client(environ=None, driver=None):
             raise SubmissionRefused(
                 "the storage driver is not installed: pip install minio. "
                 "Nothing was sent.") from None
-    endpoint = environ.get(ENDPOINT_VAR) or STORAGE_ENDPOINT
-    return driver(endpoint, access_key=user, secret_key=password, secure=True)
+    endpoint, secure = storage_endpoint(environ.get(ENDPOINT_VAR) or STORAGE_ENDPOINT)
+    return driver(endpoint, access_key=user, secret_key=password, secure=secure)
+
+
+def storage_endpoint(value):
+    """``(host[:port], secure)`` from the endpoint as Europe PMC may write it.
+
+    The client takes a bare ``host[:port]`` and raises "path in endpoint is not
+    allowed" on ``https://annotations.europepmc.org`` -- the form an email
+    naturally gives it in. A scheme decides ``secure``; anything carrying a
+    path is refused by name, since guessing which part is the host is how an
+    upload goes somewhere nobody chose.
+    """
+    text = (value or "").strip()
+    secure = True
+    for scheme, is_secure in (("https://", True), ("http://", False)):
+        if text.lower().startswith(scheme):
+            text, secure = text[len(scheme):], is_secure
+            break
+    text = text.rstrip("/")
+    if not text or "/" in text or "://" in text:
+        raise SubmissionRefused(
+            f"{ENDPOINT_VAR} is {value!r}; it must be a host, optionally with a port "
+            f"(e.g. {STORAGE_ENDPOINT} or https://{STORAGE_ENDPOINT}:9000). Nothing was sent.")
+    return text, secure
 
 
 def submit(path, client, say=_say):
@@ -1143,6 +1397,10 @@ def main(argv=None):
                               f"and the minio package. This is the act that publishes."))
     parser.add_argument("--submit-file", default=None, metavar="PATH",
                         help="Upload an already-built file and stop.")
+    parser.add_argument("--abstract-route", action="store_true",
+                        help=("Give each abstract-only paper one link on its title, naming its "
+                              "antibodies, in a separate file. Not yet agreed with Europe PMC, "
+                              "so --submit never sends that file."))
     parser.add_argument("--results", nargs="?", const="", default=None, metavar="NAME",
                         help="Print what the platform said about NAME (or list every result) and stop.")
     args = parser.parse_args(argv)
@@ -1157,6 +1415,11 @@ def main(argv=None):
         except SubmissionRefused as exc:
             print(exc, file=sys.stderr)
             return 2
+
+    if args.submit and not args.apply:
+        print("--submit needs --apply: there is no file to send from a dry run. "
+              "Nothing was sent.", file=sys.stderr)
+        return 2
 
     path = Path(args.artefact) if args.artefact else ARTEFACT
     if not path.exists():
@@ -1182,11 +1445,16 @@ def main(argv=None):
         return 2
     out_dir = Path(args.out)
     cache = Cache(args.cache or out_dir / "cache")
+    sentences = [] if args.abstract_route else None
     rows, report = build(artefact, index, args.provider or "<provider>", cache,
-                         email=args.email, limit=args.limit, delay=args.delay)
+                         email=args.email, limit=args.limit, delay=args.delay,
+                         sentence_rows=sentences)
     print_report(report)
 
-    problems = [(row["id"], p) for row in rows for p in validate_row(row)]
+    checked = args.provider if args.apply else None
+    problems = [(row["id"], p) for row in rows for p in validate_row(row, checked)]
+    problems += [(row["id"], p) for row in sentences or []
+                 for p in validate_sentence_row(row, checked)]
     if problems:
         _say(f"\n{len(problems)} row(s) would fail the platform's rules; nothing written:")
         for article_id, problem in problems[:20]:
@@ -1197,10 +1465,15 @@ def main(argv=None):
              f"into {out_dir}/. Europe PMC's answers are cached in {cache.directory}/, "
              f"so that costs no more requests.")
         return 0
-    stem = f"oga_annotations.{time.strftime('%Y_%m_%d_%H%M')}"
-    written = write_files(rows, out_dir, stem)
+    stamp = time.strftime('%Y_%m_%d_%H%M')
+    written = write_files(rows, out_dir, f"oga_annotations.{stamp}")
     for w in written:
         _say(f"Wrote {w} ({w.stat().st_size:,} bytes)")
+    if sentences:
+        # Its own file: the validator checks one annotation kind per file.
+        for w in write_files(sentences, out_dir, f"oga_abstract_route.{stamp}"):
+            _say(f"Wrote {w} ({w.stat().st_size:,} bytes) -- the abstract-only title links. "
+                 f"Not sent by --submit; Europe PMC have not agreed to this route yet.")
     to_send = submission_file(written)
     if not args.submit:
         _say(f"Not sent. Upload {to_send.name} to the 'submissions' folder of the "

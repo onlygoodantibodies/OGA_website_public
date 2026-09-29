@@ -169,6 +169,9 @@ class AdminStillOpensTests(TestCase):
         self.client.post(reverse('admin:core_apiconsumer_add'), {
             'name': 'Smoke Co', 'consumer_type': 'rrid', 'tier': 'free',
             'is_active': 'on',
+            # The supplier-contacts inline's management form, which the page
+            # always sends; without it the whole add is refused.
+            'contacts-TOTAL_FORMS': '0', 'contacts-INITIAL_FORMS': '0',
         })
         self.assertTrue(APIConsumer.objects.filter(name='Smoke Co').exists())
         self.assertTrue(LogEntry.objects.exists())

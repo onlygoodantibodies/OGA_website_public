@@ -105,12 +105,15 @@ curl https://onlygoodantibodies.co.uk/api/v1/antibodies/</code></div>
                your own products, and returns only what has changed since your
                last sync. It also opens the data portal and the per-gene
                competitor view.</p>
-            <p>Email us saying who you are and what you would like to do with
-               the data, and we will set one up.</p>
+            <p><strong>Manufacturers:</strong> enter your work email and, if
+               your company has a key with us, it is emailed to you straight
+               away. There is one key per company, shared by everyone there.
+               Registries and data partners: email us saying who you are and
+               what you would like to do with the data.</p>
             <div class="da-cta-row">
+                <a href="{% url 'request_key' %}" class="learn-more-button">Request your company's key</a>
                 <a href="mailto:onlygoodantibodies@gmail.com?subject=Data%20portal%20and%20API%20access"
-                   class="learn-more-button">Request a key</a>
-                <a href="{% url 'contact' %}" class="learn-more-button">Contact form</a>
+                   class="learn-more-button">Email us</a>
             </div>
         </div>
     </section>
@@ -331,8 +334,7 @@ wget -i urls.txt -P images/</code></div>
            report behind it.</p>
         <p>If anything here does not match what the API does, please tell us.</p>
         <div class="da-cta-row">
-            <a href="mailto:onlygoodantibodies@gmail.com?subject=Data%20portal%20and%20API%20access"
-               class="learn-more-button">Request a key</a>
+            <a href="{% url 'request_key' %}" class="learn-more-button">Request your company's key</a>
             <a href="{% url 'using_the_data' %}" class="learn-more-button">How to read the figures</a>
         </div>
     </section>

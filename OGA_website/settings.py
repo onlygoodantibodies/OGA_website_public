@@ -584,6 +584,13 @@ EMAIL_HOST_USER = 'onlygoodantibodies@gmail.com'
 # up); it does NOT crash the app. Must be set in Render before deploying.
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
+# Copied on every manufacturer results email (`manage.py supplier_mailing`):
+# the owner and Carl Laflamme (29 Sep 2026). Comma-separated override in the
+# environment, so a change of person is not a deploy.
+SUPPLIER_MAILING_CC = [a.strip() for a in os.environ.get(
+    'SUPPLIER_MAILING_CC', 'hsv6@leicester.ac.uk,carl.laflamme@mcgill.ca',
+).split(',') if a.strip()]
+
 ####################
 ## Todo: Fix this ##
 ####################

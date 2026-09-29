@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request your portal key — Only Good Antibodies</title>
+    <meta name="description" content="Antibody manufacturers: have your organisation's Only Good Antibodies data portal key emailed to your work address.">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+    {% comment %}
+      Every rule is prefixed `rk-` and scoped to this page — see data_access.html
+      for why a page stylesheet never borrows a shared class name.
+    {% endcomment %}
+    <style>
+      .rk-form label { display: block; font-weight: 700; margin: 1rem 0 0.3rem; }
+      .rk-form input { width: 100%; max-width: 420px; padding: 10px 12px; font-size: 1rem;
+                       border: 1px solid #c8d6ea; border-radius: 6px; box-sizing: border-box; }
+      .rk-hint { color: #52627a; font-size: 0.88rem; margin-top: 0.25rem; }
+      .rk-error { color: #b91c1c; font-weight: 600; margin-top: 0.35rem; }
+      .rk-actions { margin-top: 1.4rem; }
+      .rk-note { background: #f4f8fd; border-left: 4px solid #10428a;
+                 padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 1.2rem 0; }
+    </style>
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+{% include 'core/header.html' %}
+
+<section class="banner about-banner">
+    <div class="banner-text"><h2>Request your portal key</h2></div>
+</section>
+
+<section class="edu-container">
+  <section class="card edu-content">
+    <h2>For antibody manufacturers</h2>
+    <p>Enter your work email address. If your company already has a key with
+       us, we email it to you straight away. It is scoped to your company's
+       own products.</p>
+    <div class="rk-note">
+      <p><strong>Your company has one key, and everyone there shares it.</strong>
+         Asking again, or a colleague asking, sends the same key. It does not
+         make a new one.</p>
+    </div>
+    <form method="post" class="rk-form" novalidate>
+      {% csrf_token %}
+      <label for="rk-email">Work email</label>
+      <input type="email" id="rk-email" name="email" value="{{ form.email }}"
+             autocomplete="email" placeholder="name@yourcompany.com" required>
+      <div class="rk-hint">It must be on your company's own domain. Personal addresses such as Gmail cannot receive a key.</div>
+      {% if errors.email %}<div class="rk-error" role="alert">{{ errors.email }}</div>{% endif %}
+      <label for="rk-name">Your name <span class="rk-hint">(optional)</span></label>
+      <input type="text" id="rk-name" name="name" value="{{ form.name }}" autocomplete="name">
+      <label for="rk-org">Company <span class="rk-hint">(optional; helps us if your domain is not on file yet)</span></label>
+      <input type="text" id="rk-org" name="organisation" value="{{ form.organisation }}" autocomplete="organization">
+      <div class="rk-actions">
+        <button type="submit" class="learn-more-button">Email me our key</button>
+      </div>
+    </form>
+    <p class="rk-hint" style="margin-top:1.5rem">Not a manufacturer? Registries and data
+       partners can <a href="mailto:onlygoodantibodies@gmail.com?subject=Data%20portal%20and%20API%20access">email us</a>.
+       Two of the API's feeds need no key at all. See <a href="{% url 'data_access' %}">Data Portal &amp; API</a>.</p>
+  </section>
+</section>
+
+<div class="footer-wrapper">
+    {% include 'core/footer.html' with footer_class="footer-publications" %}
+</div>
+</body>
+</html>

@@ -1,11 +1,19 @@
 from django.contrib import admin, messages
 from django.db.models import F
 
-from .models import APIConsumer, ApiUsageDay, McpUsageDay
+from .models import (APIConsumer, ApiUsageDay, KeyRequest, McpUsageDay,
+                     SupplierContact, SupplierMailing)
+
+
+class SupplierContactInline(admin.TabularInline):
+    model = SupplierContact
+    extra = 1
+    fields = ('name', 'email', 'role', 'is_active')
 
 
 @admin.register(APIConsumer)
 class APIConsumerAdmin(admin.ModelAdmin):
+    inlines = [SupplierContactInline]
     list_display = ('name', 'consumer_type', 'tier', 'supplier_filter', 'gene_filter', 'api_key', 'last_queried_at', 'is_active', 'is_internal')
     list_filter = ('consumer_type', 'tier', 'is_active', 'is_internal')
     readonly_fields = ('api_key', 'last_queried_at', 'created_at')
@@ -13,7 +21,7 @@ class APIConsumerAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'consumer_type', 'tier', 'supplier_filter', 'gene_filter', 'is_active', 'is_internal')
+            'fields': ('name', 'consumer_type', 'tier', 'supplier_filter', 'email_domains', 'gene_filter', 'is_active', 'is_internal')
         }),
         # A field a write path fills must be drawn on some screen. The portal
         # has written this since it was added and no admin screen showed it, so
@@ -141,3 +149,27 @@ class McpUsageDayAdmin(admin.ModelAdmin):
             f"{moved} call{'' if moved == 1 else 's'} moved across and that row "
             f"now holds {twin.count}. Nothing was lost.",
             messages.WARNING)
+
+
+@admin.register(SupplierMailing)
+class SupplierMailingAdmin(admin.ModelAdmin):
+    """What each manufacturer was sent. Read-only: it is the record, and the
+    cursor the next update is measured from. Deleting a row makes the next
+    run treat the organisation as never emailed."""
+    list_display = ('consumer', 'kind', 'sent_at', 'antibodies', 'not_supportive', 'changes')
+    list_filter = ('kind', 'consumer')
+    readonly_fields = [f.name for f in SupplierMailing._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(KeyRequest)
+class KeyRequestAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'email', 'organisation', 'consumer', 'outcome')
+    list_filter = ('outcome',)
+    search_fields = ('email', 'organisation')
+    readonly_fields = [f.name for f in KeyRequest._meta.fields]
+
+    def has_add_permission(self, request):
+        return False

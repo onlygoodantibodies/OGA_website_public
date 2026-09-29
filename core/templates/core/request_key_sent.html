@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key request received — Only Good Antibodies</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+</head>
+<body class="no-wobble">
+{% include 'core/cookie_banner.html' %}
+<script src="{% static 'core/script.js' %}"></script>
+{% include 'core/header.html' %}
+
+<section class="banner about-banner">
+    <div class="banner-text"><h2>Check your inbox</h2></div>
+</section>
+
+<section class="edu-container">
+  <section class="card edu-content">
+    {% comment %}
+      The same words whether or not the domain matched (core/key_requests.py):
+      the key is proof of nothing until it arrives in the mailbox, and a page
+      that said "matched" would tell anybody which domains hold a key.
+    {% endcomment %}
+    <h2>Request received for {{ email }}</h2>
+    <p>If your company has a key with us, it is on its way to
+       <strong>{{ email }}</strong> now. It should arrive within a few minutes.
+       Please check your spam folder too.</p>
+    <p>If your company's domain is not on file yet, the request has gone to the
+       Only Good Antibodies team. We will reply to you once your company's key
+       is set up.</p>
+    <p><a href="{% url 'portal' %}" class="learn-more-button">Go to the data portal</a></p>
+  </section>
+</section>
+
+<div class="footer-wrapper">
+    {% include 'core/footer.html' with footer_class="footer-publications" %}
+</div>
+</body>
+</html>
