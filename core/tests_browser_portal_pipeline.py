@@ -101,7 +101,7 @@ class PipelineDataTabInARealBrowserTests(StaticLiveServerTestCase):
         self.assertIn("SNCA", body)
         # Said once, at the top — the row is provisional and the tab must say so
         # before anybody reads a recommendation off it.
-        self.assertIn("NOT published", body)
+        self.assertIn("Not published yet", body)
 
         # The thumbnail is fetched with the key and swapped in as a blob. A
         # naked <img src> would 401 here, and the card would render perfectly

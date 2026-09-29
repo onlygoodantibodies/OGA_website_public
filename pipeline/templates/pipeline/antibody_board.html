@@ -80,6 +80,7 @@
   sentence onto the page. That is precisely what shipped here, and what the
   second field test read off the screen above the Add button.{% endcomment %}
   {{ new_columns|json_script:"new-columns" }}
+  {{ supplier_options|json_script:"supplier-options" }}
   {{ cell_choices|json_script:"cell-choices" }}
   {{ new_example|json_script:"new-example" }}
   <div id="new-panel"></div>
@@ -244,6 +245,7 @@
 </div>
 
 <script src="{% static 'pipeline/board.js' %}"></script>
+{{ viewer|json_script:"viewer" }}
 <script>
 (function () {
   const csrf = "{{ csrf_token }}";
@@ -471,7 +473,9 @@
    * because the values come from the rows. */
   const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
 
+  const viewer = JSON.parse(document.getElementById('viewer').textContent);
   const board = OGABoard.create({
+    lockedWhy: r => OGABoard.lockedFor(viewer, r.site),
     grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
@@ -505,6 +509,7 @@
      * `newEntry` serialises this grid to TSV through the same parser a paste
      * uses, so the list removes the typo and not the door. */
     suggestions: {
+      company: JSON.parse(document.getElementById('supplier-options').textContent),
       site: OGABoard.optionValues(cellChoices.site),
       clonality: OGABoard.optionValues(cellChoices.clonality),
       host: OGABoard.optionValues(cellChoices.host_species),
@@ -556,6 +561,7 @@
     // bulk_antibodies_commit defaults to a dry run — a commit that doesn't say
     // so explicitly just previews again and creates nothing.
     buildBody: (text, extra, phase) => ({text, ...extra, dry_run: phase !== 'commit'}),
+    whyNotCommit: OGABoard.nothingToSave,
     renderPreview: d => {
       const s = d.summary || {};
       const blocked = (d.items || []).filter(i => i.status === 'no-target');
@@ -564,12 +570,17 @@
           <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
           <ul class="mt-1 text-gray-700 list-disc list-inside">
             <li>${s.create || 0} new, ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}</li>
-            ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
-              sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
+            ${sites.length ? `<li>${OGABoard.recordedAt(s)}</li>` : ''}
             ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
-            ${(s.new_companies || []).length ? `<li>New supplier(s): ${s.new_companies.map(esc).join(', ')}</li>` : ''}
-            ${s.blocked ? `<li class="text-amber-800">${s.blocked} with no matching gene — tick the box above to add the gene, or these are skipped</li>` : ''}
-            ${s.bad_site ? `<li class="text-amber-800">${s.bad_site} name a site that is not on file — those rows are skipped rather than filed under yours</li>` : ''}
+            ${(s.new_companies || []).length ? `<li class="text-amber-800">Not on the supplier list: ${s.new_companies.map(esc).join(', ')} — the ${s.new_companies.length === 1 ? 'row is' : 'rows are'} saved, and an administrator is asked to add the supplier. Check the spelling against the supplier list — the Table tab offers it as you type.</li>` : ''}
+            ${/* Two causes, each with its way out — and neither names a control
+                  that is not on this panel. The first said "tick the box above
+                  to add the gene", a box removed on 5 Sep 2026; the second said
+                  every refused row named "a site that is not on file", which
+                  was false of the row refused because the site *is* on file and
+                  is somebody else's (field test, 29 Sep 2026). */''}
+            ${s.blocked ? `<li class="text-amber-800">${OGABoard.plural(s.blocked, 'row')} name${s.blocked === 1 ? 's' : ''} a gene that is not a target yet — skipped; add the gene on the target board first</li>` : ''}
+            ${s.bad_site ? `<li class="text-amber-800">${OGABoard.plural(s.bad_site, 'row')} will not be saved — the reason is on each row below</li>` : ''}
             ${OGABoard.checkNotes(s)}
           </ul>
         </div>
@@ -596,7 +607,6 @@
       const r = d.result || {};
       return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
         Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
-        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
         ${OGABoard.saveNotes(r)}</div>`;
     },
     onDone: () => board.load(),
@@ -677,7 +687,6 @@
       const r = d.result || {};
       return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
         Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
-        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
         ${OGABoard.saveNotes(r)}</div>`;
     },
     onDone: () => board.load(),
@@ -702,7 +711,8 @@
     fields: [
       {name: 'catalogue_number', label: 'Catalogue number'},
       {name: 'company', label: 'Supplier',
-       hint: 'Resolved against the suppliers already on file, so one vendor never ends up under two spellings.'},
+       pickFrom: JSON.parse(document.getElementById('supplier-options').textContent),
+       otherHint: 'Not on the list? Choose Other and type it: the row is saved, and an administrator is asked to add the supplier — so one vendor never ends up under two spellings.'},
       {name: 'gene', label: 'Gene',
        hint: 'Must already be a target, or be one UniProt can confirm.'},
     ],

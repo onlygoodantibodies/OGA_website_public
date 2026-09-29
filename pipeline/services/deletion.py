@@ -119,8 +119,9 @@ class Plan:
         return {
             "kind": self.kind, "id": self.pk, "label": self.label,
             "confirm_with": self.confirm_with,
-            "owned": [{"noun": n, "count": c} for n, c in self.owned if c],
-            "blockers": [{"noun": n, "count": c} for n, c in self.blockers if c],
+            "owned": [{"noun": _agree(n, c), "count": c} for n, c in self.owned if c],
+            "blockers": [{"noun": _agree(n, c), "count": c}
+                         for n, c in self.blockers if c],
             "allowed": self.allowed,
             "why": self.why,
             "overriding": self.overriding,
@@ -256,6 +257,18 @@ def cascade(obj, collector=None) -> list:
 
     return sorted(((_noun(m, n), n) for m, n in counts.items()),
                   key=lambda kv: -kv[1])
+
+
+# The hand-written nouns on `owned` and `blockers`, singular. The collector's
+# nouns agree with their count (`_noun`); these read "1 storage locations" on
+# the panel a person studies just before deleting (live, 29 Sep 2026).
+_SINGULAR = {"antibodies": "antibody", "freeze-down batches": "freeze-down batch"}
+
+
+def _agree(noun: str, n: int) -> str:
+    if n != 1:
+        return noun
+    return _SINGULAR.get(noun) or (noun[:-1] if noun.endswith("s") else noun)
 
 
 def _noun(model, n) -> str:
@@ -480,19 +493,29 @@ _PLANNERS = {
 def whose(kind: str, obj) -> set:
     """The site ids a record belongs to.
 
-    A target has no site of its own — ``Target.site`` is a dead Access-era
-    column and no write path sets it (CLAUDE.md), so whose target it is lives on
-    its ``TargetNomination`` rows, and a gene two sites are pursuing belongs to
-    both. Everything else carries a site directly.
+    A target's site lives on its ``TargetNomination`` rows, and a gene two
+    sites are pursuing belongs to both — plus ``Target.site``, the import's
+    record, beside any nomination (below). Everything else carries a site
+    directly.
     """
     if kind == "target":
-        return {n for n in TargetNomination.objects.using(DB)
-                .filter(target_id=obj.pk).values_list("site_id", flat=True) if n}
+        sites = {n for n in TargetNomination.objects.using(DB)
+                 .filter(target_id=obj.pk).values_list("site_id", flat=True) if n}
+        # **The import's site is an owner once anybody has nominated the gene.**
+        # 508 genes carry their site only on `Target.site`; the first other
+        # bench to add a nomination made the gene look like theirs alone, and
+        # theirs to delete — taking the importing site's gene with it (owner,
+        # 29 Sep 2026: two sites may add to one gene, neither removes the
+        # other's). Only ever added beside a nomination, so a gene the import
+        # alone records stays a superuser's to delete, as it was.
+        if sites and getattr(obj, "site_id", None):
+            sites.add(obj.site_id)
+        return sites
     return {obj.site_id} if getattr(obj, "site_id", None) else set()
 
 
 def site_refusal(kind, obj, member, is_superuser, *, action="delete",
-                 su_verb="remove") -> str:
+                 su_verb="delete") -> str:
     """Why this person may not touch this record, or "".
 
     **Your own bench's records, or you are a superuser.** Nothing pointing at a
@@ -511,8 +534,9 @@ def site_refusal(kind, obj, member, is_superuser, *, action="delete",
     ``action``/``su_verb`` name what is being refused. The rule is one rule and
     stays here; only the verb moves, because a sentence reading "nothing is
     yours to delete" under an **Add batch** button describes the wrong act and
-    reads as the wrong record having been picked. Defaults keep every existing
-    caller's wording byte-for-byte.
+    reads as the wrong record having been picked. The default says *delete*
+    twice: "…you can delete your own bench's records; a superuser can remove
+    any" switched verbs mid-sentence (field test, 29 Sep 2026).
     """
     if is_superuser:
         return ""
@@ -686,4 +710,5 @@ def delete(kind: str, pk, typed: str, *, member=None, is_superuser=False,
             extra.delete(using=DB)
         obj.delete(using=DB)
     return {"deleted": True, "kind": kind, "id": pk, "label": p.label,
-            "also_removed": [{"noun": n, "count": c} for n, c in p.owned if c]}
+            "also_removed": [{"noun": _agree(n, c), "count": c}
+                             for n, c in p.owned if c]}

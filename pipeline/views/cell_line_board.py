@@ -19,6 +19,7 @@ from pipeline.services import lab_numbers
 from pipeline.services import batches
 from pipeline.services import board_columns
 from pipeline.services import board_page
+from pipeline.services import ownership
 from pipeline.services import next_step
 from pipeline.services import sites as site_svc
 from pipeline.views.imports import columns_and_example
@@ -51,6 +52,11 @@ def cell_line_board(request):
     opts = board.filter_options()
     new_columns, new_example = columns_and_example("cell-lines")
     return render(request, "pipeline/cell_line_board.html", {
+        # Whose rows are the viewer's own, so another site's are drawn locked
+        # (services/ownership.py::viewer).
+        "viewer": ownership.viewer(request),
+        # The suppliers a picker offers — one per display name, active only.
+        "supplier_options": _supplier_options(),
         # One gene's progress and its next step, when the board is
         # filtered to one gene — services/next_step.py, derived from
         # records rather than from any stored status.
@@ -271,3 +277,8 @@ def cell_line_add_batch(request):
     out["matches"] = fresh is not None
     out["row"] = board.row_for(fresh) if fresh is not None else None
     return JsonResponse(out)
+
+
+def _supplier_options():
+    from pipeline.services.cropper import db as cdb
+    return cdb.canonical_suppliers()

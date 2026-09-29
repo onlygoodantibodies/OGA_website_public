@@ -110,7 +110,7 @@ class Command(BaseCommand):
         # Withdrawing is the case a stale edge copy hurts most: the gene page
         # would go on showing figures somebody decided to take down.
         from OGA_website import edge_cache
-        purged, note = edge_cache.purge_everything()
+        purged, note = edge_cache.purge_public_pages()
         self.stdout.write((self.style.SUCCESS if purged else self.style.WARNING)(
             "\n" + note))
         self.stdout.write(

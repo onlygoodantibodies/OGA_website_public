@@ -97,6 +97,8 @@ def target_detail(request, pk):
     whose = targets_svc.sites_of(target, nominations)
     nominated_sites = [] if whose["from_import"] else [s.name for s in whose["sites"]]
     legacy_site = whose["sites"][0].name if whose["from_import"] else ""
+    # The import's site beside another bench's nomination: still theirs.
+    import_site_also = whose["also_import"].name if whose.get("also_import") else ""
     nominated_projects = sorted({n.project.name for n in nominations if n.project_id})
     nominated_agencies = sorted({n.granting_agency.name for n in nominations
                                  if n.granting_agency_id})
@@ -436,6 +438,7 @@ def target_detail(request, pk):
         'nominations': nominations,
         'nominated_sites': nominated_sites,
         'legacy_site': legacy_site,
+        'import_site_also': import_site_also,
         'nominated_projects': nominated_projects,
         'nominated_agencies': nominated_agencies,
         'is_funded': any(n.funded for n in nominations),
@@ -487,6 +490,8 @@ def target_detail(request, pk):
         'my_site_name': getattr(getattr(_dash_member(request), 'site', None),
                                 'name', '') or '',
     }
+    from pipeline.services.cropper import db as cdb
+    context['supplier_options'] = cdb.canonical_suppliers()
     return render(request, 'pipeline/target_detail.html', context)
 
 @pipeline_member_required
@@ -740,6 +745,8 @@ def master_dashboard(request):
         # Said on the row, because the import stamped the same site on every one
         # of those targets: it is where they came from, not a per-gene decision.
         t.site_from_import = whose["from_import"]
+        also = whose.get("also_import")
+        t.site_import_also = (also.short_code or also.name) if also else ""
 
     # Recent activity
     two_weeks_ago = timezone.now() - timedelta(days=14)

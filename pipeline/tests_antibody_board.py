@@ -101,6 +101,9 @@ class AntibodyBoardTests(_BoardFixture, TestCase):
         self.assertFalse(self.antibody.wb_recommended)
 
     def test_site_resolves_by_name_and_a_bad_one_is_refused(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         self._patch(target_id=self.antibody.pk, field="site", value="McGill")
         self.antibody.refresh_from_db()
         self.assertEqual(self.antibody.site_id, self.site2.pk)
@@ -134,6 +137,9 @@ class AntibodyBoardTests(_BoardFixture, TestCase):
         self.assertEqual(self.antibody.rrid, "")
 
     def test_a_row_pushed_out_of_the_active_filter_reports_matches_false(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         data = self._patch(f"site={self.site.pk}", target_id=self.antibody.pk,
                            field="site", value="McGill").json()
         self.assertTrue(data["ok"])

@@ -366,7 +366,11 @@ def cell_choices() -> dict:
 
 def filter_options() -> dict:
     return {
-        "companies": list(Company.objects.using(DB).order_by("name")),
+        # Suppliers, not rows: an inactive duplicate or request with nothing
+        # filed under it is not a supplier anybody can filter to.
+        "companies": list(Company.objects.using(DB)
+                          .filter(Q(is_active=True) | Q(antibodies__isnull=False))
+                          .distinct().order_by("name")),
         "sites": list(Site.objects.using(DB).filter(is_active=True).order_by("name")),
         # The labels the rows actually hold, not the enum's four values — the
         # picker has to offer `Recombinant monoclonal`, which is a pair of

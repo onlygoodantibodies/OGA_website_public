@@ -63,11 +63,11 @@ Two things to know about the choice between them
 assets.** CLAUDE.md's deploy chapter says never to Purge Everything for
 exactly that reason. That rule was written when the edge TTL was an hour and
 waiting was cheap; with a seven-day TTL the trade has moved, and on the free
-plan there is no third option -- Cloudflare offers purge-by-prefix and
-purge-by-tag only on Enterprise, so "everything" and "a list of URLs" are the
-only two tools available. Resolve which way you want it before wiring this
-into anything routine; the conflict is real and this docstring is not the
-place it gets settled.
+plan this script offers only those two. A release does not use it: it purges
+by cache tag (`OGA_website/edge_cache.py::purge_public_pages`), which leaves
+the static files and the citation snapshot at the edge -- tag purges have been
+on the free plan since 2025 (checked against Cloudflare's docs, 29 Sep 2026),
+whatever this docstring said before. A deploy still wants everything.
 
 **Purging by path only purges the hostname spelled in SITE.** The site also
 answers on `www.onlygoodantibodies.co.uk` (both are in ALLOWED_HOSTS), and a

@@ -23,6 +23,17 @@
 window.OGABoard = (function () {
   'use strict';
 
+  /* A locked row's cells must stop looking clickable — see `paintLocks`.
+   * Injected here rather than in each template, since the boards share this
+   * file and not a stylesheet; guarded for the tests that load it in node. */
+  if (typeof document !== 'undefined' && document.head) {
+    const st = document.createElement('style');
+    st.textContent = 'tr.row-locked .edit,tr.row-locked .toggle{cursor:not-allowed}'
+      + 'tr.row-locked .edit:hover{background-color:transparent}'
+      + '.lock-mark{font-size:0.75em;opacity:0.7}';
+    document.head.appendChild(st);
+  }
+
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => (
     {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
@@ -353,6 +364,27 @@ window.OGABoard = (function () {
       dropped.length > 5 ? ', …' : ''}. Add it on the board in ${esc('µg/mL')}.</span>`;
   }
 
+  /* The same pair for the received date, refused per row on the same bargain
+   * — an ambiguous `01/02/2026` is no reason to discard a good vial — and until
+   * 29 Sep 2026 counted nowhere, so the save was silent about it. */
+  function receivedWarning(summary) {
+    const n = (summary || {}).no_received || 0;
+    if (!n) return '';
+    return `<li class="text-amber-800">${n} received date${n === 1 ? '' : 's'}
+      cannot be read and will not be stored — the rest of ${n === 1 ? 'that row' : 'those rows'}
+      is saved. Fix the cell and check again to keep ${n === 1 ? 'it' : 'them'}.</li>`;
+  }
+
+  function receivedSaved(result) {
+    const dropped = (result || {}).no_received || [];
+    if (!dropped.length) return '';
+    const listed = dropped.slice(0, 5).map(
+      d => `${esc(d.catalogue || '(row)')} (${esc(d.typed || '')})`).join(', ');
+    return `<br><span class="text-amber-800">${dropped.length}
+      row${dropped.length === 1 ? '' : 's'} saved without a received date: ${listed}${
+      dropped.length > 5 ? ', …' : ''}. Add it on the board, e.g. 2026-08-14 or Aug 2026.</span>`;
+  }
+
   /* The same pair, for the cell-lines column that had the same bug.
    *
    * `c number` is an integer with a `C-` prefix for display, and the paste path
@@ -462,14 +494,85 @@ window.OGABoard = (function () {
    * every panel — an antibody panel cannot miss a cell-line note by being an
    * antibody panel. */
   function checkNotes(summary) {
-    return concentrationWarning(summary) + cNumberWarning(summary)
-         + labNumberNote(summary);
+    return concentrationWarning(summary) + receivedWarning(summary)
+         + cNumberWarning(summary) + labNumberNote(summary);
   }
 
   function saveNotes(result) {
-    return concentrationSaved(result) + cNumberSaved(result)
+    return rowsNotSaved(result) + suppliersRequested(result)
+         + concentrationSaved(result) + receivedSaved(result) + cNumberSaved(result)
          + labNumbersIssued(result) + labNumbersDeferred(result)
          + reportNeedsNote((result || {}).report_needs, 'saved');
+  }
+
+  /* The rows a save did not write, each with its reason — `not_saved`, from
+   * `bulk_antibodies.apply` and `bulk_cell_lines.apply`.
+   *
+   * **Say what you are about to drop, and count it — at the save.** A cell-line
+   * paste refused as another site's saved as *"Saved. 0 created, 0 updated."*
+   * and nothing else, and an antibody one as a bare *"1 skipped."* — while a row
+   * skipped for a gene not on file was not counted at all (field test, 29 Sep
+   * 2026). Six receipts drew this differently; this is the one writer now. */
+  function rowsNotSaved(result) {
+    const list = (result || {}).not_saved || [];
+    if (!list.length) return '';
+    return `<div class="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-2 text-xs text-amber-900">
+      <b>${plural(list.length, 'row')} not saved:</b>
+      <ul class="mt-1 list-disc pl-4">${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  /* A supplier the save filed as a request, named on the receipt. The check
+   * said "Not on the supplier list … an administrator is asked to add the
+   * supplier" and the receipt said only "Saved. 2 created" (field test,
+   * 29 Sep 2026). */
+  function suppliersRequested(result) {
+    const names = (result || {}).suppliers_requested || [];
+    if (!names.length) return '';
+    const list = names.map(esc).join(' and ');
+    return `<p class="mt-2 text-amber-900">${list} ${names.length === 1 ? "isn't" : "aren't"}
+      on the supplier list yet; a superuser has been asked to approve ${
+      names.length === 1 ? 'it' : 'them'}.</p>`;
+  }
+
+  /* Why this viewer may not edit a row at `site`, or '' — the sentence a
+   * locked row shows on click (`create`'s `lockedWhy`). A row with no site is
+   * nobody's bench, as `services/ownership.py` treats it. */
+  function lockedFor(viewer, site) {
+    if (!viewer || viewer.superuser || !site) return '';
+    if (!viewer.site) return 'Your account has no site, so no bench\'s records are yours to edit. A superuser can set one on the people board.';
+    return site === viewer.site ? ''
+      : `${site}'s record: only a superuser can change it. You can edit your own bench's records.`;
+  }
+
+  /* Where the rows this check will write are going, with how many — from the
+   * summary's `sites`/`site_rows`, which count only rows that will save. It
+   * said "Recorded at: Leicester" over a paste refused as Leicester's, where
+   * nothing was going to be recorded at all (field test, 29 Sep 2026). One
+   * writer for the three panels that print it. */
+  function recordedAt(s) {
+    const sites = (s && s.sites) || [];
+    if (!sites.length) return '';
+    const rows = (s && s.site_rows) || {};
+    const each = sites.map(n => rows[n] ? `${esc(n)} (${plural(rows[n], 'row')})` : esc(n));
+    return `Will be recorded at: ${each.join(', ')}${
+      sites.length > 1 ? ' — this sheet spans more than one site' : ''}`;
+  }
+
+  /* Why a check that read rows offers nothing to save, or ''.
+   *
+   * **A check that succeeded is not a check that found something to write.**
+   * Pasting one row for another site previewed *0 new, 0 already known* with
+   * *Create them* armed beneath it, and pressing it reported a save (field
+   * test, 29 Sep 2026). The Add panels pass this as `whyNotCommit`; the upload
+   * panel's own preview asks it too. */
+  function nothingToSave(d) {
+    const s = (d && d.summary) || {};
+    if (!s.rows) return '';
+    if ((s.create || 0) + (s.update || 0) + (s.create_target || 0) > 0) return '';
+    return s.rows === 1
+      ? 'This row would not be saved — the reason is on the row below.'
+      : `None of these ${s.rows} rows would be saved — each row below says why.`;
   }
 
   /* What the draft Data Note will still print as a gap — `[antigen
@@ -1032,8 +1135,38 @@ window.OGABoard = (function () {
     }
 
     function render(rows) {
-      grid.innerHTML = rows.length ? rows.map(r => cfg.rowHtml(r)).join('') : emptyRow;
+      locks.clear();
+      grid.innerHTML = rows.length ? rows.map(r => drawRow(r)).join('') : emptyRow;
+      paintLocks();
     }
+
+    /* **Another site's row says so before anybody types in it** (owner,
+     * 29 Sep 2026). Its cells drew exactly like your own — "Click to edit",
+     * a yellow hover — so a whole value could be typed and only the save said
+     * "This record belongs to Leicester". `cfg.lockedWhy(row)` answers the
+     * sentence (or ''); the row gets a lock, its cells stop inviting a click,
+     * and a click shows the sentence at once instead of opening an editor.
+     * The save still refuses on the server whatever the page does. */
+    const locks = new Map();
+    function drawRow(r) {
+      const why = (cfg.lockedWhy && r) ? (cfg.lockedWhy(r) || '') : '';
+      if (r && r.id !== undefined) {
+        if (why) locks.set(String(r.id), why); else locks.delete(String(r.id));
+      }
+      return cfg.rowHtml(r);
+    }
+    function paintLocks() {
+      locks.forEach((why, id) => {
+        const tr = grid.querySelector(`tr[data-row="${id}"]`);
+        if (!tr || tr.dataset.locked) return;
+        tr.dataset.locked = why;
+        tr.classList.add('row-locked');
+        const first = tr.querySelector('td');
+        if (first) first.insertAdjacentHTML('afterbegin',
+          `<span class="lock-mark" role="img" aria-label="${esc(why)}">&#128274;</span> `);
+      });
+    }
+    function lockOf(id) { return locks.get(String(id)) || ''; }
 
     async function load() {
       grid.innerHTML = loadingRow;
@@ -1158,7 +1291,8 @@ window.OGABoard = (function () {
         return;
       }
       if (cfg.afterPatch) cfg.afterPatch(data);
-      tr.outerHTML = cfg.rowHtml(data.row);
+      tr.outerHTML = drawRow(data.row);
+      paintLocks();
     }
 
     /* Apply a redraw that was held back while a cell was open — unless a newer
@@ -1249,6 +1383,11 @@ window.OGABoard = (function () {
       });
 
       root.addEventListener('click', async e => {
+        const lockedIn = e.target.closest('[data-locked]');
+        if (lockedIn && (e.target.closest('.toggle') || editableFor(e))) {
+          errors.show(lockedIn.dataset.locked);
+          return;
+        }
         const toggle = e.target.closest('.toggle');
         if (toggle) {
           // One click, one save. Without this a second click lands while the
@@ -1367,7 +1506,7 @@ window.OGABoard = (function () {
 
 
     return {load, locate, patch, save, replaceRow, render, setCount, query,
-            bindEditing,
+            bindEditing, lockOf,
             get count() { return count; },
             get page() { return page; },
             get pages() { return pages; }};
@@ -2171,15 +2310,22 @@ window.OGABoard = (function () {
          * one surface is a rule for one surface — these were on the Add panels
          * and not on the upload panel, which is the same file. */
         const dropped = checkNotes(s);
+        // Antibodies count their two refusals apart (`blocked` is a gene not on
+        // file, `bad_site` a site refused); cell lines count one. A skip is a
+        // skip to the reader either way.
+        const skipped = (s.blocked || 0) + (s.bad_site || 0);
+        const nothing = nothingToSave(d);
         out().innerHTML = `
           <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
             <p class="font-semibold text-gray-900">${sheetLine(d)}${plural(s.rows || 0, 'row')} read.</p>
             <p class="text-gray-700">${s.create || 0} new,
                ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}${
-                 s.blocked ? `, ${s.blocked} skipped` : ''}.</p>
+                 skipped ? `, ${skipped} skipped` : ''}.</p>
             ${dropped ? `<ul class="mt-1 list-disc list-inside">${dropped}</ul>` : ''}
+            ${nothing ? `<p class="mt-1 text-amber-800">${esc(nothing)}</p>` : ''}
           </div>
           ${previewRows(d.items, cfg.label)}`;
+        if (nothing) { previewed = ''; return; }
         el('commit').classList.remove('hidden');
       } finally { setBusy(false); }
     });
@@ -2477,6 +2623,39 @@ window.OGABoard = (function () {
     function drawFields(identity) {
       el('fields').innerHTML = cfg.fields.map(f => {
         const value = identity[f.name] || '';
+        /* A picker with a way out (`pickFrom`): the suppliers on file, and
+         * "Other" for one that is not — which is saved as a request an
+         * administrator approves, never as a new supplier on the list
+         * (`cropper/db.py::resolve_company`). A value the list does not hold
+         * stays selected under its own name rather than silently becoming the
+         * first option. */
+        if (f.pickFrom) {
+          const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+          const inList = f.pickFrom.some(o => same(o, value));
+          /* `<field>_listed` is the list entry the stored supplier is offered
+           * under (`identity._listed_as`). A brand is stored by its own name
+           * and listed by its parent's, so without it a Novus antibody opened
+           * as "not on the supplier list" under a list holding Bio-Techne. The
+           * stored name stays the selected value, so saving unchanged is a
+           * no-op. */
+          const listed = identity[`${f.name}_listed`] || '';
+          const known = inList || (!!listed && f.pickFrom.some(o => same(o, listed)));
+          const opts = [f.blankLabel ? `<option value="">${esc(f.blankLabel)}</option>` : '']
+            .concat(value && !inList
+              ? [`<option value="${esc(value)}" selected>${esc(value)}${
+                  known ? '' : ' — not on the supplier list'}</option>`] : [])
+            .concat(f.pickFrom.map(o => `<option value="${esc(o)}"${
+              o.toLowerCase() === value.toLowerCase() ? ' selected' : ''}>${esc(o)}</option>`))
+            .concat([`<option value="__other__">Other — not on the list…</option>`]).join('');
+          return `<label class="block">
+            <span class="block text-xs font-semibold text-gray-500 mb-1">${esc(f.label)}</span>
+            <select data-f="${f.name}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    onchange="this.nextElementSibling.classList.toggle('hidden', this.value !== '__other__')">${opts}</select>
+            <input data-f-other="${f.name}" placeholder="The supplier's name, as on its website"
+                   class="hidden mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <span class="block text-xs text-gray-400 mt-1">${f.otherHint || ''}</span>
+          </label>`;
+        }
         const input = f.options
           ? `<select data-f="${f.name}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                ${f.options.map(o => `<option value="${esc(o)}"${
@@ -2516,6 +2695,10 @@ window.OGABoard = (function () {
       cfg.fields.forEach(f => {
         const node = el('fields').querySelector(`[data-f="${f.name}"]`);
         body[f.name] = node ? node.value : '';
+        if (body[f.name] === '__other__') {
+          const other = el('fields').querySelector(`[data-f-other="${f.name}"]`);
+          body[f.name] = other ? other.value.trim() : '';
+        }
         if ((body[f.name] || '') !== (loaded[f.name] || '')) changed = true;
       });
       if (!changed) {
@@ -2545,7 +2728,7 @@ window.OGABoard = (function () {
      * text inputs so a <select> keeps its own keyboard behaviour. */
     el('fields').addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
-      if (!e.target.matches || !e.target.matches('input[data-f]')) return;
+      if (!e.target.matches || !e.target.matches('input[data-f], input[data-f-other]')) return;
       e.preventDefault();
       saveChange();
     });
@@ -3085,6 +3268,7 @@ window.OGABoard = (function () {
           previewRows, supplierLabel, uploadPanel, identityDialog, bringIntoView,
           concentrationWarning, concentrationSaved, targetAddSummary, rowDeleted,
           labNumberNote, labNumbersIssued, checkNotes, saveNotes, reportNeedsNote,
+          nothingToSave, recordedAt, lockedFor,
           targetAddDestination, targetAddGo,
           oneGene, geneGate, geneTerms, GENE_GATE,
           GENE_GATE_ANTIBODIES, GENE_GATE_CELL_LINES, GENE_GATE_SESSIONS,

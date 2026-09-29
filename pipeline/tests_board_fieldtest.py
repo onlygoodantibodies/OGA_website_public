@@ -419,6 +419,10 @@ class SiteAllocationTests(TestCase):
     def test_a_site_can_be_changed(self):
         """Reallocation — the task the field test could not complete, because
         the cell went read-only as soon as a site was set."""
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         self._patch_site("Leicester")
         resp = self._patch_site("McGill")
         self.assertEqual(resp.status_code, 200)
@@ -1206,6 +1210,19 @@ class TheBenchSheetIsTheSessionsOwnAntibodiesTests(TestCase):
         self.assertIn("no antibodies recorded",
                       planning._session_info_line(empty))
 
+    def test_the_sheet_names_the_knockout_not_only_its_background(self):
+        """`KO: HAP1` under `WT: HAP1 — Leicester` said which background and
+        not which knockout (live, 29 Sep 2026)."""
+        from pipeline.services import planning
+        wt = CellLine.objects.using(DB).create(name="HAP1", genotype="WT",
+                                               site_id=self.site.pk)
+        ko = CellLine.objects.using(DB).create(
+            name="HAP1", genotype="KO", target_id=self.target.pk,
+            site_id=self.site.pk, clone="CL-A", parent_line=wt)
+        self.session.cell_line_wt, self.session.cell_line_ko = wt, ko
+        line = planning._session_info_line(self.session)
+        self.assertIn("KO: HAP1 STMN2 KO clone CL-A — Leicester", line)
+
     def test_a_populated_session_is_not_labelled_as_a_picking_list(self):
         from pipeline.services import planning
         self.assertNotIn("no antibodies recorded",
@@ -1272,6 +1289,10 @@ class ARefusedSiteNamesTheOnesOnFileTests(TestCase):
         self.assertEqual(Site.objects.using(DB).count(), before)
 
     def test_a_short_code_is_accepted_as_well_as_the_name(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        from django.contrib.auth.models import User
+        User.objects.using("academy_db").update(is_superuser=True)
         resp = self.client.post("/pipeline/antibodies/board/patch/",
                                 {"target_id": self.antibody.pk, "field": "site",
                                  "value": "MCG"})
@@ -2584,7 +2605,7 @@ class AWildTypeIsNeverInItsGenesQuerysetTests(TestCase):
             self.assertNotIn("—", option["value"])
         body = resp.content.decode()
         self.assertIn('id="wt-options"', body)
-        self.assertIn("suggestions: {parent: json('wt-options')}", body)
+        self.assertIn("suggestions: {parent: json('wt-options')", body)
 
     def test_a_wild_type_can_be_started_from_the_gene_page(self):
         """The panel says a knockout needs its parent, and a wild type can never
@@ -2651,13 +2672,17 @@ class ADownloadSaysItHappenedTests(TestCase):
         report.refresh_from_db()
         self.assertEqual(report.status, Report.ReportStatus.PUBLISHED)
 
-    def test_a_draft_report_row_still_advances(self):
+    def test_generating_a_report_writes_nothing(self):
+        """The draft is a template to work from (owner, 29 Sep 2026). It moved a
+        draft row to 'generated' and stamped generated_at — from a GET, so a
+        link prefetcher or a crawler changed the gene's report record."""
         from pipeline.models import Report
         report = Report.objects.using(DB).create(
             target_id=self.target.pk, status=Report.ReportStatus.DRAFT)
         self.client.get(f"/pipeline/target/{self.target.pk}/generate-report/")
         report.refresh_from_db()
-        self.assertEqual(report.status, Report.ReportStatus.GENERATED)
+        self.assertEqual(report.status, Report.ReportStatus.DRAFT)
+        self.assertIsNone(report.generated_at)
 
     def test_the_report_is_not_written_to_a_path_named_after_the_gene_alone(self):
         """Two people asking for one gene's report at the same moment wrote to
@@ -4294,6 +4319,10 @@ class BothAddDoorsChooseTheSiteTests(TestCase):
             content_type="application/json")
 
     def test_the_check_answers_about_the_site_it_was_asked_about(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         body = self.client.post(
             "/pipeline/feasibility/bulk-check/",
             data=json.dumps({"genes": "TRPA1", "site": self.other.pk}),
@@ -4302,6 +4331,10 @@ class BothAddDoorsChooseTheSiteTests(TestCase):
         self.assertTrue(body["rows"][0]["will_nominate"])
 
     def test_the_save_writes_the_nomination_at_the_chosen_site(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         body = self._add(site=self.other.pk).json()
         self.assertEqual(body["site"], "Ontario",
                          "the result says whose list it went on")
@@ -4390,6 +4423,33 @@ class ARefusedConcentrationIsCountedAtTheSaveTests(TestCase):
             "catalogue\tcompany\tgene\tconcentration\nA-ELP3-R8E\tabcam\tELP3\t\n")
         items = bulk_antibodies.plan(rows, False)
         self.assertEqual(bulk_antibodies.summarize(items)["no_concentration"], 0)
+
+    def test_a_refused_received_date_is_counted_at_the_check_and_the_save(self):
+        """The check refused `01/02/2026` and the save said nothing (live,
+        29 Sep 2026) — the concentration rule, for the other dropped value."""
+        from pipeline.services import bulk_antibodies
+        rows = bulk_antibodies.parse(
+            "catalogue\tcompany\tgene\treceived\n"
+            "A-ELP3-D1\tabcam\tELP3\t01/02/2026\n"
+            "A-ELP3-D2\tabcam\tELP3\tAug 2026\n")
+        summary = bulk_antibodies.summarize(bulk_antibodies.plan(rows, False))
+        self.assertEqual(summary["no_received"], 1)
+        dropped = bulk_antibodies.apply(rows)["no_received"]
+        self.assertEqual(dropped, [{"catalogue": "A-ELP3-D1", "typed": "01/02/2026"}])
+
+    def test_a_clonality_it_cannot_read_is_named_beside_the_row(self):
+        """`mono` was stored as unknown with nothing said (live, 29 Sep 2026)."""
+        from pipeline.services import bulk_antibodies
+        rows = bulk_antibodies.parse(
+            "catalogue\tcompany\tgene\tclonality\n"
+            "A-ELP3-C1\tabcam\tELP3\tmono\n"
+            "A-ELP3-C2\tabcam\tELP3\tmonoclonal\n"
+            "A-ELP3-C3\tabcam\tELP3\tunknown\n"
+            "A-ELP3-C4\tabcam\tELP3\t\n")
+        notes = [i["note"] for i in bulk_antibodies.plan(rows, False)]
+        self.assertIn("'mono' is not a clonality", notes[0])
+        for said in notes[1:]:
+            self.assertNotIn("clonality", said)
 
     def test_every_antibody_paste_surface_reads_the_count(self):
         target = Target.objects.using(DB).get(gene_name="ELP3")
@@ -4918,6 +4978,33 @@ class TheCheckNamesAMissingDateTests(TestCase):
     def test_the_panel_renders_it(self):
         html = self.client.get("/pipeline/sessions/board/").content.decode()
         self.assertIn("blocking", html)
+
+    def test_an_unknown_gene_is_refused_on_the_check_with_the_way_to_add_it(self):
+        """The panel said an unknown gene "will be created with the session"
+        over a save that refuses it (live, 29 Sep 2026)."""
+        d = self._check(gene="NOTAGENE1", date="2026-08-02")
+        self.assertIsNone(d["target"])
+        self.assertIn("gene=NOTAGENE1", d["add_target_url"])
+        self.assertEqual(self._check(date="2026-08-02")["add_target_url"], "")
+        html = self.client.get("/pipeline/sessions/board/").content.decode()
+        self.assertNotIn("will be\n          created with the session", html)
+        self.assertIn("whyNotCommit", html)
+
+    def test_the_ko_box_offers_the_genes_lines_for_the_site_asked(self):
+        """The KO list follows the gene and site the panel says, not the first
+        sixty controls of any gene at the member's site."""
+        other_site = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        elp3 = Target.objects.using(DB).get(gene_name="ELP3")
+        sod1 = Target.objects.using(DB).create(gene_name="SOD1")
+        CellLine.objects.using(DB).create(name="HAP1", genotype="KO",
+                                          site=other_site, target=elp3)
+        CellLine.objects.using(DB).create(name="HAP1", genotype="KO",
+                                          site=other_site, target=sod1)
+        d = self.client.get("/pipeline/sessions/board/line-options/",
+                            {"gene": "ELP3", "site": other_site.pk}).json()
+        self.assertEqual([o["value"] for o in d["ko"]], ["HAP1 ELP3 KO — McGill"])
+        self.assertEqual(self.client.get("/pipeline/sessions/board/line-options/",
+                                         {"gene": ""}).json()["ko"], [])
 
 
 class OneSearchDefinitionForTheBoxAndTheBoardTests(TestCase):
@@ -5769,6 +5856,17 @@ class TheReportDoesNotCallALineSuitableAgainstItsOwnNumberTests(TestCase):
     def test_a_line_above_the_cut_off_reads_as_it_always_did(self):
         self.assertIn("was identified as a suitable cell line",
                       self._intro(Decimal("11.13")))
+
+    def test_a_measured_zero_is_printed_not_turned_into_a_gap(self):
+        """Field test, 29 Sep 2026: GCG's draft read *"expresses the transcript
+        at [X.X] log₂ (TPM+1), which is **below** that cut-off"* — a verdict
+        about a number it said it did not have, with the asterisks printed.
+        The value was 0.00, which is falsy, so it was drawn as a gap."""
+        text = self._intro(Decimal("0.00"))
+        self.assertIn("at 0.00 log", text)
+        self.assertNotIn("[X.X]", text)
+        self.assertNotIn("**below**", text)
+        self.assertIn("which is below that cut-off", text)
 
     def test_an_unknown_expression_leaves_a_named_gap_not_a_verdict(self):
         text = self._intro(None)
@@ -7779,3 +7877,162 @@ class APlannedSessionIsNotAnEmptyOneTests(SimpleTestCase):
                / "pipeline/templates/pipeline/_bench_workbook_upload.html").read_text()
         self.assertIn("still", src)
         self.assertNotIn("planned</span> with no results", src)
+
+
+def _board_js(expr_lines):
+    """Load board.js in node and print one JSON value built from ``OGABoard``."""
+    path = Path(settings.BASE_DIR) / "pipeline/static/pipeline/board.js"
+    script = (f"global.window = {{}};\nrequire({str(path)!r});\n"
+              "const B = window.OGABoard;\n"
+              f"console.log(JSON.stringify({expr_lines}));\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+        fh.write(script)
+        tmp = fh.name
+    try:
+        done = subprocess.run(["node", tmp], capture_output=True, text=True)
+    finally:
+        os.unlink(tmp)
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+class ARowARefusedPasteDidNotSaveIsNamedAtTheSaveTests(TestCase):
+    """Field test, 29 Sep 2026, as a McGill member pasting a row for Leicester.
+
+    The check blocked the row by name — and still offered *Create them* over
+    "0 new, 0 already known". Pressing it, the cell-lines panel said *"Saved. 0
+    created, 0 updated."* and nothing else; the antibodies panel said *"1
+    skipped."* with no reason, and a row skipped for a gene not on file was not
+    counted at all. Both check summaries also blamed the wrong thing: *"name a
+    site that is not on file"* over a row refused because Leicester *is* on file
+    and is somebody else's, and a *"tick the box above"* that was removed on
+    5 Sep."""
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        self.mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        self.client = _member_client(self, self.mcgill)
+        Target.objects.using(DB).create(gene_name="STMN2")
+
+    def _commit(self, url, text):
+        return self.client.post(url, data=json.dumps({"text": text, "dry_run": False}),
+                                content_type="application/json").json()["result"]
+
+    def test_the_antibody_save_names_every_row_it_did_not_write(self):
+        text = ("gene\tcatalogue\tcompany\tsite\n"
+                "STMN2\tTHEIRS-1\tProteintech\tLeicester\n"
+                "NOSUCHGENE\tNOGENE-1\tProteintech\tMcGill\n")
+        r = self._commit("/pipeline/antibodies/bulk/commit/", text)
+        self.assertEqual(len(r["not_saved"]), 2, r["not_saved"])
+        self.assertIn("belongs to Leicester", r["not_saved"][0])
+        self.assertIn("NOGENE-1", r["not_saved"][1])
+        self.assertIn("target board", r["not_saved"][1])
+
+    def test_the_cell_line_save_names_the_row_it_did_not_write(self):
+        r = self._commit("/pipeline/cell-lines/bulk/commit/",
+                         "name\tgenotype\tsite\nHeLa\tWT\tLeicester\n")
+        self.assertEqual(r["created"], [])
+        self.assertEqual(len(r["not_saved"]), 1)
+        self.assertIn("belongs to Leicester", r["not_saved"][0])
+
+    @skipUnless(shutil.which("node"), "needs node to run board.js")
+    def test_the_receipt_draws_the_rows_and_the_check_disarms_the_save(self):
+        got = _board_js("""{
+          receipt: B.saveNotes({not_saved: ['HeLa: This record belongs to Leicester']}),
+          nothing: B.nothingToSave({summary: {rows: 1, create: 0, update: 0, bad_site: 1}}),
+          some: B.nothingToSave({summary: {rows: 2, create: 1, update: 0, bad_site: 1}}),
+          empty: B.nothingToSave({summary: {rows: 0}}),
+        }""")
+        self.assertIn("1 row not saved", got["receipt"])
+        self.assertIn("belongs to Leicester", got["receipt"])
+        self.assertTrue(got["nothing"])
+        self.assertEqual(got["some"], "")
+        self.assertEqual(got["empty"], "")
+
+    def test_every_add_panel_asks_it_and_no_summary_blames_the_wrong_thing(self):
+        root = Path(settings.BASE_DIR) / "pipeline/templates/pipeline"
+        stale = ("tick the box above to add the gene, or these are skipped",
+                 "name a site that is not on file — those rows are skipped",
+                 "could not be placed — usually a KO with no gene, no name, "
+                 "or a site that is not on file</li>")
+        for name, n in {"antibody_board.html": 1, "cell_line_board.html": 1,
+                        "target_detail.html": 2}.items():
+            src = (root / name).read_text()
+            self.assertEqual(src.count("whyNotCommit: OGABoard.nothingToSave"), n, name)
+            for sentence in stale:
+                self.assertFalse(sentence in src, f"{name}: {sentence}")
+
+
+class TheWordingAWriteIsJudgedByTests(TestCase):
+    """Field test, 29 Sep 2026, the wording fixes that followed it.
+
+    A check said *"Recorded at: Leicester"* over a paste refused as Leicester's;
+    a supplier filed as a request was named at the check and not at the save;
+    and another site's row drew exactly like your own until the save refused
+    it. Each of these is a sentence a scientist acts on, so each is pinned by
+    what the page will say, not by the code that builds it."""
+
+    databases = {DB, "academy_db"}
+
+    def setUp(self):
+        from pipeline.models import Company
+        self.mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        Company.objects.using(DB).create(name="Proteintech")
+        self.client = _member_client(self, self.mcgill)
+        Target.objects.using(DB).create(gene_name="STMN2")
+
+    def _post(self, url, text, dry_run):
+        got = self.client.post(url, data=json.dumps({"text": text, "dry_run": dry_run}),
+                               content_type="application/json").json()
+        return got if dry_run else got["result"]
+
+    def test_the_check_counts_only_rows_that_will_be_written_at_each_site(self):
+        text = ("gene\tcatalogue\tcompany\tsite\n"
+                "STMN2\tTHEIRS-1\tProteintech\tLeicester\n"
+                "STMN2\tOURS-1\tProteintech\tMcGill\n"
+                "STMN2\tOURS-2\tProteintech\tMcGill\n")
+        s = self._post("/pipeline/antibodies/bulk/commit/", text, True)["summary"]
+        self.assertEqual(s["sites"], ["McGill"])
+        self.assertEqual(s["site_rows"], {"McGill": 2})
+
+    def test_the_save_names_a_supplier_it_filed_as_a_request(self):
+        text = ("gene\tcatalogue\tcompany\tsite\n"
+                "STMN2\tNEW-1\tZyxwv Works\tMcGill\n"
+                "STMN2\tNEW-2\tProteintech\tMcGill\n")
+        r = self._post("/pipeline/antibodies/bulk/commit/", text, False)
+        self.assertEqual(r["suppliers_requested"], ["Zyxwv Works"])
+
+    def test_each_board_is_told_who_is_looking_outside_its_script(self):
+        """`json_script` inside the board's own `<script>` nests a script tag
+        in a script — the page renders 200 and the grid never loads."""
+        for url in ("/pipeline/antibodies/board/", "/pipeline/cell-lines/board/",
+                    "/pipeline/sessions/board/"):
+            html = self.client.get(url).content.decode()
+            at = html.index('id="viewer"')
+            before = html[:at]
+            self.assertEqual(before.count("<script") - 1, before.count("</script>"), url)
+            self.assertIn('"site": "McGill"', html[at:at + 200], url)
+
+    @skipUnless(shutil.which("node"), "needs node to run board.js")
+    def test_the_sentences_a_board_draws(self):
+        got = _board_js("""{
+          theirs: B.lockedFor({site: 'McGill', superuser: false}, 'Leicester'),
+          ours: B.lockedFor({site: 'McGill', superuser: false}, 'McGill'),
+          nobodys: B.lockedFor({site: 'McGill', superuser: false}, ''),
+          su: B.lockedFor({site: 'McGill', superuser: true}, 'Leicester'),
+          at: B.recordedAt({sites: ['McGill'], site_rows: {McGill: 2}}),
+          two: B.recordedAt({sites: ['Leicester', 'McGill'], site_rows: {Leicester: 1, McGill: 1}}),
+          none: B.recordedAt({sites: [], site_rows: {}}),
+          asked: B.saveNotes({suppliers_requested: ['Zyxwv Works']}),
+        }""")
+        self.assertEqual(got["theirs"], "Leicester's record: only a superuser can "
+                         "change it. You can edit your own bench's records.")
+        self.assertEqual((got["ours"], got["nobodys"], got["su"]), ("", "", ""))
+        self.assertEqual(got["at"], "Will be recorded at: McGill (2 rows)")
+        self.assertIn("more than one site", got["two"])
+        self.assertEqual(got["none"], "")
+        self.assertIn("Zyxwv Works isn't", got["asked"])
+        self.assertIn("superuser has been asked to approve it", got["asked"])

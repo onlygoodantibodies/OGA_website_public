@@ -241,7 +241,8 @@ def registry_names(target) -> list:
 
 
 def sites_of(target, nominations=None) -> dict:
-    """Which sites a target belongs to — ``{"sites": [Site, …], "from_import": bool}``.
+    """Which sites a target belongs to — ``{"sites": [Site, …], "from_import":
+    bool, "also_import": Site | None}``.
 
     Two columns record this and **neither alone is honest**, which is exactly the
     shape of ``other_names`` above: which one a fact is in is an artefact of which
@@ -274,15 +275,25 @@ def sites_of(target, nominations=None) -> dict:
     prefetch on ``target.nominations`` is used.
     """
     if target is None:
-        return {"sites": [], "from_import": False}
+        return {"sites": [], "from_import": False, "also_import": None}
     noms = target.nominations.all() if nominations is None else nominations
     sites = {n.site.pk: n.site for n in noms if n.site_id}
     if sites:
+        # **A second bench adding itself must not make the first one vanish.**
+        # Two sites may add their own data about one gene and neither removes
+        # the other's (owner, 29 Sep 2026) — but reading the nominations first
+        # meant McGill's nomination on a gene only the import recorded as
+        # Leicester's dropped Leicester from the board, the Portfolio and the
+        # gene page. The import's site stays, apart and marked, as
+        # `also_import`: still not squashed into the nominations, which are a
+        # different kind of evidence.
+        extra = (target.site if getattr(target, "site_id", None)
+                 and target.site_id not in sites else None)
         return {"sites": sorted(sites.values(), key=lambda s: s.name or ""),
-                "from_import": False}
+                "from_import": False, "also_import": extra}
     if getattr(target, "site_id", None) and target.site:
-        return {"sites": [target.site], "from_import": True}
-    return {"sites": [], "from_import": False}
+        return {"sites": [target.site], "from_import": True, "also_import": None}
+    return {"sites": [], "from_import": False, "also_import": None}
 
 
 def site_names(target, nominations=None) -> list:

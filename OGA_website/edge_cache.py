@@ -8,13 +8,21 @@ TMEFF2 went public, the gene page appeared, the home page counts did not move).
 
 So releasing and withdrawing purge. Three decisions:
 
-* **Everything, not a list of URLs.** A release changes the gene page, the home
-  page's three counts, the gene index, the sitemap, the extension index and the
-  API — and a list someone keeps is the list that misses the next page to start
-  showing a count. Purge-by-URL also misses ``www.``, which is a served
-  hostname. Everything costs one re-fetch per Cloudflare datacentre, and a
-  release is a meeting's worth of work, not a stream. This settles the
-  "everything or by URL" question CLAUDE.md left open, for this caller.
+* **Every page, not a list of URLs — and not the files a release cannot
+  change.** A release changes the gene page, the home page's three counts, the
+  gene index, the sitemap, the extension index and the API — and a list someone
+  keeps is the list that misses the next page to start showing a count.
+  Purge-by-URL also misses ``www.``, which is a served hostname. So every reply
+  carries a ``Cache-Tag`` (``cache_headers.RELEASE_TAG``) *except* the few in
+  ``cache_headers.KEPT_ACROSS_RELEASES``, and this purges the tag: a list of
+  what to keep fails safe, where a list of what to purge does not. Until
+  29 Sep 2026 it purged the whole zone, which also emptied every Cloudflare
+  location of the static images and the extension's 741 KB citation snapshot,
+  each then re-fetched from the origin — and origin bytes are Render's
+  bandwidth bill. Tag purges are on the free plan (5 a minute). **A page
+  stored before its reply carried the tag is not reached by one**, which is why
+  the deploy that brought the tag in has to purge everything, as every deploy
+  does.
 * **After the write has committed, never inside it.** A purge that runs before
   the commit lets the edge refill with the old page for a week — the same trap
   as purging during a deploy — and an outbound call inside a transaction is
@@ -36,6 +44,8 @@ import os
 import sys
 import urllib.error
 import urllib.request
+
+from OGA_website.cache_headers import RELEASE_TAG
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +110,8 @@ def index_version() -> str:
     return cache.get_or_set(INDEX_VERSION_KEY, _new_version, None)
 
 
-def purge_everything() -> tuple[bool, str]:
-    """Purge the zone. ``(done, sentence for the page)``.
+def purge_public_pages() -> tuple[bool, str]:
+    """Purge every page a release can change. ``(done, sentence for the page)``.
 
     Every caller is a change to what is published, so it also forgets the
     site's own indexes of that (`forget_public_indexes`) — first, and even when
@@ -117,7 +127,7 @@ def purge_everything() -> tuple[bool, str]:
         return False, NOT_DONE
     req = urllib.request.Request(
         f"https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache",
-        data=json.dumps({"purge_everything": True}).encode(),
+        data=json.dumps({"tags": [RELEASE_TAG]}).encode(),
         method="POST",
         headers={"Authorization": f"Bearer {token}",
                  "Content-Type": "application/json"})

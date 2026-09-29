@@ -264,6 +264,10 @@ def parse_acquisition(raw: str) -> str:
     return _ACQUISITION.get(key, "")
 
 
+# What a clonality cell holds when nobody knows it — not a value to complain about.
+UNSTATED_CLONALITY = {"", "unknown", "-", "n/a", "na", "not known"}
+
+
 def parse_clonality(raw: str):
     """(clonality_enum, is_recombinant) from a pasted clonality string.
     Only ever returns one of the four enum values (spec §4)."""
@@ -570,9 +574,16 @@ def _finalize(raw_rows):
     for row in raw_rows:
         if not row.get("catalogue"):
             continue
-        clon, recomb = parse_clonality(row.pop("clonality_raw", ""))
+        typed = (row.pop("clonality_raw", "") or "").strip()
+        clon, recomb = parse_clonality(typed)
         row["clonality"] = clon
         row["is_recombinant"] = recomb
+        # Something typed that is not a clonality — `mono` — becomes `unknown`,
+        # and nothing said so: the preview drew the row as new and the board
+        # then showed a blank. Kept so a preview can name it beside the row.
+        row["clonality_unread"] = (
+            typed if clon == "unknown" and typed.lower() not in UNSTATED_CLONALITY
+            else "")
         if row.get("clone_id", "").strip() == "-":
             row["clone_id"] = ""
         row.setdefault("lot", "")

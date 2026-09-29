@@ -363,7 +363,18 @@
    * reallocation was not. Two or more nominations stay read-only: the same gene
    * pursued at two sites is a real state the duplicate badge flags, and one text
    * box cannot say which of them is being moved. */
+  /* The import's site beside another bench's nomination (`sites_of`'s
+   * `also_import`). Two sites may each add a gene to their list; the second
+   * adding itself took the first off this cell until 29 Sep 2026. */
+  function importAlso(r) {
+    return r.import_site_also
+      ? `<span class="block text-xs text-gray-400 mt-1">also ${esc(r.import_site_also)} — from import</span>`
+      : '';
+  }
   function sitesCell(r, nom) {
+    return sitesCellOwn(r, nom) + importAlso(r);
+  }
+  function sitesCellOwn(r, nom) {
     if (r.nominations.length > 1) {
       // One box cannot say which of several nominations to move, so this cell
       // stays read-only — but the gene's own page now draws each nomination

@@ -1061,6 +1061,11 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
             "#wt-line-options option", "els => els.map(e => e.value)")
         self.assertTrue(offered, "the site has a wild type and none was offered")
         self.page.fill("#ne-gene", "SNCA")
+        self.page.dispatch_event("#ne-gene", "change")
+        # The KO box follows the gene typed (live, 29 Sep 2026: it offered the
+        # site's first sixty controls of any gene, and never this one's).
+        self.page.wait_for_function(
+            "document.getElementById('ne-ko').placeholder.includes('SNCA')")
         self.page.fill("#ne-date", "2026-08-04")
         self.page.fill("#ne-wt", offered[0])
         self.page.fill("#new-panel table tbody input[data-c='0']", "ab999")
@@ -2369,6 +2374,10 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         self.page.wait_for_selector("#bulk-genes", state="visible")
 
     def test_the_bulk_box_nominates_at_the_site_you_chose(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         from pipeline.models import TargetNomination
         ontario = Site.objects.using(DB).create(name="Ontario", short_code="ONT")
 
@@ -3066,8 +3075,11 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
             target_id=imported.pk).first()
         self.assertIsNotNone(nom, "nothing was recorded")
         self.assertEqual(nom.site_id, self.site.pk)
-        # And the row stops claiming the import once a real nomination exists.
-        self.assertNotIn("from import", self.page.text_content(row).lower())
+        # And McGill, whose gene the import says it is, stays on the row beside
+        # the nomination Leicester just filed — two sites may each add a gene
+        # to their list, and the second adding itself used to take the first
+        # off it (owner, 29 Sep 2026).
+        self.assertIn("also mcgill — from import", self.page.text_content(row).lower())
         self.assertEqual(self.errors, [])
 
     # ── The gene's own page records what the board records ────────────────
@@ -4213,6 +4225,23 @@ class CropperAsksOnThePageInARealBrowserTests(_RealBrowserHarness):
         self.assertEqual(self._page_errors(), [])
 
 
+    def test_a_figure_removed_before_any_save_leaves_no_upload_behind(self):
+        from pipeline.models import CropperImage
+        self.page.goto(f"{self.live_server_url}/pipeline/cropper/?gene=SNCA")
+        self.page.wait_for_load_state("networkidle")
+        self.page.set_input_files("#file", files=[self._figure()])
+        self.page.wait_for_function("SESS.images[0] && SESS.images[0].discardToken", timeout=20000)
+        self.assertEqual(CropperImage.objects.using(DB).count(), 1)
+        self.page.locator("[data-rm='0']").click()
+        self.page.click("#imgrm-yes")
+        for _ in range(50):
+            if not CropperImage.objects.using(DB).exists():
+                break
+            self.page.wait_for_timeout(100)
+        self.assertEqual(CropperImage.objects.using(DB).count(), 0,
+                         "the dropped upload was left in storage")
+        self.assertEqual(self._page_errors(), [])
+
     def test_clear_storage_lists_asks_and_empties_in_one_press(self):
         """The press is browser-side: the manifest drawn as a question with the
         count on its button, the stamp posted back, the receipt after the
@@ -4644,3 +4673,131 @@ class IhcBenchSheetInARealBrowserTests(_RealBrowserHarness):
         self.assertIn("still be missing",
                       self.page.text_content("#results-drawer-body"))
         self.assertEqual([e for e in self.errors if not re.match(r"^\d{3} ", e)], [])
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class TheIdentityPickerFindsABrandOnTheListInARealBrowserTests(_RealBrowserHarness):
+    """Field test, 29 Sep 2026: a Novus antibody's identity dialog opened with
+    *"Bio-Techne (Novus Biologicals) — not on the supplier list"* selected, over
+    a list whose Bio-Techne entry is that supplier. The record carries the
+    brand's `.name` and the list offers display names, so the page could not
+    tell — a browser, because the server answered both halves correctly."""
+
+    def _selected(self, ab):
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        self.page.wait_for_selector(f'tr[data-row="{ab.pk}"]')
+        self.page.click(f'tr[data-row="{ab.pk}"] .identity')
+        sel = "#identity-panel select[data-f='company']"
+        self.page.wait_for_selector(sel)
+        return self.page.eval_on_selector(sel, "s => s.options[s.selectedIndex].text")
+
+    def test_a_brand_listed_under_its_parent_is_not_called_off_the_list(self):
+        from pipeline.models import Company
+        novus = Company.objects.using(DB).create(
+            name="Bio-Techne (Novus Biologicals)", display_name="Bio-Techne")
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=novus.pk,
+            catalogue_number="NBP1-1", site_id=self.site.pk)
+        self.assertEqual(self._selected(ab), "Bio-Techne (Novus Biologicals)")
+
+    def test_a_supplier_waiting_for_approval_still_says_so(self):
+        from pipeline.models import Company
+        pending = Company.objects.using(DB).create(name="Zyxwv Works", is_active=False)
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=pending.pk,
+            catalogue_number="ZX-1", site_id=self.site.pk)
+        self.assertEqual(self._selected(ab), "Zyxwv Works — not on the supplier list")
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class TheSessionsSheetOffersASaveOnlyWhenOneWouldWriteInARealBrowserTests(_RealBrowserHarness):
+    """Field test, 29 Sep 2026, on the sessions board's own round trip: an
+    unchanged export previewed *"0 rows would change"* with **Save these
+    changes** offered beneath it, and after a real save Preview stayed live, so
+    pressing it re-read the spent file as *"0 rows would change"* over the
+    receipt that had just said one row was updated."""
+
+    def test_nothing_to_save_offers_no_save_and_a_save_spends_the_file(self):
+        import io
+        import tempfile
+
+        import openpyxl
+
+        from pipeline.models import (Antibody, Company, ExperimentSession, Member,
+                                     WbResult)
+        from pipeline.services import session_io
+        member = Member.objects.using(DB).get(site_id=self.site.pk)
+        company = Company.objects.using(DB).create(name="Abcam")
+        ab = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=company.pk,
+            catalogue_number="ab999", site_id=self.site.pk)
+        session = ExperimentSession.objects.using(DB).create(
+            target_id=self.target.pk, procedure_type="WB", date="2026-09-29",
+            site_id=self.site.pk, experimenter_id=member.pk)
+        WbResult.objects.using(DB).create(session_id=session.pk, antibody_id=ab.pk)
+
+        def sheet(dilution=None):
+            wb = openpyxl.load_workbook(io.BytesIO(session_io.build_export()))
+            ws = wb["WB"]
+            if dilution:
+                head = [c.value for c in ws[1]]
+                ws.cell(row=2, column=head.index("dilution") + 1, value=dilution)
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as fh:
+                wb.save(fh)
+                return fh.name
+
+        self.page.goto(f"{self.live_server_url}/pipeline/sessions/board/")
+        self.page.wait_for_selector(f'tr[data-row="{session.pk}"]')
+        self.page.click("#upload-btn")
+        self.page.set_input_files("#upload-file", sheet())
+        with self.page.expect_response(lambda r: "upload/preview" in r.url):
+            self.page.click("#preview-btn")
+        self.page.wait_for_function(
+            "() => document.getElementById('upload-result').innerText.includes('would change')")
+        self.assertIn("nothing to save", self.page.inner_text("#upload-result"))
+        self.assertFalse(self.page.is_visible("#commit-btn"))
+
+        self.page.set_input_files("#upload-file", sheet("1:1000"))
+        with self.page.expect_response(lambda r: "upload/preview" in r.url):
+            self.page.click("#preview-btn")
+        self.page.wait_for_selector("#commit-btn", state="visible")
+        with self.page.expect_response(lambda r: "upload/commit" in r.url):
+            self.page.click("#commit-btn")
+        self.page.wait_for_function(
+            "() => document.getElementById('upload-result').innerText.includes('Saved.')")
+        self.assertTrue(self.page.is_disabled("#preview-btn"))
+        self.assertEqual(WbResult.objects.using(DB).get(session_id=session.pk).dilution,
+                         "1:1000")
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class AnotherSitesRowSaysSoBeforeAnybodyTypesInARealBrowserTests(_RealBrowserHarness):
+    """Field test, 29 Sep 2026: another site's cells drew exactly like your
+    own, so a whole value could be typed before the save said "This record
+    belongs to McGill". A browser, because the server was always right and it
+    was the page that invited the edit."""
+
+    def test_a_click_on_another_sites_cell_says_why_and_opens_no_editor(self):
+        mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        from pipeline.models import Company
+        co = Company.objects.using(DB).create(name="Proteintech")
+        theirs = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=co.pk,
+            catalogue_number="THEIRS-1", site_id=mcgill.pk)
+        ours = Antibody.objects.using(DB).create(
+            target_id=self.target.pk, company_id=co.pk,
+            catalogue_number="OURS-1", site_id=self.site.pk)
+        self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+        self.page.wait_for_selector(f'tr[data-row="{theirs.pk}"][data-locked]')
+        self.assertIsNone(self.page.query_selector(
+            f'tr[data-row="{ours.pk}"][data-locked]'))
+        self.page.click(f'tr[data-row="{theirs.pk}"] .edit')
+        self.page.wait_for_function(
+            "() => document.body.textContent.includes("
+            "\"McGill's record: only a superuser can change it\")")
+        self.assertIsNone(self.page.query_selector(
+            f'tr[data-row="{theirs.pk}"] input, tr[data-row="{theirs.pk}"] select'))
+        self.assertEqual(self.errors, [])

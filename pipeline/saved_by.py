@@ -64,9 +64,46 @@ class SavedByMiddleware:
     def __call__(self, request):
         token = _request.set(request)
         try:
-            return self.get_response(request)
+            response = self.get_response(request)
         finally:
             _request.reset(token)
+        return self._refused(request) or response
+
+    def _refused(self, request):
+        """The reply for a save refused as another site's record, or None.
+
+        Taken from the request's mark, not only from an exception reaching
+        here, because many write views catch everything and answer with a
+        generic "could not save" — which would put a vaguer sentence over the
+        one that says whose record it is (`services/ownership.py`).
+        """
+        from pipeline.services.ownership import REFUSED
+        message = getattr(request, REFUSED, "")
+        if not message:
+            return None
+        from django.http import HttpResponseForbidden, JsonResponse
+        wants_json = ("json" in request.headers.get("Accept", "")
+                      or "json" in request.headers.get("Content-Type", "")
+                      or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+                      or request.method != "GET")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": message,
+                                 "errors": [message]}, status=403)
+        return HttpResponseForbidden(message)
+
+    def process_exception(self, request, exception):
+        """A save refused as another site's record is a sentence, not a 500.
+
+        Every board, panel and upload reads ``error``/``errors`` off a JSON
+        reply, so the refusal reaches the banner or the panel it was pressed
+        from in the same words the previews use (`services/ownership.py`).
+        """
+        from pipeline.services.ownership import CrossSiteWrite
+        if not isinstance(exception, CrossSiteWrite):
+            return None
+        from django.http import JsonResponse
+        return JsonResponse({"ok": False, "error": exception.message,
+                             "errors": [exception.message]}, status=403)
 
 
 def current() -> str:
@@ -106,6 +143,14 @@ class SavedByField(models.CharField):
         return name, path, args, kwargs
 
     def pre_save(self, model_instance, add):
+        if not self.on_add and not getattr(model_instance, "_ownership_asked", False):
+            # Whose bench this row is on (`services/ownership.py`) — asked here
+            # only for `bulk_create`, which calls a field's `pre_save` and never
+            # `save()`. A plain save asks in `SavedBy.save`, before Django opens
+            # its own transaction handling: raised in here, the refusal marks
+            # the surrounding transaction broken.
+            from pipeline.services import ownership
+            ownership.check(model_instance)
         if self.on_add:
             # A writer that already knows who added the row keeps its answer.
             if add and not getattr(model_instance, self.attname):
@@ -128,10 +173,16 @@ class SavedBy(models.Model):
         abstract = True
 
     def save(self, *args, **kwargs):
+        from pipeline.services import ownership
+        ownership.check(self)
         fields = kwargs.get("update_fields")
         if fields:
             kwargs["update_fields"] = {*fields, "saved_by"}
-        super().save(*args, **kwargs)
+        self._ownership_asked = True
+        try:
+            super().save(*args, **kwargs)
+        finally:
+            self._ownership_asked = False
 
 
 def who(name: str) -> str:

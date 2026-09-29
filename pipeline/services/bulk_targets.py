@@ -54,6 +54,7 @@ from django.db.models.functions import Upper
 from pipeline.models import Site, Target, TargetNomination
 from pipeline.services import example_row
 from pipeline.services import gene_symbol
+from pipeline.services import ownership
 from pipeline.services import sites as site_svc
 from pipeline.services import targets as target_svc
 from pipeline.services import uniprot
@@ -506,6 +507,10 @@ def plan(genes, *, member=None, site=None, budget_seconds=LOOKUP_BUDGET_SECONDS,
         site_id, site_name = site_for(site, member=member, db=db)
     except site_svc.UnknownSite as e:
         return {"ok": False, "error": str(e)}
+    # Another bench's list is a superuser's to add to (services/ownership.py).
+    refused = ownership.refusal_now({site_id}, action="add genes to the list of")
+    if refused:
+        return {"ok": False, "error": refused}
 
     rows = confirm(genes, budget_seconds=budget_seconds, db=db)
 
@@ -655,6 +660,9 @@ def apply(rows, *, member=None, site=None, agency=None, project=None,
     comment where it is built. It is the one key the screens navigate on.
     """
     site_id, site_name = site_for(site, member=member, db=db)
+    refused = ownership.refusal_now({site_id}, action="add genes to the list of")
+    if refused:
+        raise ownership.CrossSiteWrite(refused)
     _refuse_a_moved_site(rows, site_id, site_name, db=db)
     funding = funding_for(agency, project, db=db)
     created, nominated, skipped, refunded = [], [], [], []

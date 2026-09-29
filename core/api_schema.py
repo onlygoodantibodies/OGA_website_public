@@ -56,7 +56,13 @@ from .api_views import BASE_URL
 # invisible as a new key — a strictly generated client rejects one it has not
 # seen — which is why it is a version bump announced in API.md rather than a
 # silent widening. Nothing removed or renamed; `embed_urls` has no IHC key yet.
-API_VERSION = '2.2.0'
+#
+# 2.3.0 on 29 Sep 2026: `?application=` refuses a value it does not know (it was
+# silently ignored, so `?application=IF` returned everything) and accepts the
+# everyday names; `application_filter`, `/changelog/` and the `OGA-API-Version`
+# header added. Taken from `core/api_changelog.py` from now on, so the version a
+# client is told and the changes it can ask for are one list.
+from .api_changelog import CURRENT as API_VERSION  # noqa: E402
 
 _SERVER = f'{BASE_URL}/api/v1'
 
@@ -474,6 +480,31 @@ def _paths():
                 'responses': {'200': {'description': ok}},
             }},
 
+        '/changelog/': {
+            'get': {
+                'tags': tag_meta,
+                'operationId': 'getChangelog',
+                'summary': 'What changed in this API, newest first',
+                'description': (
+                    'One entry per release — the same list `info.version` is '
+                    'taken from. `?since=2.2.0` answers only what is newer. '
+                    'Every `/api/` reply also carries an `OGA-API-Version` '
+                    'header, so a client can notice a new version on a request '
+                    'it was already making. `kind` is `added`, `changed`, '
+                    '`removed` or `fixed`; `changed` and '
+                    '`removed` are the ones a client may need to act on, and '
+                    '`action` says how.'),
+                'security': [],
+                'parameters': [
+                    {'name': 'since', 'in': 'query',
+                     'schema': {'type': 'string'}, 'example': '2.2.0'},
+                ],
+                'responses': {
+                    '200': {'description': 'The releases, newest first.'},
+                    '400': {'$ref': '#/components/responses/BadRequest'},
+                },
+            },
+        },
         '/openapi.json': {
             'get': {
                 'tags': tag_meta,
@@ -621,8 +652,18 @@ def _paths():
                     {'name': 'gene', 'in': 'query',
                      'schema': {'type': 'string'}, 'example': 'ACE'},
                     {'name': 'application', 'in': 'query',
-                     'schema': {'type': 'string', 'enum': list(R.APPLICATIONS)},
-                     'description': 'Recommended for that application.'},
+                     'schema': {'type': 'string',
+                                'examples': list(R.APPLICATIONS) + ['IF']},
+                     'description': (
+                         'Recommended for that application: '
+                         + ', '.join(f'`{a}`' for a in R.APPLICATIONS)
+                         + '. Everyday names are accepted too — `IF` or `ICC` '
+                           'for ICC-IF, `western blot`, `immunoprecipitation`, '
+                           '`flow`, `immunohistochemistry`; case, spaces and '
+                           'punctuation are ignored. **An unknown value is '
+                           'refused with 400** (since 2.3.0 — it was ignored), '
+                           'and `application_filter` in the reply is the code '
+                           'it was read as.')},
                     {'name': 'recommended_only', 'in': 'query',
                      'schema': {'type': 'boolean'}},
                     {'name': 'limit', 'in': 'query',
@@ -640,6 +681,12 @@ def _paths():
                                 'consumer': {'type': 'string'},
                                 'count': {'type': 'integer'},
                                 'matched': {'type': 'integer'},
+                                'application_filter': {
+                                    'type': ['string', 'null'],
+                                    'enum': list(R.APPLICATIONS) + [None],
+                                    'description': 'The application code '
+                                                   '`?application=` was read as; '
+                                                   'null when not asked.'},
                                 'complete': {'type': 'boolean'},
                                 'cursor_advanced': {'type': 'boolean'},
                                 'preview': {'type': 'boolean'},

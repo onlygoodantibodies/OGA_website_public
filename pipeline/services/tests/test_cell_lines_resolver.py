@@ -492,3 +492,88 @@ def test_a_freeze_down_number_is_shown_before_the_site(lines):
         assert label == f"SH-SY5Y [C-{own}, C-77] — Leicester"
     finally:
         vial.delete()
+
+
+def test_a_control_box_offers_the_genes_knockouts_and_not_anothers(lines):
+    """The Plan panel's KO box offered the site's first sixty controls of any
+    gene (live, 29 Sep 2026): a STMN2 session was offered other genes' lines
+    and never its own. With the gene named, only its lines are offered."""
+    from pipeline.models import CellLine, Target
+    from pipeline.services import cell_lines
+    other = CellLine.objects.using(DB).create(
+        name="SH-SY5Y", genotype="KO", site=lines["lei"],
+        target=Target.objects.using(DB).get(gene_name="PRKN"))
+    offered = [o["value"] for o in cell_lines.picker_options(
+        genotype=cell_lines.CONTROL, site_id=lines["lei"].pk, target=lines["stmn2"])]
+    assert any("STMN2" in v for v in offered)
+    assert not any("PRKN" in v for v in offered)
+    other.delete()
+
+
+def test_a_sites_list_is_not_cut_short_at_an_arbitrary_letter(lines):
+    """Sixty alphabetical entries hid every line after them; a datalist narrows
+    as you type, so the whole site is offered."""
+    from pipeline.models import CellLine
+    from pipeline.services import cell_lines
+    made = [CellLine.objects.using(DB).create(
+        name=f"Z-LINE-{i:03d}", genotype="WT", site=lines["lei"]) for i in range(70)]
+    offered = [o["value"] for o in cell_lines.picker_options(
+        genotype="WT", site_id=lines["lei"].pk)]
+    assert any(v.startswith("Z-LINE-069") for v in offered)
+    for cl in made:
+        cl.delete()
+
+
+def test_both_session_pickers_name_every_batch_a_line_was_frozen_as(lines):
+    """Field test, 29 Sep 2026: McGill's SK-N-AS wild type was frozen as C-754
+    and C-764. The step-by-step form's box said `[C-754, C-764]`; the Plan
+    panel's said `C-754` alone, and its knockout — nine consecutive batches —
+    read `[C-755, …, C-759]` on the form, cut at five. A tube carries whichever
+    number was written on it, so every picker offers all of them."""
+    from pipeline.models import CellLine, CellLineVial
+    from pipeline.services import cell_lines, lab_numbers
+    with lab_numbers.suspended():
+        wt = CellLine.objects.using(DB).create(name="SK-N-AS", genotype="WT",
+                                               site=lines["lei"])
+        ko = CellLine.objects.using(DB).create(name="SK-N-AS", genotype="KO",
+                                               site=lines["lei"], target=lines["stmn2"],
+                                               parent_line=wt)
+    for n in (754, 764):
+        CellLineVial.objects.using(DB).create(cell_line=wt, c_number=n)
+    for n in range(755, 764):
+        CellLineVial.objects.using(DB).create(cell_line=ko, c_number=n)
+    try:
+        wt_hint = next(o["hint"] for o in cell_lines.picker_options(
+            genotype="WT", site_id=lines["lei"].pk) if o["value"].startswith("SK-N-AS"))
+        assert wt_hint == "C-754, C-764"
+        ko_hint = next(o["hint"] for o in cell_lines.picker_options(
+            genotype=cell_lines.CONTROL, site_id=lines["lei"].pk,
+            target=lines["stmn2"]) if o["value"].startswith("SK-N-AS"))
+        assert ko_hint == "C-755–C-763"
+        form = cell_lines.session_options(lines["stmn2"])
+        ko_label = next(o["label"] for o in form["ko"] if o["id"] == ko.pk)
+        assert "[C-755–C-763]" in ko_label
+    finally:
+        ko.delete(); wt.delete()
+
+
+def test_a_refused_knockout_offers_that_genes_lines_not_the_sites_first_twelve(lines):
+    """Field test, 29 Sep 2026: a GCG session's sheet naming a knockout that is
+    not on file was refused with *"On file: 1321N1 SLC17A7 KO — McGill, 5637
+    DYRK1A KD — McGill, …"* — twelve other genes' lines, and never the GCG
+    knockout the sheet meant. A caller that knows the gene narrows the list."""
+    from pipeline.models import CellLine
+    from pipeline.services import cell_lines
+    other = CellLine.objects.using(DB).create(
+        name="A-431", genotype="KO", site=lines["mcg"], target=lines["stmn2"])
+    try:
+        _, err = cell_lines.resolve("SH-SY5Y clone nosuch", genotype=cell_lines.CONTROL,
+                                    site_id=lines["mcg"].pk, target=lines["ko_prkn"].target)
+        assert "SH-SY5Y PRKN KO" in err
+        assert "A-431" not in err
+        # Without the gene it is the site's list, as before.
+        _, err = cell_lines.resolve("SH-SY5Y clone nosuch", genotype=cell_lines.CONTROL,
+                                    site_id=lines["mcg"].pk)
+        assert "A-431" in err
+    finally:
+        other.delete()

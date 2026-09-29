@@ -107,6 +107,9 @@ class SessionBoardTests(TestCase):
         self.assertEqual(self.session.comments, "repeat of the 12 Feb run")
 
     def test_experimenter_and_site_resolve_by_name(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         self._patch(session_id=self.session.pk, field="site", value="McGill")
         self.session.refresh_from_db()
         self.assertEqual(self.session.site_id, self.site2.pk)
@@ -140,6 +143,9 @@ class SessionBoardTests(TestCase):
         self.assertEqual(self.session.procedure_type, "WB")
 
     def test_a_row_pushed_out_of_the_active_filter_reports_matches_false(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         data = self._patch(f"site={self.site.pk}", session_id=self.session.pk,
                            field="site", value="McGill").json()
         self.assertTrue(data["ok"])

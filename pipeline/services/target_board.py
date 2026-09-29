@@ -350,6 +350,10 @@ def row_for(target, coverage=None) -> dict:
         # can say that typing here *records* the nomination rather than moving
         # one that does not exist.
         "sites_from_import": whose["from_import"],
+        # The import's site beside another bench's nomination — kept on screen
+        # so the second site adding itself does not take the first off it.
+        "import_site_also": (whose["also_import"].name
+                             if whose.get("also_import") else ""),
         "agencies": sorted({n.granting_agency.name for n in noms if n.granting_agency}),
         "projects": sorted({n.project.name for n in noms if n.project}),
         "funded": bool(getattr(target, "is_funded", False)),
@@ -705,6 +709,8 @@ def portfolio() -> dict:
         if whose["from_import"]:
             for s in whose["sites"]:
                 from_import_at[(s.name, t.pk)] = True
+        if whose.get("also_import"):
+            from_import_at[(whose["also_import"].name, t.pk)] = True
     by_site = defaultdict(lambda: {"total": 0, "completed": 0, "funded": 0,
                                    "from_import": 0})
     for (site_name, target_id), is_funded in funded_at.items():

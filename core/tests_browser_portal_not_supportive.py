@@ -139,11 +139,13 @@ class NotSupportiveTabInARealBrowserTests(StaticLiveServerTestCase):
         body = self.page.text_content("#notsupportive-content")
         self.assertIn("2 antibodies", body)
         self.assertIn("2 application results", body)
-        # Both rungs are named even with the tick off — and what is EXCLUDED is
-        # said as an exclusion, never as a count of zero.
+        # The button says what the file holds before it is pressed.
+        self.assertIn("Download CSV (2 rows)", self.page.text_content("#ns-csv"))
+        # Both rungs are named even with the tick off — Limited support as the
+        # tick that would add it, never as a count of zero.
         self.assertIn("Not supportive", body)
-        self.assertIn("Limited support", body)
-        self.assertIn("are left out of this list", body)
+        self.assertIn("Include Limited support", body)
+        self.assertFalse(self.page.is_checked("#ns-limited"))
 
     # The only one here on the push tier, and the tier rule is why. The other
     # three prove the tab worked when it was built and fail LOUDLY — a blank
@@ -155,13 +157,17 @@ class NotSupportiveTabInARealBrowserTests(StaticLiveServerTestCase):
     # server half of that far more cheaply; only a browser can ask whether the
     # page sends the filter at all.
     def test_the_gene_picker_refetches_and_says_the_downloads_moved_with_it(self):
-        """The picker narrows the files too, so the page has to say so."""
+        """The picker narrows the files too, so the button has to say so."""
         self._open_tab()
         self.page.select_option("#ns-gene", "SNCA")
-        self.page.wait_for_selector("#notsupportive-content .ab-card")
+        # The count on the button is the server's answer for SNCA alone, so it
+        # only moves if the page sent the gene.
+        self.page.wait_for_function(
+            "() => (document.querySelector('#ns-csv') || {}).textContent"
+            " === 'Download CSV (1 row)'")
         body = self.page.text_content("#notsupportive-content")
         self.assertIn("ab138501", body)
-        self.assertIn("It covers SNCA only", body)
+        self.assertEqual(self.page.input_value("#ns-gene"), "SNCA")
 
     @tag("commissioning")
     def test_the_download_produces_a_file(self):
@@ -211,10 +217,10 @@ class NotSupportiveTabInARealBrowserTests(StaticLiveServerTestCase):
 
         section = self.page.text_content(
             "#notsupportive-content .ns-gene:first-of-type")
-        self.assertIn("What a supportive result on SNCA looks like", section)
+        self.assertIn("Supportive on SNCA, for comparison", section)
         self.assertIn("ab-good", section)
         # Named as somebody else's product, or a supplier reads it as theirs.
-        self.assertIn("different", section)
+        self.assertIn("other antibodies", section)
         self.page.wait_for_function(
             "() => { const i = document.querySelector("
             "'#notsupportive-content .ns-ref img');"
@@ -231,11 +237,10 @@ class NotSupportiveTabInARealBrowserTests(StaticLiveServerTestCase):
         tick = self.page.query_selector("#ns-limited")
         self.assertIsNotNone(tick, "the Limited support tick is not on the page")
         self.assertFalse(tick.is_checked(), "it must be off by default")
-        body = self.page.text_content("#notsupportive-content")
-        self.assertIn("Limited support is excluded", body)
 
         self.page.check("#ns-limited")
+        # Redrawn from the server's reply, so the tick is still on only if the
+        # request carried it.
         self.page.wait_for_function(
-            "() => document.querySelector('#notsupportive-content')"
-            ".textContent.includes('Limited support is included')")
-        self.assertTrue(self.page.query_selector("#ns-limited").is_checked())
+            "() => NS_STATE.includeLimited === true"
+            " && document.querySelector('#ns-limited').checked")

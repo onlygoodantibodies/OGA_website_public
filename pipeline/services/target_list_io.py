@@ -33,6 +33,7 @@ from django.db import transaction
 
 from pipeline.models import (GrantingAgency, Project, Report, Site, Target,
                              TargetNomination)
+from pipeline.services import ownership
 from pipeline.services import bulk_targets
 from pipeline.services import doi as doi_svc
 from pipeline.services import example_row
@@ -686,6 +687,23 @@ def apply(parsed: dict, *, member=None, apply_overwrites: bool = False,
                 if member is not None and getattr(member, "pk", None):
                     target.created_by_id = member.pk
                 out["targets_created"].append(gene)
+
+            # Whose row this is (services/ownership.py): the site it names and the
+            # nomination it would fill. Another bench's list is a superuser's to
+            # write, so the row is skipped and named, never half-applied.
+            row_site = _clean(rec.get("site")) or default_site
+            touched = {getattr(Site.objects.using(DB).filter(name__iexact=row_site)
+                               .first(), "pk", None) if row_site else None}
+            if target.pk is not None:
+                held = index.nomination_for(target, _clean(rec.get("granting_agency")),
+                                            _clean(rec.get("project")), row_site)
+                touched.add(getattr(held, "site_id", None))
+            refused = ownership.refusal_now(touched, action="edit")
+            if refused:
+                out["skipped"].append(f"{gene} — {refused}")
+                if target.pk is None and gene in out["targets_created"]:
+                    out["targets_created"].remove(gene)
+                continue
 
             changed = target.pk is None
             changed |= _fill(target, "protein_name", _clean(rec.get("protein")),

@@ -71,10 +71,9 @@
     .toggle-label { font-size: 0.82rem; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
     .toggle-label input { width: 16px; height: 16px; accent-color: var(--blue); }
     .filter-actions { display: flex; gap: 6px; }
+    /* Room under the last cards for the fixed download bar. */
+    body.has-action-bar #dashboard { padding-bottom: 80px; }
     #antibody-grid { padding: 20px 24px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px; }
-    /* The clearance for the fixed action bar moved off the grid and onto the
-       tab, so the pager underneath the grid is not hidden behind the bar. */
-    #tab-data { padding-bottom: 100px; }
     .empty-state { grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--muted); font-size: 0.95rem; }
     .pager { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px 24px 24px; }
     /* One page draws no pager at all, and its padding has to go with it or
@@ -118,6 +117,21 @@
        it failed" about antibodies nobody has ever tested. */
     /* The old two-state grey, kept only for a cached response carrying no
        `oga_recommendations` key — there the booleans are all there is to draw. */
+    .tab-lead { margin: 16px 24px 0; font-size: 0.85rem; color: var(--muted); }
+    .lg-note { font-size: 0.72rem; color: var(--muted); }
+    .compare-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border); }
+    .compare-bar label { font-size: 1rem; font-weight: 700; color: var(--navy); }
+    .compare-bar select { font-size: 1.05rem; font-weight: 600; padding: 10px 14px; flex: 0 1 280px; min-width: 0; border: 2px solid var(--blue); color: var(--navy); }
+    .compare-step { font-size: 1.2rem; line-height: 1; padding: 8px 14px; }
+    .compare-position { font-size: 0.8rem; color: var(--muted); }
+    /* On a phone the label takes its own line so the arrows and the picker stay together on the next. */
+    @media (max-width: 600px) { .compare-bar label { flex-basis: 100%; } .compare-bar select { flex: 1 1 0; } }
+    .supplier-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .supplier-chip { font-size: 0.78rem; padding: 4px 10px; border-radius: 99px; background: #f1f5f9; color: var(--text); }
+    .supplier-chip b { color: #0b6b3a; }
+    .supplier-chip.is-yours { background: #dcfce7; }
+    .report-link { background: none; border: none; padding: 0; font-size: 0.72rem; color: var(--muted); text-decoration: underline; cursor: pointer; }
+    .report-link:hover { color: var(--red); }
     .result-legend { padding: 8px 24px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.74rem; color: var(--muted); }
     .result-legend .legend-item { display: flex; align-items: center; gap: 6px; }
     .result-legend b { color: var(--text); font-weight: 600; }
@@ -139,7 +153,7 @@
     .exp-thumb.has-caveat .thumb-label::after { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 22px; height: 3px; background: #f4b400; border-radius: 0 0 2px 2px; }
     /* The sentence under the figure, as on a gene page — the only thing telling
        `Limited support` from `Not supportive` once colour is green-only. */
-    .exp-caveat { font-size: 0.63rem; line-height: 1.35; color: #5a6570; padding: 4px 6px 6px; text-align: left; min-height: 2.7em; }
+    .exp-caveat { font-size: 0.66rem; line-height: 1.35; color: #5a6570; padding: 4px 6px 6px; text-align: left; }
     .exp-caveat.supportive { color: #0b6b3a; font-weight: 600; }
     .card-supports { font-size: 0.72rem; color: var(--muted); padding: 0 16px 6px; }
     .card-supports b { color: #0b6b3a; }
@@ -158,10 +172,10 @@
     .embed-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
     .embed-meta .ab-name { font-size: 0.82rem; font-weight: 600; color: var(--navy); }
     .embed-meta .gene-name { font-size: 0.75rem; color: var(--muted); }
-    .iframe-string { display: flex; gap: 0.5rem; align-items: stretch; }
-    .iframe-string input { flex: 1; font-family: 'Courier New', monospace; font-size: 0.72rem; color: var(--muted); background: #f8fafc; }
     .copied { background: var(--green) !important; color: #fff !important; }
-    .embed-app-links { display: flex; gap: 6px; margin-top: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .embed-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .embed-actions .report-link { margin-left: auto; }
+    .embed-app-links { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .embed-app-links .app-link-label { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
     .embed-app-links button { font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; background: var(--pale); color: var(--blue); border: 1px solid #d0dff0; font-weight: 600; cursor: pointer; transition: all 0.15s; }
     .embed-app-links button:hover { background: #dce8f8; }
@@ -210,6 +224,10 @@
     .progress-fill { height: 100%; background: var(--blue); border-radius: 4px; transition: width 0.2s; width: 0%; }
     #toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--navy); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600; z-index: 2000; transition: transform 0.3s ease; pointer-events: none; }
     #toast.show { transform: translateX(-50%) translateY(0); }
+    /* A question asked on the page, not in the browser's own box: the bar
+       names the count on its button and waits (field test, 29 Sep 2026). */
+    #confirm-bar { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--card); border: 1.5px solid var(--navy); padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; z-index: 2001; display: flex; gap: 0.75rem; align-items: center; box-shadow: 0 6px 24px rgba(0,0,0,0.18); max-width: 92vw; }
+    #confirm-bar.hidden { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 900px) { #antibody-grid, .embed-gallery { grid-template-columns: 1fr; } .settings-grid { grid-template-columns: 1fr; } #portal-header { flex-direction: column; align-items: flex-start; } .tabs { padding: 0 12px; overflow-x: auto; } .tab { padding: 0.6rem 0.75rem; font-size: 0.78rem; white-space: nowrap; } }
 
@@ -299,52 +317,46 @@
     <div class="header-left"><div class="header-brand">OGA<span id="consumer-name"></span></div></div>
     <div class="header-stats">
       <span class="stat"><b id="stat-total">0</b> antibodies</span>
-      <span class="stat"><b id="stat-rec">0</b> recommended</span>
+      <span class="stat"><b id="stat-rec">0</b> with supportive data</span>
       <span class="stat hidden" id="stat-untested-wrap"><b id="stat-untested">0</b> not yet assessed</span>
-      <span class="stat new-stat" id="stat-new-wrap"><b id="stat-new">0</b> new since review</span>
+      <span class="stat new-stat" id="stat-new-wrap"><b id="stat-new">0</b> new</span>
     </div>
     <div class="header-right">
-      {% comment %}
-        One name, because this was two: the button said "Settings" and the panel
-        it opens was headed "Download Configuration", so from outside there was
-        no way to tell they were one destination. It matters more than a tidy-up
-        — Image Format lives in there, and a JPG setting is what sends every
-        figure through a canvas conversion on the way into the zip, so somebody
-        told to check it has to be able to find it.
-      {% endcomment %}
-      <button class="btn-outline btn-sm" id="btn-settings" onclick="toggleSettings()">Download settings</button>
       <button class="btn-ghost btn-sm" onclick="disconnect()">Sign out</button>
     </div>
   </header>
+  {% comment %}
+    Named for what you do on each tab, in the order a manufacturer uses them:
+    comparing your products with everybody else's on one gene is why most of
+    them sign in, so it is first and it is where the portal opens (owner,
+    29 Sep 2026). The comparison is manufacturers-only — the server refuses it
+    to anybody else — so for every other key the tab stays hidden and the
+    portal opens on Download images instead.
+
+    The pre-release and Not supportive tabs are shown to every key: a tab that
+    is simply absent is a feature a reader concludes does not exist, so each
+    says inside it why it is empty.
+  {% endcomment %}
   <div class="tabs" id="tab-bar">
-    <div class="tab active" data-tab="embed" onclick="switchTab('embed')">Embed Cards</div>
-    <div class="tab" data-tab="data" onclick="switchTab('data')">Images &amp; Downloads</div>
-    <div class="tab hidden" data-tab="competitor" onclick="switchTab('competitor')">Competitor View</div>
-    <!-- Pipeline data: the pre-release window. Shown to everybody rather than
-         hidden for keys without a supplier scope — a control that is simply
-         absent is a feature a reader concludes does not exist, so the tab is
-         here and the reason it is empty is printed inside it. -->
-    <div class="tab" data-tab="pipeline" onclick="switchTab('pipeline')">Pipeline Data</div>
-    <!-- The review list. Shown to every key, not only to a scoped one: the data
-         is already on the public gene pages, so there is nothing here to gate,
-         and a tab that is simply absent is a feature a reader concludes does
-         not exist. An unscoped key sees the whole dataset, which is what
-         /v1/antibodies/ already answers for it. -->
-    <div class="tab" data-tab="notsupportive" onclick="switchTab('notsupportive')">Not Supportive</div>
+    <div class="tab hidden" data-tab="competitor" onclick="switchTab('competitor')">Compare suppliers</div>
+    <div class="tab" data-tab="data" onclick="switchTab('data')">Download images</div>
+    <div class="tab" data-tab="embed" onclick="switchTab('embed')">Embed on your site</div>
+    <div class="tab" data-tab="notsupportive" onclick="switchTab('notsupportive')">Not supportive</div>
+    <div class="tab" data-tab="pipeline" onclick="switchTab('pipeline')">Pre-release</div>
   </div>
   <div id="settings-panel" class="hidden">
     <h3>Download settings</h3>
     <div class="settings-grid">
-      <div class="setting-field"><label>Filename Pattern</label><input type="text" id="cfg-filename" placeholder="{catalogue}_{application}" oninput="updatePreview()"><span class="setting-hint">Variables: {gene} {catalogue} {rrid} {application}</span></div>
-      <div class="setting-field"><label>Target URL Pattern</label><input type="text" id="cfg-url" placeholder="https://images.example.com/val/{catalogue}_{application}.png" oninput="updatePreview()"><span class="setting-hint">Used in manifest CSV</span></div>
+      <div class="setting-field"><label>File names</label><input type="text" id="cfg-filename" placeholder="{catalogue}_{application}" oninput="updatePreview()"><span class="setting-hint">{gene} {catalogue} {rrid} {application}</span></div>
+      <div class="setting-field"><label>Image URL pattern (for the CSV)</label><input type="text" id="cfg-url" placeholder="https://images.example.com/val/{catalogue}_{application}.png" oninput="updatePreview()"></div>
       {% comment %}
         The value stays "png" though the label no longer says so: consumers have
         that string stored in `portal_config`, and handing a <select> a value no
         option carries leaves it showing the placeholder — which reads exactly
         like the setting being ignored.
       {% endcomment %}
-      <div class="setting-field"><label>Image Format</label><select id="cfg-format" onchange="updatePreview()"><option value="png">Original &mdash; no conversion</option><option value="jpg">JPG (converted in your browser)</option></select><span class="setting-hint">Original is the default. Figures are published as PNG.</span></div>
-      <div class="setting-field"><label>CC Email for Reports</label><input type="email" id="cfg-cc-email" placeholder="your@company.com"><span class="setting-hint">Receives a copy of issue reports</span></div>
+      <div class="setting-field"><label>Image format</label><select id="cfg-format" onchange="updatePreview()"><option value="png">Original &mdash; no conversion</option><option value="jpg">JPG (converted in your browser)</option></select></div>
+      <div class="setting-field"><label>Copy problem reports to</label><input type="email" id="cfg-cc-email" placeholder="your@company.com"></div>
     </div>
     <div class="settings-preview" id="settings-preview"></div>
     {% comment %}
@@ -356,60 +368,78 @@
       progress destroys what somebody has ticked off. Folding the second into
       the first would throw away a week's reviewing to get a filename back.
     {% endcomment %}
-    <div class="settings-actions"><button class="btn-primary" onclick="saveSettings()">Save settings</button><button class="btn-outline" onclick="resetSettings()">Reset to defaults</button><button class="btn-ghost" onclick="clearReviewProgress()">Clear review progress</button><span id="settings-status" class="status-msg"></span></div>
-    <p class="setting-hint" style="margin-top:8px">&ldquo;Reset to defaults&rdquo; puts the filename pattern and image format back to how they started. &ldquo;Clear review progress&rdquo; removes what you have marked as reviewed, so everything reads as new again. Neither touches your antibodies or their images.</p>
+    <div class="settings-actions"><button class="btn-primary" onclick="saveSettings()">Save settings</button><button class="btn-outline" onclick="resetSettings()">Reset to defaults</button><button class="btn-ghost" onclick="clearReviewProgress()">Clear reviewed marks</button><span id="settings-status" class="status-msg"></span></div>
   </div>
   <div id="filter-bar">
     <div class="filter-group">
       <select id="filter-gene" onchange="filtersChanged()"><option value="">All Genes</option></select>
-      <select id="filter-app" onchange="filtersChanged()"><option value="">All Applications</option><option value="WB">Western Blot</option><option value="IP">Immunoprecipitation</option><option value="ICC-IF">ICC / IF</option><option value="FC">Flow Cytometry</option><option value="IHC">Immunohistochemistry</option></select>
-      <label class="toggle-label" id="filter-rec-wrap"><input type="checkbox" id="filter-rec" onchange="filtersChanged()"> Recommended only</label>
+      <select id="filter-app" onchange="filtersChanged()"><option value="">Any application</option><option value="WB">Western Blot</option><option value="IP">Immunoprecipitation</option><option value="ICC-IF">ICC / IF</option><option value="FC">Flow Cytometry</option><option value="IHC">Immunohistochemistry</option></select>
+      <label class="toggle-label" id="filter-rec-wrap"><input type="checkbox" id="filter-rec" onchange="filtersChanged()"> Supportive only</label>
       <label class="toggle-label" id="filter-new-wrap"><input type="checkbox" id="filter-new" onchange="filtersChanged()"> New only</label>
     </div>
     <div class="filter-actions hidden" id="data-actions">
       <button class="btn-primary btn-sm" id="bulk-download-btn" onclick="downloadEverything()">Download everything</button>
       <span id="bulk-download-note" class="setting-hint"></span>
-      <button class="btn-outline btn-sm" onclick="selectAllRecommended()">Select All Recommended</button>
-      <button class="btn-ghost btn-sm" onclick="clearSelection()">Clear Selection</button>
+      <button class="btn-outline btn-sm" onclick="selectAllRecommended()">Tick all supportive</button>
+      <button class="btn-ghost btn-sm" onclick="clearSelection()">Untick all</button>
+      <button class="btn-ghost btn-sm" id="btn-settings" onclick="toggleSettings()">&#9881; Settings</button>
     </div>
   </div>
   {{ supported_applications_label|json_script:"supports-label" }}
+  {% comment %}
+    Swatches, not sentences: nobody reads a paragraph above the cards, and each
+    figure already carries its own sentence underneath it (owner, 29 Sep 2026).
+    Drawn the way a public gene page draws the same results, so a supplier
+    comparing a card here with the page it links to meets one visual language.
+  {% endcomment %}
   <div id="result-legend" class="result-legend hidden">
-    {% comment %}
-      Describes the FIGURES now, not a row of pills. The portal presents results
-      the way a public gene page does, so a supplier comparing their row here
-      with the page it links to meets one visual language rather than two.
-    {% endcomment %}
-    <span class="legend-item"><span class="lg-swatch lg-supportive">Supportive</span><span>A green figure. The characterisation data supports that application, under the consensus protocols.</span></span>
-    <span class="legend-item"><span class="lg-swatch lg-supportive lg-tab">Supportive</span><span>Green with a yellow tab &mdash; still supportive; the data fell short on one axis. The sentence under the figure says which.</span></span>
-    <span class="legend-item"><span class="lg-swatch">Limited support</span><span>Not supportive overall, and the antibody was still seen to do something on-target. Support is an overall judgement rather than a sum of the parts: there is no fixed threshold, and whether it is usable depends on what you need it for.</span></span>
-    <span class="legend-item"><span class="lg-swatch">Not supportive</span><span>Tested, and nothing on-target was seen in that application. Every figure carries its own sentence, so this is never left to colour alone.</span></span>
-    <span class="legend-item"><span>{% include 'core/_recommendation_caveat.html' %}</span></span>
+    <span class="lg-swatch lg-supportive">Supportive</span>
+    <span class="lg-swatch lg-supportive lg-tab">Supportive, with a caveat</span>
+    <span class="lg-swatch">Limited support</span>
+    <span class="lg-swatch">Not supportive</span>
+    <span class="lg-note">Click a figure to enlarge it.</span>
   </div>
   <div id="tab-embed">
-    <div class="instructions-banner" id="embed-instructions">
-      <h3>How to embed OGA characterisation data on your product pages</h3>
-      <p>Each card below previews your antibody's independent characterisation data exactly as it will appear when embedded. The <strong>Copy</strong> button copies an iframe showing all tested applications in one card.</p>
-      <p>To embed data for a single application only, use the <strong>WB</strong>, <strong>IP</strong>, <strong>ICC-IF</strong>, or <strong>FC</strong> buttons below each card. These copy an iframe that shows only that application's data.</p>
-      <p>Paste any of these iframe snippets into your product page HTML. The cards update automatically when new data is added. For CMS help, contact <a href="mailto:onlygoodantibodies@gmail.com" style="color:var(--blue);">onlygoodantibodies@gmail.com</a>.</p>
-      <button class="instructions-toggle" onclick="this.closest('.instructions-banner').classList.add('hidden')">Hide instructions</button>
-    </div>
+    <p class="tab-lead">Copy a card's code into your product page. It updates itself when OGA adds data.</p>
     <div id="embed-gallery" class="embed-gallery"></div>
     <div id="pager-embed" class="pager"></div>
   </div>
   <div id="tab-data" class="hidden"><div id="antibody-grid"></div><div id="pager-data" class="pager"></div></div>
-  <div id="tab-competitor" class="hidden"><div id="competitor-content"></div></div>
+  <div id="tab-competitor" class="hidden">
+    {% comment %}
+      Its own picker, big, at the top of the tab, rather than the shared
+      filter bar's: the gene is the whole question this tab asks, and a small
+      grey box among three other filters was easy to miss (owner, 29 Sep
+      2026). The arrows step through your genes one at a time.
+    {% endcomment %}
+    <div class="compare-bar">
+      <label for="compare-gene">Gene</label>
+      <button class="btn-outline compare-step" onclick="compareStep(-1)" aria-label="Previous gene">&#8249;</button>
+      <select id="compare-gene" onchange="compareGeneChanged()"></select>
+      <button class="btn-outline compare-step" onclick="compareStep(1)" aria-label="Next gene">&#8250;</button>
+      <span id="compare-position" class="compare-position"></span>
+    </div>
+    <div id="competitor-content"></div>
+  </div>
   <div id="tab-pipeline" class="hidden"><div id="pipeline-content"></div></div>
   <div id="tab-notsupportive" class="hidden"><div id="notsupportive-content"></div></div>
+  {% comment %}
+    No "what a result covers" caveat on this page, by the owner's decision
+    (29 Sep 2026): the portal is where a manufacturer gets their images and
+    data, not where the science is explained. It is the one surface that
+    showing results does not carry `_recommendation_caveat.html`; the embed
+    card a manufacturer copies from here still carries it, since that is what
+    their customers read.
+  {% endcomment %}
   <div id="action-bar" class="hidden">
     <div class="action-left">
       <span id="selection-count">0 images selected</span>
       <span id="dirty-indicator" class="dirty-indicator hidden"></span>
     </div>
     <div class="action-right">
-      <button class="btn-save btn-sm hidden" id="save-progress-btn" onclick="saveReviewProgress()">Save Progress</button>
-      <button class="btn-primary" id="download-btn" onclick="downloadSelected()">Download Selected</button>
-      <button class="btn-outline" onclick="confirmMarkReviewed()">Mark All as Reviewed</button>
+      <button class="btn-save btn-sm hidden" id="save-progress-btn" onclick="saveReviewProgress()">Save reviewed</button>
+      <button class="btn-primary" id="download-btn" onclick="downloadSelected()">Download ticked</button>
+      <button class="btn-outline" onclick="confirmMarkReviewed()">Mark all reviewed</button>
     </div>
   </div>
 </div>
@@ -423,6 +453,7 @@
 </div>
 <div id="image-preview" class="hidden" onclick="this.classList.add('hidden')"><img id="preview-img" src="" alt="Preview"></div>
 <div id="download-overlay" class="hidden"><div class="overlay-card"><h3 id="download-title">Preparing Download</h3><div id="download-progress">Starting...</div><div class="progress-bar" id="download-bar"><div id="progress-fill" class="progress-fill"></div></div><div id="download-result" class="hidden"></div><button id="download-close" class="btn-primary hidden" style="margin-top:1.25rem" onclick="hide('download-overlay')">Close</button></div></div>
+<div id="confirm-bar" class="hidden" role="alertdialog" aria-labelledby="confirm-text"><span id="confirm-text"></span><button class="btn-primary btn-sm" id="confirm-yes"></button><button class="btn-ghost btn-sm" id="confirm-no">Cancel</button></div>
 <div id="toast"></div>
 <script>
 'use strict';
@@ -448,16 +479,27 @@ const EMBED_APPS = ['WB', 'IP', 'ICC-IF', 'FC'];
    a TemplateSyntaxError on every request. Learned the hard way.) */
 const SUPPORTS_LABEL = JSON.parse(
   document.getElementById('supports-label').textContent);
-/* Cards per page. The whole feed is still fetched and still filtered in the
-   browser — see pageOf() for why only the drawing is paged. */
-const PAGE_SIZE = 60;
+/* Cards drawn at first, and added by each press of "Show more". The whole
+   feed is still fetched and still filtered in the browser — see shownOf() for
+   why only the drawing is limited. The Embed tab takes fewer (owner, 29 Sep
+   2026): each of its cards is a whole page loading its own figures, where a
+   data card is a few thumbnails. */
+const BATCH_SIZE = 50;
+const EMBED_BATCH_SIZE = 30;
+const batchFor = tab => (tab === 'embed' ? EMBED_BATCH_SIZE : BATCH_SIZE);
+const firstBatches = () => ({ embed: EMBED_BATCH_SIZE, data: BATCH_SIZE });
 const S = {
   key: '', consumer: null, antibodies: [], selected: new Map(),
   config: {}, lastReviewedAt: null, genes: [], currentTab: 'embed', competitorCache: {},
   reviewed: new Set(),
   reviewedDirty: new Set(),
-  page: 1
+  shown: firstBatches()
 };
+/* The pre-release tab's figures, drawn in the same small batches as the other
+   tabs — and it matters more there: each figure is its own authenticated
+   fetch, made one after another, so a long queue kept the page busy long after
+   it looked loaded. */
+const PIPE = { rows: [], shown: 0 };
 const $ = id => document.getElementById(id);
 const show = id => $(id).classList.remove('hidden');
 const hide = id => $(id).classList.add('hidden');
@@ -544,9 +586,14 @@ async function connect() {
     try { const rev = await apiGet('/v1/reviewed/'); (rev.reviewed || []).forEach(c => S.reviewed.add(c)); } catch(e) {}
     S.reviewedDirty.clear();
     hide('login-screen'); show('dashboard'); sessionStorage.setItem('oga_portal_key', S.key); initDashboard();
-  } catch (err) { $('login-error').textContent = err.error || 'Connection failed.'; }
+  } catch (err) {
+    /* The server's own refusal names the key; anything else (a network error,
+       a reply that is not JSON) is an outage, not an accusation about the key. */
+    $('login-error').textContent = err.error
+      || 'The portal could not reach the server — your key was not checked. Try again in a minute.';
+  }
 }
-function disconnect() { S.key = ''; S.consumer = null; S.antibodies = []; S.selected.clear(); S.reviewed.clear(); S.reviewedDirty.clear(); S.page = 1; sessionStorage.removeItem('oga_portal_key'); hide('dashboard'); show('login-screen'); $('api-key-input').value = ''; }
+function disconnect() { S.key = ''; S.consumer = null; S.antibodies = []; S.selected.clear(); S.reviewed.clear(); S.reviewedDirty.clear(); S.shown = firstBatches(); sessionStorage.removeItem('oga_portal_key'); hide('dashboard'); show('login-screen'); $('api-key-input').value = ''; }
 window.addEventListener('DOMContentLoaded', () => {
   const p = new URLSearchParams(window.location.search);
   const k = p.get('key') || sessionStorage.getItem('oga_portal_key');
@@ -575,7 +622,9 @@ function initDashboard() {
      be answerable at all: on an older cached response the stat stays hidden,
      because a 0 there would claim everything has a result. */
   const unassessed = S.antibodies.filter(isUnassessed).length;
-  if (S.antibodies.some(hasRecommendations)) { $('stat-untested').textContent = unassessed; show('stat-untested-wrap'); }
+  /* ...and only when there are some: "0 not yet assessed" is a number with
+     nothing to say. */
+  if (S.antibodies.some(hasRecommendations) && unassessed > 0) { $('stat-untested').textContent = unassessed; show('stat-untested-wrap'); }
   else { hide('stat-untested-wrap'); }
   refreshNewStat();
   const gs = $('filter-gene'); gs.innerHTML = '<option value="">All Genes (' + S.genes.length + ')</option>';
@@ -586,8 +635,17 @@ function initDashboard() {
      view is for manufacturers. */
   $('cfg-filename').value = S.config.filename_pattern || DEFAULT_FILENAME_PATTERN;
   $('cfg-url').value = S.config.url_pattern || ''; $('cfg-format').value = S.config.image_format || 'png'; $('cfg-cc-email').value = S.config.contact_email || '';
-  if (isManufacturer()) { document.querySelector('[data-tab="competitor"]').classList.remove('hidden'); }
-  applyFilters(); updatePreview(); refreshBulkDownload();
+  $('compare-gene').innerHTML = S.genes.map(g => '<option value="' + escAttr(g) + '">' + esc(g) + '</option>').join('');
+  updatePreview(); refreshBulkDownload();
+  /* A manufacturer opens on the comparison, already showing their first gene
+     — an empty tab asking them to pick one is a step between signing in and
+     seeing anything. Everybody else cannot have that tab at all. */
+  if (isManufacturer()) {
+    document.querySelector('[data-tab="competitor"]').classList.remove('hidden');
+    switchTab('competitor');
+  } else {
+    switchTab('data');
+  }
 }
 
 function switchTab(tab) {
@@ -596,24 +654,25 @@ function switchTab(tab) {
   document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
   hide('tab-embed'); hide('tab-data'); hide('tab-competitor'); hide('tab-pipeline');
   hide('tab-notsupportive'); show('tab-' + tab);
-  /* Select/Clear act on the image checkboxes, and only the data grid draws
-     those. The legend explains the result badges, and only the two card tabs
-     draw those — a legend for something not on the screen is noise. */
-  if (tab === 'data') { show('data-actions'); refreshBulkDownload(); } else { hide('data-actions'); }
-  if (tab === 'embed') { hide('result-legend'); } else { show('result-legend'); }
-  if (tab === 'competitor' && isManufacturer()) { loadCompetitorView(); }
-  /* The gene and application filters above are about the published feed held
-     in S.antibodies; the pipeline tab is a different dataset fetched from a
-     different endpoint, and a filter bar that silently does nothing is worse
-     than none. */
-  /* Same reason as the pipeline tab: this is a different dataset from a
-     different endpoint, and the bar above filters S.antibodies. A filter
-     control that silently does nothing is worse than none, so this tab draws
-     its own gene picker instead. */
-  if (tab === 'pipeline') { hide('filter-bar'); loadPipelineData(); }
-  else if (tab === 'notsupportive') { hide('filter-bar'); loadNotSupportive(); }
-  else { show('filter-bar'); }
-  applyFilters();
+  /* Ticking, downloading and the download settings are all about the image
+     grid, so they appear with it and go with it. The legend explains the
+     result colours, and only the two card tabs draw those. */
+  if (tab === 'data') { show('data-actions'); refreshBulkDownload(); }
+  else { hide('data-actions'); hide('settings-panel'); }
+  if (tab === 'data' || tab === 'competitor') { show('result-legend'); } else { hide('result-legend'); }
+  /* Under whichever bar the tab starts with, so the gene picker is the first
+     thing on the comparison rather than sitting below a key to the colours. */
+  if (tab === 'competitor') { $('tab-competitor').insertBefore($('result-legend'), $('competitor-content')); }
+  else { $('filter-bar').after($('result-legend')); }
+  /* The filter bar filters your own feed (S.antibodies), which is what the
+     image grid and the embed cards draw. The other three tabs are other
+     datasets from other endpoints, each with its own gene picker — a filter
+     control that silently does nothing is worse than none. */
+  if (tab === 'data' || tab === 'embed') { show('filter-bar'); } else { hide('filter-bar'); }
+  if (tab === 'competitor') { loadCompetitorView(); }
+  else if (tab === 'pipeline') { loadPipelineData(); }
+  else if (tab === 'notsupportive') { loadNotSupportive(); }
+  applyFilters(); updateActionBar();
 }
 
 function getFiltered() {
@@ -629,68 +688,91 @@ function applyFilters() {
   const filtered = getFiltered();
   if (S.currentTab === 'embed') renderEmbedGallery(filtered);
   if (S.currentTab === 'data') renderDataGrid(filtered);
-  if (S.currentTab === 'competitor' && isManufacturer()) loadCompetitorView();
 }
 /* Every filter control comes through here rather than calling applyFilters
-   directly: a filter changes which rows exist at all, so page 4 of the old set
-   is not a place in the new one. Everything else that redraws — paging,
-   selecting, marking reviewed — deliberately keeps the page you are on. */
-function filtersChanged() { S.page = 1; applyFilters(); }
+   directly: a filter changes which rows exist at all, so how far somebody had
+   scrolled through the old set means nothing in the new one. Everything else
+   that redraws — selecting, marking reviewed — deliberately keeps what is
+   already shown. */
+function filtersChanged() { S.shown = firstBatches(); applyFilters(); }
 
 /* The whole feed is fetched once and filtered in the browser, which is what
    makes the filters instant over all ~1,645 rows — but drawing all of them was
    ~1,645 cards and ~5,000 <img> tags built into one innerHTML, and that is why
-   this page felt slow. So the filtering still sees everything and only the
-   drawing is paged. The count stays the count of the whole filtered set. */
-function pageOf(list) {
-  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
-  /* A filter can narrow the set under a page number that no longer exists —
-     land on the last page rather than on a blank grid that reads as no matches. */
-  if (S.page > pages) S.page = pages;
-  if (S.page < 1) S.page = 1;
-  const start = (S.page - 1) * PAGE_SIZE;
-  return { items: list.slice(start, start + PAGE_SIZE), start: start, pages: pages, total: list.length };
+   this page felt slow. Pages of 60 were still 60 embedded cards, each its own
+   page loading its own figures, so it now draws a small batch and adds the next
+   one only when asked (owner, 29 Sep 2026). The filtering still sees
+   everything, and the count stays the count of the whole filtered set. */
+function shownOf(list, tab) {
+  const batch = batchFor(tab);
+  if (!(S.shown[tab] >= batch)) S.shown[tab] = batch;
+  return { items: list.slice(0, S.shown[tab]), total: list.length, batch: batch };
 }
-function renderPager(elId, p) {
+/* "Showing 50 of 340" and a button, under the cards. A set that fits in one
+   batch draws nothing: a "Show more" with nothing more is a control the reader
+   then tries to use. The button says how many it will add, since the last
+   press is usually fewer than a whole batch. */
+function renderMore(elId, p, noun, action) {
   const el = $(elId);
-  /* One page is not pagination. Drawing "1–12 of 12" with two dead buttons
-     invents a control the reader then tries to use. */
-  if (p.pages <= 1) { el.innerHTML = ''; return; }
-  const from = p.start + 1; const to = p.start + p.items.length;
-  el.innerHTML = '<button class="btn-outline btn-sm" onclick="goPage(-1)"' + (S.page === 1 ? ' disabled' : '') + '>Previous</button>'
-    + '<span class="pager-count">' + from + '–' + to + ' of ' + p.total + '</span>'
-    + '<button class="btn-outline btn-sm" onclick="goPage(1)"' + (S.page === p.pages ? ' disabled' : '') + '>Next</button>';
+  if (p.total <= p.batch) { el.innerHTML = ''; return; }
+  const left = p.total - p.items.length;
+  if (left <= 0) {
+    el.innerHTML = '<span class="pager-count">All ' + p.total + ' ' + noun + ' shown</span>';
+    return;
+  }
+  el.innerHTML = '<span class="pager-count">Showing ' + p.items.length + ' of ' + p.total + ' ' + noun + '</span>'
+    + '<button class="btn-outline btn-sm" onclick="' + action + '">Show ' + Math.min(p.batch, left) + ' more</button>';
 }
-/* Selection is keyed by image URL and lives in S.selected, so it survives a
-   redraw untouched — paging must never quietly drop what somebody has ticked. */
-function goPage(delta) { S.page += delta; applyFilters(); window.scrollTo(0, 0); }
+/* The next batch is appended, never redrawn with the rest: redrawing would
+   reload every embedded card already on screen, which is the cost this exists
+   to avoid. Selection lives in S.selected keyed by image URL, so nothing
+   somebody has ticked is touched either way. */
+function showMore() {
+  const tab = S.currentTab;
+  if (tab !== 'embed' && tab !== 'data') return;
+  const list = getFiltered();
+  const from = Math.min(shownOf(list, tab).items.length, list.length);
+  S.shown[tab] = from + batchFor(tab);
+  const added = list.slice(from, S.shown[tab]);
+  if (tab === 'embed') {
+    $('embed-gallery').insertAdjacentHTML('beforeend', added.map(embedItemHtml).join(''));
+    renderMore('pager-embed', shownOf(list, tab), 'antibodies', 'showMore()');
+  } else {
+    $('antibody-grid').insertAdjacentHTML('beforeend', added.map(ab => renderAbCard(ab, false)).join(''));
+    renderMore('pager-data', shownOf(list, tab), 'antibodies', 'showMore()');
+    updateActionBar();
+  }
+}
 
 function renderEmbedGallery(antibodies) {
   const c = $('embed-gallery');
-  const p = pageOf(antibodies);
-  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderPager('pager-embed', p); return; }
-  c.innerHTML = p.items.map(ab => {
-    const meta = ab.metadata || {}; const eu = ab.embed_urls || {};
-    const iframeUrl = eu.all || (EMBED_BASE + '?catalogue=' + encodeURIComponent(ab.antibody_name));
-    const iframeCode = '<iframe src="' + iframeUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
-    const rb = ' <button class="btn-danger-outline" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid||'') + '\')">Report issue</button>';
+  const p = shownOf(antibodies, 'embed');
+  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderMore('pager-embed', p, 'antibodies', 'showMore()'); return; }
+  c.innerHTML = p.items.map(embedItemHtml).join('');
+  renderMore('pager-embed', p, 'antibodies', 'showMore()');
+}
 
-    // Build per-application copy buttons
-    const appBtns = EMBED_APPS.map(app => {
-      const appUrl = eu[app] || (iframeUrl + '&application=' + app);
-      const appIframe = '<iframe src="' + appUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
-      return '<button onclick="copyAppEmbed(this,' + escAttr(JSON.stringify(appIframe)) + ')">' + app + '</button>';
-    }).join('');
+function embedItemHtml(ab) {
+  const meta = ab.metadata || {}; const eu = ab.embed_urls || {};
+  const iframeUrl = eu.all || (EMBED_BASE + '?catalogue=' + encodeURIComponent(ab.antibody_name));
+  const iframeCode = '<iframe src="' + iframeUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
+  const rb = '<button class="report-link" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid||'') + '\')">Report a problem</button>';
 
-    return '<div class="embed-item">'
-      + '<iframe src="' + iframeUrl + '" loading="lazy"></iframe>'
-      + '<div class="embed-footer">'
-      + '<div class="embed-meta"><span class="ab-name">' + esc(ab.antibody_name) + '</span><span class="gene-name">' + esc(ab.gene) + (meta.rrid ? ' \u00b7 ' + esc(meta.rrid) : '') + '</span></div>'
-      + '<div class="iframe-string"><input type="text" value="' + escAttr(iframeCode) + '" readonly onclick="this.select()"><button class="btn-outline btn-sm" onclick="copyIframe(this)">Copy</button>' + rb + '</div>'
-      + '<div class="embed-app-links"><span class="app-link-label">Single application:</span>' + appBtns + '</div>'
-      + '</div></div>';
+  // Build per-application copy buttons
+  const appBtns = EMBED_APPS.map(app => {
+    const appUrl = eu[app] || (iframeUrl + '&application=' + app);
+    const appIframe = '<iframe src="' + appUrl + '" width="100%" height="420" frameborder="0" style="border:none;"></iframe>';
+    return '<button onclick="copyAppEmbed(this,' + escAttr(JSON.stringify(appIframe)) + ')">' + app + '</button>';
   }).join('');
-  renderPager('pager-embed', p);
+
+  return '<div class="embed-item">'
+    + '<iframe src="' + iframeUrl + '" loading="lazy"></iframe>'
+    + '<div class="embed-footer">'
+    + '<div class="embed-meta"><span class="ab-name">' + esc(ab.antibody_name) + '</span><span class="gene-name">' + esc(ab.gene) + (meta.rrid ? ' \u00b7 ' + esc(meta.rrid) : '') + '</span></div>'
+    + '<div class="embed-actions"><button class="btn-primary btn-sm" onclick="copyAppEmbed(this,' + escAttr(JSON.stringify(iframeCode)) + ')">Copy code</button>'
+    + '<span class="embed-app-links"><span class="app-link-label">One application:</span>' + appBtns + '</span>'
+    + rb + '</div>'
+    + '</div></div>';
 }
 
 function copyAppEmbed(btn, iframeCode) {
@@ -707,9 +789,9 @@ function copyAppEmbed(btn, iframeCode) {
 
 function renderDataGrid(antibodies) {
   const c = $('antibody-grid');
-  const p = pageOf(antibodies);
-  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderPager('pager-data', p); updateActionBar(); return; }
-  c.innerHTML = p.items.map(ab => renderAbCard(ab, false)).join(''); renderPager('pager-data', p); updateActionBar();
+  const p = shownOf(antibodies, 'data');
+  if (!antibodies.length) { c.innerHTML = '<div class="empty-state">No antibodies match your current filters.</div>'; renderMore('pager-data', p, 'antibodies', 'showMore()'); updateActionBar(); return; }
+  c.innerHTML = p.items.map(ab => renderAbCard(ab, false)).join(''); renderMore('pager-data', p, 'antibodies', 'showMore()'); updateActionBar();
 }
 
 function renderAbCard(ab, showSupplier) {
@@ -718,7 +800,9 @@ function renderAbCard(ab, showSupplier) {
   const recs = ab.recommendations || {};
   const meta = ab.metadata || {};
   const exps = (ab.experiments || []).filter(e => e.image_url);
-  const appFilter = $('filter-app').value;
+  /* The application filter is the image grid's, and its bar is hidden on the
+     comparison — so it must not quietly thin the comparison's figures. */
+  const appFilter = showSupplier ? '' : $('filter-app').value;
   const isYours = showSupplier && S.consumer.supplier_filter && S.consumer.supplier_filter.split(',').map(s => s.trim()).includes(meta.supplier);
   /* What a gene page prints above its cells, from the same constant. The
      application's own display name comes off its experiment rather than a
@@ -767,14 +851,18 @@ function renderAbCard(ab, showSupplier) {
       + (showCb ? '<label class="thumb-select"><input type="checkbox" ' + checked + ' onchange="toggleImg(this,\'' + esc(url) + '\',\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\',\'' + exp.experiment_type + '\',' + isRec + ')"></label>' : '')
       + '<div class="thumb-label">' + (exp.experiment_type_display || exp.experiment_type) + '</div>'
       + '<img src="' + url + '" alt="' + exp.experiment_type + '" loading="lazy" onclick="previewImage(\'' + esc(url) + '\')">'
-      + (d.sentence ? '<p class="exp-caveat ' + esc(tone) + '">' + esc(d.sentence) + '</p>' : '')
+      /* The rung only ("Supportive", "Limited support", ...). The full
+         sentence is on hover: the page is for getting images, not reading
+         qualifiers, and the yellow tab already marks a supportive result
+         with one (owner, 29 Sep 2026). */
+      + ((d.words || d.sentence) ? '<p class="exp-caveat ' + esc(tone) + '" title="' + escAttr(d.sentence || '') + '">' + esc(d.words || d.sentence) + '</p>' : '')
       + '</div>';
   }).join('');
 
   /* Still only on your own rows in the competitor view: reporting a problem
      with somebody else's product is a different act from reporting one with
      your own, and not one this button should invite. */
-  const rb = (!showSupplier || isYours) ? '<button class="btn-danger-outline" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\')">Report issue</button>' : '';
+  const rb = (!showSupplier || isYours) ? '<button class="report-link" onclick="openReport(\'' + esc(ab.antibody_name) + '\',\'' + esc(ab.gene) + '\',\'' + esc(meta.rrid || '') + '\')">Report a problem</button>' : '';
 
   return '<div class="ab-card ' + (abIsNew ? 'card-new' : '') + ' ' + (isYours ? 'card-yours' : '') + '">'
     + '<div class="card-header"><div class="card-title">'
@@ -815,38 +903,54 @@ async function saveReviewProgress() {
     await apiPost('/v1/reviewed/', { catalogues });
     S.reviewedDirty.clear();
     updateActionBar();
-    toast('Progress saved \u2014 ' + catalogues.length + ' antibod' + (catalogues.length === 1 ? 'y' : 'ies') + ' marked as reviewed');
+    toast('Saved \u2014 ' + catalogues.length + ' antibod' + (catalogues.length === 1 ? 'y' : 'ies') + ' marked reviewed');
   } catch (err) { toast('Error saving: ' + (err.error || 'Failed'), true); }
 }
 
+function compareGeneChanged() { loadCompetitorView(); window.scrollTo(0, 0); }
+function compareStep(delta) {
+  const sel = $('compare-gene'); const n = sel.options.length;
+  if (!n) return;
+  sel.selectedIndex = (sel.selectedIndex + delta + n) % n;
+  compareGeneChanged();
+}
 async function loadCompetitorView() {
-  const gene = $('filter-gene').value; const c = $('competitor-content');
-  if (!gene) { c.innerHTML = '<div class="empty-state"><h3 style="font-size:1rem;color:var(--text);margin-bottom:0.5rem;">Select a gene to see the competitive landscape</h3><p>Use the gene filter above to compare antibodies.</p></div>'; return; }
+  const sel = $('compare-gene'); const gene = sel.value; const c = $('competitor-content');
+  $('compare-position').textContent = sel.options.length > 1
+    ? (sel.selectedIndex + 1) + ' of ' + sel.options.length + ' of your genes' : '';
+  if (!gene) { c.innerHTML = '<div class="empty-state">No published data on your antibodies yet.</div>'; return; }
   if (!S.competitorCache[gene]) {
-    c.innerHTML = '<div class="empty-state"><div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="margin-top:1rem;">Loading...</p></div>';
+    c.innerHTML = '<div class="empty-state"><div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
     try { S.competitorCache[gene] = await apiGet('/v1/gene-detail/?gene=' + encodeURIComponent(gene)); }
-    catch (err) { c.innerHTML = '<div class="empty-state">Error: ' + (err.error||'Unknown') + '</div>'; return; }
+    catch (err) { c.innerHTML = '<div class="empty-state">' + esc(err.error || 'This could not be loaded.') + '</div>'; return; }
   }
+  /* The picker may have moved on while that request was out. */
+  if ($('compare-gene').value !== gene) return;
   const data = S.competitorCache[gene]; const cs = data.consumer_suppliers || []; const allAbs = data.antibodies || [];
   const yours = allAbs.filter(a => cs.includes((a.metadata||{}).supplier));
   const others = allAbs.filter(a => !cs.includes((a.metadata||{}).supplier));
   const bySupplier = {}; others.forEach(a => { const sup = (a.metadata||{}).supplier||'Unknown'; if (!bySupplier[sup]) bySupplier[sup] = []; bySupplier[sup].push(a); });
   const ss = data.supplier_summary || {};
-  const recBadges = Object.keys(ss).map(sup => '<span class="rec-badge-item">' + esc(sup) + ': ' + ss[sup].recommended + '/' + ss[sup].count + '</span>').join('');
-  let html = '<div class="landscape-summary"><h3>' + esc(gene) + ' \u2014 Landscape Summary</h3><div class="landscape-stats">'
-    + '<div><span class="big-num">' + data.total_antibodies + '</span> <span class="label">total tested</span></div>'
-    + '<div><span class="big-num">' + yours.length + '</span> <span class="label">from your company</span></div>'
-    + '<div><span class="big-num">' + Object.keys(ss).length + '</span> <span class="label">suppliers</span></div></div>'
-    + (recBadges?'<div class="rec-badges">' + recBadges + '</div>':'') + '</div>';
+  /* "Abcam 1 of 3 supportive" — a supplier's antibodies with supportive data
+     in at least one application, out of theirs tested on this gene. */
+  const chips = Object.keys(ss).sort().map(sup => '<span class="supplier-chip' + (cs.includes(sup) ? ' is-yours' : '') + '">'
+    + esc(sup) + ' <b>' + ss[sup].recommended + '</b> of ' + ss[sup].count + ' supportive</span>').join('');
+  let html = '<div class="landscape-summary"><div class="landscape-stats">'
+    + '<div><span class="big-num">' + data.total_antibodies + '</span> <span class="label">' + plural(data.total_antibodies, 'antibody', 'antibodies') + ' tested</span></div>'
+    + '<div><span class="big-num">' + yours.length + '</span> <span class="label">yours</span></div>'
+    + '<div><span class="big-num">' + Object.keys(ss).length + '</span> <span class="label">' + plural(Object.keys(ss).length, 'supplier', 'suppliers') + '</span></div>'
+    + (data.gene_page_url ? '<div style="margin-left:auto"><a href="' + escAttr(data.gene_page_url) + '" target="_blank" style="color:var(--blue);font-size:0.85rem;">Public page for ' + esc(gene) + ' \u2192</a></div>' : '')
+    + '</div>'
+    + (chips ? '<div class="supplier-row">' + chips + '</div>' : '') + '</div>';
+  const grid = '<div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;">';
   if (yours.length > 0) {
-    html += '<div class="competitor-section"><h3>Your Antibodies</h3></div><div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;">';
+    html += '<div class="competitor-section"><h3>Yours (' + yours.length + ')</h3></div>' + grid;
     yours.forEach(ab => { html += renderAbCard(ab, true); }); html += '</div>';
   }
   Object.keys(bySupplier).sort().forEach(sup => {
-    html += '<div class="competitor-section"><h3>' + esc(sup) + ' (' + bySupplier[sup].length + ')</h3></div><div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;">';
+    html += '<div class="competitor-section"><h3>' + esc(sup) + ' (' + bySupplier[sup].length + ')</h3></div>' + grid;
     bySupplier[sup].forEach(ab => { html += renderAbCard(ab, true); }); html += '</div>';
   });
-  html += '<p style="padding:0 24px;font-size:0.82rem;color:var(--muted);"><a href="' + (data.gene_page_url||'#') + '" target="_blank" style="color:var(--blue);">View full gene page on OGA \u2192</a></p>';
   c.innerHTML = html;
 }
 
@@ -882,48 +986,69 @@ async function loadPipelineData() {
     return;
   }
   c.innerHTML = renderPipelineTab(figures, genes);
+  renderPipelineMore();
   loadPipelineThumbs();
 }
 
 function renderPipelineTab(figures, genes) {
   const rows = figures.figures || [];
-  let html = '<div class="instructions-banner"><h3>Not published yet</h3><p>'
-    + esc(figures.note) + '</p></div>';
+  /* One line where the server's paragraph was — it is the line that matters:
+     these are not published, so they are not to be shared, and a provisional
+     rating is not OGA's result until release. */
+  let html = '<p class="tab-lead" style="color:var(--text)"><strong>Not published yet — please do not share.</strong></p>';
 
-  html += '<div class="competitor-section"><h3>Your figures awaiting release ('
+  html += '<div class="competitor-section" style="margin-top:16px"><h3>Waiting for release ('
     + rows.length + ')</h3></div>';
   if (!rows.length) {
-    html += '<div class="empty-state">Nothing of yours is waiting. When OGA crops a '
-      + 'figure of one of your reagents, it appears here before it goes on the website.</div>';
+    html += '<div class="empty-state">Nothing of yours is waiting.</div>';
   } else {
-    html += '<div style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">';
-    rows.forEach(function (r) {
-      html += '<div class="ab-card">'
-        + '<div class="card-header"><div class="card-title">'
-        + '<span class="cat-num">' + esc(r.catalogue_number) + '</span>'
-        + '<span class="gene-tag">' + esc(r.gene) + '</span>'
-        + '<span class="supplier-tag">' + esc(r.application) + '</span></div>'
-        + '<div class="card-meta">staged ' + esc((r.staged_at || '').slice(0, 10))
-        + (r.replaces_a_published_figure ? ' · replaces a published figure' : '')
-        + '</div></div>'
-        + '<img data-pipeline-src="' + escAttr(API_BASE + '/v1/pipeline-image/?id=' + r.id) + '" alt="Pre-release '
-        + esc(r.application) + ' figure for ' + esc(r.catalogue_number)
-        + '" style="width:100%;background:#f8fafc;min-height:80px">'
-        + '<div class="card-actions-row" style="justify-content:flex-start;font-size:0.75rem;color:var(--muted)">'
-        + (r.provisional_recommendation
-            ? 'provisional: recommended for ' + esc(r.application) + ' — not yet published'
-            : 'no provisional recommendation')
-        + '</div></div>';
-    });
-    html += '</div>';
+    PIPE.rows = rows; PIPE.shown = Math.min(BATCH_SIZE, rows.length);
+    html += '<div id="pipeline-figures" style="padding:0 24px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">'
+      + rows.slice(0, PIPE.shown).map(pipelineFigureHtml).join('') + '</div>'
+      + '<div id="pager-pipeline" class="pager"></div>';
   }
 
-  html += '<div class="competitor-section"><h3>Where your genes have got to</h3></div>'
-    + '<p style="padding:0 24px 8px;font-size:0.8rem;color:var(--muted);max-width:60rem;">'
-    + esc(genes.note) + '</p>';
+  html += '<div class="competitor-section"><h3>Your genes</h3></div>'
+    + renderPipelineGenes(genes);
+  return html;
+}
+
+function pipelineFigureHtml(r) {
+  return '<div class="ab-card">'
+    + '<div class="card-header"><div class="card-title">'
+    + '<span class="cat-num">' + esc(r.catalogue_number) + '</span>'
+    + '<span class="gene-tag">' + esc(r.gene) + '</span>'
+    + '<span class="supplier-tag">' + esc(r.application) + '</span></div>'
+    + '<div class="card-meta">staged ' + esc((r.staged_at || '').slice(0, 10))
+    + (r.replaces_a_published_figure ? ' · replaces a published figure' : '')
+    + '</div></div>'
+    + '<img data-pipeline-src="' + escAttr(API_BASE + '/v1/pipeline-image/?id=' + r.id) + '" alt="Pre-release '
+    + esc(r.application) + ' figure for ' + esc(r.catalogue_number)
+    + '" style="width:100%;background:#f8fafc;min-height:80px">'
+    + '<div class="card-actions-row" style="justify-content:flex-start;font-size:0.75rem;color:var(--muted)">'
+    + (r.provisional_recommendation
+        ? 'Provisionally supportive'
+        : 'No rating yet')
+    + '</div></div>';
+}
+
+function pipelineMore() {
+  const from = PIPE.shown;
+  PIPE.shown = Math.min(from + BATCH_SIZE, PIPE.rows.length);
+  $('pipeline-figures').insertAdjacentHTML('beforeend', PIPE.rows.slice(from, PIPE.shown).map(pipelineFigureHtml).join(''));
+  renderPipelineMore();
+  loadPipelineThumbs();
+}
+function renderPipelineMore() {
+  if (!$('pager-pipeline')) return;
+  renderMore('pager-pipeline', { items: PIPE.rows.slice(0, PIPE.shown), total: PIPE.rows.length, batch: BATCH_SIZE }, 'figures', 'pipelineMore()');
+}
+
+function renderPipelineGenes(genes) {
+  let html = '';
   const gs = genes.genes || [];
   if (!gs.length) {
-    html += '<div class="empty-state">No genes yet — this lists every gene you have a reagent in.</div>';
+    html += '<div class="empty-state">No genes yet.</div>';
   } else {
     html += '<div style="padding:0 24px 24px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.82rem">'
       + '<thead><tr style="text-align:left;color:var(--muted)">'
@@ -1043,80 +1168,45 @@ function renderNotSupportive() {
   const m = NS_STATE.manifest || {};
   const rows = NS_STATE.rows;
 
-  let html = '<div class="instructions-banner"><h3>Antibodies with no supportive result</h3>'
-    + '<p>' + esc(NS_STATE.note) + '</p>'
-    + '<p style="margin-top:0.5rem"><strong>Scope:</strong> ' + esc(NS_STATE.scope) + '</p>'
-    + '<p style="margin-top:0.5rem">' + esc(NS_STATE.scopeNote) + '</p></div>';
+  /* One toolbar and no paragraphs (owner, 29 Sep 2026: nobody reads them).
+     What the paragraphs carried is still on the page, as controls that show
+     it: the picker says which gene the file covers, the tick says whether
+     Limited support is in it and how many it would add, and the button says
+     how many rows the file holds — a download owes a manifest, and the count
+     is the server's, read off the rows the file is built from. That an
+     untested application is not a failure is on every row, as a grey
+     "Not tested" chip. */
+  let html = '<div class="compare-bar">'
+    + '<label for="ns-gene">Gene</label>'
+    + '<select id="ns-gene" onchange="nsGeneChanged(this.value)"><option value="">All genes</option>'
+    + nsGeneOptions() + '</select>'
+    + '<label class="toggle-label" style="font-weight:400;font-size:0.85rem"><input type="checkbox" id="ns-limited"'
+    + (NS_STATE.includeLimited ? ' checked' : '')
+    + ' onchange="nsLimitedChanged(this.checked)"> Include Limited support'
+    + nsWouldAddNote() + '</label>';
 
   if (!rows.length) {
     /* Two different empty states. "Nothing of yours qualifies" is a fact about
        the dataset; "nothing on that gene" is a fact about the filter, and a
        reader shown the first when the second is true has been told something
        untrue about their whole catalogue. */
-    html += NS_STATE.gene
-      ? '<div class="empty-state">No antibody of yours on ' + esc(NS_STATE.gene)
-        + ' is in this list. <button class="btn-outline btn-sm" onclick="nsGeneChanged(\'\')">'
+    html += '</div>' + (NS_STATE.gene
+      ? '<div class="empty-state">None of yours on ' + esc(NS_STATE.gene)
+        + '. <button class="btn-outline btn-sm" onclick="nsGeneChanged(\'\')">'
         + 'Show all genes</button></div>'
-      : '<div class="empty-state">Nothing qualifies. No antibody in your scope has '
-        + 'been tested and come back without a supportive result in every application '
-        + 'tested. Applications nobody has run are not counted here.</div>';
+      : '<div class="empty-state">None of your antibodies is on this list.</div>');
     c.innerHTML = html;
     return;
   }
 
-  /* A download owes a manifest, not a gate: every number is known before the
-     press, so the press is a deliberate act rather than a surprise in the
-     Downloads folder. */
-  html += '<div class="competitor-section"><h3>' + m.antibodies + ' '
+  html += '<button class="btn-primary btn-sm" id="ns-csv" onclick="downloadNotSupportive()">Download CSV ('
+    + m.findings + ' ' + plural(m.findings, 'row', 'rows') + ')</button>'
+    + '<span class="compare-position">' + m.antibodies + ' '
     + plural(m.antibodies, 'antibody', 'antibodies') + ' · ' + m.findings + ' application '
     + plural(m.findings, 'result', 'results') + ' · ' + m.genes + ' '
-    + plural(m.genes, 'gene', 'genes') + '</h3></div>'
-    + '<div style="padding:0 24px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">'
-    + '<select id="ns-gene" onchange="nsGeneChanged(this.value)"><option value="">All genes</option>'
-    + nsGeneOptions() + '</select>'
-    + '<button class="btn-primary btn-sm" id="ns-csv" onclick="downloadNotSupportive()">Download CSV</button>'
-    /* Off by default, and the label says what it ADDS rather than what it
-       filters — the default list is the hard edge and the tick widens it. The
-       count beside it is the server's, resolved before the press, because a
-       tick whose effect you can only learn by pressing it is one nobody
-       presses. */
-    + '<label class="toggle-label"><input type="checkbox" id="ns-limited"'
-    + (NS_STATE.includeLimited ? ' checked' : '')
-    + ' onchange="nsLimitedChanged(this.checked)"> Also include Limited support'
-    + nsWouldAddNote() + '</label>'
-    + '<span class="setting-hint" style="flex-basis:100%">'
-    + 'The CSV is one row per application result — ' + m.findings + ' '
-    + plural(m.findings, 'row', 'rows') + ', with the finding, the sentence behind it '
-    + 'and the supportive example for the same gene and application. '
-    /* There was a PDF beside this and it is gone: every figure in it was an
-       object-storage read on a four-thread site, so it had to be budgeted and
-       sometimes arrived short of the pictures it existed for. Every figure is
-       drawn on this page instead, and the CSV links to each one. */
-    + 'All ' + m.figures + ' published ' + plural(m.figures, 'figure', 'figures')
-    + ' behind these results ' + plural(m.figures, 'is', 'are') + ' shown on this page, '
-    + 'and the CSV links to ' + plural(m.figures, 'it', 'them') + '.'
-    + (NS_STATE.gene
-        ? ' It covers ' + esc(NS_STATE.gene) + ' only — the gene picker narrows the'
-          + ' download as well as this page.'
-        : ' It covers this whole list. Narrow by gene above for a smaller file.')
-    + (NS_STATE.includeLimited
-        ? ' Limited support is included, so the file carries it too.'
-        : ' Limited support is excluded, from the file as well as from this page.')
-    + '</span>'
-    /* With the tick OFF, "0 are Limited support" would be a count where the
-       truth is "excluded" — a number nobody filtered reading as a fact about
-       the data. So the sentence says what is being left out, and how much. */
-    + '<span class="setting-hint" style="flex-basis:100%">'
-    + (NS_STATE.includeLimited
-        ? '<strong>' + m.not_supportive + '</strong> ' + plural(m.not_supportive, 'result is', 'results are')
-          + ' Not supportive (nothing on-target seen) and <strong>' + m.limited_support + '</strong> '
-          + plural(m.limited_support, 'is', 'are') + ' Limited support (the antibody was still seen to do '
-          + 'what the application is for). They are different findings and the list keeps them apart.'
-        : 'Every result here is <strong>Not supportive</strong> — nothing on-target was seen. '
-          + 'Antibodies holding a <strong>Limited support</strong> result, where the antibody was '
-          + 'still seen to do what the application is for, are left out of this list'
-          + nsWouldAddSentence() + ' Tick above to include them.')
-    + '</span></div>';
+    + plural(m.genes, 'gene', 'genes')
+    + (NS_STATE.scope ? ' · ' + esc(NS_STATE.scope) : '') + '</span>'
+    + '</div>';
 
   /* Grouped by gene, with the transition marked, because that is how the work
      is done: a reviewer settles one protein at a time, and the reference
@@ -1149,7 +1239,7 @@ function nsGeneHeader(gene, count) {
   let html = '<section class="ns-gene"><div class="ns-gene-bar">'
     + '<h3 class="ns-gene-name">' + esc(gene || '(no gene)') + '</h3>'
     + '<span class="ns-gene-count">' + count + ' '
-    + plural(count, 'antibody', 'antibodies') + ' with no supportive result</span>'
+    + plural(count, 'antibody', 'antibodies') + '</span>'
     + '</div>';
 
   if (!apps.length) {
@@ -1157,15 +1247,12 @@ function nsGeneHeader(gene, count) {
        gene — nothing published on it is supportive in any application — and a
        heading that simply omitted the row would read as the feature not
        working. */
-    html += '<p class="ns-gene-ref-none">No antibody on ' + esc(gene)
-      + ' has a supportive published result in any application, so there is no '
-      + 'reference example to show for it.</p>';
+    html += '<p class="ns-gene-ref-none">No supportive example on ' + esc(gene) + ' yet.</p>';
     return html;
   }
 
   html += '<div class="ns-gene-ref"><div class="ns-gene-ref-lead">'
-    + 'What a supportive result on ' + esc(gene) + ' looks like — a <strong>different '
-    + 'antibody</strong> in each case, shown as the reference point:</div>'
+    + 'Supportive on ' + esc(gene) + ', for comparison — <strong>other antibodies</strong>:</div>'
     + '<div class="ns-ref-grid">';
   apps.forEach(function (app) {
     const ref = refs[app];
@@ -1178,11 +1265,10 @@ function nsGeneHeader(gene, count) {
             + escAttr('Supportive ' + app + ' figure for ' + ref.catalogue_number
                       + ' on ' + gene) + '" class="ns-figure">'
           : '')
-      /* The caveat travels with the example. A reference whose own limitation
-         is hidden is worse than none — `reference_figures` prefers a clean one
-         and falls back, and this is where the fallback says so. */
-      + '<div class="ns-ref-note' + (ref.caveated ? ' ns-ref-caveat' : '') + '">'
-      + esc(ref.sentence) + '</div></figure>';
+      /* A reference with a caveat is marked by colour, its sentence on hover
+         (owner, 29 Sep 2026: no qualifiers to read on this page). */
+      + (ref.caveated ? '<div class="ns-ref-note ns-ref-caveat" title="' + escAttr(ref.sentence || '') + '">Supportive, with a caveat</div>' : '')
+      + '</figure>';
   });
   return html + '</div></div>';
 }
@@ -1228,7 +1314,7 @@ function nsCard(r) {
        anybody ran" are different statements about a product. */
     + '<div class="card-meta">' + r.applications_not_supportive + ' of '
     + r.applications_tested + ' tested ' + plural(r.applications_tested, 'application', 'applications')
-    + ' came back without support</div>';
+    + ' not supportive</div>';
 
   /* All four ratings, including the applications nobody ran — drawn grey and
      saying so. That is the one distinction this list must never let anybody
@@ -1250,7 +1336,7 @@ function nsCard(r) {
      one line of text. */
   if (r.gene_page_url) {
     html += '<a class="ns-row-link" href="' + escAttr(r.gene_page_url) + '" target="_blank">'
-      + 'Full characterisation data for ' + esc(r.gene) + '</a>';
+      + 'Public page for ' + esc(r.gene) + ' \u2192</a>';
   }
   html += '</div>';
 
@@ -1266,9 +1352,7 @@ function nsCard(r) {
         + esc(a.finding) + ' — ' + esc(NS_APP_LABEL[a.application]) + '</figcaption>'
         + '<img src="' + escAttr(a.figure_url) + '" loading="lazy" alt="'
         + escAttr(a.application + ' figure for ' + (r.catalogue_number || '') + ' on ' + r.gene)
-        + '" class="ns-figure">'
-        + (a.sentence && a.sentence !== a.finding
-            ? '<div class="ns-fig-note">' + esc(a.sentence) + '</div>' : '')
+        + '" class="ns-figure"' + (a.sentence ? ' title="' + escAttr(a.sentence) + '"' : '') + '>'
         + '</figure>';
     });
     html += '</div>';
@@ -1287,18 +1371,9 @@ function nsCard(r) {
 function nsWouldAddNote() {
   const n = (NS_STATE.manifest || {}).limited_support_would_add;
   if (NS_STATE.includeLimited || n === null || n === undefined) return '';
-  if (!n) return ' <span class="setting-hint">(none to add)</span>';
-  return ' <span class="setting-hint">(' + n + ' more '
+  if (!n) return ' <span class="setting-hint">(none)</span>';
+  return ' <span class="setting-hint">(+' + n + ' '
     + plural(n, 'antibody', 'antibodies') + ')</span>';
-}
-
-/* The same number as a clause rather than a chip, for the sentence under the
-   buttons. */
-function nsWouldAddSentence() {
-  const n = (NS_STATE.manifest || {}).limited_support_would_add;
-  if (n === null || n === undefined) return '.';
-  if (!n) return ' — there are none in this scope.';
-  return ' — ' + n + ' more ' + plural(n, 'antibody', 'antibodies') + ' would appear.';
 }
 
 const NS_APP_LABEL = { 'WB': 'Western blot', 'IP': 'Immunoprecipitation',
@@ -1364,7 +1439,12 @@ function plural(n, one, many) { return Number(n) === 1 ? one : many; }
 async function loadPipelineThumbs() {
   const imgs = document.querySelectorAll('#pipeline-content img[data-pipeline-src]');
   for (const img of imgs) {
+    /* "Show more" starts a second pass while the first may still be running,
+       and both can hold the same unfetched image. Whichever reaches it first
+       takes it; without this the other fetched `null` and drew a card saying
+       the figure could not be loaded. */
     const url = img.getAttribute('data-pipeline-src');
+    if (!url) continue;
     img.removeAttribute('data-pipeline-src');
     try {
       const res = await fetch(url, { headers: { 'X-API-Key': S.key } });
@@ -1374,7 +1454,7 @@ async function loadPipelineThumbs() {
       img.replaceWith(Object.assign(document.createElement('div'), {
         className: 'card-meta',
         style: 'padding:12px;color:var(--muted)',
-        textContent: 'That figure could not be loaded. The record is fine; the image behind it did not arrive.'
+        textContent: 'Image could not be loaded.'
       }));
     }
   }
@@ -1390,9 +1470,10 @@ function clearSelection() { S.selected.clear(); applyFilters(); }
 function updateActionBar() {
   const n = S.selected.size;
   const dirtyN = S.reviewedDirty.size;
+  document.body.classList.toggle('has-action-bar', S.currentTab === 'data');
   if (S.currentTab === 'data') {
     show('action-bar');
-    $('selection-count').textContent = n > 0 ? n + ' image' + (n !== 1 ? 's' : '') + ' selected' : 'No images selected';
+    $('selection-count').textContent = n > 0 ? n + ' image' + (n !== 1 ? 's' : '') + ' ticked' : 'Tick images to download them';
     $('download-btn').disabled = n === 0;
     if (dirtyN > 0) {
       show('save-progress-btn');
@@ -1443,17 +1524,23 @@ async function resetSettings() {
 }
 
 /* Says what goes before it goes, and how much of it. */
-async function clearReviewProgress() {
+/* Nothing to clear is said, not asked: "Clear the reviewed mark from 0
+   antibodies?" and then "Reviewed marks cleared — 0" was a question and a
+   receipt about nothing (field test, 29 Sep 2026). */
+function antibodyCount(n) { return n + ' antibod' + (n === 1 ? 'y' : 'ies'); }
+function clearReviewProgress() {
   const n = S.reviewed.size;
-  if (!confirm('Clear review progress?\n\nThis removes the '
-      + n + ' antibod' + (n === 1 ? 'y' : 'ies') + ' marked as reviewed, so '
-      + 'everything reads as new again.\n\nYour download settings, your '
-      + 'antibodies and their images are not affected.')) return;
+  if (!n) { toast('No reviewed marks to clear.'); return; }
+  return askOnPage('Clear the reviewed mark from ' + antibodyCount(n) + '?',
+                   'Clear ' + n, () => doClearReviewProgress(n));
+}
+async function doClearReviewProgress(n) {
   try {
     const r = await apiDelete('/v1/reviewed/clear/');
     S.reviewed.clear(); S.reviewedDirty.clear();
     refreshNewStat(); applyFilters(); updateActionBar();
-    toast('Review progress cleared' + (r && typeof r.deleted === 'number' ? ' \u2014 ' + r.deleted + ' removed' : ''));
+    const gone = r && typeof r.deleted === 'number' ? r.deleted : n;
+    toast('Cleared the reviewed mark from ' + antibodyCount(gone) + '.');
   } catch (e) { toast('Could not clear \u2014 ' + ((e && e.error) || 'please try again'), true); }
 }
 function applyPattern(p, m) { return p.replace(/\{gene\}/g,m.gene||'').replace(/\{catalogue\}/g,m.catalogue||'').replace(/\{rrid\}/g,m.rrid||'').replace(/\{application\}/g,m.app||''); }
@@ -1501,7 +1588,7 @@ function refreshBulkDownload() {
     // button rather than offering one that cannot work — but say where the
     // download is, or an absent control reads as a missing feature.
     btn.classList.add('hidden');
-    note.textContent = 'Your key covers part of the dataset — use Select All Recommended, then Download Selected.';
+    note.textContent = '';
     return;
   }
 
@@ -1510,7 +1597,7 @@ function refreshBulkDownload() {
     // Disabled with the reason on the page, never on a `title` no touch screen
     // shows — and never phrased as data missing, because nothing is.
     btn.disabled = true;
-    note.textContent = 'Being rebuilt after a recent update — every image is still available below.';
+    note.textContent = 'Being rebuilt — tick images below instead.';
     return;
   }
   btn.disabled = false;
@@ -1736,12 +1823,8 @@ async function downloadSelected() {
 
   if (!manifest.length) {
     downloadOutcome('Nothing could be downloaded',
-      '<p style="font-size:0.85rem">None of the ' + total + ' selected image'
-      + (total !== 1 ? 's' : '') + ' could be fetched, so no zip has been saved. '
-      + 'Nothing is wrong with the records — this is the images not arriving.</p>'
-      + '<p style="font-size:0.85rem;margin-top:0.6rem">The list below is also '
-      + 'available as a file, which is the useful thing to send on: it names '
-      + 'every figure and why it did not come.</p>'
+      '<p style="font-size:0.85rem">None of the ' + total + ' image'
+      + (total !== 1 ? 's' : '') + ' could be fetched. Try again, or send us the list.</p>'
       + failureList(failures)
       + '<button class="btn-outline" style="margin-top:0.9rem" onclick="downloadMissingList()">Download the list (CSV)</button>');
     return;
@@ -1766,11 +1849,9 @@ async function downloadSelected() {
     failures.forEach(f => S.selected.set(f.url, f.meta));
     applyFilters();
     downloadOutcome(manifest.length + ' of ' + total + ' downloaded',
-      '<p style="font-size:0.85rem">Your zip holds ' + manifest.length + ' image'
-      + (manifest.length !== 1 ? 's' : '') + ', a <code>manifest.csv</code> listing them, '
-      + 'and a <code>missing.csv</code> naming the ' + failures.length
-      + ' that did not come and why. Those ' + failures.length + ' are still '
-      + 'selected — press Download Selected again to retry just those.</p>'
+      '<p style="font-size:0.85rem">The ' + failures.length + ' missing '
+      + (failures.length !== 1 ? 'are' : 'is') + ' still ticked — press '
+      + '<strong>Download ticked</strong> to try again.</p>'
       + failureList(failures));
     return;
   }
@@ -1783,7 +1864,24 @@ async function downloadSelected() {
 }
 function triggerDownload(b,f) { const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href); }
 
-function confirmMarkReviewed() { const n = countNew(); if (!confirm('Mark all current data as reviewed?\n\nThis will update your review timestamp immediately.\n\n' + n + ' item(s) currently flagged as new.')) return; markReviewed(); }
+function confirmMarkReviewed() {
+  const n = countNew();
+  if (!n) { toast('Nothing is new since you last marked everything reviewed.'); return; }
+  return askOnPage('Mark all ' + antibodyCount(n) + ' new as reviewed? Only antibodies added after this will show as new.',
+                   'Mark ' + n + ' reviewed', markReviewed);
+}
+/* The page's own yes/no, in place of the browser's box: the button says what
+   it will do and to how many, Cancel or Escape dismisses it, and nothing
+   happens until one is pressed. */
+function askOnPage(message, yesLabel, onYes) {
+  $('confirm-text').textContent = message;
+  const yes = $('confirm-yes');
+  yes.textContent = yesLabel;
+  yes.onclick = () => { hide('confirm-bar'); onYes(); };
+  $('confirm-no').onclick = () => hide('confirm-bar');
+  show('confirm-bar');
+  yes.focus();
+}
 async function markReviewed() {
   try {
     const r = await apiPost('/v1/mark-reviewed/');
@@ -1791,13 +1889,23 @@ async function markReviewed() {
     S.reviewedDirty.clear();
     refreshNewStat();
     applyFilters();
-    toast('All data marked as reviewed');
-  } catch(e) { alert('Error: ' + (e.error||'Failed')); }
+    toast('Marked reviewed \u2014 only antibodies added from now on will show as new');
+  } catch(e) { toast('Could not mark reviewed \u2014 ' + ((e && e.error) || 'please try again'), true); }
 }
 
 function previewImage(url) { $('preview-img').src = url; show('image-preview'); }
-function copyIframe(btn) { const input = btn.previousElementSibling; navigator.clipboard.writeText(input.value).then(()=>{ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1500); }).catch(()=>{ input.select(); document.execCommand('copy'); btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1500); }); }
-function toast(msg, isErr) { const el=$('toast'); el.textContent=msg; el.style.background=isErr?'var(--red)':'var(--navy)'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+/* Escape dismisses whatever is open over the page, as it does on the pipeline's
+   pop-outs: the enlarged figure had no way out but a click. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  ['image-preview', 'report-modal', 'confirm-bar'].forEach(id => hide(id));
+});
+/* One timer, restarted by each toast. Each call set its own and none was
+   cleared, so a second toast inside 2.5 s was hidden by the first one's timer
+   — "Saved — 1 antibody marked reviewed" vanished within half a second of a
+   clear (field test, 29 Sep 2026). */
+let toastTimer = null;
+function toast(msg, isErr) { const el=$('toast'); el.textContent=msg; el.style.background=isErr?'var(--red)':'var(--navy)'; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove('show'),2500); }
 </script>
 </body>
 </html>

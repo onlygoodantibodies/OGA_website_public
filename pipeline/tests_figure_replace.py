@@ -106,3 +106,10 @@ class ReplaceAFigureTests(TestCase):
         self.assertContains(response, "Replace IP figure")
         self.assertContains(response, "Add WB figure")
         self.assertEqual(figure_replace.search("", ""), [])
+
+    def test_the_count_says_what_it_matched(self):
+        """`?gene=` alone printed "17 antibodies match ." (live, 29 Sep 2026)."""
+        text = " ".join(self.client.get(
+            "/pipeline/figures/replace/?gene=RAB6A").content.decode().split())
+        self.assertIn("matches on RAB6A.", text)
+        self.assertNotIn("match .", text)

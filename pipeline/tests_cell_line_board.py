@@ -80,6 +80,9 @@ class CellLineBoardTests(TestCase):
         self.assertFalse(self.ko.ko_validated)
 
     def test_site_resolves_by_name_and_a_bad_one_is_refused(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         self._patch(target_id=self.ko.pk, field="site", value="McGill")
         self.ko.refresh_from_db()
         self.assertEqual(self.ko.site_id, self.site2.pk)

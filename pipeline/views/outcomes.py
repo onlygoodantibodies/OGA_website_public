@@ -539,7 +539,7 @@ def outcome_withdraw(request):
                       "nothing was changed. The gene is still on the public "
                       "site."}, status=500)
 
-    purged, purge_note = edge_cache.purge_everything()
+    purged, purge_note = edge_cache.purge_public_pages()
     return JsonResponse({
         "ok": True,
         "gene": target.gene_name,

@@ -657,6 +657,12 @@ def plan(session, parsed):
         # Not an error — the panel draws it above the rows, because it is about
         # whether these readings belong here at all.
         "unstamped": unstamped_note(session, sheet_id),
+        # The antibodies recording this sheet will give an A-number to, the same
+        # set `apply` passes to `ensure_numbered`. Only the receipt said so, so
+        # the number arrived as a surprise (field test, 29 Sep 2026).
+        "site": session.site.name if session.site_id else "",
+        "will_be_numbered": lab_numbers.would_number(
+            [e["ab"] for e in collapsed if e["fields"]]),
         "summary": {
             "matched": len(items),
             "create": sum(1 for i in items if i["action"] == "create"),

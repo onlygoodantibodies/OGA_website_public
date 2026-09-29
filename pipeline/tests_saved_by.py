@@ -100,7 +100,7 @@ class AStampIsNotAReadingTests(TestCase):
         user = User(username="sara")
         user.save(using=DB)
         member = Member.objects.using(DB).create(user_id=user.pk, site_id=site.pk,
-                                                 role="experimenter")
+                                                 role="experimenter", is_active=True)
         session = ExperimentSession.objects.using(DB).create(
             target_id=target.pk, procedure_type="WB", experimenter_id=member.pk,
             site_id=site.pk, date="2026-09-24")
@@ -135,9 +135,13 @@ class _Signed:
 
 class _User:
     is_authenticated = True
+    # These tests are about the stamp; whose bench a row is on is
+    # `services/ownership.py`'s question and its own tests.
+    is_superuser = True
 
     def __init__(self, username):
         self._name = username
+        self.username = username
 
     def get_username(self):
         return self._name

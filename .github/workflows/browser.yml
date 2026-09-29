@@ -22,6 +22,8 @@ on:
       - 'core/tests_browser_search.py'
       - 'core/tests_browser_availability.py'
       - 'core/tests_browser_portal_pipeline.py'
+      - 'core/tests_browser_portal_show_more.py'
+      - 'core/tests_browser_portal_compare.py'
       # The Not Supportive tab is drawn entirely in the browser from
       # these two, so a change to either can break the tab with every
       # response test still green.
@@ -43,6 +45,8 @@ on:
       - 'core/tests_browser_search.py'
       - 'core/tests_browser_availability.py'
       - 'core/tests_browser_portal_pipeline.py'
+      - 'core/tests_browser_portal_show_more.py'
+      - 'core/tests_browser_portal_compare.py'
       # The Not Supportive tab is drawn entirely in the browser from
       # these two, so a change to either can break the tab with every
       # response test still green.
@@ -129,7 +133,7 @@ jobs:
             EXCLUDE="--exclude-tag commissioning"
           fi
           echo "running with: ${EXCLUDE:-<everything>}"
-          python manage.py test pipeline.tests_browser_board pipeline.tests_browser_cropper_controls core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline core.tests_browser_portal_not_supportive $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
+          python manage.py test pipeline.tests_browser_board pipeline.tests_browser_cropper_controls core.tests_browser_search core.tests_browser_availability core.tests_browser_portal_pipeline core.tests_browser_portal_not_supportive core.tests_browser_portal_show_more core.tests_browser_portal_compare $EXCLUDE -v 2 2>&1 | tee /tmp/browser.log
           if grep -q "needs playwright and the bundled Chromium" /tmp/browser.log; then
             echo "::error::Browser tests skipped — Chromium was not found where the suite looks for it."
             exit 1

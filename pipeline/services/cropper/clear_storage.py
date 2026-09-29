@@ -45,6 +45,25 @@ class Refused(Exception):
     """A sentence the page shows as it is."""
 
 
+def delete_files(images) -> list[str]:
+    """Delete each upload's file from storage; the names that would not go.
+
+    A row's ``.delete()`` never touches its file, so every path that removes
+    a ``CropperImage`` calls this first — a row deleted without it leaves a
+    file nothing records, which not even Clear storage can find again.
+    """
+    kept = []
+    for im in images:
+        if not im.image:
+            continue
+        try:
+            im.image.storage.delete(im.image.name)
+        except Exception:
+            logger.exception("cropper: could not delete %s", im.image.name)
+            kept.append(im.name or im.image.name)
+    return kept
+
+
 def _stamp(session_ids, image_ids) -> str:
     raw = "s:" + ",".join(map(str, sorted(session_ids))) + "|i:" + ",".join(map(str, sorted(image_ids)))
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
@@ -85,15 +104,7 @@ def clear(stamp: str, now=None) -> dict:
                       "(a session was saved or a figure added). Press Clear storage again "
                       "to see what is there now.")
     images = list(CropperImage.objects.using(DB).filter(session__in=sessions)) + orphans
-    kept = []
-    for im in images:
-        if not im.image:
-            continue
-        try:
-            im.image.storage.delete(im.image.name)
-        except Exception:
-            logger.exception("cropper clear: could not delete %s", im.image.name)
-            kept.append(im.name or im.image.name)
+    kept = delete_files(images)
     with transaction.atomic(using=DB):
         CropperImage.objects.using(DB).filter(pk__in=[im.pk for im in orphans]).delete()
         CropperSession.objects.using(DB).filter(pk__in=[s.pk for s in sessions]).delete()

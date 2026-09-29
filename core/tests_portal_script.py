@@ -197,3 +197,103 @@ class ThePortalUsesNoDjangoCommentDelimitersTests(SimpleTestCase):
                 delimiter, source,
                 f"portal.html contains {delimiter!r}. Use "
                 "{% comment %} for anything longer than a few words.")
+
+
+def _function_source(js, name):
+    """The source of ``function name(...) {...}`` (or ``async function``)."""
+    start = re.search(r"(async\s+)?function\s+" + re.escape(name) + r"\s*\(", js)
+    assert start, f"no function {name}"
+    i = js.index("{", start.end())
+    depth = 0
+    for j in range(i, len(js)):
+        depth += {"{": 1, "}": -1}.get(js[j], 0)
+        if depth == 0:
+            return js[start.start():j + 1]
+    raise AssertionError(f"unbalanced {name}")
+
+
+class TheReviewControlsSayWhatTheyDidTests(SimpleTestCase):
+    """Field test, 29 Sep 2026, on the test key's portal.
+
+    *Clear reviewed marks* with none to clear asked *"Clear the reviewed mark
+    from 0 antibodies?"* and answered *"Reviewed marks cleared — 0"*; and a toast
+    shown within 2.5 s of another vanished early, because each set its own timer
+    and the first one's fired over the second — *"Saved — 1 antibody marked
+    reviewed"* was gone in under a second. Run in node, since the portal is one
+    inline script and the behaviour is the timing."""
+
+    def setUp(self):
+        if not shutil.which("node"):
+            self.skipTest("node is not installed")
+        self.js = "\n".join(_inline_scripts())
+
+    def _run(self, body):
+        script = body
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+            fh.write(script)
+            tmp = fh.name
+        try:
+            done = subprocess.run(["node", tmp], capture_output=True, text=True)
+        finally:
+            os.unlink(tmp)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout.strip().splitlines()
+
+    def test_a_second_toast_keeps_its_full_time_on_screen(self):
+        toast = _function_source(self.js, "toast")
+        timer = "let toastTimer = null;" if "toastTimer" in self.js else ""
+        out = self._run(f"""
+            let now = 0; const timers = [];
+            global.setTimeout = (f, ms) => {{ timers.push({{at: now + ms, f}}); return timers.length; }};
+            global.clearTimeout = id => {{ if (id) timers[id - 1].f = () => {{}}; }};
+            const el = {{textContent: '', style: {{}}, classList: {{s: new Set(),
+              add(c) {{ this.s.add(c); }}, remove(c) {{ this.s.delete(c); }},
+              contains(c) {{ return this.s.has(c); }} }}}};
+            const $ = () => el;
+            {timer}
+            {toast}
+            const tick = t => {{ now = t; timers.filter(x => x.at <= t && !x.done)
+              .forEach(x => {{ x.done = true; x.f(); }}); }};
+            toast('first'); tick(2000); toast('second'); tick(2600);
+            console.log(el.classList.contains('show') ? 'showing' : 'hidden');
+        """)
+        self.assertEqual(out, ["showing"], "the second toast was hidden by the first's timer")
+
+    def test_nothing_to_clear_is_said_without_asking(self):
+        clear = _function_source(self.js, "clearReviewProgress")
+        if "function doClearReviewProgress" in self.js:
+            clear += "\n" + _function_source(self.js, "doClearReviewProgress")
+        helper = (_function_source(self.js, "antibodyCount")
+                  if "function antibodyCount" in self.js else "")
+        out = self._run(f"""
+            const S = {{reviewed: new Set(), reviewedDirty: new Set()}};
+            let asked = 0; global.confirm = () => {{ asked++; return true; }};
+            const askOnPage = (m, label, yes) => {{ asked++; return yes(); }};
+            const said = []; const toast = m => said.push(m);
+            const apiDelete = async () => ({{deleted: S.reviewed.size}});
+            const refreshNewStat = () => {{}}, applyFilters = () => {{}}, updateActionBar = () => {{}};
+            {helper}
+            {clear}
+            Promise.resolve(clearReviewProgress()).then(() => {{
+              console.log(String(asked)); console.log(said.join(' | '));
+              S.reviewed.add('ab1'); asked = 0; said.length = 0;
+              return Promise.resolve(clearReviewProgress()); }}).then(() => {{
+              console.log(String(asked)); console.log(said.join(' | ')); }});
+        """)
+        self.assertEqual(out[0], "0", "asked a question about nothing")
+        self.assertNotIn("— 0", out[1])
+        self.assertEqual(out[2], "1")
+        self.assertIn("1 antibody", out[3])
+
+
+class ThePortalAsksOnThePageTests(SimpleTestCase):
+    """Field test, 29 Sep 2026: Clear reviewed marks and Mark all reviewed
+    asked through the browser's own confirm box while everything else on the
+    portal answers on the page. The page asks now, with the count on the
+    button."""
+
+    def test_no_native_confirm_is_left(self):
+        js = "\n".join(_inline_scripts())
+        self.assertNotIn("confirm(", js.replace("confirmMarkReviewed(", ""))
+        self.assertIn("function askOnPage", js)
+        self.assertIn("'confirm-bar'", js, "Escape must close the question too")

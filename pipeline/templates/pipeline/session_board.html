@@ -104,6 +104,15 @@
           Blank cells are ignored, and a value that would overwrite something
           already filled is listed below and left alone unless you tick the box.
         </p>
+        {% comment %}The conditions a session records — lysis buffer, blocking,
+        gel — are not columns on this sheet, and nothing said so: a field test
+        recorded a lysis buffer and found no column for it here (29 Sep 2026).
+        They round-trip through each session's own workbook.{% endcomment %}
+        <p class="text-sm text-gray-600 mt-1 max-w-2xl">
+          This sheet edits readings and session details. Conditions such as the
+          lysis buffer are in each session's own workbook — open the session and
+          use <b>Full workbook</b>.
+        </p>
         {% comment %}The sheet this panel is about, inside the panel that asks
         for it. Every other upload surface in the app offers its own artefact —
         the three boards' pop-outs hand you the blank template — and this one
@@ -323,6 +332,7 @@ change rather than an oversight.{% endcomment %}
 </div>
 
 <script src="{% static 'pipeline/board.js' %}"></script>
+{{ viewer|json_script:"viewer" }}
 <script>
 (function () {
   // Rendered server-side. CSRF_COOKIE_HTTPONLY is on, so document.cookie never
@@ -496,7 +506,9 @@ change rather than an oversight.{% endcomment %}
    * `board.js` reads it at edit time, not at creation. */
   const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
 
+  const viewer = JSON.parse(document.getElementById('viewer').textContent);
   const board = OGABoard.create({
+    lockedWhy: r => OGABoard.lockedFor(viewer, r.site),
     // Cell editing is delegated, so the drawer has to be named or every cell in
     // it is dead — silently, because the markup is identical.
     extraRoots: [drawerBody],
@@ -784,7 +796,8 @@ change rather than an oversight.{% endcomment %}
           <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
             <p class="font-semibold text-gray-900">Workbook for this session —
               ${s.results || 0} result row(s): ${s.results_new || 0} new,
-              ${s.results_updated || 0} updated.</p>
+              ${s.results_updated || 0} updated${s.results_unchanged
+                ? `, ${s.results_unchanged} unchanged` : ''}.</p>
             <p class="text-gray-700">WT: ${esc(s.cell_line_wt || '—')} ·
               KO: ${esc(s.cell_line_ko || '—')} · ${s.conditions || 0} condition(s).</p>
             ${s.status_change ? `<p class="text-gray-700">Status: ${esc(s.status_change)}.</p>` : ''}
@@ -815,6 +828,11 @@ change rather than an oversight.{% endcomment %}
         <p class="font-semibold text-gray-900">${
         items.length} antibod${items.length === 1 ? 'y' : 'ies'} read from the sheet.</p>
         ${OGABoard.previewRows(items, i => i.antibody)}
+        ${(d.will_be_numbered || []).length ? `<p class="mt-2 text-amber-900">${
+          d.will_be_numbered.map(esc).join(', ')} ${d.will_be_numbered.length === 1
+            ? 'has' : 'have'} no A-number yet; recording this sheet gives ${
+          d.will_be_numbered.length === 1 ? 'it the next one' : 'each the next one'} at
+          ${esc(d.site || 'this bench')}. The receipt names the number.</p>` : ''}
         ${unknownHtml(d.unknown_columns)}
         ${conditionsReadHtml(d.conditions_read, d.condition_columns)}
         ${OGABoard.reportNeedsNote(d.report_needs, 'check')}
@@ -846,7 +864,8 @@ change rather than an oversight.{% endcomment %}
       if (!d) return;
       if (d.ok === false) { fail(d.error || 'Nothing was recorded.'); return; }
       receipt = `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-2 text-emerald-900">
-        Recorded. ${d.results_created || 0} new result row(s), ${d.results_updated || 0} updated.${
+        Recorded. ${d.results_created || 0} new result row(s), ${d.results_updated || 0} updated${
+          d.results_unchanged ? `, ${d.results_unchanged} unchanged` : ''}.${
           OGABoard.saveNotes(d)}
         ${(d.skipped || []).length ? `<div class="mt-1 text-amber-900">${
           d.skipped.map(esc).join('<br>')}</div>` : ''}</div>`;
@@ -1018,6 +1037,9 @@ change rather than an oversight.{% endcomment %}
      * dilution, a signal and a rating went past in silence, so the panel has to
      * name the columns it is dropping and where the row can be made. */
     const homeless = d.items.filter(i => (i.no_result_row || []).length);
+    // A cell-line cell naming no line, or several, is refused by name and the
+    // session keeps its line — never matched to whichever HAP1 came first.
+    const refusedLines = d.items.filter(i => (i.refused_lines || []).length);
     out.innerHTML = `
       <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
         <p class="font-semibold text-gray-900">${OGABoard.plural(s.rows, 'row')} read.</p>
@@ -1041,14 +1063,37 @@ change rather than an oversight.{% endcomment %}
             `<li><b>${esc(i.sheet)} row ${i.line}</b> (session #${esc(String(i.session_id))}) —
              ${esc(i.no_result_row.join(', '))}</li>`).join('')}
         </ul></div>` : ''}
+      ${refusedLines.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
+        <p class="font-semibold text-amber-900">Cell lines left as they are</p>
+        <ul class="mt-1 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
+          ${refusedLines.slice(0, 40).map(i => i.refused_lines.map(r =>
+            `<li><b>${esc(i.sheet)} row ${i.line}</b> — ${esc(r)}</li>`).join('')).join('')}
+        </ul></div>` : ''}
       ${conflicts.length ? `<div class="mt-3 border border-amber-200 bg-amber-50 rounded-lg p-3">
         <p class="font-semibold text-amber-900">Disagreements (left alone unless you tick "update existing values"):</p>
         <ul class="mt-1 text-amber-900 text-xs space-y-1 max-h-48 overflow-y-auto">
           ${conflicts.slice(0, 40).map(i => i.changes.filter(c => c.kind === 'conflict').map(c =>
             `<li><b>${esc(i.sheet)} row ${i.line}</b> — ${esc(c.field)}: file says "${esc(c.to)}", database has "${esc(c.from)}"</li>`).join('')).join('')}
-        </ul></div>` : ''}`;
-    document.getElementById('commit-btn').classList.remove('hidden');
+        </ul></div>` : ''}
+      ${s.changed_rows ? '' : `<p class="mt-2 text-gray-600">Nothing in this sheet differs
+        from what is recorded, so there is nothing to save.</p>`}`;
+    /* **A check that succeeded is not a check that found something to write.**
+     * An unchanged export previewed "0 rows would change" with *Save these
+     * changes* offered beneath it (field test, 29 Sep 2026). */
+    document.getElementById('commit-btn').classList.toggle('hidden', !s.changed_rows);
   });
+
+  /* A spent file disarms Preview until another is chosen — pressing it again
+   * re-read the saved sheet as "0 rows would change" over the receipt that had
+   * just said "1 result row updated" (field test, 29 Sep 2026). The rule
+   * `uploadPanel` holds; this panel is its own code. */
+  function setSpent(spent) {
+    const b = document.getElementById('preview-btn');
+    b.disabled = spent;
+    b.classList.toggle('opacity-50', spent);
+    b.title = spent ? 'Saved — choose another file to upload again.' : '';
+  }
+  document.getElementById('upload-file').addEventListener('change', () => setSpent(false));
 
   document.getElementById('commit-btn').addEventListener('click', async () => {
     const out = document.getElementById('upload-result');
@@ -1060,8 +1105,10 @@ change rather than an oversight.{% endcomment %}
       ${d.skipped ? `${OGABoard.plural(d.skipped, 'row')} skipped.` : ''}
       ${d.dropped_readings ? `<span class="text-amber-900">${OGABoard.plural(d.dropped_readings, 'reading')}
         not recorded — those rows have no result_id. Add the antibody to the session, then upload
-        again.</span>` : ''}</div>`;
+        again.</span>` : ''}
+      <p class="mt-1 text-xs">Choose another file to upload again.</p></div>`;
     document.getElementById('commit-btn').classList.add('hidden');
+    setSpent(true);
   board.load();
   });
 
@@ -1100,9 +1147,10 @@ change rather than an oversight.{% endcomment %}
     urls: {preview: planParseUrl, commit: planCommitUrl},
     intro: `<b class="text-gray-900">Plan a session.</b> Set the header, then list the
             antibodies to test — one per row, or switch to Paste. <b>Check these</b>
-            says which are already on file and which would be added. Anything new —
-            the gene, the cell lines, an unseen catalogue number — is created with
-            the session, in one go, so a bad header creates nothing at all.
+            says which are already on file and which would be added. The gene must
+            already be a target; anything else new — the cell lines, an unseen
+            catalogue number — is created with the session, in one go, so a bad
+            header creates nothing at all.
             The two cell-line boxes offer your site's lines as you type; a name
             nothing answers to is reported as <em>will be created</em> by the check,
             not after the save.`,
@@ -1169,6 +1217,7 @@ change rather than an oversight.{% endcomment %}
           body: JSON.stringify({gene, text: tsv,
                                 date: val('ne-date'),
                                 procedure_type: val('ne-procedure'),
+                                site_id: val('ne-site') || null,
                                 cell_line_wt: val('ne-wt'),
                                 cell_line_ko: val('ne-ko')}),
         }};
@@ -1219,9 +1268,13 @@ change rather than an oversight.{% endcomment %}
         : (d.blocking || [])
       ).map(b => `<li class="text-red-700">${esc(b)}</li>`).join('');
       if (!d.target) {
+        const gene = val('ne-gene');
         return `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 text-amber-900">
-          <b>${esc(val('ne-gene')) || 'No gene given'}</b> isn't a target yet — it will be
-          created with the session. Check the spelling first: a typo becomes a new gene.
+          ${gene ? `<b>${esc(gene)}</b> is not a gene in the pipeline yet. A session is
+          recorded against a gene already on file — check the spelling, or
+          ${d.add_target_url ? `<a class="underline font-semibold" href="${esc(d.add_target_url)}">add
+          ${esc(gene)} on the target board</a>` : 'add it on the target board'} first.`
+          : 'No gene given — type the gene this session is for.'}
           <br>${s.rows || 0} antibody row(s) read.
           ${(lines || blocking) ? `<ul class="mt-1 list-disc list-inside">${blocking}${lines}</ul>` : ''}</div>`;
       }
@@ -1235,6 +1288,12 @@ change rather than an oversight.{% endcomment %}
           ${blocking}
         </ul></div>`;
     },
+    // The save refuses both of these, so the check disarms it with the reason
+    // beside the button rather than letting the press find out.
+    whyNotCommit: d => (!d.target
+      ? 'The gene is not in the pipeline yet — add it on the target board first.'
+      : ((d.blocking || []).length
+         ? 'Fix what the check names in red above, then check again.' : '')),
     renderResult: d => {
       const extras = [];
       if (d.created_target) extras.push(`new target ${esc(d.created_target)}`);
@@ -1243,6 +1302,7 @@ change rather than an oversight.{% endcomment %}
       return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
         Session created with ${(d.created_results || []).length} result row(s).
         ${extras.length ? `<br>Also created: ${extras.join(', ')}.` : ''}
+        ${OGABoard.saveNotes(d)}
         <br><button type="button" class="mt-1 font-semibold underline"
                 data-open-results="${d.session_id}">Record its results here →</button>
       </div>`;
@@ -1250,6 +1310,49 @@ change rather than an oversight.{% endcomment %}
     onDone: () => board.load(),
   });
   document.getElementById('new-btn').addEventListener('click', newEntry.open);
+
+  /* The WT and KO lists follow the gene and site the panel says, asked of the
+   * server each time either changes (`views/session_board.py::_line_options`).
+   * Rendered once for the member's site, the KO box offered that site's first
+   * sixty controls of *any* gene — never the one being planned, for most genes.
+   * A read that fails leaves the lists as they were and says nothing is lost:
+   * the boxes are free text and the check still resolves what is typed. */
+  const lineOptionsUrl = "{% url 'pipeline:session_board_line_options' %}";
+  let lineOptionsSeq = 0;
+  function fillLineList(id, options) {
+    const list = document.getElementById(id);
+    if (!list) return;
+    list.innerHTML = '';
+    (options || []).forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      if (o.hint) opt.label = o.hint;
+      list.appendChild(opt);
+    });
+  }
+  async function refreshLineOptions() {
+    const seq = ++lineOptionsSeq;
+    const q = new URLSearchParams({gene: val('ne-gene'), site: val('ne-site')});
+    let d;
+    try {
+      const r = await fetch(`${lineOptionsUrl}?${q}`);
+      if (!r.ok) return;
+      d = await r.json();
+    } catch (e) { return; }
+    if (seq !== lineOptionsSeq) return;
+    fillLineList('wt-line-options', d.wt);
+    fillLineList('ko-line-options', d.ko);
+    const ko = document.getElementById('ne-ko');
+    if (ko) {
+      ko.placeholder = !d.gene ? 'e.g. HAP1'
+        : (d.ko || []).length ? `a ${d.gene} knockout or knockdown`
+        : `no ${d.gene} knockout or knockdown on file at this site`;
+    }
+  }
+  ['ne-gene', 'ne-site'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', refreshLineOptions);
+  });
 
   // Arriving from a gene's page with "add" in the query means: open the Add
   // panel, ready to type, with the gene already filled in. The gene filter is
@@ -1259,7 +1362,7 @@ change rather than an oversight.{% endcomment %}
     if (!p.get('add')) return;
     const gene = p.get('gene') || '';
     const box = document.getElementById('ne-gene');
-    if (box && gene) box.value = gene;
+    if (box && gene) { box.value = gene; refreshLineOptions(); }
     newEntry.open();
   })();
 

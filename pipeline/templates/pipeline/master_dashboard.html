@@ -184,6 +184,9 @@
                   {% if target.site_from_import %}
                     <span class="block text-[11px] text-gray-400"
                           title="From the original Access import — no nomination on file">from import</span>
+                  {% elif target.site_import_also %}
+                    <span class="block text-[11px] text-gray-400"
+                          title="From the original Access import, beside another site's nomination">also {{ target.site_import_also }} from import</span>
                   {% endif %}
                 </td>
               </tr>

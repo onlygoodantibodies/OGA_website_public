@@ -21,6 +21,7 @@ from django.db import transaction
 from pipeline.models import Target, Antibody
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import lab_numbers
+from pipeline.services import ownership
 from pipeline.services import received as received_svc
 from pipeline.services import sites as site_svc
 from pipeline.services import storage as storage_svc
@@ -110,8 +111,14 @@ def plan(rows, member=None, *, number_now: bool = False):
                     if (target and cat and not site_err) else None)
         comp = cdb.resolve_company(r.get("company", ""), cat, create=False) if r.get("company") else None
         note = ""
+        # Another site's bench is a superuser's to write to (services/ownership.py);
+        # named here so the row is blocked on the preview, not refused at the save.
+        not_yours = ("" if site_err else
+                     ownership.refusal_now({site_id, getattr(existing, "site_id", None)}))
         if site_err:
             status, note = "blocked", site_err
+        elif not_yours:
+            status, note = "blocked", not_yours
         elif target:
             status = "update" if existing else "create"
         else:
@@ -185,19 +192,26 @@ def plan(rows, member=None, *, number_now: bool = False):
             # the URL is the way to the board where a gene actually belongs.
             "add_target_url": (_add_target_url(gene)
                                if status == "no-target" and gene else ""),
-            "note": _with_received_note(
-                _with_supplier_apps_note(
-                    _with_concentration_note(
-                        note or _no_target_note(status, gene)
-                        or _identity_note(status, existing, lot),
-                        r.get("concentration"), r.get("concentration_unit_from")),
-                    r.get("apps_raw")),
-                r.get("received")),
+            "note": _with_clonality_note(
+                _with_received_note(
+                    _with_supplier_apps_note(
+                        _with_concentration_note(
+                            note or _no_target_note(status, gene)
+                            or _identity_note(status, existing, lot),
+                            r.get("concentration"), r.get("concentration_unit_from")),
+                        r.get("apps_raw")),
+                    r.get("received")),
+                r.get("clonality_unread")),
             # Carried on the item so `summarize` can *count* the rows whose
             # concentration will not be stored. The per-row note has said so
             # since run 6; nothing added it up, so the save summary was silent
             # about a value the preview had just refused — see `summarize`.
             "concentration_dropped": bool(_concentration_error(r.get("concentration"))),
+            # The received date is the same bargain — refused per row, the row
+            # still written — and was counted nowhere, so the save said nothing
+            # about the date the check had just refused (live, 29 Sep 2026).
+            "received_dropped": bool(
+                received_svc.parse(str(r.get("received") or ""))[2]),
         })
     return items
 
@@ -356,6 +370,21 @@ def _with_received_note(note, raw):
     return f"{note} · {err}" if note else err
 
 
+def _with_clonality_note(note, typed):
+    """Name a clonality the row gave and this could not read.
+
+    Same shape as the concentration and received-date notes: the row is still
+    worth writing, so it is a note and not a refusal — but ``mono`` was stored
+    as *unknown* with nothing on the screen to say so (live, 29 Sep 2026).
+    """
+    if not typed:
+        return note
+    said = (f"'{typed}' is not a clonality this can read, so it is saved as "
+            "unknown — give monoclonal, polyclonal, recombinant monoclonal or "
+            "recombinant polyclonal (e.g. monoclonal)")
+    return f"{note} · {said}" if note else said
+
+
 def _no_target_note(status, gene):
     """Why a row with a gene was skipped, and the way out of it.
 
@@ -402,6 +431,13 @@ def _identity_note(status, existing, lot):
     return "matches the row already on file, which has no lot recorded"
 
 
+def _writing_sites(items, writes) -> dict:
+    """``{site name: rows}`` over the rows a save would actually write."""
+    from collections import Counter
+    return dict(Counter(i["site"] for i in items
+                        if i.get("site") and i["status"] in writes))
+
+
 def summarize(items) -> dict:
     return {
         "rows": len(items),
@@ -419,6 +455,7 @@ def summarize(items) -> dict:
         # concentration at all. The panel two along, for an unrecognised
         # spreadsheet column, has done this correctly since run 6.
         "no_concentration": sum(1 for i in items if i.get("concentration_dropped")),
+        "no_received": sum(1 for i in items if i.get("received_dropped")),
         # **A number the app does *not* give a record is also a thing the app
         # did**, and the same rule applies: say so. The check named a minted
         # A-number from run 8's finding onwards; now it names the absence, and
@@ -437,7 +474,12 @@ def summarize(items) -> dict:
         # Every site the paste would write to. One name is the ordinary case; more
         # than one means the sheet spans benches, which a download legitimately
         # does and a hand-typed paste almost never should.
-        "sites": sorted({i["site"] for i in items if i.get("site")}),
+        # Only the rows this press will write. A paste refused as another
+        # site's still said "Recorded at: Leicester" over nothing being
+        # recorded anywhere (field test, 29 Sep 2026). `site_rows` is the count
+        # behind each name, which `board.js::recordedAt` prints.
+        "sites": sorted(_writing_sites(items, ("create", "update"))),
+        "site_rows": _writing_sites(items, ("create", "update")),
     }
 
 
@@ -466,11 +508,22 @@ def apply(rows, member=None, overwrite: bool = False,
            # repeat the refusal the preview gave. A warning that only appears
            # before the button is a warning the button can outlive.
            "no_concentration": [],
+           "no_received": [],
            # The lab numbers this press minted. A number the app gives a record
            # is a thing the app did — and it goes on a freezer box — so the save
            # names each one rather than leaving the reader to find A-1 on the
            # board later and wonder where it came from.
-           "numbers_issued": [], "left_unnumbered": 0}
+           "numbers_issued": [], "left_unnumbered": 0,
+           # Every row this press did not write, each with its reason. `blocked`
+           # and `skipped` are the two halves by cause, and the receipt drew one
+           # as a bare count and the other not at all — so a row refused as
+           # another site's, or for a gene not on file, vanished from the save
+           # box (field test, 29 Sep 2026). `board.js::rowsNotSaved` draws this.
+           "not_saved": [],
+           # Suppliers this press filed as requests for a superuser to approve
+           # (`cropper/db.py::resolve_company`). The check said so and the save
+           # did not (field test, 29 Sep 2026).
+           "suppliers_requested": []}
     with transaction.atomic(using=DB):
         for it in items:
             r, gene, cat = it["row"], it["gene"], it["catalogue"]
@@ -478,6 +531,7 @@ def apply(rows, member=None, overwrite: bool = False,
                 # An unrecognised site name. Refuse the row rather than quietly
                 # filing another bench's vial under the uploader's own.
                 out["blocked"].append(f"{cat or gene or '(row)'}: {it['note']}")
+                out["not_saved"].append(out["blocked"][-1])
                 continue
             target = (Target.objects.using(DB).filter(id=it["target_id"]).first()
                       if it["target_id"] else None)
@@ -485,9 +539,12 @@ def apply(rows, member=None, overwrite: bool = False,
                 # Never created here — see `plan`. The row was previewed as
                 # `no-target` and is skipped, which is what the preview said.
                 out["skipped"].append(cat or gene or "(row)")
+                out["not_saved"].append(
+                    f"{cat or '(no catalogue)'}: {_no_target_note('no-target', gene)}")
                 continue
             if not cat:
                 out["skipped"].append(gene or "(no catalogue)")
+                out["not_saved"].append(f"{gene or '(row)'}: no catalogue number")
                 continue
             # The vial, not the product: another site's vial of the same
             # catalogue number is a different physical tube, and so a row of its
@@ -497,6 +554,10 @@ def apply(rows, member=None, overwrite: bool = False,
             # The site comes from the row — its own `site` column if the sheet has
             # one, the member otherwise — and it is the value the preview showed.
             site_id = it["site_id"]
+            if it["company_status"] == "new" and (r.get("company") or "").strip():
+                name = r["company"].strip()
+                if name not in out["suppliers_requested"]:
+                    out["suppliers_requested"].append(name)
             ab = cdb.find_vial(target, r.get("company", ""), cat,
                                r.get("lot", ""), site_id)
             created = ab is None
@@ -550,6 +611,10 @@ def apply(rows, member=None, overwrite: bool = False,
                 out["no_concentration"].append(
                     {"catalogue": ab.catalogue_number,
                      "typed": str(r.get("concentration") or "").strip()})
+            if it.get("received_dropped"):
+                out["no_received"].append(
+                    {"catalogue": ab.catalogue_number,
+                     "typed": str(r.get("received") or "").strip()})
             if created and left_unnumbered:
                 out["left_unnumbered"] += 1
             # **A number the app gives a record is a thing the app did**, so the

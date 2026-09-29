@@ -107,6 +107,8 @@ urlpatterns = [
     # === Sessions board (find + edit in place; same shape as the target board) ===
     path('sessions/board/', views.session_board, name='session_board'),
     path('sessions/board/rows/', views.session_board_rows, name='session_board_rows'),
+    path('sessions/board/line-options/', views.session_board_line_options,
+         name='session_board_line_options'),
     path('sessions/board/results/', views.session_board_results,
          name='session_board_results'),
     path('sessions/board/patch/', views.session_board_patch, name='session_board_patch'),
@@ -166,6 +168,7 @@ urlpatterns = [
     path('cropper/ocr/', views.cropper_ocr, name='cropper_ocr'),
     path('cropper/parse-metadata/', views.cropper_parse_metadata, name='cropper_parse_metadata'),
     path('cropper/stage-image/', views.cropper_stage_image, name='cropper_stage_image'),
+    path('cropper/discard-image/', views.cropper_discard_image, name='cropper_discard_image'),
     path('cropper/image/<int:pk>/', views.cropper_image, name='cropper_image'),
     path('cropper/session/save/', views.cropper_session_save, name='cropper_session_save'),
     path('cropper/session/load/', views.cropper_session_load, name='cropper_session_load'),

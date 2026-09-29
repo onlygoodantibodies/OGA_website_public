@@ -159,6 +159,8 @@ RULES: list[tuple[str, str, str]] = [
      "Citation snapshot served publicly at /extension/citations.json."),
     ("core/data/title_normalisation_vectors.json", SHIP,
      "Shared test vectors both suites read."),
+    ("core/data/europepmc_ne_annotation_schema.json", SHIP,
+     "Europe PMC's own published annotation schema, vendored so the test reads it."),
     ("browser-extension/data/index.json", SHIP, "The published dataset the extension ships with."),
     ("browser-extension/data/aliases.json", SHIP, "Gene alias table, public."),
     ("browser-extension/manifest.json", SHIP, "Extension manifest."),

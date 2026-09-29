@@ -588,6 +588,16 @@ def _handle_session_post(request):
         'results': results,
     }
 
+    # Another site's bench is a superuser's (services/ownership.py): refused on
+    # the form, in words, rather than by the save as a bare 403.
+    from pipeline.services import ownership
+    site_id = str(payload.get('site_id') or '')
+    refused = ownership.refusal_now({int(site_id)} if site_id.isdigit() else set(),
+                                    action='plan sessions for',
+                                    su_verb='plan them for', new_record='session')
+    if refused:
+        return _rerender_form_with_errors(request, [refused])
+
     out = sessions_service.apply(payload)
     if not out.get('ok'):
         return _rerender_form_with_errors(request, out.get('errors') or ['Could not save session.'])

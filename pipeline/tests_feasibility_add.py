@@ -152,6 +152,10 @@ class TheSiteIsChosenTests(TestCase):
         self.assertIn('id="add-site"', html)
 
     def test_a_chosen_site_is_the_one_written(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         resp = self._add(site_id=self.theirs.pk)
         self.assertEqual(resp.status_code, 200)
         nom = TargetNomination.objects.using(DB).get()

@@ -75,6 +75,7 @@ QUIET_DAYS = RECENT_DAYS
 ENDPOINT_ACTIVITY = {
     'api_index': 'read the API catalogue',
     'openapi': 'read the API schema',
+    'api_changelog': 'read what changed in the API',
     'manifest': 'asked for their download manifest',
     'download': 'downloaded the bulk archive',
     'antibodies_feed': 'pulled the antibody feed',
@@ -97,16 +98,16 @@ ENDPOINT_ACTIVITY = {
     'unknown': 'called something the counter could not name',
 }
 
-#: Endpoints that reach no counter, because they call neither guard: the two
+#: Endpoints that reach no counter, because they call neither guard: the
 #: discovery URLs a new integrator hits first. Named on the page, since "they
 #: have never read the schema" is a conclusion the data cannot support.
-UNCOUNTED = ('api_index', 'openapi')
+UNCOUNTED = ('api_index', 'openapi', 'api_changelog')
 
 #: The paths those two are served at. The page names the URLs rather than the
 #: activity labels: a caveat whose parenthetical repeats the clause before it in
 #: verb form tells the reader nothing, and the point of naming them is so a
 #: reader can tell which endpoint the claim is about.
-UNCOUNTED_PATHS = ('/api/v1/', '/api/v1/openapi.json')
+UNCOUNTED_PATHS = ('/api/v1/', '/api/v1/openapi.json', '/api/v1/changelog/')
 
 #: The portal's own actions, as against its sign-in. Every one is a keyed HTTP
 #: endpoint with a documented curl example, so a script reaches them without

@@ -383,6 +383,7 @@ it.{% endcomment %}
 const GENE_STATUS_URL = "{% url 'pipeline:cropper_gene_status' %}";
 const OCR_URL = "{% url 'pipeline:cropper_ocr' %}";
 const STAGE_URL = "{% url 'pipeline:cropper_stage_image' %}";
+const DISCARD_URL = "{% url 'pipeline:cropper_discard_image' %}";
 const SAVE_URL = "{% url 'pipeline:cropper_session_save' %}";
 const LOAD_URL = "{% url 'pipeline:cropper_session_load' %}";
 const LIST_URL = "{% url 'pipeline:cropper_session_list' %}";
@@ -761,7 +762,7 @@ async function stageImage(st){
   const fd=new FormData(); fd.append("image",st.file); fd.append("app",st.app); fd.append("name",st.name);
   try{
     const d=await askServer(STAGE_URL,{method:"POST",headers:{"X-CSRFToken":CSRF},body:fd},"write");
-    if(d.id){ st.id=d.id; st.url=d.url; st.staging=null; renderImageList(); return; }
+    if(d.id){ st.id=d.id; st.url=d.url; st.discardToken=d.discard_token; st.staging=null; renderImageList(); return; }
     // Refused — a figure too big to crop, most often. It must LEAVE the tool:
     // `saveSession` only sends images that staged, so one left sitting here can
     // be gridded and mapped and then is silently absent from the save. Alerted
@@ -773,6 +774,21 @@ async function stageImage(st){
     // sign used to be a line in a console nobody has open.
     dropUnstaged(st, e.message);
   }
+}
+// Figures dropped from the page before any save are deleted from storage —
+// nothing could bring them back (the page keeps no note of an unsaved upload),
+// so they sat there for nobody. The server leaves alone any that a saved
+// session holds. Best effort: a failure costs a stray file, which Clear
+// storage sweeps, and never the work on screen.
+function discardUnsaved(images){
+  images.forEach(async im=>{
+    try{
+      if(im.staging) await im.staging;
+      if(!im.discardToken) return;
+      await askServer(DISCARD_URL,{method:"POST",headers:{"X-CSRFToken":CSRF,"Content-Type":"application/json"},
+                                   body:JSON.stringify({token:im.discardToken})},"write");
+    }catch(e){}
+  });
 }
 function dropUnstaged(st, why){
   const i = SESS.images.indexOf(st);
@@ -900,7 +916,7 @@ $("#sessionpick").addEventListener("change", e=>{
       {id:"session-save-then-open", label:"Save mine, then open it", primary:true,
        onClick:()=>{ saveSession().then(()=>loadSession(wanted)).catch(e=>
          notice("#sessionnotice",{kind:"refusal", text:"Your work could not be saved, so the other session was not opened. "+e.message})); }},
-      {id:"session-open-anyway", label:"Open it — drop my changes", onClick:()=>loadSession(wanted)},
+      {id:"session-open-anyway", label:"Open it — drop my changes", onClick:()=>{ discardUnsaved(SESS.images.slice()); loadSession(wanted); }},
       {id:"session-stay", label:"Stay here", onClick:()=>clearNotice("#sessionnotice")}]});
 });
 function deleteSession(){
@@ -997,7 +1013,7 @@ $("#newsession").addEventListener("click", ()=>{
       {id:"new-save-first", label:"Save mine, then start a new one", primary:true,
        onClick:()=>{ saveSession().then(()=>{ clearNotice("#sessionnotice"); resetWorkspace(); }).catch(e=>
          notice("#sessionnotice",{kind:"refusal", text:"Your work could not be saved, so nothing was cleared. "+e.message})); }},
-      {id:"new-drop", label:"Start a new one — drop my changes", onClick:()=>{ clearNotice("#sessionnotice"); resetWorkspace(); }},
+      {id:"new-drop", label:"Start a new one — drop my changes", onClick:()=>{ clearNotice("#sessionnotice"); discardUnsaved(SESS.images.slice()); resetWorkspace(); }},
       {id:"new-stay", label:"Stay here", onClick:()=>clearNotice("#sessionnotice")}]});
 });
 $("#commit").addEventListener("click", commitFlow);
@@ -1180,7 +1196,7 @@ function askRemoveImage(i){
     text:`Remove “${im.name}” from this session?`+(n?` Its grid and the ${n} panel${n===1?"":"s"} assigned on it go with it.`:"")+
          " Nothing already in the review queue changes.",
     buttons:[{id:"imgrm-yes", label:"Remove figure", primary:true, onClick:()=>{
-               clearNotice("#imagenotice"); const j=SESS.images.indexOf(im); if(j>=0) removeImage(j); }},
+               clearNotice("#imagenotice"); const j=SESS.images.indexOf(im); if(j>=0){ removeImage(j); discardUnsaved([im]); } }},
              {id:"imgrm-no", label:"Keep it", onClick:()=>clearNotice("#imagenotice")}]});
 }
 function removeImage(i){

@@ -74,6 +74,40 @@ class ANumberBelongsToABenchTests(TestCase):
         self.assertEqual(self._ab(self.mcgill, "four").ab_number, 4)
 
 
+class AKnockdownIsNotInTheFreezerTests(TestCase):
+    """A knockdown is a transient siRNA transfection (owner, 29 Sep 2026): its
+    row says which control a session used, and there is no tube for a C-number
+    to be written on. Numbering one burned 22 of McGill's numbers silently."""
+
+    databases = {DB}
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.mcgill = Site.objects.using(DB).create(name="McGill", short_code="MCG")
+        cls.target = Target.objects.using(DB).create(gene_name="GPNMB")
+
+    def _line(self, genotype, **kw):
+        return CellLine.objects.using(DB).create(
+            name="U-87 MG", genotype=genotype, site_id=self.mcgill.pk,
+            target_id=None if genotype == "WT" else self.target.pk, **kw)
+
+    def test_a_knockdown_is_given_no_number_and_takes_none_from_the_run(self):
+        self._line("WT")
+        kd = self._line("KD")
+        self.assertIsNone(kd.c_number)
+        self.assertEqual(self._line("KO").c_number, 2)
+
+    def test_a_typed_number_on_a_knockdown_is_kept(self):
+        self.assertEqual(self._line("KD", c_number=40).c_number, 40)
+
+    def test_the_check_does_not_promise_a_knockdown_a_number(self):
+        text = ("name\tgene\tgenotype\tsite\n"
+                "U-87 MG\tGPNMB\tKD\tMcGill\nU-87 MG\tGPNMB\tKO\tMcGill\n")
+        plan = bulk_cell_lines.plan(bulk_cell_lines.parse(text))
+        self.assertEqual([i["will_be_numbered"] for i in plan],
+                         [False, True])
+
+
 class BlankDataStaysBlankTests(TestCase):
     """The rows with no number are Leicester's — that bench never used the
     convention, so its old records are not missing a number, they simply do not
@@ -538,6 +572,21 @@ class ANumberExistsBeforeTheExperimentTests(TestCase):
         kept.refresh_from_db(using=DB)
         self.assertEqual(kept.ab_number, 9)
         self.assertEqual(out["numbers_issued"], [])
+
+    def test_the_plan_panel_says_what_planning_numbered(self):
+        """The board's Plan panel gave A-6 and A-7 and its reply dropped the
+        list, so the receipt named neither (live, 29 Sep 2026)."""
+        self._antibody("ab-panel")
+        resp = self.client.post(
+            "/pipeline/session/plan/commit/",
+            data=json.dumps({"gene": "STMN2", "procedure_type": "WB",
+                             "date": "2026-09-01", "site_id": self.site.pk,
+                             "rows": [{"antibody": "ab-panel"}]}),
+            content_type="application/json").json()
+        self.assertTrue(resp.get("ok"), resp)
+        self.assertEqual([d["number"] for d in resp["numbers_issued"]], ["A-1"])
+        html = self.client.get("/pipeline/sessions/board/").content.decode()
+        self.assertIn("OGABoard.saveNotes(d)", html)
 
 
 class EveryDoorToTheSameWriteAsksTheSameQuestionTests(TestCase):

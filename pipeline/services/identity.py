@@ -101,11 +101,28 @@ def attached_to_cell_line(line) -> dict:
                            .filter(parent_line_id=line.pk).count()}
 
 
+def _listed_as(company) -> str:
+    """The supplier-list entry a record's supplier is offered under, or "".
+
+    The dialog's picker offers display names (`cdb.canonical_suppliers`) while
+    the record carries `.name`, so a Novus antibody — `Bio-Techne (Novus
+    Biologicals)`, offered as `Bio-Techne` — opened as *"not on the supplier
+    list"* (field test, 29 Sep 2026). The name stays the value, because a
+    brand's catalogue prefix is not always enough to re-derive it; this only
+    tells the picker the supplier *is* on the list. A supplier waiting for
+    approval is not, and says so.
+    """
+    if company is None or not company.is_active:
+        return ""
+    return (company.display_name or company.name or "").strip()
+
+
 def antibody_identity(antibody) -> dict:
     return {
         "id": antibody.pk,
         "catalogue_number": antibody.catalogue_number or "",
         "company": antibody.company.name if antibody.company_id else "",
+        "company_listed": _listed_as(antibody.company) if antibody.company_id else "",
         "gene": antibody.target.gene_name if antibody.target_id else "",
         "lot_number": antibody.lot_number or "",
         "site": antibody.site.name if antibody.site_id else "",
@@ -122,6 +139,7 @@ def cell_line_identity(line) -> dict:
         "clone": line.clone or "",
         "parent": line.parent_line.name if line.parent_line_id else "",
         "company": line.company.name if line.company_id else "",
+        "company_listed": _listed_as(line.company) if line.company_id else "",
         "attached": attached_to_cell_line(line),
     }
 

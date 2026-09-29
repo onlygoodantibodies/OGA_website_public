@@ -201,6 +201,8 @@ MIDDLEWARE = [
     # request and nothing else — `request.user` is read only when a save
     # happens, so a public page pays nothing. See pipeline/saved_by.py.
     'pipeline.saved_by.SavedByMiddleware',
+    # `OGA-API-Version` on every /api/ reply — see OGA_website/api_version.py.
+    'OGA_website.api_version.ApiVersionMiddleware',
 ]
 
 ROOT_URLCONF = 'OGA_website.urls'

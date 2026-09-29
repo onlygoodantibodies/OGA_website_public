@@ -50,7 +50,9 @@ class AMockGeneCanBeRemovedTests(TestCase):
         would mean no target could ever be deleted."""
         plan = self._preview("target", self.mock.pk)["plan"]
         self.assertTrue(plan["allowed"])
-        self.assertIn(("site nominations", 1),
+        # "1 site nomination": the noun agrees with its count here too — the
+        # hand-written list read "1 storage locations" (live, 29 Sep 2026).
+        self.assertIn(("site nomination", 1),
                       [(o["noun"], o["count"]) for o in plan["owned"]])
 
     def test_typing_the_gene_removes_it(self):
@@ -314,7 +316,7 @@ class WorkBehindARecordIsNamedBeforeItGoesTests(TestCase):
         CellLineVial.objects.using(DB).create(cell_line_id=line.pk, c_number=7)
         plan = self._preview("cell-line", line.pk)
         self.assertTrue(plan["allowed"])
-        self.assertIn(("freeze-down batches", 1),
+        self.assertIn(("freeze-down batch", 1),
                       [(o["noun"], o["count"]) for o in plan["owned"]])
 
 
@@ -346,7 +348,7 @@ class ASessionCountsItsReadingsRatherThanRefusingTests(TestCase):
         plan = self.client.post("/pipeline/records/delete/preview/",
                                 {"kind": "session", "id": self.session.pk}).json()["plan"]
         self.assertTrue(plan["allowed"])
-        self.assertIn(("result rows", 1),
+        self.assertIn(("result row", 1),
                       [(o["noun"], o["count"]) for o in plan["owned"]])
         # And it is the session number you have to type, not "yes".
         self.assertEqual(plan["confirm_with"], str(self.session.pk))

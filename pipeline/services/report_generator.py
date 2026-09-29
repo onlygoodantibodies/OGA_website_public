@@ -1545,7 +1545,9 @@ def generate_report(target_pk, output_path=None):
     # So the verdict is derived, and where it cannot be, it is a named gap in the
     # square brackets this document already uses \u2014 the same rule as `_recorded`.
     expression = target.depmap_expression
-    depmap_val = _fmt_decimal(expression) if expression else '[X.X]'
+    # `is not None`, not truthiness: a measured 0.00 is a number, and printing
+    # it as `[X.X]` beside a "below" verdict read as a verdict about nothing.
+    depmap_val = _fmt_decimal(expression) if expression is not None else '[X.X]'
     if expression is None:
         verdict = (f"expresses the {protein} transcript at {depmap_val} log\u2082 "
                    f"(TPM+1) \u2014 [confirm this line meets the cut-off] \u2014 and was")
@@ -1554,7 +1556,7 @@ def generate_report(target_pk, output_path=None):
                    f"(TPM+1), was identified as a suitable cell line and was")
     else:
         verdict = (f"expresses the {protein} transcript at {depmap_val} log\u2082 "
-                   f"(TPM+1), which is **below** that cut-off \u2014 [explain why this "
+                   f"(TPM+1), which is below that cut-off \u2014 [explain why this "
                    f"line was used] \u2014 and was")
     results_intro = (
         f"Our standard protocol involves comparing readouts from WT (wild "
@@ -1967,24 +1969,11 @@ def generate_report(target_pk, output_path=None):
     doc.save(output_path)
     logger.info("Report saved to %s", output_path)
 
-    # Update Report record if it exists.
-    #
-    # Only ever forwards. `status` is a lifecycle — draft, generated, submitted,
-    # published — and two curated paths set it to published: a DOI typed on the
-    # target board, and Carl's workbook. Stamping 'generated' unconditionally
-    # meant that pressing Generate Report on an already-published target quietly
-    # demoted its publication record, from a button that reads as read-only and
-    # gives no sign it wrote anything at all.
-    if report:
-        from django.utils import timezone
-        from pipeline.models import Report
-        fields = ['generated_at']
-        report.generated_at = timezone.now()
-        if report.status == Report.ReportStatus.DRAFT:
-            report.status = Report.ReportStatus.GENERATED
-            fields.append('status')
-        report.save(using=DB_ALIAS, update_fields=fields)
-        logger.info("Report record %d re-generated (status %s)",
-                    report.pk, report.status)
-
+    # **Generating writes nothing** (owner, 29 Sep 2026). The draft is a
+    # template to work from, prefilled with as much as is recorded; the record
+    # of a report is the published one — a Zenodo deposit or an F1000 paper —
+    # and depositing the finished report to Zenodo is its own future step
+    # (PLATFORM_ROADMAP). It used to stamp `generated_at` and move a draft
+    # `Report` to `generated`, from a GET: so a link prefetcher, a crawler or a
+    # reader opening the link twice changed the gene's report record.
     return output_path

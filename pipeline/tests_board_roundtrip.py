@@ -333,6 +333,10 @@ class TheRoundTripDoesNotRehomeAnotherSitesRowsTests(TestCase):
 
     # ── and the upload honours it ───────────────────────────────────────────
     def test_putting_another_sites_antibody_back_updates_it_rather_than_copying_it(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         f = _sheet([["gene", "catalogue", "company", "lot", "site"],
                     ["SOD1", "10269-1-AP", "Proteintech", "69112", "McGill"]])
         data = self.client.post("/pipeline/import/upload/antibodies/",
@@ -347,6 +351,10 @@ class TheRoundTripDoesNotRehomeAnotherSitesRowsTests(TestCase):
         self.assertEqual(rows.first().site_id, self.mcgill.pk)
 
     def test_putting_another_sites_cell_line_back_updates_it_rather_than_copying_it(self):
+        # Writing to another site's bench is a superuser's act since 29 Sep
+        # 2026 (services/ownership.py; refusals in tests_ownership.py).
+        from django.contrib.auth.models import User as _U
+        _U.objects.using("academy_db").update(is_superuser=True)
         f = _sheet([["name", "gene", "genotype", "supplier", "site"],
                     ["HAP1 SOD1 KO", "SOD1", "KO", "Proteintech", "McGill"]])
         data = self.client.post("/pipeline/import/upload/cell-lines/",
@@ -401,7 +409,11 @@ class TheRoundTripDoesNotRehomeAnotherSitesRowsTests(TestCase):
                                 {"file": f}).json()
         self.assertEqual([i["site"] for i in data["items"]],
                          ["McGill", "Leicester"])
-        self.assertEqual(data["summary"]["sites"], ["Leicester", "McGill"])
+        # The summary counts only rows the save will write: McGill's row is
+        # already on file and not this bench's, so nothing is recorded there
+        # ("Recorded at: McGill" over a refused row, field test 29 Sep 2026).
+        self.assertEqual(data["summary"]["sites"], ["Leicester"])
+        self.assertEqual(data["summary"]["site_rows"], {"Leicester": 1})
 
     def test_an_unrecognised_site_never_creates_one(self):
         before = Site.objects.using(DB).count()

@@ -12,6 +12,7 @@ found by running it. Four silent failures are pinned:
 * a paper left out with nothing saying so.
 """
 import json
+import re
 import subprocess
 import sys
 import tarfile
@@ -185,6 +186,13 @@ class AnnotationsQuoteThePageAndNeverWidenTheSnapshotTests(SimpleTestCase):
         row = E.row_for("PMC", "PMC1234567", "oga", self.anns)
         self.assertEqual(E.validate_row(row), [])
 
+    def test_every_annotation_carries_the_registered_type(self):
+        """Required by the platform's schema, and the word we register with
+        them: the first sample had no ``type`` at all and would have failed
+        every row."""
+        self.assertTrue(self.anns)
+        self.assertEqual({a["type"] for a in self.anns}, {E.ANNOTATION_TYPE})
+
 
 class AShortCatalogueNumberNeedsItsSentenceToSaySoTests(SimpleTestCase):
     """Cell Signaling numbers are four digits: below the collapsed minimum, and a
@@ -235,11 +243,71 @@ class ValidationRefusesWhatThePlatformWouldTests(SimpleTestCase):
                "anns": [{"position": "x", "exact": "", "prefix": "", "postfix": "",
                          "section": "Bibliography", "tags": [{"name": "", "uri": "/relative"}]}]}
         problems = E.validate_row(bad)
-        for fragment in ("src", "id is empty", "exact is empty", "neither prefix nor postfix",
-                         "position", "section", "name is empty", "uri is not absolute"):
+        for fragment in ("src", "id is empty", "exact is empty", "type is empty",
+                         "neither prefix nor postfix", "position", "section",
+                         "name is empty", "uri is not absolute"):
             self.assertTrue(any(fragment in p for p in problems), (fragment, problems))
         self.assertEqual(E.validate_row({"src": "MED", "id": "1", "provider": "x", "anns": []}),
                          ["anns is empty"])
+
+
+GOOD_ANN = {"position": "3.1", "prefix": "anti-TDP-43 (", "exact": "12892-1-AP",
+            "postfix": ", Proteintech)", "section": "Methods", "type": E.ANNOTATION_TYPE,
+            "tags": [{"name": "Proteintech Cat# 12892-1-AP, RRID:AB_2200505",
+                      "uri": "https://onlygoodantibodies.co.uk/antibodies/TARDBP/?ab=12892-1-AP"}]}
+
+
+class TheOfficialSchemaIsMirroredTests(SimpleTestCase):
+    """Europe PMC's validator is a program whose schema is vendored beside this
+    module; the required keys are read from that file, not retyped, so a
+    schema change that lands here fails a test rather than a submission."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        path = Path(E.__file__).parent / "data" / "europepmc_ne_annotation_schema.json"
+        cls.schema = json.loads(path.read_text())
+
+    def good_row(self):
+        return E.row_for("PMC", "PMC1234567", "oga", [dict(GOOD_ANN)])
+
+    def test_a_good_row_passes(self):
+        self.assertEqual(E.validate_row(self.good_row()), [])
+
+    def test_a_row_is_exactly_the_four_keys_the_schema_names(self):
+        self.assertEqual(set(self.schema["required"]), set(E.SUBMISSION_KEYS))
+        self.assertEqual(self.schema["maxProperties"], len(E.SUBMISSION_KEYS))
+        row = self.good_row()
+        row["note"] = "helpful"
+        self.assertTrue(any("unexpected key" in p and "note" in p for p in E.validate_row(row)))
+
+    def test_every_required_key_is_refused_when_missing(self):
+        ann_schema = self.schema["properties"]["anns"]["items"]
+        tag_schema = ann_schema["properties"]["tags"]["items"]
+        for key in self.schema["required"]:
+            row = self.good_row()
+            del row[key]
+            self.assertTrue(E.validate_row(row), key)
+        for key in ann_schema["required"]:
+            row = self.good_row()
+            del row["anns"][0][key]
+            self.assertTrue(any(key in p for p in E.validate_row(row)), key)
+        for key in tag_schema["required"]:
+            row = self.good_row()
+            row["anns"][0]["tags"] = [dict(GOOD_ANN["tags"][0])]
+            del row["anns"][0]["tags"][0][key]
+            self.assertTrue(any(key in p for p in E.validate_row(row)), key)
+
+    def test_our_sources_are_on_the_schema_s_list_and_preprints_are_not(self):
+        pattern = re.compile(self.schema["properties"]["src"]["pattern"])
+        for src in E.SOURCES:
+            self.assertTrue(pattern.fullmatch(src), src)
+        self.assertIsNone(pattern.fullmatch("PPR"))
+
+    def test_the_validator_s_own_rule_a_prefix_or_a_postfix(self):
+        row = self.good_row()
+        row["anns"][0]["prefix"] = row["anns"][0]["postfix"] = ""
+        self.assertTrue(any("neither prefix nor postfix" in p for p in E.validate_row(row)))
 
 
 class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):

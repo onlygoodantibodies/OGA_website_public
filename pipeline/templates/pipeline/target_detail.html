@@ -365,6 +365,12 @@
         funder, project or date behind it, and no nomination. Setting the site
         below files a proper one.
       </p>
+    {% elif import_site_also %}
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+        This gene is also <b>{{ import_site_also }}</b>’s, <b>from the original
+        import</b>, beside the nominations below. Each site adds its own; only a
+        superuser can take another site’s off.
+      </p>
     {% endif %}
     <table class="w-full">
       <tbody id="funding-grid"></tbody>
@@ -1178,10 +1184,10 @@
     completed elsewhere in the app. "No reports generated for this target" said
     neither, under a button called Generate Report.{% endcomment %}
     <p class="text-sm text-gray-500 -mt-2 mb-3">
-      <span class="font-semibold text-gray-700">Generate Report</span> writes a
-      draft Data Note to your Downloads folder to edit and submit. This list is
-      the published record — a Zenodo deposit or an F1000 paper — so a draft
-      never appears here.
+      <span class="font-semibold text-gray-700">Generate Report</span> downloads a
+      draft Data Note filled in with everything recorded for this gene — a
+      template to edit, which changes nothing here. This list is the published
+      record — a Zenodo deposit or an F1000 paper — so a draft never appears here.
     </p>
     {% comment %}What the draft would be built from, counted the way the
     document counts it — `report_generator.draft_contents`, not the procedure
@@ -1270,6 +1276,7 @@
 </div>{# end max-w-7xl #}
 
 {{ ab_columns|json_script:"ab-columns" }}
+{{ supplier_options|json_script:"supplier-options" }}
 {{ ab_example|json_script:"ab-example" }}
 {{ cl_columns|json_script:"cl-columns" }}
 {{ cl_example|json_script:"cl-example" }}
@@ -1547,6 +1554,9 @@ by the same renderer at load and again after every save.{% endcomment %}
   panel('ab-add-panel', 'ab-add-btn', {
     columns: json('ab-columns'),
     example: json('ab-example'),
+    // The suppliers on file, one per display name; anything else typed is saved
+    // as a request an administrator approves.
+    suggestions: {company: json('supplier-options')},
     templateUrl: "{% url 'pipeline:import_template' kind='antibodies' %}",
     urls: {
       preview: "{% url 'pipeline:bulk_antibodies_parse' %}",
@@ -1579,6 +1589,7 @@ by the same renderer at load and again after every save.{% endcomment %}
               lot is a second row on purpose. The same lot updates what is there,
               and a blank never overwrites a value.
             </span>`,
+    whyNotCommit: OGABoard.nothingToSave,
     renderPreview: d => {
       const s = d.summary || {};
       const sites = s.sites || [];
@@ -1588,8 +1599,7 @@ by the same renderer at load and again after every save.{% endcomment %}
        * why it now lives in board.js rather than in a template. */
       return `<p class="font-semibold text-gray-900">${s.rows || 0} row(s) read —
         ${s.create || 0} new, ${s.update || 0} already known.</p>
-        ${sites.length ? `<p class="text-xs text-gray-500">Recorded at: ${
-          sites.map(OGABoard.esc).join(', ')}</p>` : ''}
+        ${sites.length ? `<p class="text-xs text-gray-500">${OGABoard.recordedAt(s)}</p>` : ''}
         ${OGABoard.checkNotes(s) ? `<ul class="text-sm list-disc list-inside">${
           OGABoard.checkNotes(s)}</ul>` : ''}
         ${OGABoard.previewRows(d.items, i => [
@@ -1614,7 +1624,7 @@ by the same renderer at load and again after every save.{% endcomment %}
      * the sessions board prints, which `resolve_parent` would refuse. Still a
      * text box: another site's line, a C-number, or one added five minutes ago
      * on the cell-lines board is typed exactly as before. */
-    suggestions: {parent: json('wt-options')},
+    suggestions: {parent: json('wt-options'), supplier: json('supplier-options')},
     urls: {
       preview: "{% url 'pipeline:bulk_cell_lines_parse' %}",
       commit: "{% url 'pipeline:bulk_cell_lines_commit' %}",
@@ -1643,6 +1653,7 @@ by the same renderer at load and again after every save.{% endcomment %}
               (<span class="font-mono">C-48</span>). This line's own
               <span class="font-mono">c number</span> is its freeze-down batch.</span>
             </span>`,
+    whyNotCommit: OGABoard.nothingToSave,
     renderPreview: d => {
       const s = d.summary || {};
       return `<p class="font-semibold text-gray-900">${s.rows || 0} row(s) read —

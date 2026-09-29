@@ -95,8 +95,7 @@ year at the same key is overwritten at once (`services/review.py::stage`).
   {% if searched %}
     {% if rows %}
       <p class="text-sm text-gray-600 mb-3">
-        {{ rows|length }} antibod{{ rows|length|pluralize:"y,ies" }} match{{ rows|length|pluralize:"es," }}
-        {% if rows|length >= max_results %}— showing the first {{ max_results }}; narrow the search to see the rest{% endif %}.
+        {{ rows|length }} antibod{{ rows|length|pluralize:"y,ies" }} match{{ rows|length|pluralize:"es," }}{% if q %} “{{ q }}”{% endif %}{% if gene %} on {{ gene }}{% endif %}{% if rows|length >= max_results %} — showing the first {{ max_results }}; narrow the search to see the rest{% endif %}.
       </p>
       <div class="space-y-4">
         {% for row in rows %}

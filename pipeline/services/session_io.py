@@ -25,6 +25,7 @@ from datetime import date, datetime
 from django.db import transaction
 
 from pipeline.models import ExperimentSession, Member, Site
+from pipeline.services import cell_lines as clines
 from pipeline.services import session_board as board
 
 DB = "pipeline_db"
@@ -233,14 +234,29 @@ def _incoming(record) -> dict:
             if k not in KEY_COLS and k not in REF_COLS and _text(v) != ""}
 
 
+_LINE_SLOTS = ("cell_line_wt", "cell_line_ko")
+
+
+def _resolve_line(session, field, value):
+    """`(line, error)` for a cell-line cell, asked the way every other door
+    asks: the slot's genotype, the session's site as the preference."""
+    genotype = "WT" if field == "cell_line_wt" else clines.CONTROL
+    line, err = clines.resolve(value, genotype=genotype, site_id=session.site_id,
+                               target=session.target)
+    return line, (err or f"'{value}' is not a cell line on file")
+
+
 def _current_session_value(session, field) -> str:
     if field == "experimenter":
         return str(session.experimenter) if session.experimenter_id else ""
     if field == "site":
         return session.site.name if session.site_id else ""
     if field in ("cell_line_wt", "cell_line_ko"):
+        # The label the export writes, so an unchanged sheet reads as unchanged:
+        # compared against the bare name, every row of the board's own download
+        # previewed as a conflict (`HAP1 — Leicester` vs `HAP1`).
         line = getattr(session, field)
-        return line.name if line else ""
+        return clines.label(line) if line else ""
     if field == "date":
         return session.date.isoformat() if session.date else ""
     return _text(getattr(session, field, ""))
@@ -252,6 +268,10 @@ def plan(parsed: dict) -> dict:
         return parsed
 
     items, fills, conflicts, missing, dropped = [], 0, 0, 0, 0
+    # A session's cell line is one cell repeated on every row of that session,
+    # so a mistyped one was refused once per antibody — the same sentence five
+    # times over one mistake (field test, 29 Sep 2026). Said once per session.
+    refused_already = set()
     for record in parsed["rows"]:
         session = (ExperimentSession.objects.using(DB)
                    .select_related("experimenter__user", "site", "cell_line_wt", "cell_line_ko")
@@ -278,6 +298,9 @@ def plan(parsed: dict) -> dict:
         # below. Collected rather than skipped, because dropping them silently is
         # what made a whole row of work vanish behind "0 changes".
         homeless = []
+        # A cell-line cell that names no line, or several, is refused by name —
+        # never matched to whichever `HAP1` came first.
+        refused_lines = []
         for header, incoming in _incoming(record).items():
             if header.startswith(SESSION_PREFIX):
                 field = header[len(SESSION_PREFIX):]
@@ -285,6 +308,18 @@ def plan(parsed: dict) -> dict:
                     continue
                 current = _current_session_value(session, field)
                 scope = "session"
+                if field in _LINE_SLOTS:
+                    line, err = _resolve_line(session, field, incoming)
+                    if line is None:
+                        key = (session.pk, field, incoming)
+                        if key not in refused_already:
+                            refused_already.add(key)
+                            refused_lines.append(f"session #{session.pk} {field}: {err}")
+                        continue
+                    if line.pk == getattr(session, f"{field}_id"):
+                        continue
+                    # What will be stored, spelled the way the board prints it.
+                    incoming = clines.label(line)
             elif header in result_fields:
                 if result is None:
                     homeless.append(header)
@@ -324,18 +359,26 @@ def plan(parsed: dict) -> dict:
             dropped += len(homeless)
             items.append({**_label(record), "changes": changes,
                           "no_result_row": homeless,
+                          "refused_lines": refused_lines,
                           "warning": (
                               f"{len(homeless)} reading(s) on this row cannot be "
                               f"recorded — the result_id cell is empty, and this "
                               f"sheet only edits result rows that already exist. "
                               f"Add the antibody to session #{record['session_id']} "
                               f"on the sessions board, then download the sheet "
-                              f"again and it will carry a result_id.")})
+                              f"again and it will carry a result_id."
+                              + ("" if not refused_lines else
+                                 " Also left as it is — " + "; ".join(refused_lines)))})
+        elif refused_lines:
+            items.append({**_label(record), "changes": changes,
+                          "refused_lines": refused_lines,
+                          "warning": "Left as it is — " + "; ".join(refused_lines)})
         elif changes:
             items.append({**_label(record), "changes": changes})
 
     return {"ok": True, "items": items, "errors": parsed.get("errors", []),
-            "summary": {"rows": len(parsed["rows"]), "changed_rows": len(items),
+            "summary": {"rows": len(parsed["rows"]),
+                        "changed_rows": sum(1 for i in items if i.get("changes")),
                         "fills": fills, "conflicts": conflicts, "unmatched": missing,
                         # Readings the sheet carried and this path cannot store.
                         "dropped_readings": dropped}}
@@ -423,8 +466,10 @@ def _set_session_field(session, field, value):
         member = _resolve_named(Member, value, field="display_name")
         if member:
             session.experimenter_id = member.pk
-    elif field in ("cell_line_wt", "cell_line_ko"):
-        from pipeline.models import CellLine
-        line = _resolve_named(CellLine, value)
+    elif field in _LINE_SLOTS:
+        # `cell_lines.resolve`, never `filter(name__iexact=…).first()`: hundreds
+        # of rows are called HAP1, and the first of them could be another
+        # site's line or a knockout recorded as this session's wild type.
+        line, _err = _resolve_line(session, field, value)
         if line:
             setattr(session, f"{field}_id", line.pk)

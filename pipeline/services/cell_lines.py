@@ -641,16 +641,23 @@ def candidates(value, *, genotype=None, db: str = DB) -> list:
     return found
 
 
-def known_labels(*, genotype=None, site_id=None, db: str = DB) -> list:
+def known_labels(*, genotype=None, site_id=None, target=None, db: str = DB) -> list:
     """The lines a person could have meant, for a refusal to name.
 
     Narrowed to the asker's own site when there is one, because "the parentals
     on file at your site" is a list somebody can act on and the consortium-wide
-    list is not.
+    list is not. **A control slot also narrows to the gene** when the caller
+    knows it: a GCG session's mistyped knockout was refused with the site's
+    first twelve knockouts of *other* genes as the alternatives — never the
+    GCG one it meant (field test, 29 Sep 2026) — the defect `picker_options`
+    fixed for the Plan panel the same morning.
     """
     qs = _base_queryset(db)
     if genotype:
-        qs = qs.filter(genotype__in=_wants(genotype))
+        wants = _wants(genotype)
+        qs = qs.filter(genotype__in=wants)
+        if target is not None and any(g in CONTROL_GENOTYPES for g in wants):
+            qs = qs.filter(target=target)
     if site_id:
         own = list(qs.filter(site_id=site_id).order_by("name")[:_MAX_LISTED])
         if own:
@@ -738,7 +745,8 @@ def _vial_numbers(lines, db: str = DB) -> dict:
     return {k: v[0] for k, v in _vial_numbers_all(lines, db=db).items()}
 
 
-def picker_options(*, genotype, site_id, limit=_MAX_LISTED * 5, db: str = DB) -> list:
+def picker_options(*, genotype, site_id, target=None, limit=None,
+                   db: str = DB) -> list:
     """`[{"value", "hint"}]` — a site's lines of one kind, offered as a list.
 
     The quick **Plan a session** panel's WT and KO boxes are free text, on a
@@ -763,16 +771,28 @@ def picker_options(*, genotype, site_id, limit=_MAX_LISTED * 5, db: str = DB) ->
     A label two of the site's own lines share is a **question, not a coin toss**,
     so those fall back to a C-number, which names exactly one row. The label
     stays as the hint, because that is what a person recognises.
+
+    **A control box names the gene, and is not cut short** (live, 29 Sep
+    2026). It offered the site's first sixty knockouts *alphabetically*, of any
+    gene: a STMN2 session at McGill was offered SLC17A7 and DYRK1A lines and
+    never the STMN2 knockout, and every gene past `A-431` had its own line
+    silently missing. With ``target`` a control box offers that gene's lines
+    at the site, and neither box is cut short: a ``<datalist>`` narrows as you
+    type, and a list stopped at an arbitrary letter is the one thing it cannot
+    narrow back.
     """
     if not site_id:
         return []
-    lines = list(_base_queryset(db)
-                 .filter(genotype__in=_wants(genotype), site_id=site_id)
-                 .order_by("name")[:limit])
+    wants = _wants(genotype)
+    qs = _base_queryset(db).filter(genotype__in=wants, site_id=site_id)
+    if target is not None and any(g in CONTROL_GENOTYPES for g in wants):
+        qs = qs.filter(target=target)
+    qs = qs.order_by("name")
+    lines = list(qs[:limit] if limit else qs)
     if not lines:
         return []
 
-    numbers = _vial_numbers(lines, db=db)
+    numbers = _vial_numbers_all(lines, db=db)
     labels = [label(cl) for cl in lines]
     shared = {}
     for text in labels:
@@ -780,11 +800,17 @@ def picker_options(*, genotype, site_id, limit=_MAX_LISTED * 5, db: str = DB) ->
 
     out = []
     for cl, text in zip(lines, labels):
-        number = cl.c_number or numbers.get(cl.pk)
+        batches = sorted({*numbers.get(cl.pk, []),
+                          *([cl.c_number] if cl.c_number is not None else [])})
+        number = cl.c_number or (batches[0] if batches else None)
         if shared[text] > 1 and number:
             out.append({"value": f"C-{number}", "hint": text})
         else:
-            out.append({"value": text, "hint": f"C-{number}" if number else ""})
+            # Every number on the line, as the step-by-step form's box shows
+            # it — not the first. McGill's SK-N-AS was frozen as C-754 and
+            # C-764 and this box offered `C-754` alone, so whoever held the
+            # C-764 tube could not find it here (field test, 29 Sep 2026).
+            out.append({"value": text, "hint": format_batches(batches)})
     return out
 
 
@@ -877,7 +903,9 @@ def _session_option(cl, numbers) -> dict:
     nums = sorted({*numbers.get(cl.pk, []),
                    *([cl.c_number] if cl.c_number is not None else [])})
     if nums:
-        vials = " [" + ", ".join(f"C-{n}" for n in nums[:5]) + "]"
+        # Consecutive runs collapsed rather than cut at five: a knockout frozen
+        # nine times in a row read `[C-755, …, C-759]` and hid the other four.
+        vials = f" [{format_batches(nums)}]"
         head, sep, tail = text.partition(SITE_SEP)
         text = f"{head}{vials}{sep}{tail}"
     return {"id": cl.pk, "label": text}
@@ -888,7 +916,7 @@ def _genotype_word(genotype) -> str:
     return {"WT": "wild-type"}.get(g) or control_word(genotype)
 
 
-def refusal(value, *, genotype=None, site_id=None, db: str = DB) -> str:
+def refusal(value, *, genotype=None, site_id=None, target=None, db: str = DB) -> str:
     """Why that name was refused, and what could be typed instead.
 
     A refusal that says only "not found" is half a message — the same rule
@@ -910,7 +938,7 @@ def refusal(value, *, genotype=None, site_id=None, db: str = DB) -> str:
                     f"{'' if len(others) == 1 else 's'}: {listed}. "
                     f"Name the {word} line itself.")
 
-    known = known_labels(genotype=genotype, site_id=site_id, db=db)
+    known = known_labels(genotype=genotype, site_id=site_id, target=target, db=db)
     kind = f"{word} " if word else ""
     if known:
         return (f"There is no {kind}cell line called '{name}'. "
@@ -971,14 +999,15 @@ def ambiguous_message(value, matches, db: str = DB) -> str:
                "name."))
 
 
-def resolve(value, *, genotype=None, site_id=None, db: str = DB):
+def resolve(value, *, genotype=None, site_id=None, target=None, db: str = DB):
     """`(line, error)` for a typed cell-line name. Never creates, never guesses.
 
     `site_id` is a **preference**, not a filter: your own bench's line wins when
     the name is shared, which is almost always what somebody at a bench means,
     and another site's is still reachable by naming it in the label. What it
     never does is choose between two strangers — that comes back as an error
-    listing both.
+    listing both. `target` only shapes a refusal's alternatives — it never
+    narrows what the typed name matches.
     """
     name, _site = split_label(value)
     if not name:
@@ -986,7 +1015,8 @@ def resolve(value, *, genotype=None, site_id=None, db: str = DB):
 
     matches = candidates(value, genotype=genotype, db=db)
     if not matches:
-        return None, refusal(value, genotype=genotype, site_id=site_id, db=db)
+        return None, refusal(value, genotype=genotype, site_id=site_id,
+                             target=target, db=db)
     if len(matches) == 1:
         return matches[0], None
 

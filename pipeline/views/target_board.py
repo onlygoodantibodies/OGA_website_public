@@ -207,6 +207,33 @@ def _parse_report_date(value, field):
     return parsed
 
 
+def _shared_field_refusal(target, field, value, others) -> str:
+    """Why this edit to a gene another site also has would remove their data, or "".
+
+    **Adding is yours; removing is a superuser's** (owner, 29 Sep 2026). A gene
+    two benches pursue has one set of gene-level fields — its Zenodo and F1000
+    records, essential flag and classes — and they were refused to both sites
+    alike once a second one arrived, so neither could record the paper. Filling
+    a blank and adding a class are adding; replacing or clearing a value
+    somebody recorded, or taking a class off, is not, and nothing says which
+    bench wrote it.
+    """
+    names = ", ".join(sorted(Site.objects.using(DB).filter(pk__in=others)
+                             .values_list("name", flat=True)))
+    if field == "add_class":
+        return ""
+    if field == "remove_class":
+        return (f"{target.gene_name} is also on {names}'s list, so a class on it is "
+                f"theirs too — adding one is fine, taking one off is a superuser's.")
+    current = board.row_for(target).get(field)
+    current = "" if current is None else str(current).strip()
+    if not current or current == value.strip():
+        return ""
+    return (f"{target.gene_name} is also on {names}'s list and this already holds "
+            f"“{current}”. You can fill in what is blank; changing or clearing a "
+            f"value is a superuser's, since it may be {names}'s.")
+
+
 def _save_report_field(target, field, value):
     """Write one dissemination cell onto the ``Report`` row the board is showing.
 
@@ -300,6 +327,56 @@ def target_board_patch(request):
     if target is None:
         return JsonResponse({"ok": False, "error": "unknown target"}, status=404)
 
+    # Whose gene this is (services/ownership.py). **Two sites may add their own
+    # data about one gene; neither may change or remove the other's without a
+    # superuser** (owner, 29 Sep 2026). A nomination belongs to its site; the
+    # gene's own fields — its reports, essential flag, classes — are shared by
+    # every site that has it, counting the import's `Target.site` as one of them
+    # (`targets.sites_of`).
+    from pipeline.services import ownership
+    member, is_su = ownership.asker(request)
+    my_site = None if is_su else getattr(member, "site_id", None)
+    # The site a nomination this save creates is filed at. A siteless one read
+    # as nobody's and let a McGill member tick Funded on Leicester's ADRB2
+    # (field test, 29 Sep 2026); filed at the editor's own site it is that
+    # bench's data, beside the other's rather than over it.
+    new_nomination_site = None
+    if field in _NOMINATION_FIELDS:
+        noms = TargetNomination.objects.using(DB).filter(target_id=target.pk)
+        noms = noms.filter(pk=nomination_id) if nomination_id else noms.order_by("pk")
+        held = noms.first()
+        if held is not None:
+            # An existing nomination is its site's; one with no site is the
+            # gene's, which is where the import recorded it.
+            touched = {held.site_id or target.site_id}
+        elif field == "site":
+            touched = set()     # filed at the site picked, asked just below
+        elif my_site:
+            new_nomination_site = my_site
+            touched = {my_site}
+        else:
+            touched = {target.site_id}
+        if field == "site":
+            try:
+                touched.add(_strict_site_id(value))
+            except Exception:  # noqa: BLE001 — the save below names a bad site
+                pass
+    else:
+        owners = {s for s in TargetNomination.objects.using(DB)
+                  .filter(target_id=target.pk).values_list("site_id", flat=True) if s}
+        if target.site_id:
+            owners.add(target.site_id)
+        if my_site and my_site in owners and owners - {my_site}:
+            shared = _shared_field_refusal(target, field, value, owners - {my_site})
+            if shared:
+                return JsonResponse({"ok": False, "error": shared}, status=403)
+            touched = {my_site}
+        else:
+            touched = owners
+    refused = ownership.refusal_now(touched, action="edit")
+    if refused:
+        return JsonResponse({"ok": False, "error": refused}, status=403)
+
     try:
         if field in _TARGET_FIELDS:
             setattr(target, field, value.strip())
@@ -313,6 +390,7 @@ def target_board_patch(request):
                    .filter(target_id=target.pk).order_by("pk").first())
             if nom is None:
                 nom = TargetNomination(target_id=target.pk,
+                                       site_id=new_nomination_site,
                                        created_by_id=getattr(_member(request), "pk", None))
             if field == "funded":
                 nom.funded = value.strip().lower() in ("1", "true", "yes", "on")

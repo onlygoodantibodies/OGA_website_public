@@ -507,7 +507,7 @@ def plan_import(parsed, uploader=None) -> dict:
                                 "reason": err})
                 continue
 
-        matched, unmatched, will_update = 0, [], 0
+        matched, unmatched, will_update, unchanged = 0, [], 0, 0
         model = _RESULT_MODEL[proc]
         for row in rows:
             if not _has_result(row, proc):
@@ -515,9 +515,14 @@ def plan_import(parsed, uploader=None) -> dict:
             ab = _resolve_antibody(target, _get(row, "company"), _get(row, "antibody"))
             if ab:
                 matched += 1
-                if existing_session is not None and model.objects.using(DB).filter(
-                        session=existing_session, antibody=ab).exists():
-                    will_update += 1
+                stored = (model.objects.using(DB).filter(
+                    session=existing_session, antibody=ab).first()
+                    if existing_session is not None else None)
+                if stored is not None:
+                    if _changes_anything(stored, row, proc):
+                        will_update += 1
+                    else:
+                        unchanged += 1
             else:
                 unmatched.append(_get(row, "antibody") or "(blank)")
         experimenter = _resolve_member(_get(rows[0], "experimenter"), uploader)
@@ -529,7 +534,8 @@ def plan_import(parsed, uploader=None) -> dict:
             "session_id": existing_session.pk if existing_session is not None else None,
             "results": matched,
             "results_updated": will_update,
-            "results_new": matched - will_update,
+            "results_unchanged": unchanged,
+            "results_new": matched - will_update - unchanged,
             "unmatched": unmatched,
             "experimenter": (experimenter.display_name if experimenter else "(none)"),
             "conditions": len(conditions),
@@ -601,6 +607,31 @@ def _coerce_decimal(raw):
         return None
 
 
+def _changes_anything(obj, row, proc) -> bool:
+    """Whether writing this row onto a stored result would change a value.
+
+    **A row that changes nothing is not an update.** The workbook comes down
+    with every recorded reading in it, so a sheet with one reading changed came
+    back as *"2 result row(s): 0 new, 2 updated"* and was saved that way (field
+    test, 29 Sep 2026) — the preview could not say which row the edit was on.
+    Asked of the value the write would store: blanks are skipped (a blank never
+    clears), decimals compare as numbers.
+    """
+    decimals = _DECIMAL_RESULT.get(proc, set())
+    for col in _RESULT_COLS[proc]:
+        val = _get_result(row, proc, col)
+        if val == "":
+            continue
+        stored = getattr(obj, col, None)
+        if col in decimals:
+            new = _coerce_decimal(val)
+            if new is not None and new != stored:
+                return True
+        elif str(stored if stored is not None else "") != val:
+            return True
+    return False
+
+
 def apply_import(parsed, uploader=None) -> dict:
     """Write the workbook back in one transaction.
 
@@ -616,7 +647,8 @@ def apply_import(parsed, uploader=None) -> dict:
         return {"ok": False, "error": "no member profile for the uploader; cannot set the experimenter."}
 
     out = {"ok": True, "sessions_created": 0, "sessions_updated": 0,
-           "results_created": 0, "results_updated": 0, "skipped": [],
+           "results_created": 0, "results_updated": 0, "results_unchanged": 0,
+           "skipped": [],
            "numbers_issued": []}
 
     with transaction.atomic(using=DB):
@@ -734,6 +766,9 @@ def apply_import(parsed, uploader=None) -> dict:
                 is_new = obj is None
                 if is_new:
                     obj = Model(session=session, antibody=ab)
+                elif not _changes_anything(obj, row, proc):
+                    out["results_unchanged"] += 1
+                    continue
                 for col in _RESULT_COLS[proc]:
                     val = _get_result(row, proc, col)
                     # A blank cell means "not written down", not "clear this" —

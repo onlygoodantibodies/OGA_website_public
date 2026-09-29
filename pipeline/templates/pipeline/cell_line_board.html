@@ -53,6 +53,7 @@
 
   {# New entries, on the board rather than a page of their own #}
   {{ new_columns|json_script:"new-columns" }}
+  {{ supplier_options|json_script:"supplier-options" }}
   {{ cell_choices|json_script:"cell-choices" }}
   {{ panel_choices|json_script:"panel-choices" }}
   {{ new_example|json_script:"new-example" }}
@@ -268,6 +269,7 @@
 </div>
 
 <script src="{% static 'pipeline/board.js' %}"></script>
+{{ viewer|json_script:"viewer" }}
 <script>
 (function () {
   const csrf = "{{ csrf_token }}";
@@ -478,7 +480,9 @@
   const cellChoices = JSON.parse(document.getElementById('cell-choices').textContent);
   const panelChoices = JSON.parse(document.getElementById('panel-choices').textContent);
 
+  const viewer = JSON.parse(document.getElementById('viewer').textContent);
   const board = OGABoard.create({
+    lockedWhy: r => OGABoard.lockedFor(viewer, r.site),
     grid, filtersForm, errors, csrf, cellChoices,
     countEl: document.getElementById('row-count'),
     pagerEl: document.getElementById('row-pager'),
@@ -510,6 +514,7 @@
      * are offered as the convention the sheet's own example already teaches —
      * a reminder, not a narrowing. */
     suggestions: {
+      supplier: JSON.parse(document.getElementById('supplier-options').textContent),
       site: OGABoard.optionValues(cellChoices.site),
       genotype: panelChoices.genotype,
       storage: panelChoices.storage,
@@ -588,6 +593,7 @@
       default_genotype: document.getElementById('ne-default-genotype').value,
     }),
     buildBody: (text, extra, phase) => ({text, ...extra, dry_run: phase !== 'commit'}),
+    whyNotCommit: OGABoard.nothingToSave,
     renderPreview: d => {
       const s = d.summary || {};
       const sites = s.sites || [];
@@ -595,11 +601,10 @@
         <p class="font-semibold text-gray-900">${s.rows || 0} row(s) read.</p>
         <ul class="mt-1 text-gray-700 list-disc list-inside">
           <li>${s.create || 0} new, ${s.update || 0} already known${s.update ? ' (will be updated)' : ''}</li>
-          ${sites.length ? `<li>Recorded at: ${sites.map(esc).join(', ')}${
-            sites.length > 1 ? ' — this sheet spans more than one site' : ''}</li>` : ''}
+          ${sites.length ? `<li>${OGABoard.recordedAt(s)}</li>` : ''}
           ${s.create_target ? `<li>${s.create_target} new gene(s) would be added as targets</li>` : ''}
-          ${(s.new_companies || []).length ? `<li>New supplier(s): ${s.new_companies.map(esc).join(', ')}</li>` : ''}
-          ${s.blocked ? `<li class="text-amber-800">${s.blocked} could not be placed — usually a KO with no gene, no name, or a site that is not on file</li>` : ''}
+          ${(s.new_companies || []).length ? `<li class="text-amber-800">Not on the supplier list: ${s.new_companies.map(esc).join(', ')} — the ${s.new_companies.length === 1 ? 'row is' : 'rows are'} saved, and an administrator is asked to add the supplier. Check the spelling against the supplier list — the Table tab offers it as you type.</li>` : ''}
+          ${s.blocked ? `<li class="text-amber-800">${OGABoard.plural(s.blocked, 'row')} will not be saved — the reason is on each row below</li>` : ''}
           ${OGABoard.checkNotes(s)}
         </ul></div>
         ${OGABoard.previewRows(d.items, i =>
@@ -609,7 +614,6 @@
       const r = d.result || {};
       return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
         Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
-        ${(r.blocked || []).length ? `${r.blocked.length} skipped.` : ''}
         ${OGABoard.saveNotes(r)}</div>`;
     },
     onDone: () => board.load(),
@@ -677,7 +681,8 @@
       return `<div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
         Saved. ${(r.created || []).length} created, ${(r.updated || []).length} updated.
         ${(r.notes || []).length ? `<span class="block mt-1 text-xs">${
-          r.notes.map(OGABoard.esc).join('<br>')}</span>` : ''}</div>`;
+          r.notes.map(OGABoard.esc).join('<br>')}</span>` : ''}
+        ${OGABoard.saveNotes(r)}</div>`;
     },
     onDone: () => board.load(),
   });
@@ -709,7 +714,9 @@
       {name: 'parent', label: 'Parent line',
        hint: 'The wild type a knockout or knockdown was made from. Must be a line already on file.'},
       {name: 'company', label: 'Supplier',
-       hint: 'Matched against the suppliers already on file, so one vendor never ends up under two spellings. Blank for a line made in-house.'},
+       pickFrom: JSON.parse(document.getElementById('supplier-options').textContent),
+       blankLabel: '— none (made in-house) —',
+       otherHint: 'Not on the list? Choose Other and type it: the line is saved, and an administrator is asked to add the supplier.'},
     ],
     describe: i => {
       const a = i.attached || {};

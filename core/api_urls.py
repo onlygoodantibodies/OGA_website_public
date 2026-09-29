@@ -6,6 +6,7 @@ app_name = 'api'
 urlpatterns = [
     # The catalogue and the download manifest — the machine-facing pair.
     path('v1/', api_manifest.api_index, name='api_index'),
+    path('v1/changelog/', api_manifest.api_changelog, name='api_changelog'),
     path('v1/manifest/', api_manifest.manifest, name='manifest'),
     path('v1/download/', api_manifest.download, name='download'),
     path('v1/openapi.json', api_manifest.openapi_document, name='openapi'),

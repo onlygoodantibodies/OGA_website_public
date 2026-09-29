@@ -277,6 +277,13 @@ def feasibility_add_target(request):
     # `park8` would miss LRRK2 and be created as a second row for a gene already
     # on file — the exact duplication routing through `plan` is here to prevent.
     member = _member(request)
+    # Another bench's list is a superuser's to add to (services/ownership.py).
+    from pipeline.services import ownership
+    chosen = str(body.get("site_id") or "")
+    refused = ownership.refusal_now({int(chosen)} if chosen.isdigit() else set(),
+                                    action="add genes to the list of")
+    if refused:
+        return JsonResponse({"created": False, "error": refused}, status=403)
     preview = bulk_targets.plan([gene_name.upper()], member=member)
     if not preview.get("ok"):
         return JsonResponse({"error": preview.get("error") or "Could not check that gene"},

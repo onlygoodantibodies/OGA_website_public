@@ -38,6 +38,7 @@ Two things about ``last_queried_at``, because one field was doing three jobs:
 """
 
 import json
+import uuid
 from datetime import datetime
 
 from django.core.mail import send_mail
@@ -93,7 +94,16 @@ def _authenticate(request):
             {'error': 'Missing X-API-Key header'},
             status=401,
         )
+    # A key that is not a UUID cannot be anybody's, and asking the database
+    # about it raises ValidationError — which was a 500 for a mistyped or
+    # half-pasted key, and "Connection failed." on the portal.
     try:
+        api_key = str(uuid.UUID(api_key))
+    except ValueError:
+        api_key = None
+    try:
+        if api_key is None:
+            raise APIConsumer.DoesNotExist
         consumer = APIConsumer.objects.get(api_key=api_key, is_active=True)
     except APIConsumer.DoesNotExist:
         return None, JsonResponse(
@@ -334,11 +344,15 @@ def _get_supplier_company_ids(supplier_filter_str):
     suppliers = [s.strip() for s in supplier_filter_str.split(',') if s.strip()]
     if not suppliers:
         return None
-    return list(
-        PipelineCompany.objects.filter(
-            Q(display_name__in=suppliers) | Q(name__in=suppliers)
-        ).values_list('pk', flat=True)
-    )
+    # **A supplier is its display name** (owner, 29 Sep 2026), compared the way
+    # the resolver compares it — case and punctuation aside. An exact string
+    # match left out any row whose name differed only in spelling from the key's
+    # (`thermo fisher scientific`, `BD Bioscience` under a `BD Biosciences`
+    # key), and a vial filed there fell out of that manufacturer's own feed.
+    wanted = {PipelineCompany.canonical_key(s) for s in suppliers}
+    return [c.pk for c in PipelineCompany.objects.only('pk', 'name', 'display_name')
+            if PipelineCompany.canonical_key(c.display_name or c.name) in wanted
+            or PipelineCompany.canonical_key(c.name) in wanted]
 
 
 # ─────────────────────────────────────────────────────────
@@ -661,8 +675,23 @@ def antibodies_feed(request):
     if gene_param:
         qs = qs.filter(target__gene_name__iexact=gene_param)
 
-    # Optional: filter by application recommendation
-    app_filter = request.GET.get('application', '').strip().upper()
+    # Optional: filter by application recommendation. A value it cannot read is
+    # refused, never ignored: until 2.3.0 `?application=IF` returned every
+    # antibody unfiltered, which reads exactly like a real answer.
+    app_raw = request.GET.get('application', '').strip()
+    app_filter = R.application_code(app_raw) if app_raw else None
+    if app_raw and app_filter is None:
+        return JsonResponse({
+            'error': f"Unknown application {app_raw!r}",
+            'detail': ('?application= takes one of '
+                       + ', '.join(R.APPLICATIONS)
+                       + ' — or an everyday name for one: IF, ICC, '
+                         'immunofluorescence or immunocytochemistry for ICC-IF; '
+                         'western blot for WB; immunoprecipitation for IP; flow, '
+                         'flow cytometry or FACS for FC; immunohistochemistry '
+                         'for IHC. Case, spaces and punctuation are ignored.'),
+            'accepted': list(R.APPLICATIONS),
+        }, status=400)
     recommended_only = request.GET.get('recommended_only', '').lower() == 'true'
 
     # These two used to be forced off for anybody who was not a manufacturer,
@@ -726,6 +755,9 @@ def antibodies_feed(request):
         'preview': preview,
         'count': len(results),
         'matched': matched,
+        # What `?application=` was read as — a code, or None when not asked —
+        # so a caller can see its parameter was understood (2.3.0).
+        'application_filter': app_filter,
         'complete': complete,
         'cursor_advanced': advance_cursor,
         # What the recommendations below do and do not cover. On the envelope

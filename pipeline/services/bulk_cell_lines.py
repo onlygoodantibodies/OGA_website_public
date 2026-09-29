@@ -26,6 +26,7 @@ from django.db.models import Q
 from pipeline.models import CellLine, CellLineVial, InventoryLocation
 from pipeline.services import c_number as c_number_svc
 from pipeline.services import lab_numbers
+from pipeline.services import ownership
 from pipeline.services import cell_lines as cell_line_svc
 from pipeline.services import example_row
 from pipeline.services import sites as site_svc
@@ -669,8 +670,12 @@ def plan(rows, member=None):
         existing = None
         if said_na and genotype not in cell_line_svc.CONTROL_GENOTYPES:
             note = "gene NA — read as a wild type, with no gene"
+        # Another site's bench is a superuser's to write to (services/ownership.py).
+        not_yours = "" if site_err else ownership.refusal_now({site_id})
         if site_err:
             status, note = "blocked", site_err
+        elif not_yours:
+            status, note = "blocked", not_yours
         elif not name:
             status, note = "blocked", (
                 "needs a name — the cell line's own name, as it is written on the "
@@ -687,6 +692,8 @@ def plan(rows, member=None):
                 f"a parental line")
         else:
             existing = find_cell_line(r, target, site_id=site_id)
+            theirs = (ownership.refusal_now({existing.site_id}, action="edit")
+                      if existing is not None else "")
             siblings = (find_cell_line_matches(r, target, site_id=site_id)
                         if genotype == "KO" else [])
             if len(siblings) > 1:
@@ -702,6 +709,8 @@ def plan(rows, member=None):
                     f"{len(siblings)} clones of {name} {gene} KO are on file at "
                     f"this bench ({listed}) — say which one this row is in the "
                     f"clone column, or give it its own clone if it is a new one")
+            elif existing and theirs:
+                status, note = "blocked", f"{match_note(r, existing)} — {theirs}"
             elif existing:
                 status, note = "update", match_note(r, existing)
             elif genotype == "WT" and gene:
@@ -764,7 +773,8 @@ def plan(rows, member=None):
             # read is *not* counted: that one is deliberately left blank
             # (`lab_numbers.withhold`), and `no_c_number` is what names it.
             "will_be_numbered": (status == "create" and bool(site_id)
-                                 and cnum is None and not cnum_err),
+                                 and cnum is None and not cnum_err
+                                 and lab_numbers.numbers_genotype(genotype)),
             # Named separately from `note` so a summary can count them without
             # matching on the wording of a message.
             "c_number_dropped": bool(cnum_err),
@@ -839,6 +849,13 @@ def _add_target_url(gene: str) -> str:
         return ""
 
 
+def _writing_sites(items, writes) -> dict:
+    """``{site name: rows}`` over the rows a save would actually write."""
+    from collections import Counter
+    return dict(Counter(i["site"] for i in items
+                        if i.get("site") and i["status"] in writes))
+
+
 def summarize(items) -> dict:
     return {
         "rows": len(items),
@@ -861,7 +878,12 @@ def summarize(items) -> dict:
         # C-number where it had typed one.
         "no_c_number": sum(1 for i in items if i.get("c_number_dropped")),
         # Which benches this paste would write to — see bulk_antibodies.summarize.
-        "sites": sorted({i["site"] for i in items if i.get("site")}),
+        # Only the rows this press will write. A paste refused as another
+        # site's still said "Recorded at: Leicester" over nothing being
+        # recorded anywhere (field test, 29 Sep 2026). `site_rows` is the count
+        # behind each name, which `board.js::recordedAt` prints.
+        "sites": sorted(_writing_sites(items, ("create", "update", "create-target"))),
+        "site_rows": _writing_sites(items, ("create", "update", "create-target")),
     }
 
 
@@ -985,7 +1007,15 @@ def apply(rows, member=None, overwrite=False):
            "no_c_number": [],
            # The C-numbers this press minted. Same key as `bulk_antibodies`,
            # because one writer in `board.js` renders both.
-           "numbers_issued": []}
+           "numbers_issued": [],
+           # Every row this press did not write, with its reason — the save box
+           # said "0 created, 0 updated" over a row refused as another site's
+           # and named nothing (field test, 29 Sep 2026). Same key as
+           # `bulk_antibodies`, drawn by `board.js::rowsNotSaved`.
+           "not_saved": [],
+           # Suppliers this press filed as requests for a superuser to approve —
+           # the same key as `bulk_antibodies`, drawn by `board.js`.
+           "suppliers_requested": []}
 
     order = sorted(range(len(items)), key=lambda i: items[i]["genotype"] != "WT")
     with transaction.atomic(using=DB):
@@ -994,9 +1024,14 @@ def apply(rows, member=None, overwrite=False):
             r, name, gene, genotype = it["row"], it["name"], it["gene"], it["genotype"]
             if it["status"] == "blocked":
                 out["skipped"].append(name or gene or "(row)")
-                if it["note"]:
-                    out["notes"].append(f"{name or gene or 'row'}: {it['note']}")
+                out["not_saved"].append(f"{name or gene or 'row'}: "
+                                        f"{it['note'] or 'could not be placed'}")
                 continue
+
+            if it.get("company_status") == "new" and (r.get("company") or "").strip():
+                name = r["company"].strip()
+                if name not in out["suppliers_requested"]:
+                    out["suppliers_requested"].append(name)
 
             # Resolved, never created — `plan` blocks a row whose gene is not
             # on file, so a row reaching here has one.

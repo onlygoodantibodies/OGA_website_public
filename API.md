@@ -41,6 +41,24 @@ the result values, the five applications and the CSV column order are the
 same objects the server uses — they cannot say one thing while the API does
 another.
 
+### Knowing when it changes
+
+The API tells you itself, so you do not have to watch this page:
+
+- **Every `/api/` reply carries an `OGA-API-Version` header** — `2.3.0` today.
+  Keep the last value you saw; when it moves, something changed.
+- **`GET /changelog/?since=<that version>`** answers what changed since, as
+  JSON, newest first, with no key. Each change has a `kind` — `added`,
+  `changed`, `removed` or `fixed` — and the two you may need to act on,
+  `changed` and `removed`, carry an `action` saying what to do.
+- `GET /` names the current `api_version` and links the changelog.
+
+```bash
+curl -s "https://onlygoodantibodies.co.uk/api/v1/changelog/?since=2.2.0"
+```
+
+§12 below is the same history in prose.
+
 ---
 
 ## 1. Your API key
@@ -708,7 +726,7 @@ depends on server-side state.
 | `advance_cursor` | `false` = read the delta without consuming it |
 | `since` | ISO 8601 or `YYYY-MM-DD` |
 | `gene` | Exact gene symbol, e.g. `ACE` |
-| `application` | `WB`, `IP`, `ICC-IF`, `FC` or `IHC` — recommended for that application |
+| `application` | `WB`, `IP`, `ICC-IF`, `FC` or `IHC` — recommended for that application. Everyday names work too: `IF` or `ICC` for ICC-IF, `western blot`, `immunoprecipitation`, `flow`, `immunohistochemistry` (case and punctuation ignored). **An unknown value is refused with `400`** and the accepted list; `application_filter` in the reply is the code it was read as. |
 | `recommended_only` | `true` = recommended for at least one application |
 | `limit`, `offset` | Paging. A capped reply sets `complete: false`. |
 
@@ -1309,6 +1327,38 @@ until something actually changes.
 
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
+
+### 2.3.0 — 29 September 2026
+
+**Changed: `?application=` on `/antibodies/` refuses a value it does not
+know.** It used to ignore one, so `?application=IF` — the bench's own word for
+ICC-IF — returned every antibody, unfiltered, with a `200`: a wrong answer that
+looked exactly like a right one. It now answers `400`, names the accepted
+values, and the reply to a good value carries **`application_filter`**, the
+code it was read as. If you send `?application=`, check for the `400`.
+
+**Added: everyday names for the five applications.** `IF`, `ICC`,
+`immunofluorescence` and `immunocytochemistry` mean `ICC-IF`; `western blot`
+means `WB`; `immunoprecipitation` `IP`; `flow`, `flow cytometry` and `FACS`
+`FC`; `immunohistochemistry` `IHC`. Case, spaces and punctuation are ignored.
+
+**Added: `GET /changelog/` and the `OGA-API-Version` header** — see
+[Knowing when it changes](#knowing-when-it-changes). The version in
+`openapi.json` is now taken from the same list, so the two cannot disagree.
+
+**Fixed: a key that is not a UUID is a `403`**, like any other wrong key. A
+half-pasted key was a `500`.
+
+**Fixed: `/changelog/?since=` a version newer than the current one is a
+`400`.** It answered `up_to_date: true` about a version this API never had.
+
+**Changed: a manufacturer's key matches its supplier ignoring case and
+punctuation**, and includes every record filed under that supplier's display
+name. A vial filed under a second spelling of a supplier was missing from that
+supplier's own feed.
+
+Nothing was removed or renamed. The one reply that changes for a working
+client is a request with an `?application=` value that was never valid.
 
 ### 2.2.0 — 26 September 2026
 

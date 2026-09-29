@@ -64,17 +64,24 @@ What the verdicts lose by leaving the tag, the link keeps: the gene page
 focused on the antibody is drawn from the live database, so the reader who
 clicks sees the current result, whatever the annotation's date.
 
-Three assumptions were made without seeing the platform's specifications, and
-the run's ``--check`` prints enough to judge each:
+The platform's own validator settles most of what was assumed (29 Sep 2026).
+It is a Python program, not a page — github.com/EuropePMC/EuropePMC-Annotation-
+Validator — and its named-entity schema is vendored at
+``core/data/europepmc_ne_annotation_schema.json``. A row is exactly ``src``,
+``id``, ``provider`` and ``anns``; ``src`` is one of nine codes and ``PPR`` is
+not among them, so preprints (3,006 of the snapshot's 29,207 papers) are left
+out and counted rather than guessed at; ``position`` is a free string whose
+example is ``1.2``, so ``<sentence>.<chunk>`` — sentences numbered from 1 across
+the article in reading order, chunks within the sentence — is a reading it
+allows rather than one it prescribes; every annotation carries a ``type``
+(``ANNOTATION_TYPE``, the type registered with the platform for this provider);
+and a prefix or a postfix is mandatory. ``validate_row`` mirrors all of that, so
+a build refuses to write what the validator would refuse.
 
-* ``position`` is ``<sentence>.<chunk>``, sentences numbered from 1 across the
-  whole article in reading order and chunks numbered within the sentence. The
-  submission page's example (``1.2`` on a title, ``2.1`` on the first abstract
-  sentence) reads that way.
+Two things it does not settle, and the run's ``--check`` prints enough to judge:
+
 * Rows anchored in full text use ``src: "PMC"`` and the PMC id, since the
   section vocabulary the page lists for ``src=PMC`` is the one full text has.
-* Preprints (``PPR`` ids, 3,006 of the snapshot's 29,207 papers) are left out
-  and counted, because ``PPR`` is not on the page's list of sources. Ask.
 * The ``name`` is the RRID citation form. Their word was "canonical name"; if
   they want the supplier's product name instead, that is one function.
 
@@ -140,6 +147,17 @@ CONTEXT_CHARS = 40
 # `core/recommendations.py::APPLICATIONS`: the index carries no IHC yet, so an
 # annotation has no IHC result to state.
 APPLICATIONS = ("WB", "IP", "IF", "FC")
+
+#: A submission row is exactly these four keys — the platform's schema says
+#: ``minProperties: 4, maxProperties: 4`` — so a fifth, however helpful, fails
+#: every row in the file.
+SUBMISSION_KEYS = ("src", "id", "provider", "anns")
+
+#: The ``type`` every named-entity annotation must carry (a required field in
+#: ``core/data/europepmc_ne_annotation_schema.json``). It is the annotation type
+#: registered with the platform for this provider, so this word and the word in
+#: the email to annotations@europepmc.org are one word.
+ANNOTATION_TYPE = "antibody"
 
 # ---------------------------------------------------------------------------
 # The identifier rules — MIRRORS of browser-extension/src/matcher.js.
@@ -544,6 +562,7 @@ def annotate(blocks, reagents, base_url):
                     "exact": sentence[start:end],
                     "postfix": postfix,
                     "section": section if section in FULL_TEXT_SECTIONS else DEFAULT_SECTION,
+                    "type": ANNOTATION_TYPE,
                     "tags": [tag_for(reagent, base_url)],
                 })
     return anns, dropped
@@ -571,10 +590,23 @@ def row_for(src, article_id, provider, anns):
 
 
 def validate_row(row):
-    """Every mandatory field on the submission page, as a list of problems.
-    Empty means the row is submittable. Run over every row before writing,
-    because the platform's answer comes an hour later by email."""
+    """Every rule Europe PMC's own validator applies to a named-entity row, as a
+    list of problems; empty means submittable.
+
+    The validator (github.com/EuropePMC/EuropePMC-Annotation-Validator) is a
+    Python 2 program that checks each line against ``ne_annotation_schema.json``
+    — vendored at ``core/data/europepmc_ne_annotation_schema.json``, and the
+    test derives the required keys from that file rather than retyping them —
+    plus two rules in its code: the ``provider`` on every row must be the one
+    supplied, and an annotation must carry a ``prefix`` or a ``postfix``. Run
+    over every row before writing, because the platform's own answer comes an
+    hour later by email. The first sample lacked ``type`` and passed the
+    earlier version of this function; every row would have been refused.
+    """
     problems = []
+    extra = sorted(set(row) - set(SUBMISSION_KEYS))
+    if extra:
+        problems.append(f"unexpected key(s) {extra}: a row is exactly {list(SUBMISSION_KEYS)}")
     if row.get("src") not in SOURCES:
         problems.append(f"src {row.get('src')!r} is not one of {sorted(SOURCES)}")
     if not str(row.get("id") or "").strip():
@@ -589,13 +621,12 @@ def validate_row(row):
         where = f"anns[{i}]"
         if not ann.get("exact"):
             problems.append(f"{where}.exact is empty")
-        # A named-entity annotation carries a position; a sentence-based one
-        # carries neither position nor context. Both are on the page.
-        if "position" in ann:
-            if not (ann.get("prefix") or ann.get("postfix")):
-                problems.append(f"{where} has neither prefix nor postfix")
-            if not re.fullmatch(r"\d+\.\d+", str(ann.get("position") or "")):
-                problems.append(f"{where}.position {ann.get('position')!r} is not <sentence>.<chunk>")
+        if not str(ann.get("type") or "").strip():
+            problems.append(f"{where}.type is empty (every annotation carries {ANNOTATION_TYPE!r})")
+        if not (ann.get("prefix") or ann.get("postfix")):
+            problems.append(f"{where} has neither prefix nor postfix")
+        if "position" in ann and not re.fullmatch(r"\d+\.\d+", str(ann.get("position") or "")):
+            problems.append(f"{where}.position {ann.get('position')!r} is not <sentence>.<chunk>")
         if ann.get("section") and ann["section"] not in FULL_TEXT_SECTIONS:
             problems.append(f"{where}.section {ann['section']!r} is not in the vocabulary")
         tags = ann.get("tags")
@@ -603,7 +634,7 @@ def validate_row(row):
             problems.append(f"{where}.tags is empty")
             continue
         for j, tag in enumerate(tags):
-            if not tag.get("name"):
+            if not str(tag.get("name") or "").strip():
                 problems.append(f"{where}.tags[{j}].name is empty")
             if not str(tag.get("uri") or "").startswith("http"):
                 problems.append(f"{where}.tags[{j}].uri is not absolute")

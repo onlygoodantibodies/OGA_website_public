@@ -952,6 +952,16 @@ class TheReadFeedsNeedNoKeyTests(APIFeedTestCase):
             HTTP_X_API_KEY='00000000-0000-4000-8000-000000000000')
         self.assertEqual(response.status_code, 403)
 
+    def test_a_key_that_is_not_a_uuid_is_refused_not_a_500(self):
+        """A half-pasted key reached the UUID column and raised (live, 29 Sep
+        2026) — the portal said "Connection failed." over a server error."""
+        for key in ('not-a-real-key', '6ad90cb2-9848'):
+            for name in ('api:antibodies_feed', 'api:api_status'):
+                with self.subTest(key=key, endpoint=name):
+                    response = self.client.get(reverse(name), HTTP_X_API_KEY=key)
+                    self.assertEqual(response.status_code, 403)
+                    self.assertIn('Invalid', response.json()['error'])
+
     def test_a_keyless_read_moves_nobody_s_cursor(self):
         """A keyless caller has no consumer, so it must not write to one."""
         before = self._cursor()
@@ -1082,3 +1092,62 @@ class HeadIsAnsweredNotRefusedTests(APIFeedTestCase):
             reverse('api:mark_reviewed'),
             HTTP_X_API_KEY=str(self.consumer.api_key))
         self.assertEqual(response.status_code, 405)
+
+
+class TheApiSaysWhatChangedTests(APIFeedTestCase):
+    """2.3.0, 29 Sep 2026: `?application=IF` was ignored and returned every
+    antibody with a 200; and a caller had no way to ask the API what moved."""
+
+    def _feed(self, **params):
+        return self.client.get(reverse('api:antibodies_feed'), params)
+
+    def test_an_unknown_application_is_refused_with_the_accepted_list(self):
+        resp = self._feed(application='XYZ')
+        self.assertEqual(resp.status_code, 400)
+        from core import recommendations as R
+        self.assertEqual(resp.json()["accepted"], list(R.APPLICATIONS))
+
+    def test_everyday_names_are_read_as_the_code(self):
+        for typed, code in (('IF', 'ICC-IF'), ('icc-if', 'ICC-IF'),
+                            ('Western blot', 'WB'), ('flow', 'FC'), ('IHC', 'IHC')):
+            with self.subTest(typed=typed):
+                resp = self._feed(application=typed)
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.json()['application_filter'], code)
+        self.assertIsNone(self._feed().json()['application_filter'])
+
+    def test_every_api_reply_names_the_version(self):
+        from core.api_changelog import CURRENT
+        for resp in (self._feed(), self._feed(application='XYZ'),
+                     self.client.get(reverse('api:api_index'))):
+            self.assertEqual(resp['OGA-API-Version'], CURRENT)
+        self.assertEqual(self.client.get(reverse('api:api_index')).json()['api_version'],
+                         CURRENT)
+
+    def test_the_changelog_answers_what_is_newer_than_a_version(self):
+        from core.api_changelog import CURRENT
+        url = reverse('api:api_changelog')
+        whole = self.client.get(url).json()
+        self.assertEqual(whole['releases'][0]['version'], CURRENT)
+        newer = self.client.get(url, {'since': '2.2.0'}).json()
+        self.assertEqual([r['version'] for r in newer['releases']], ['2.3.0'])
+        self.assertTrue(self.client.get(url, {'since': CURRENT}).json()['up_to_date'])
+        self.assertEqual(self.client.get(url, {'since': 'latest'}).status_code, 400)
+        # A version from the future is a typo, not "up to date" (field test,
+        # 29 Sep 2026: `?since=9.0.0` answered up_to_date: true).
+        future = self.client.get(url, {'since': '9.0.0'})
+        self.assertEqual(future.status_code, 400)
+        self.assertIn(CURRENT, future.json()['error'])
+
+    def test_openapi_and_api_md_state_the_changelogs_version(self):
+        """One list behind all three, so none can say one thing while the API
+        does another."""
+        from pathlib import Path
+        from django.conf import settings
+        from core.api_changelog import CHANGELOG, CURRENT
+        doc = self.client.get(reverse('api:openapi')).json()
+        self.assertEqual(doc['info']['version'], CURRENT)
+        self.assertIn('/changelog/', doc['paths'])
+        text = Path(settings.BASE_DIR, 'API.md').read_text(encoding='utf-8')
+        for release in CHANGELOG:
+            self.assertIn(f"### {release['version']} —", text, release['version'])

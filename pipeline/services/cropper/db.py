@@ -208,45 +208,54 @@ def candidate_catalogues(gene: str, pasted: list) -> list:
 
 def resolve_company(vendor: str, catalogue: str = "", create: bool = True,
                     db: str = "pipeline_db") -> Optional[Company]:
-    """Resolve a pasted vendor to the correct Company, following the dedup
-    write rules in CLAUDE.md:
+    """Resolve a typed supplier to the supplier it is — **by display name first**.
 
-    - Match case/punctuation-insensitively via `Company.canonical_key` so we never
-      re-create `abcam`/`Abcam`-style variants.
-    - **Bio-Techne is split into two brands** that both display "Bio-Techne":
-      catalogue starting `NB`/`BC` → Novus, everything else → R&D Systems. Pick the
-      brand by catalogue prefix, never by display name.
-    - A name the supplier is otherwise known by (its public name, or either half
-      of a bracketed name) resolves to it when exactly one supplier carries it.
-    - `create=False` does a non-creating lookup (for the dry-run "will create
-      supplier" notice); `create=True` uses `Company.resolve` to get-or-create a
-      canonical row at commit time.
+    **A supplier is its display name** (owner, 29 Sep 2026): the name the public
+    site and a manufacturer's portal key know it by, `display_name` or else
+    `name`. The resolver used to let an exact `name` win over everything, so an
+    empty second row called `BD Biosciences` beat the real `BD Bioscience` whose
+    display name that is, and `Thermo Fisher` matched nothing and minted a row of
+    its own — and every antibody filed there fell out of the Thermo Fisher
+    Scientific key's feed. The order now:
+
+    1. **An active supplier whose display name is what was typed.** Two sharing
+       it — Bio-Techne's Novus and R&D brands — is the one genuine ambiguity, and
+       the catalogue prefix settles it (`NB`/`BC` → Novus, else R&D).
+    2. **An active supplier whose `name` is what was typed**, so typing a brand
+       in full (`Bio-Techne (Novus Biologicals)`) is never overridden.
+    3. **A name it is otherwise known by** — either half of a bracketed name —
+       when exactly one active supplier carries it.
+    4. **One active supplier whose display name starts with what was typed, or
+       the other way round** (`Thermo Fisher` → Thermo Fisher Scientific), at
+       five letters or more and only when exactly one answers. The preview says
+       `(you typed "…")`, so the substitution is visible before anything saves.
+    5. **A supplier waiting for approval** (`is_active=False`) by its exact name,
+       so a second paste of the same new vendor joins the first request.
+    6. Otherwise, with ``create``, **a new supplier waiting for approval**: the
+       vial is still recorded, under a row nothing offers and no key sees, and a
+       superuser is told (the hub; `pending_suppliers`) to make it canonical or
+       merge it into the one it really is.
     """
     vendor = (vendor or "").strip()
     if not vendor:
         return None
     key = Company.canonical_key(vendor)
     companies = list(Company.objects.using(db).all())
+    active = [c for c in companies if c.is_active]
 
-    # An exact name wins over every heuristic below.
-    #
-    # The Bio-Techne rule exists because a pasted vendor of just "Bio-Techne" is
-    # ambiguous and the catalogue prefix is the only thing that disambiguates it.
-    # It was applied to *unambiguous* input too: someone who typed
-    # "Bio-Techne (Novus Biologicals)" in full had their row saved against R&D
-    # Systems, because their catalogue number did not begin NB or BC. The third
-    # field test caught it — the preview showed one supplier and the save wrote
-    # another, which is the one thing a preview must never do.
-    #
-    # So: if the name they typed *is* a company already on file, that is the
-    # company. Guessing is for when there is nothing to go on.
-    for c in companies:
-        if Company.canonical_key(c.name) == key:
-            return c
-
-    if _is_biotechne(key):
+    # A display name somebody *set* — not a row whose name stands in for one,
+    # or a second row called `BD Biosciences` ties with the supplier whose
+    # display name that is and the tie goes to the empty row.
+    by_display = [c for c in active
+                  if c.display_name and Company.canonical_key(c.display_name) == key]
+    if len(by_display) == 1:
+        return by_display[0]
+    if len(by_display) > 1 or _is_biotechne(key):
+        by_name = [c for c in active if Company.canonical_key(c.name) == key]
+        if by_name:
+            return by_name[0]
         want_novus = _wants_novus(catalogue)
-        for c in companies:
+        for c in active:
             k = Company.canonical_key(c.name)
             if "biotechne" not in k:
                 continue
@@ -258,20 +267,68 @@ def resolve_company(vendor: str, catalogue: str = "", create: bool = True,
             return None
         return Company.resolve(_biotechne_brand(catalogue), db=db)[0]
 
-    # The same supplier typed another way it is already known by. Four empty or
-    # near-empty duplicates were minted exactly like this: "Santa Cruz
-    # Biotechnology" is `Santa-Cruz`'s own public name, "Structural Genomics
-    # Consortium" is SGC's, and "Developmental Studies Hybridoma Bank" is
-    # `… (DSHB)` without its bracket — none matched on `name`, so each paste
-    # created a second record and split the supplier's catalogue across two.
-    # Only an alias exactly one supplier carries counts: Novus and R&D share the
-    # display name "Bio-Techne", and that ambiguity is the branch above's job.
-    match = _by_alias(companies).get(key)
+    for c in active:
+        if Company.canonical_key(c.name) == key:
+            return c
+
+    match = _by_alias(active).get(key)
     if match is not None:
         return match
+
+    if len(key) >= _MIN_PREFIX:
+        started = {display_key(c): c for c in active
+                   if len(display_key(c)) >= _MIN_PREFIX
+                   and (display_key(c).startswith(key) or key.startswith(display_key(c)))}
+        if len(started) == 1:
+            return next(iter(started.values()))
+
+    for c in companies:
+        if not c.is_active and Company.canonical_key(c.name) == key:
+            return c
     if not create:
         return None
-    return Company.resolve(vendor, db=db)[0]
+    company, created = Company.resolve(vendor, db=db)
+    if created:
+        company.is_active = False
+        company.save(using=db, update_fields=["is_active"])
+    return company
+
+
+#: The shortest spelling a prefix match is trusted on: `Cell` would answer for
+#: Cell Signaling and Cell Sciences at once, and is refused as ambiguous anyway.
+_MIN_PREFIX = 5
+
+
+def display_key(company) -> str:
+    """The supplier a row is, as a canonical key: its display name, or its name."""
+    return Company.canonical_key(company.display_name or company.name)
+
+
+def canonical_suppliers(db: str = "pipeline_db") -> list:
+    """The display names a supplier picker offers — one per supplier.
+
+    Active rows only, deduplicated by display name, so Bio-Techne's two brands
+    are one entry and nothing waiting for approval is offered as if it were on
+    the list.
+    """
+    seen = {}
+    for c in Company.objects.using(db).filter(is_active=True).order_by("name"):
+        label = (c.display_name or c.name).strip()
+        seen.setdefault(Company.canonical_key(label), label)
+    return sorted(seen.values(), key=str.lower)
+
+
+def pending_suppliers(db: str = "pipeline_db") -> list:
+    """Suppliers typed in and waiting for a superuser: ``[(company, n_records)]``.
+
+    Only rows something points at — an empty inactive row is a retired
+    duplicate, not a request.
+    """
+    from django.db.models import Count
+    rows = (Company.objects.using(db).filter(is_active=False)
+            .annotate(n_ab=Count("antibodies", distinct=True),
+                      n_cl=Count("cell_lines", distinct=True)))
+    return [(c, c.n_ab + c.n_cl) for c in rows if c.n_ab + c.n_cl]
 
 
 _BRACKETED = re.compile(r"^(.*?)\s*\(([^()]*)\)\s*$")

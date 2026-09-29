@@ -94,3 +94,66 @@ class ClearStorageTests(TestCase):
         self._admin()
         page = self.client.get(reverse("pipeline:cropper")).content.decode()
         self.assertNotIn("clearstorage-why", page)
+
+
+class DroppedFiguresLeaveNoFileTests(TestCase):
+    """A figure dropped from the page, or removed from a saved session, is
+    deleted file and all (28 Sep 2026) — a row deleted without its file leaves
+    something nothing records, which not even Clear storage can find."""
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        self.client = _member_client(self, Site.objects.using(DB).create(name="McGill", short_code="MCG"))
+
+    def _stage(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (40, 30), "white").save(buf, "PNG")
+        r = self.client.post(reverse("pipeline:cropper_stage_image"),
+                             {"image": SimpleUploadedFile("fig.png", buf.getvalue(), "image/png"),
+                              "app": "WB", "name": "fig.png"})
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def _discard(self, token):
+        return self.client.post(reverse("pipeline:cropper_discard_image"),
+                                json.dumps({"token": token}), content_type="application/json")
+
+    def test_an_unsaved_figure_dropped_from_the_page_is_deleted_with_its_file(self):
+        d = self._stage()
+        im = CropperImage.objects.using(DB).get(pk=d["id"])
+        storage, name = im.image.storage, im.image.name
+        self.assertTrue(storage.exists(name))
+        self.assertEqual(self._discard(d["discard_token"]).json()["deleted"], True)
+        self.assertFalse(CropperImage.objects.using(DB).filter(pk=d["id"]).exists())
+        self.assertFalse(storage.exists(name))
+
+    def test_a_figure_a_saved_session_holds_is_left_alone(self):
+        d = self._stage()
+        sess = CropperSession.objects.using(DB).create(owner_username="carl", gene="PARP1")
+        CropperImage.objects.using(DB).filter(pk=d["id"]).update(session=sess)
+        self.addCleanup(lambda: CropperImage.objects.using(DB).get(pk=d["id"]).image.delete(save=False))
+        self.assertEqual(self._discard(d["discard_token"]).json()["deleted"], False)
+        self.assertTrue(CropperImage.objects.using(DB).filter(pk=d["id"]).exists())
+
+    def test_nobody_can_discard_a_figure_by_guessing_its_id(self):
+        d = self._stage()
+        self.addCleanup(lambda: CropperImage.objects.using(DB).get(pk=d["id"]).image.delete(save=False))
+        self.assertEqual(self._discard(str(d["id"])).status_code, 400)
+        self.assertTrue(CropperImage.objects.using(DB).filter(pk=d["id"]).exists())
+
+    def test_removing_a_figure_from_a_saved_session_deletes_its_file(self):
+        keep, drop = self._stage(), self._stage()
+        save = reverse("pipeline:cropper_session_save")
+        payload = {"gene": "PARP1", "images": [{"id": keep["id"]}, {"id": drop["id"]}]}
+        sid = self.client.post(save, json.dumps(payload), content_type="application/json").json()["session_id"]
+        dropped = CropperImage.objects.using(DB).get(pk=drop["id"])
+        storage, name = dropped.image.storage, dropped.image.name
+        self.addCleanup(lambda: CropperImage.objects.using(DB).get(pk=keep["id"]).image.delete(save=False))
+        payload.update(session_id=sid, images=[{"id": keep["id"]}])
+        self.client.post(save, json.dumps(payload), content_type="application/json")
+        self.assertFalse(CropperImage.objects.using(DB).filter(pk=drop["id"]).exists())
+        self.assertFalse(storage.exists(name))
+        self.assertTrue(CropperImage.objects.using(DB).filter(pk=keep["id"]).exists())

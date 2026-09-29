@@ -22,6 +22,7 @@ from pipeline.services import lab_numbers
 from pipeline.services import members as member_svc
 from pipeline.services import board_columns
 from pipeline.services import board_page
+from pipeline.services import ownership
 from pipeline.services import next_step
 from pipeline.services import received as received_svc
 from pipeline.services import renumber as renumber_svc
@@ -59,6 +60,11 @@ def antibody_board(request):
     member, _is_superuser = _asker(request)
     new_columns, new_example = columns_and_example("antibodies")
     return render(request, "pipeline/antibody_board.html", {
+        # Whose rows are the viewer's own, so another site's are drawn locked
+        # (services/ownership.py::viewer).
+        "viewer": ownership.viewer(request),
+        # The suppliers a picker offers — one per display name, active only.
+        "supplier_options": _supplier_options(),
         # One gene's progress and its next step, when the board is
         # filtered to one gene — services/next_step.py, derived from
         # records rather than from any stored status.
@@ -404,3 +410,8 @@ def antibody_identity_save(request):
     if fresh is None:
         return JsonResponse({"ok": True, "matches": False, "row": None})
     return JsonResponse({"ok": True, "matches": True, "row": board.row_for(fresh)})
+
+
+def _supplier_options():
+    from pipeline.services.cropper import db as cdb
+    return cdb.canonical_suppliers()

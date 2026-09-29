@@ -307,8 +307,12 @@ def _session_tab_plan(session):
             "experimenter": who,
             "date": when,
         }
+        # Recorded values only. Filling a blank from the site protocol put
+        # `RIPA + …` under a session nobody had written a lysis buffer for, and
+        # uploading the sheet back recorded it as what was done (live, 29 Sep
+        # 2026) — the invented default this app removed from reports.
         for k, col in zip(keys, cond_cols):
-            row[col] = stored.get(k, offered.get(k, "")) or ""
+            row[col] = stored.get(k, "") or ""
         for f in _RESULT_COLS[proc]:
             val = result_value(existing, proc, f)
             row[f] = "" if val is None else str(val)

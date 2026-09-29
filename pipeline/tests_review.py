@@ -900,6 +900,39 @@ class TheQueueIsReachableTests(TestCase):
         response = self.client.get(f"/pipeline/review/image/{self.item.pk}/")
         self.assertEqual(response.status_code, 200)
 
+    def test_a_browser_holding_the_crop_is_not_sent_it_again(self):
+        """Every queue redraw re-sent every thumbnail — Render bandwidth, which
+        is billed (`views/stored_image.py`). A copy that still matches is a 304."""
+        url = f"/pipeline/review/image/{self.item.pk}/"
+        first = self.client.get(url)
+        self.assertIn("no-cache", first["Cache-Control"])
+        again = self.client.get(url, HTTP_IF_NONE_MATCH=first["ETag"])
+        self.assertEqual(again.status_code, 304)
+        self.assertEqual(again.content, b"")
+
+    def test_a_revised_crop_is_never_answered_from_the_old_copy(self):
+        """Re-cropping keeps the object key, so a 304 keyed on the key alone
+        would have a reviewer judge yesterday's crop and nothing would say so."""
+        url = f"/pipeline/review/image/{self.item.pk}/"
+        before = self.client.get(url)["ETag"]
+        revised = svc.stage(antibody=self.item.antibody, application_type="WB",
+                            content=_png(colour=(30, 30, 200)),
+                            filename="TRPA1_ab138501_WB.png", staged_by="member")
+        self.assertEqual(revised.pk, self.item.pk)
+        response = self.client.get(url, HTTP_IF_NONE_MATCH=before)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response["ETag"], before)
+
+    def test_a_cropper_figure_is_not_sent_twice_either(self):
+        im = CropperImage(application_type="WB")
+        im.image.save("figure.png", ContentFile(_png()), save=False)
+        im.save(using=DB)
+        url = f"/pipeline/cropper/image/{im.pk}/"
+        first = self.client.get(url)
+        self.assertEqual(first.status_code, 200)
+        again = self.client.get(url, HTTP_IF_NONE_MATCH=first["ETag"])
+        self.assertEqual(again.status_code, 304)
+
     def test_releasing_through_the_page_publishes(self):
         """End to end through the endpoint, as the person who may press it.
 

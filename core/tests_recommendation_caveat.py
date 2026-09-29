@@ -75,7 +75,9 @@ class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
         """
         yield "gene page", self.client.get(
             reverse("antibody_table", args=["SNCA"])).content.decode()
-        yield "portal", self.client.get(reverse("portal")).content.decode()
+        # Not the data portal, by the owner's decision (29 Sep 2026): it is
+        # where a manufacturer gets images and data, not where the science is
+        # explained. The embed card it hands them is below, and carries it.
         yield "data access", self.client.get(
             reverse("data_access")).content.decode()
         yield "api reference", self.client.get(

@@ -39,6 +39,7 @@ link to the board that finishes it.
 """
 from __future__ import annotations
 
+import logging
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
@@ -147,6 +148,9 @@ _ICON = {
 }
 
 
+logger = logging.getLogger(__name__)
+
+
 def _member(request):
     from django.contrib.auth.models import User
     try:
@@ -209,6 +213,10 @@ def hub(request):
         # Managing who has access is administration, so it rides as its own row
         # the way the extension preview does.
         "user_admin": request.user.is_superuser,
+        # Suppliers somebody typed that are not on the list — each a request
+        # for a superuser to make canonical or merge (`resolve_company`).
+        "pending_suppliers": (_pending_suppliers() if request.user.is_superuser
+                              else []),
         # The browser extension install page is team-only until it is announced,
         # so surface it here while that is the case. Once it is public it lives
         # on the public Tools hub and this row disappears.
@@ -228,3 +236,13 @@ def hub(request):
         # way to waste a submission is to upload a number a store already has.
         "extension_zip_version": manifest_version(),
     })
+
+
+def _pending_suppliers():
+    from pipeline.services.cropper import db as cdb
+    try:
+        return [{"id": c.pk, "name": c.name, "records": n}
+                for c, n in cdb.pending_suppliers()]
+    except Exception:  # noqa: BLE001 — a notice never takes the hub down
+        logger.exception("pending suppliers")
+        return []

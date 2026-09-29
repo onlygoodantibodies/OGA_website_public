@@ -139,6 +139,9 @@ class SessionRoundTripTests(TestCase):
         self.assertEqual(self.result.signal, "clean band")
 
     def test_names_resolve_on_upload(self):
+        # Moving a record to another site is a superuser's act (owner, 29 Sep
+        # 2026 — services/ownership.py); an ordinary member is refused.
+        User.objects.using("academy_db").update(is_superuser=True)
         self._commit(self._sheet_with(session_site="McGill"), overwrites=True)
         self.session.refresh_from_db()
         self.assertEqual(self.session.site_id, self.site2.pk)
@@ -289,3 +292,47 @@ class AReadingWithNoResultRowIsRefusedNotDroppedTests(TestCase):
 
     def test_the_column_tip_explains_a_blank(self):
         self.assertIn("Blank means", sio.COLUMN_TIPS["result_id"])
+
+
+class ASessionsCellLinesSurviveTheRoundTripTests(SessionRoundTripTests):
+    """Found on live, 29 Sep 2026: the board's own export, uploaded unchanged,
+    previewed every row as changed — the sheet carries `HAP1 — Leicester` and
+    the diff compared it with the bare name — and the write resolved a name with
+    `filter(name__iexact=…).first()`, the first of hundreds of HAP1 rows."""
+
+    def setUp(self):
+        super().setUp()
+        from pipeline.models import CellLine
+        # The trap: another site's HAP1, created first so `.first()` finds it.
+        self.other = CellLine.objects.create(name="HAP1", genotype="WT", site=self.site2)
+        self.wt = CellLine.objects.create(name="HAP1", genotype="WT", site=self.site)
+        self.ko = CellLine.objects.create(name="HAP1", genotype="KO", site=self.site,
+                                          target=self.session.target,
+                                          parent_line=self.wt)
+        self.session.cell_line_wt, self.session.cell_line_ko = self.wt, self.ko
+        self.session.save()
+
+    def test_an_unchanged_export_previews_nothing(self):
+        plan = self._preview(self._sheet_with())
+        self.assertEqual(plan["summary"]["changed_rows"], 0, plan["items"])
+        self.assertEqual(plan["summary"]["conflicts"], 0)
+
+    def test_a_bare_name_resolves_to_the_sessions_own_site_and_genotype(self):
+        from pipeline.models import CellLine
+        other_wt = CellLine.objects.create(name="HEK293", genotype="WT", site=self.site)
+        self._commit(self._sheet_with(session_cell_line_wt="HEK293"), overwrites=True)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.cell_line_wt_id, other_wt.pk)
+        self._commit(self._sheet_with(session_cell_line_wt="HAP1"), overwrites=True)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.cell_line_wt_id, self.wt.pk,
+                         "the session's own site's wild type, never McGill's")
+
+    def test_a_name_that_names_no_line_is_refused_and_named(self):
+        data = self._sheet_with(session_cell_line_ko="NOSUCHLINE")
+        plan = self._preview(data)
+        refused = [r for i in plan["items"] for r in i.get("refused_lines", [])]
+        self.assertTrue(refused and "cell_line_ko" in refused[0], plan["items"])
+        self._commit(data, overwrites=True)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.cell_line_ko_id, self.ko.pk)

@@ -23,6 +23,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from pipeline.decorators import pipeline_member_required
 from pipeline.models import Member, Site, ExperimentSession, Target
+from pipeline.services import bulk_antibodies
 from pipeline.services import bulk_sessions as bs
 from pipeline.services import cell_lines as clines_svc
 from pipeline.services import bench_results
@@ -76,6 +77,11 @@ def session_plan_parse(request):
         # — the whole point of a check is to say what will happen before
         # anything is written.
         "blocking": _blocking(d),
+        # The save refuses a gene that is not a target (owner, 5 Sep 2026), so
+        # the check says so and carries the way to add it — the panel said "it
+        # will be created with the session" over a save that then refused.
+        "add_target_url": (bulk_antibodies._add_target_url(d.get("gene", "").strip())
+                           if not target and (d.get("gene") or "").strip() else ""),
     })
 
 
@@ -94,6 +100,16 @@ def _blocking(d):
         out.append(f"Date {raw!r} is not YYYY-MM-DD.")
     if not (d.get("procedure_type") or "").strip():
         out.append("No application chosen.")
+    # A session at another site's bench is a superuser's to plan
+    # (services/ownership.py) — said on the check, not found at the save.
+    from pipeline.services import ownership
+    site_id = d.get("site_id")
+    if site_id:
+        refused = ownership.refusal_now({int(site_id)} if str(site_id).isdigit()
+                                        else set(), action="plan sessions for",
+                                        su_verb="plan them for", new_record="session")
+        if refused:
+            out.append(refused)
     return out
 
 
@@ -204,6 +220,10 @@ def session_plan_commit(request):
         "created_antibodies": created["antibodies"],
         "created_target": created["target"],
         "created_cell_lines": created["cell_lines"],
+        # Planning numbers any antibody still without an A-number
+        # (`sessions.apply`), and this reply dropped the list, so the panel
+        # said nothing of the A-6 and A-7 it had just given (live, 29 Sep 2026).
+        "numbers_issued": res.get("numbers_issued", []),
         # The board, with the new session's results open — not the retired page.
         "detail_url": (f"{reverse('pipeline:session_board')}"
                        f"?open={res['session_id']}"),

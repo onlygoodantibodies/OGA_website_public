@@ -26,6 +26,7 @@ from django.views.decorators.http import require_GET, require_POST
 from pipeline.decorators import pipeline_member_required
 from pipeline.models import CropperSession, CropperImage
 from pipeline.services.cropper import db, engine, ocr, metadata as meta
+from pipeline.views import stored_image
 
 DB = "pipeline_db"
 
@@ -246,7 +247,40 @@ def cropper_stage_image(request):
     )
     im.image.save(upload.name, upload, save=False)
     im.save(using=DB)
-    return JsonResponse({"id": im.id, "url": _image_url(im), "nat_w": w, "nat_h": h})
+    return JsonResponse({"id": im.id, "url": _image_url(im), "nat_w": w, "nat_h": h,
+                         "discard_token": _discard_signer(request).sign(str(im.id))})
+
+
+def _discard_signer(request):
+    """An unsaved upload records no owner, so the right to throw one away is a
+    token handed to the page that added it — signed for that person, so a
+    member cannot discard somebody else's figure by guessing its id."""
+    from django.core.signing import Signer
+    return Signer(salt=f"cropper-discard:{_owner(request)}")
+
+
+@pipeline_member_required
+@require_POST
+def cropper_discard_image(request):
+    """Delete an upload that was dropped before any save (✕, or starting or
+    opening another session without saving). Unsaved figures cannot be got
+    back after a reload — the page keeps no note of them — so these were left
+    in storage for nobody (28 Sep 2026). A figure that already belongs to a
+    saved session is left alone: that session still holds it, and its next
+    save removes it (`cropper_session_save`)."""
+    from django.core.signing import BadSignature
+    from pipeline.services.cropper import clear_storage
+    try:
+        d = json.loads(request.body or "{}")
+        image_id = int(_discard_signer(request).unsign(str(d.get("token") or "")))
+    except (json.JSONDecodeError, BadSignature, ValueError):
+        return JsonResponse({"error": "not a figure this page added"}, status=400)
+    im = CropperImage.objects.using(DB).filter(id=image_id, session__isnull=True).first()
+    if im is None:
+        return JsonResponse({"deleted": False})
+    kept = clear_storage.delete_files([im])
+    im.delete(using=DB)
+    return JsonResponse({"deleted": True, "files_not_deleted": kept})
 
 
 @pipeline_member_required
@@ -255,17 +289,21 @@ def cropper_image(request, pk):
     """A staged figure's bytes, for the cropper's canvas. Members only: the
     upload is on private storage, and this view is the way the app shows it —
     same-origin, so the canvas can read it without the bucket's CORS."""
-    from django.http import FileResponse
     im = CropperImage.objects.using(DB).filter(pk=pk).first()
     if im is None or not im.image:
         return JsonResponse({"error": "no staged figure here"}, status=404)
+    # An upload is written once, under a name storage never reuses, so the key
+    # alone names the bytes (`stored_image`).
+    cached = stored_image.not_modified(request, im.image)
+    if cached is not None:
+        return cached
     try:
         handle = im.image.open("rb")
     except Exception:
         return JsonResponse({"error": (
             "That figure could not be read from storage. The session is fine; "
             "the file behind it is not — add the figure again.")}, status=502)
-    return FileResponse(handle, filename=im.image.name.rsplit("/", 1)[-1])
+    return stored_image.serve(handle, im.image)
 
 
 @pipeline_member_required
@@ -311,8 +349,12 @@ def cropper_session_save(request):
         im.save(using=DB)
         incoming_ids.append(im.id)
 
-    # drop images the user removed from this session
-    sess.images.using(DB).exclude(id__in=incoming_ids).delete()
+    # drop images the user removed from this session — files first, since a
+    # row's delete leaves its file behind with nothing recording it
+    from pipeline.services.cropper import clear_storage
+    removed = list(sess.images.using(DB).exclude(id__in=incoming_ids))
+    clear_storage.delete_files(removed)
+    sess.images.using(DB).filter(id__in=[im.id for im in removed]).delete()
 
     return JsonResponse({"session_id": sess.id, "saved": len(incoming_ids)})
 

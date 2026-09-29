@@ -81,11 +81,12 @@ def generate_wb_ip_sheet(session):
     ws.cell(row=1, column=1, value=f'{gene} — WB/IP Planning Sheet').font = Font(bold=True, size=14, name='Arial')
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
 
+    from pipeline.services import cell_lines as clines
     info_parts = []
     if session.cell_line_wt:
-        info_parts.append(f'WT: {session.cell_line_wt.name}')
+        info_parts.append(f'WT: {clines.label(session.cell_line_wt)}')
     if session.cell_line_ko:
-        info_parts.append(f'KO: {session.cell_line_ko.name}')
+        info_parts.append(f'KO: {clines.label(session.cell_line_ko)}')
     if session.date:
         info_parts.append(f'Date: {session.date.strftime("%d/%m/%Y")}')
     if session.experimenter:
@@ -546,13 +547,16 @@ def _session_info_line(session, extra=()):
     of it. Opting out is what the plate map did, and the stamp went with it.
     """
     parts = [f'{SESSION_STAMP}{session.pk}']
+    from pipeline.services import cell_lines as clines
     if session.cell_line_wt:
         # The full label, site included: a bare `HAP1` is shared by hundreds of
         # rows, so a sheet that names one is not saying which.
-        from pipeline.services import cell_lines as clines
         parts.append(f'WT: {clines.label(session.cell_line_wt)}')
     if session.cell_line_ko:
-        parts.append(f'KO: {session.cell_line_ko.name}')
+        # The same label as the WT above and every board: a bare `HAP1` said
+        # which background and not which knockout, gene or clone (live, 29 Sep
+        # 2026, printed `KO: HAP1` under `WT: HAP1 — Leicester`).
+        parts.append(f'KO: {clines.label(session.cell_line_ko)}')
     if session.date:
         parts.append(f'Date: {session.date.strftime("%d/%m/%Y")}')
     if session.experimenter:

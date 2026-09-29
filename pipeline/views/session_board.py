@@ -25,6 +25,7 @@ from pipeline.services import members as member_svc
 from pipeline.services import session_board as board
 from pipeline.services import session_io as sio
 from pipeline.services import board_page
+from pipeline.services import ownership
 from pipeline.services import next_step
 from pipeline.services import sites as site_svc
 from pipeline.views.imports import columns_and_example
@@ -73,7 +74,11 @@ def session_board(request):
     # spelled the way the parser reads them back — see
     # `services/cell_lines.py::picker_options`.
     site_id = getattr(member_svc.for_request(request), "site_id", None)
+    options = _line_options(site_id, _filters(request).get("gene", ""))
     return render(request, "pipeline/session_board.html", {
+        # Whose rows are the viewer's own, so another site's are drawn locked
+        # (services/ownership.py::viewer).
+        "viewer": ownership.viewer(request),
         # One gene's progress and its next step, when the board is
         # filtered to one gene — services/next_step.py, derived from
         # records rather than from any stored status.
@@ -102,10 +107,35 @@ def session_board(request):
         # (`services/cell_lines.py`), and answering it wrongly is how a
         # session gets controlled against another site's line.
         "cell_choices": board.cell_choices(site_id=site_id),
-        "wt_options": cell_line_svc.picker_options(genotype="WT", site_id=site_id),
-        "ko_options": cell_line_svc.picker_options(genotype=cell_line_svc.CONTROL,
-                                                   site_id=site_id),
+        "wt_options": options["wt"],
+        "ko_options": options["ko"],
     })
+
+
+def _line_options(site_id, gene: str) -> dict:
+    """The Plan panel's two lists: the site's wild types, and the knockouts
+    and knockdowns of the gene typed — never the site's first sixty controls
+    of any gene, which is what the KO box offered until 29 Sep 2026."""
+    from pipeline.services import targets as target_svc
+    target = target_svc.resolve_target(gene) if gene.strip() else None
+    return {
+        "wt": cell_line_svc.picker_options(genotype="WT", site_id=site_id),
+        "ko": (cell_line_svc.picker_options(genotype=cell_line_svc.CONTROL,
+                                            site_id=site_id, target=target)
+               if target else []),
+        "gene": target.gene_name if target else "",
+    }
+
+
+@pipeline_member_required
+@require_GET
+def session_board_line_options(request):
+    """What the Plan panel's WT and KO boxes offer, for the gene and site the
+    panel now says — asked again whenever either box changes."""
+    site_id = (request.GET.get("site") or "").strip()
+    if not site_id.isdigit():
+        site_id = getattr(member_svc.for_request(request), "site_id", None)
+    return JsonResponse(_line_options(site_id, request.GET.get("gene") or ""))
 
 
 @pipeline_member_required
@@ -219,7 +249,8 @@ def _set_session_field(session, field, value):
         # silently changed nothing.
         want = "WT" if field == "cell_line_wt" else cell_line_svc.CONTROL
         line, err = cell_line_svc.resolve(value, genotype=want,
-                                          site_id=session.site_id)
+                                          site_id=session.site_id,
+                                          target=session.target)
         if value and line is None:
             raise ValueError(err)
         setattr(session, f"{field}_id", line.pk if line else None)

@@ -338,12 +338,30 @@ def withhold(instance):
     return instance
 
 
+#: Genotypes a cell line is recorded under without being a line in the
+#: freezer. A knockdown is a transient siRNA transfection of a wild type (owner,
+#: 29 Sep 2026): nothing is frozen down, so there is no tube for a C-number to
+#: be written on. Its row exists so a session can say which control it used.
+UNNUMBERED_GENOTYPES = ("KD",)
+
+
+def numbers_genotype(genotype) -> bool:
+    """Whether a new cell line of this genotype is issued a C-number."""
+    return (genotype or "").upper() not in UNNUMBERED_GENOTYPES
+
+
 def kind_of(instance) -> str | None:
     from pipeline.models import Antibody, CellLine, CellLineVial
 
     if isinstance(instance, Antibody):
         return ANTIBODY
     if isinstance(instance, CellLine):
+        # Not issued, never refused: a number somebody *types* on a knockdown
+        # is kept (`assign` never overwrites one), and a freeze-down batch of
+        # one is numbered like any other — freezing it is what would make a
+        # stable knockdown line, and then the batch is a tube.
+        if not numbers_genotype(instance.genotype):
+            return None
         return CELL_LINE
     # A freeze-down batch draws from the **same** run as the line — `highest`
     # and `holder` have always read both tables, because both numbers get
@@ -382,6 +400,23 @@ def assign(instance, *, db: str = DB) -> int | None:
     number = next_number(kind, site_id, db=db)
     setattr(instance, k.attr, number)
     return number
+
+
+def would_number(records) -> list[str]:
+    """Which of these `ensure_numbered` would give a number to — named, for a
+    preview. The same three tests, asked without issuing anything: the check
+    says a number *will* be given and never promises which (the save names it).
+    """
+    if is_suspended():
+        return []
+    out = []
+    for obj in records:
+        kind = kind_of(obj)
+        if kind is None or getattr(obj, spec(kind).attr, None) is not None:
+            continue
+        if getattr(obj, "site_id", None):
+            out.append(holder_label(obj))
+    return out
 
 
 def ensure_numbered(records, *, db: str = DB) -> list[dict]:

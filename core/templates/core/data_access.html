@@ -220,6 +220,10 @@ wget -i urls.txt -P images/</code></div>
            it to <code>openapi-generator</code> for a typed client in your own
            language. There is also a plain-language catalogue at
            <a href="/api/v1/">/api/v1/</a>.</p>
+        <h3>When it changes</h3>
+        <p>Every reply carries an <code>OGA-API-Version</code> header. When it
+           moves, ask what changed — as JSON, no key needed:</p>
+        <div class="da-code"><code>https://onlygoodantibodies.co.uk/api/v1/changelog/?since=2.2.0</code></div>
     </section>
 
     <section class="card edu-content da-section">

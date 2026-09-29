@@ -968,9 +968,15 @@ def api_index(request):
     def url(path):
         return f'{BASE_URL}/api/v1/{path}'
 
+    from .api_changelog import CURRENT
     response = JsonResponse({
         'name': 'OGA Data API',
         'version': 'v1',
+        # `version` is the URL's and has never moved; this is the API's own,
+        # the one `openapi.json` states and every reply's `OGA-API-Version`
+        # header carries. What changed between two of them is `changelog`.
+        'api_version': CURRENT,
+        'changelog': url('changelog/'),
         'authentication': {
             'scheme': 'api-key',
             'header': 'X-API-Key',
@@ -1033,6 +1039,13 @@ def api_index(request):
                     'since': 'ISO 8601 or YYYY-MM-DD',
                     'advance_cursor': 'false leaves your review cursor alone',
                     'gene': 'exact gene symbol',
+                    'application': 'WB, IP, ICC-IF, FC or IHC (or IF, western '
+                                   'blot, flow…) — recommended for that '
+                                   'application. An unknown value is refused '
+                                   'with 400; application_filter in the reply '
+                                   'says what it was read as.',
+                    'recommended_only': 'true = recommended for at least one '
+                                        'application',
                     'limit': 'optional cap; a capped reply sets complete=false',
                     'offset': 'optional, use with limit',
                 },
@@ -1050,6 +1063,10 @@ def api_index(request):
             {'path': url('openapi.json'), 'method': 'GET',
              'summary': 'This API described as OpenAPI 3.1 - feed it to '
                         'Swagger UI, Postman or openapi-generator.',
+             'side_effects': 'none'},
+            {'path': url('changelog/'), 'method': 'GET',
+             'summary': 'What changed in this API, newest first. '
+                        '?since=<version> answers only what is newer. No key.',
              'side_effects': 'none'},
             {'path': url('status/'), 'method': 'GET',              'summary': 'Your scope, tier, cursor and dataset totals.',
              'side_effects': 'none'},
@@ -1111,4 +1128,44 @@ def api_index(request):
     # rather than this dyno. Same reason openapi.json carries one.
     response['Cache-Control'] = 'public, max-age=300'
     response['Access-Control-Allow-Origin'] = '*'
+    return response
+
+
+@require_safe
+def api_changelog(request):
+    """What changed in this API, newest first, as JSON. No key required.
+
+    ``?since=2.2.0`` answers only the releases newer than the one a client last
+    saw — the question a client actually has. The entries are
+    `core/api_changelog.py`'s, which ``openapi.json``'s version is also taken
+    from.
+    """
+    from .api_changelog import CHANGELOG, CURRENT, _as_tuple, since as newer_than
+
+    raw = (request.GET.get('since') or '').strip()
+    entries = CHANGELOG
+    if raw:
+        entries = newer_than(raw)
+        if entries is None:
+            return JsonResponse(
+                {'error': f'?since= wants a version such as 2.2.0; got {raw!r}.',
+                 'current_version': CURRENT}, status=400)
+        # A version this API has never had is not "up to date" — `?since=9.0.0`
+        # answered `up_to_date: true`, the one reply a client would not
+        # question (field test, 29 Sep 2026).
+        if _as_tuple(raw) > _as_tuple(CURRENT):
+            return JsonResponse(
+                {'error': f'There is no version {raw}; the current one is {CURRENT}.',
+                 'current_version': CURRENT}, status=400)
+    response = JsonResponse({
+        'current_version': CURRENT,
+        'since': raw or None,
+        'up_to_date': bool(raw) and not entries,
+        'note': ('One entry per release, newest first. "changed" and "removed" '
+                 'are the kinds a client may have to act on; "action" says what '
+                 'to do. The prose is API.md §12.'),
+        'releases': entries,
+    }, json_dumps_params={'indent': 2})
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Cache-Control'] = 'public, max-age=300'
     return response

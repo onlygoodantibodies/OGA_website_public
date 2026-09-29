@@ -143,6 +143,20 @@ def test_a_session_workbook_is_stamped_with_its_number(gene):
         assert row[header.index("session_ref")].endswith(f"#{session.pk}")
 
 
+def test_a_session_workbook_offers_the_protocols_conditions_blank(gene):
+    """A condition nobody recorded is a blank column, never the site protocol's
+    value: `protein_loading_ug` came down as `30` under a session that recorded
+    only its lysis buffer, and an upload would have stored it (live, 29 Sep
+    2026, with the whole WB protocol pre-filled on a fresh session)."""
+    from pipeline.services import session_template
+    session = _planned_session(gene)
+    header, rows = _tab(_load(session_template.build_session_template(session)), "WB")
+    assert "cond:protein_loading_ug" in header, "the column is still offered"
+    for row in rows:
+        assert row[header.index("cond:protein_loading_ug")] == ""
+        assert row[header.index("cond:lysis_buffer")] == "RIPA", "recorded wins"
+
+
 def test_uploading_it_fills_that_session_in_rather_than_creating_a_second(gene):
     """The whole point. This used to make a second, Complete session beside the
     Planned one, with no explanation on either screen."""
@@ -285,3 +299,33 @@ def test_an_untouched_session_tab_is_still_not_an_experiment(gene):
     assert res["sessions_updated"] == 0 and res["results_created"] == 0
     session.refresh_from_db()
     assert session.status == ExperimentSession.SessionStatus.PLANNED
+
+
+def test_a_reading_changed_on_one_row_counts_one_row_as_updated(gene):
+    """Field test, 29 Sep 2026: session #642's workbook came down with a
+    dilution recorded on one antibody; a signal typed on the *other* previewed
+    as *"2 result row(s): 0 new, 2 updated"* and was saved that way, so the
+    reader could not tell which row the edit landed on. A row that would store
+    what is already stored is unchanged, in the preview and at the save."""
+    from pipeline.models import WbResult
+    from pipeline.services import session_import, session_template
+    session = _planned_session(gene)
+    WbResult.objects.using(DB).create(session=session, antibody=gene["ab1"],
+                                      dilution="1:1000")
+    WbResult.objects.using(DB).create(session=session, antibody=gene["ab2"])
+    wb = _load(session_template.build_session_template(session))
+    header, rows = _tab(wb, "WB")
+    ab2_row = next(i for i, r in enumerate(rows, 2)
+                   if r[header.index("antibody")] == "A-ELP3-2")
+    wb["WB"].cell(row=ab2_row, column=header.index("signal") + 1, value="YES")
+
+    plan = session_import.plan_import(
+        session_import.parse_template(_to_file(wb)), uploader=gene["member"])
+    s = plan["sessions"][0]
+    assert (s["results_new"], s["results_updated"], s["results_unchanged"]) == (0, 1, 1)
+
+    res = session_import.apply_import(
+        session_import.parse_template(_to_file(wb)), uploader=gene["member"])
+    assert (res["results_updated"], res["results_unchanged"]) == (1, 1)
+    assert WbResult.objects.using(DB).get(session=session, antibody=gene["ab2"]).signal == "YES"
+    assert WbResult.objects.using(DB).get(session=session, antibody=gene["ab1"]).dilution == "1:1000"

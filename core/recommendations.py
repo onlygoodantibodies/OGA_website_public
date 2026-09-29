@@ -89,6 +89,26 @@ from __future__ import annotations
 # machinery, which records no IHC work yet.
 APPLICATIONS = ('WB', 'IP', 'ICC-IF', 'FC', 'IHC')
 
+#: The everyday names a caller types for the five, keyed on the name with
+#: case, spaces and punctuation removed (`application_code`). `IF` is the
+#: bench's own word for ICC-IF — `?application=IF` was silently ignored by the
+#: API until 2.3.0 and returned every antibody unfiltered.
+APPLICATION_ALIASES = {
+    'WB': 'WB', 'WESTERN': 'WB', 'WESTERNBLOT': 'WB', 'WESTERNBLOTTING': 'WB',
+    'IP': 'IP', 'IMMUNOPRECIPITATION': 'IP',
+    'ICCIF': 'ICC-IF', 'IF': 'ICC-IF', 'ICC': 'ICC-IF',
+    'IMMUNOFLUORESCENCE': 'ICC-IF', 'IMMUNOCYTOCHEMISTRY': 'ICC-IF',
+    'FC': 'FC', 'FLOW': 'FC', 'FLOWCYTOMETRY': 'FC', 'FACS': 'FC',
+    'IHC': 'IHC', 'IMMUNOHISTOCHEMISTRY': 'IHC',
+}
+
+
+def application_code(raw):
+    """One of ``APPLICATIONS`` for a typed application, or None if unknown."""
+    import re
+    key = re.sub(r'[^A-Z]', '', str(raw or '').upper())
+    return APPLICATION_ALIASES.get(key)
+
 #: The original three-valued vocabulary. **Legacy, and staying** — see
 #: ``SUPPORT_VALUES`` below for the one to write new code against.
 #:

@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 
-from django.http import FileResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
@@ -37,6 +37,7 @@ from pipeline.models import (IhcFigure, Member, PendingIhcFigure,
 from pipeline.services import ihc_figures as ihc_svc
 from pipeline.services import outcomes as outcome_svc
 from pipeline.services import review as svc
+from pipeline.views import stored_image
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,10 @@ def review_image(request, pk):
     if item is None or not item.image:
         return JsonResponse({"ok": False, "error": "no staged image here"},
                             status=404)
+    version = stored_image.version_of(item)
+    cached = stored_image.not_modified(request, item.image, version)
+    if cached is not None:
+        return cached
     try:
         handle = item.image.open("rb")
     except Exception:
@@ -210,7 +215,7 @@ def review_image(request, pk):
             {"ok": False,
              "error": "That figure could not be read from storage. The record "
                       "is fine; the file behind it is not."}, status=502)
-    return FileResponse(handle, filename=item.image.name.rsplit("/", 1)[-1])
+    return stored_image.serve(handle, item.image, version)
 
 
 @pipeline_member_required
@@ -222,6 +227,10 @@ def review_ihc_image(request, pk):
     if fig is None or not fig.image:
         return JsonResponse({"ok": False, "error": "no whole figure here"},
                             status=404)
+    version = stored_image.version_of(fig)
+    cached = stored_image.not_modified(request, fig.image, version)
+    if cached is not None:
+        return cached
     try:
         handle = fig.image.open("rb")
     except Exception:
@@ -230,7 +239,7 @@ def review_ihc_image(request, pk):
             {"ok": False,
              "error": "That figure could not be read from storage. The record "
                       "is fine; the file behind it is not."}, status=502)
-    return FileResponse(handle, filename=fig.image.name.rsplit("/", 1)[-1])
+    return stored_image.serve(handle, fig.image, version)
 
 
 def _chosen(payload):
@@ -291,7 +300,7 @@ def review_release(request):
 
     # After the commit, never inside it: the edge holds public pages for a
     # week, so a release nobody purges after is a release nobody sees.
-    purged, purge_note = edge_cache.purge_everything()
+    purged, purge_note = edge_cache.purge_public_pages()
     crops = result.crops
     ihc_genes = sorted({f["gene"] for f in result.whole_figures if f["gene"]})
     return JsonResponse({
@@ -411,7 +420,7 @@ def review_ihc_withdraw(request):
             {"ok": False,
              "error": "Something went wrong withdrawing that figure and nothing "
                       "was changed. It is still on the IHC page."}, status=500)
-    purged, purge_note = edge_cache.purge_everything()
+    purged, purge_note = edge_cache.purge_public_pages()
     return JsonResponse({"ok": True, "withdrawn": len(result.withdrawn),
                          "restaged": result.restaged,
                          "already_queued": result.already_queued,

@@ -86,7 +86,7 @@ class ReleasingClearsTheEdgeTests(_Base):
             seen["public_at_purge"] = PublicationImage.objects.using(DB).count()
             return True, "cleared"
 
-        with mock.patch.object(edge_cache, "purge_everything",
+        with mock.patch.object(edge_cache, "purge_public_pages",
                                side_effect=fake_purge) as purge:
             resp = self._post(self._superuser(), "/pipeline/review/release/",
                               {"ids": [item.pk], "count": 1})
@@ -100,7 +100,7 @@ class ReleasingClearsTheEdgeTests(_Base):
         PublicationImage.objects.using(DB).create(
             antibody=self.ab, application_type="WB",
             image=ContentFile(_png(), name="TMEFF2_ab1_WB.png"))
-        with mock.patch.object(edge_cache, "purge_everything",
+        with mock.patch.object(edge_cache, "purge_public_pages",
                                return_value=(True, "cleared")) as purge:
             resp = self._post(self._superuser(), "/pipeline/outcomes/withdraw/",
                               {"gene": "TMEFF2", "count": 1})
@@ -113,7 +113,7 @@ class ReleasingClearsTheEdgeTests(_Base):
                 mock.patch.dict("os.environ", {"CLOUDFLARE_ZONE_ID": "",
                                                "CLOUDFLARE_PURGE_TOKEN": ""}), \
                 mock.patch("urllib.request.urlopen") as urlopen:
-            done, note = edge_cache.purge_everything()
+            done, note = edge_cache.purge_public_pages()
         self.assertFalse(done)
         self.assertIn("up to a week", note)
         urlopen.assert_not_called()
@@ -133,7 +133,7 @@ class ReleasingClearsTheEdgeTests(_Base):
         cache.set_many({k: ["stale"] for k in keys})
         with mock.patch.dict("os.environ", {"CLOUDFLARE_ZONE_ID": "",
                                             "CLOUDFLARE_PURGE_TOKEN": ""}):
-            edge_cache.purge_everything()
+            edge_cache.purge_public_pages()
         self.assertEqual(cache.get_many(keys), {})
 
     def test_a_release_gives_the_gene_list_a_new_address(self):
@@ -149,18 +149,50 @@ class ReleasingClearsTheEdgeTests(_Base):
             return found.pop()
 
         before = {p: version(p) for p in ("/", "/about/")}
-        edge_cache.purge_everything()
+        edge_cache.purge_public_pages()
         after = {p: version(p) for p in ("/", "/about/")}
         self.assertEqual(before["/"], before["/about/"])
         self.assertNotEqual(before["/"], after["/"])
         self.assertEqual(after["/"], after["/about/"])
+
+    def test_a_release_purges_the_tag_and_keeps_what_it_cannot_change(self):
+        """Purging the whole zone also emptied every Cloudflare location of the
+        static images and the 741 KB citation snapshot, each re-fetched from
+        the origin on Render's bandwidth bill. Pages carry the tag; those do
+        not; the purge names the tag, never the zone."""
+        from OGA_website.cache_headers import RELEASE_TAG
+        self.assertEqual(self.client.get("/")["Cache-Tag"], RELEASE_TAG)
+        self.assertFalse(self.client.get(
+            "/extension/citations.json").has_header("Cache-Tag"))
+
+        sent = {}
+
+        class _Reply:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(req, timeout):
+            sent["body"] = json.loads(req.data)
+            return _Reply()
+
+        with mock.patch.object(edge_cache, "_under_test", return_value=False), \
+                mock.patch.dict("os.environ", {"CLOUDFLARE_ZONE_ID": "z",
+                                               "CLOUDFLARE_PURGE_TOKEN": "t"}), \
+                mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+                mock.patch("json.load", return_value={"success": True}):
+            done, _ = edge_cache.purge_public_pages()
+        self.assertTrue(done)
+        self.assertEqual(sent["body"], {"tags": [RELEASE_TAG]})
 
     def test_a_test_run_never_purges_the_live_site(self):
         """The cloud sessions carry the real token."""
         with mock.patch.dict("os.environ", {"CLOUDFLARE_ZONE_ID": "z",
                                             "CLOUDFLARE_PURGE_TOKEN": "t"}), \
                 mock.patch("urllib.request.urlopen") as urlopen:
-            done, _ = edge_cache.purge_everything()
+            done, _ = edge_cache.purge_public_pages()
         self.assertFalse(done)
         urlopen.assert_not_called()
 
