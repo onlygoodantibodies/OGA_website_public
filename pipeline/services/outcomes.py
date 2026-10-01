@@ -925,11 +925,19 @@ def record(antibody_id, application, axis, value, *, actor, note=None):
             f"{AXIS_LABELS[axis].lower()} takes for {application}.")
     row, _ = AntibodyOutcome.objects.using(DB).get_or_create(
         antibody_id=antibody_id, application_type=application)
+    # What it said before, for the history: `assessed_by` names only the last
+    # person to press anything, so without this a changed mind is lost.
+    was_value, was_note = getattr(row, axis), row.note
     setattr(row, axis, value)
     if note is not None:
         row.note = note or ""
     row.assessed_by = actor or ""
     row.save(using=DB)
+    from pipeline.services import judgement_log
+    judgement_log.log(antibody_id, application, axis, was_value, value,
+                      actor=actor or "")
+    judgement_log.log(antibody_id, application, "note", was_note, row.note,
+                      actor=actor or "")
     return row
 
 

@@ -240,6 +240,9 @@ removed.**
 | `oga_recommendations` | one of three values, per application | legacy; still emitted |
 | `recommendations` | booleans, per application | legacy; still emitted |
 
+`oga_methods` (2.4.0) sits beside these and is not one of them: it says how
+a figure was made, not what it showed — see §6.
+
 A field that arrived after your integration was written is invisible to your
 parser, which is why they are added rather than changed. `verdicts`, a fourth
 key, was removed in 2.0.0 on 7 August 2026 — see §12. It is the only field this
@@ -519,7 +522,7 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
 ```
 
 ```csv
-url,filename,gene,catalogue_number,rrid,supplier,application,application_display,oga_recommendation,oga_display,oga_qualifier,product_link,discontinued,gene_page_url,image_id,added_at,oga_support
+url,filename,gene,catalogue_number,rrid,supplier,application,application_display,oga_recommendation,oga_display,oga_qualifier,product_link,discontinued,gene_page_url,image_id,added_at,oga_support,oga_methods_text
 https://onlygoodantibodies.co.uk/media/publication_images/2026/ab254222_WB.png,ACE_ab254222_WB.png,ACE,ab254222,AB_3073965,Abcam,WB,Western Blot,recommended,Supportive,selective,https://www.abcam.com/ab254222,False,https://onlygoodantibodies.co.uk/antibodies/ACE/,1,2026-08-05T14:52:33.547850+00:00
 ```
 
@@ -672,6 +675,19 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
       "oga_qualifiers": {
         "IP": "enriches the target, but not significantly"
       },
+      "oga_methods": {
+        "WB": {
+          "text": "Western blot\nSamples of SK-N-FI WT (ATCC CRL-2142) and ACE KO … were prepared (no cell lysis: culture medium centrifuged …). 40 µg of protein was resolved on precast midi 4-20% Tris-Glycine (WXP42012BOX) and transferred to nitrocellulose. Membranes were blocked with 5% milk, 1 hr. The primary antibody, Abcam ab254222 (RRID:AB_3073965), was diluted 1/10 000 and incubated O/N at 4°C in 5% milk in TBST. Detection used peroxidase-conjugated goat anti-rabbit (Thermo 65-6120) and anti-mouse (62-6520) at ~0.2 µg/ml in TBST with 5% milk, 1 hr RT. Signal was developed with Pierce ECL (Thermo 32106) and detected with iBright CL1500.\nMethod as published in https://doi.org/10.5281/zenodo.7971915.",
+          "amount": "1/10 000",
+          "amount_basis": "report_named",
+          "source": "https://doi.org/10.5281/zenodo.7971915",
+          "conditions": {
+            "protein_loading_ug": "40",
+            "membrane": "nitrocellulose",
+            "blocking": "5% milk, 1 hr"
+          }
+        }
+      },
       "recommendations": { "WB": true, "ICC-IF": false, "IP": false, "FC": false, "IHC": false },
       "oga_recommendations": {
         "WB": "recommended",
@@ -697,6 +713,42 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
   ]
 }
 ```
+
+### How each figure was made — `oga_methods`
+
+Since 2.4.0, keyed by application like `oga_support`. It is **not a result**:
+it says how the published figure for that application was produced, and it is
+the same paragraph the website's **Copy methods** button copies under a
+supportive figure, on the gene page and in the portal.
+
+| Key | What it is |
+|---|---|
+| `text` | The methods paragraph, ready to paste: a heading line, the paragraph naming this antibody and its dilution, and the DOI of the report it was published in. |
+| `amount` | This antibody's dilution or amount as the source writes it — `1/500`, `2 µg`, `2 µg/ml` — or `null`. |
+| `amount_basis` | Where `amount` came from: `report_named` (the report names this antibody with its value), `report_protocol` (the amount the report's protocol gives every antibody, as for most IPs), `report_general` (a general statement in the report), or `lab_record` (the lab's own record, where the report gives none or its value was found to be an error). |
+| `source` | The report DOI the paragraph cites. |
+| `conditions` | The run's conditions as the report states them — `lysis_buffer`, `blocking`, `secondary_antibody`, `microscope` and so on. The keys differ by application. |
+
+Three things to rely on:
+
+- **A key is present only where the result is supportive** and there is a
+  methods record — the website offers the paragraph only under a supportive
+  result. A result regraded to supportive gains its key on the next request.
+  An absent application tells you nothing about the antibody.
+- **Nothing is invented and nothing is a placeholder.** A condition the report
+  does not state is left out of `conditions` and out of `text`; there is no
+  "not recorded" to filter.
+- **The report is the source**, not the lab's session records, because a
+  published figure is the report's figure.
+- **One primary, one secondary.** Where a report lists several secondary
+  antibodies (anti-rabbit *and* anti-mouse), `text` names the one raised
+  against this antibody's host species, with its concentration where the report
+  gives one per species (2.5.0). `conditions` keeps the report's full list.
+
+The manifest carries the same paragraph per figure as **`oga_methods_text`**
+(2.5.0) — the last CSV column, empty where the result is not supportive — so a
+spreadsheet of downloaded figures holds the methods for each one. The portal's
+*Download ticked* zip writes it into its `manifest.csv` as `methods`.
 
 ### The cursor — the one thing on this API with a side effect
 
@@ -1328,6 +1380,31 @@ until something actually changes.
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
 
+### 2.5.0 — 1 October 2026
+
+**Added: `oga_methods_text`** on every `/manifest/` row and as the last column
+of its CSV (and the bulk archive's `manifest.csv`): the *Copy methods*
+paragraph for that figure, the same text as `oga_methods[application].text`.
+Empty where the result is not supportive. `manifest_version` is now 6, so a
+client holding an ETag is told once.
+
+**Changed: the paragraph names one secondary.** Where a report lists several
+secondary antibodies, `oga_methods.text` and `oga_methods_text` name the one
+raised against the primary's host species, and figure references and the
+extraction's own notes ("as printed", "per Table 3") are no longer printed. The
+field is the same text, written better; nothing to change in a client.
+
+### 2.4.0 — 30 September 2026
+
+**Added: `oga_methods`** on `/antibodies/` and `/gene-detail/`, keyed by
+application: how each supportive published figure was made, read from the
+report that published it — `text` (the paragraph the website's *Copy methods*
+button copies), `amount` and `amount_basis` (this antibody's dilution or
+amount, and where it came from), `source` (the DOI) and `conditions`. See §6.
+Present only where the result is supportive and there is a methods record.
+
+Additive; nothing existing moved.
+
 ### 2.3.0 — 29 September 2026
 
 **Changed: `?application=` on `/antibodies/` refuses a value it does not
@@ -1363,7 +1440,7 @@ client is a request with an `?application=` value that was never valid.
 ### 2.2.0 — 26 September 2026
 
 **Added: IHC, a fifth application.** Immunohistochemistry, and the result is
-on **FFPE HAP1 cell pellets** — wild-type, knockout and mosaic pellets side by
+on **FFPE cell pellets** — wild-type, knockout and mosaic pellets side by
 side — **not on tissue**. How an antibody performs on a tissue section is a
 further question these pellets do not answer. It is judged by eye on the same
 scale as immunofluorescence (selective / strongly selective, or not), and it

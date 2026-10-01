@@ -11,6 +11,7 @@ Scoping doc §5.1 / Vision doc Phase 1 / Nature Protocols Fig. 3-4:
 
 import logging
 from pipeline.models import DepMapExpression
+from pipeline.services import gene_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -74,23 +75,20 @@ def get_expression(gene_name: str) -> dict:
         result['error'] = 'No gene name provided'
         return result
 
+    # Exact spellings, never ``iexact`` (a full scan — see
+    # ``gene_symbol.spellings``) and never a substring: the ``icontains``
+    # fallback that sat here answered "CD" with 11,424 rows from every CD
+    # gene at once, drawn as that gene's expression.
+    spellings = gene_symbol.spellings(gene_name)
     gene_name = gene_name.strip().upper()
 
     try:
         # Get all cached expression data for this gene
         expressions = (
             DepMapExpression.objects.using(DB)
-            .filter(gene_name__iexact=gene_name)
+            .filter(gene_name__in=spellings)
             .order_by('-tpm_log2')
         )
-
-        if not expressions.exists():
-            # Try without exact match — maybe gene name format differs
-            expressions = (
-                DepMapExpression.objects.using(DB)
-                .filter(gene_name__icontains=gene_name)
-                .order_by('-tpm_log2')
-            )
 
         if not expressions.exists():
             result['error'] = (
@@ -172,11 +170,10 @@ def get_expressing_lines(gene_name: str, min_tpm: float = EXPRESSION_THRESHOLD) 
 
     Returns list of {name, tpm, depmap_id} sorted by expression descending.
     """
-    gene_name = gene_name.strip().upper()
-
     expressions = (
         DepMapExpression.objects.using(DB)
-        .filter(gene_name__iexact=gene_name, tpm_log2__gte=min_tpm)
+        .filter(gene_name__in=gene_symbol.spellings(gene_name),
+                tpm_log2__gte=min_tpm)
         .order_by('-tpm_log2')
     )
 

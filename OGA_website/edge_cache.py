@@ -8,21 +8,20 @@ TMEFF2 went public, the gene page appeared, the home page counts did not move).
 
 So releasing and withdrawing purge. Three decisions:
 
-* **Every page, not a list of URLs — and not the files a release cannot
-  change.** A release changes the gene page, the home page's three counts, the
-  gene index, the sitemap, the extension index and the API — and a list someone
-  keeps is the list that misses the next page to start showing a count.
-  Purge-by-URL also misses ``www.``, which is a served hostname. So every reply
-  carries a ``Cache-Tag`` (``cache_headers.RELEASE_TAG``) *except* the few in
-  ``cache_headers.KEPT_ACROSS_RELEASES``, and this purges the tag: a list of
-  what to keep fails safe, where a list of what to purge does not. Until
-  29 Sep 2026 it purged the whole zone, which also emptied every Cloudflare
-  location of the static images and the extension's 741 KB citation snapshot,
-  each then re-fetched from the origin — and origin bytes are Render's
-  bandwidth bill. Tag purges are on the free plan (5 a minute). **A page
-  stored before its reply carried the tag is not reached by one**, which is why
-  the deploy that brought the tag in has to purge everything, as every deploy
-  does.
+* **Every page, not a list of URLs.** A release changes the gene page, the
+  home page's three counts, the gene index, the sitemap, the extension index
+  and the API — and a list someone keeps is the list that misses the next page
+  to start showing a count. Purge-by-URL also misses ``www.``, which is a
+  served hostname. So this purges everything, as a deploy does.
+  **It is not a tag purge, and was for one day** (29–30 Sep 2026): every reply
+  carried ``Cache-Tag`` and a release purged the tag, to keep the static files
+  and the citation snapshot at the edge. Cloudflare answered every tag purge
+  ``success`` and dropped nothing — a page stored a minute earlier survived
+  one, measured — so two releases (DDX1, CLCN3) left the home page counting
+  the day before, with the receipt saying the cache had been cleared. Our
+  zone reaches the origin through Render's, which is where the header most
+  likely goes. The bandwidth it saved is pennies; the pages it left stale are
+  the whole point of this module.
 * **After the write has committed, never inside it.** A purge that runs before
   the commit lets the edge refill with the old page for a week — the same trap
   as purging during a deploy — and an outbound call inside a transaction is
@@ -44,8 +43,6 @@ import os
 import sys
 import urllib.error
 import urllib.request
-
-from OGA_website.cache_headers import RELEASE_TAG
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +124,7 @@ def purge_public_pages() -> tuple[bool, str]:
         return False, NOT_DONE
     req = urllib.request.Request(
         f"https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache",
-        data=json.dumps({"tags": [RELEASE_TAG]}).encode(),
+        data=json.dumps({"purge_everything": True}).encode(),
         method="POST",
         headers={"Authorization": f"Bearer {token}",
                  "Content-Type": "application/json"})

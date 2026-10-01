@@ -585,10 +585,12 @@ EMAIL_HOST_USER = 'onlygoodantibodies@gmail.com'
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
 # Copied on every manufacturer results email (`manage.py supplier_mailing`):
-# the owner and Carl Laflamme (29 Sep 2026). Comma-separated override in the
-# environment, so a change of person is not a deploy.
+# the owner and Chetan Raina of YCharOS, who replaced Carl Laflamme on 30 Sep
+# 2026 when Carl left McGill.
+# Comma-separated override in the environment, so a change of person is not a
+# deploy — it is set on both OGA_website and academy-db-backup.
 SUPPLIER_MAILING_CC = [a.strip() for a in os.environ.get(
-    'SUPPLIER_MAILING_CC', 'hsv6@leicester.ac.uk,carl.laflamme@mcgill.ca',
+    'SUPPLIER_MAILING_CC', 'hsv6@leicester.ac.uk,chetan.raina@ycharos.com',
 ).split(',') if a.strip()]
 
 ####################

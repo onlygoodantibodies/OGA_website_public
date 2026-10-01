@@ -24,6 +24,13 @@
 
   <main class="container py-5">
     <h1 class="text-center lesson-title">{{ lesson.title }}</h1>
+    {% if not lesson.is_published %}
+      <div class="alert alert-warning text-center my-3" role="status">
+        <strong>Not published.</strong> Learners cannot see this module yet — only
+        pipeline members can open it. Publish it from the
+        <a href="{% url 'pipeline:academy_module_edit' lesson.pk %}">module editor</a>.
+      </div>
+    {% endif %}
 
     {% if progress is not none %}
       <div class="progress my-4" style="height:6px;">
@@ -105,29 +112,39 @@
       return document.querySelector('meta[name="csrf-token"]').content;
     }
 
+    {% comment %}
+    A section counts as read when it is shown. The first one is shown
+    already when the page loads, and Bootstrap fires no 'shown' event for a
+    panel that starts open, so it was never counted: a learner reached 100%
+    only by closing and reopening it. So every panel that is open on load is
+    counted then, and the rest when they are opened.
+    {% endcomment %}
+    function markViewed(el) {
+      const sectionId = el.closest('.accordion-item').dataset.sectionId;
+      fetch("{% url 'academy:mark_section' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCSRFToken()
+        },
+        body: new URLSearchParams({ section_id: sectionId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const bar = document.querySelector('.progress-bar');
+        if (!bar) { return; }
+        bar.style.width = data.progress + '%';
+        bar.setAttribute('aria-valuenow', data.progress);
+        document.querySelector('.progress + p')
+                .textContent = data.progress + '% complete';
+      })
+      .catch(console.error);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('#lessonAccordion .accordion-collapse').forEach(el => {
-        el.addEventListener('shown.bs.collapse', () => {
-          const sectionId = el.closest('.accordion-item').dataset.sectionId;
-
-          fetch("{% url 'academy:mark_section' %}", {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-CSRFToken': getCSRFToken()
-            },
-            body: new URLSearchParams({ section_id: sectionId })
-          })
-          .then(res => res.json())
-          .then(data => {
-            const bar = document.querySelector('.progress-bar');
-            bar.style.width = data.progress + '%';
-            bar.setAttribute('aria-valuenow', data.progress);
-            document.querySelector('.progress + p')
-                    .textContent = data.progress + '% complete';
-          })
-          .catch(console.error);
-        });
+        el.addEventListener('shown.bs.collapse', () => markViewed(el));
+        if (el.classList.contains('show')) { markViewed(el); }
       });
     });
   </script>

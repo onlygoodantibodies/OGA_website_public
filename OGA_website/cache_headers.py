@@ -96,35 +96,16 @@ NEVER_CACHED_PREFIXES = (
     '/admin-tools/',
     '/api/',
     '/portal/',
+    # The three public forms (30 Sep 2026). A form page carries a CSRF token
+    # matched against a cookie, and Cloudflare strips `Set-Cookie` from what it
+    # stores — so a cached copy handed every visitor a form that could only
+    # fail ("CSRF cookie not set"). Found when a manufacturer could not request
+    # his portal key; contact and gene nomination had been refusing everybody
+    # since the 7-day rule (18 Sep). The Cloudflare rule excludes these by hand.
+    '/contact/',
+    '/nominate/',
+    '/data-access/key/',
 )
-
-
-# What a release changes, as Cloudflare sees it. Every reply is tagged with
-# this except the few below, and releasing or withdrawing a figure purges the
-# tag (`edge_cache.purge_public_pages`) rather than the whole zone.
-RELEASE_TAG = 'oga-release'
-
-# The replies a release never changes, and the only ones kept at the edge
-# through it. **A list of what to keep, never of what to purge**, so it fails
-# safe: a page nobody thought of is tagged and purged, where a list of pages
-# to purge is the list that misses the next page to start showing a count.
-# These are what made purging everything expensive (29 Sep 2026): the hashed
-# static files, whose name changes when their bytes do, and the extension's
-# 741 KB citation snapshot, which changes only when the CiteAb snapshot is
-# rebuilt — both re-fetched from the origin by every Cloudflare location after
-# each release. A deploy still purges everything (`bin/cloudflare_purge.py`).
-KEPT_ACROSS_RELEASES = (
-    '/static/',
-    '/extension/citations.json',
-    '/extension/firefox.xpi',
-)
-
-
-def _tag_for_release_purge(request, response):
-    """Mark a reply as one a release may change. Cloudflare strips the header
-    before it reaches a visitor."""
-    if not request.path.startswith(KEPT_ACROSS_RELEASES):
-        response['Cache-Tag'] = RELEASE_TAG
 
 
 def _may_be_cached(request, response):
@@ -158,7 +139,6 @@ class PublicCacheHeadersMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        _tag_for_release_purge(request, response)
         if _may_be_cached(request, response):
             response['Cache-Control'] = (
                 f'public, max-age={MAX_AGE}, s-maxage={SHARED_MAX_AGE}')

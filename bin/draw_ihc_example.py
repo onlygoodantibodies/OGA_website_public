@@ -1,13 +1,16 @@
 """Draw core/static/core/IHC-ideal.png, the IHC cell of the gene page's
-Example row (26 Sep 2026).
+Example row.
 
-Laid out as IF-Ideal.png is, so the two read alike: WT and KO shown together
-on the left (there a cell mosaic, here the two pellet cores on one slide), one
-wild-type and one knockout cell under a rule on the right, and the caption
-underneath. 500x500, thick black outlines, flat colour; brown is DAB, blue is
-the haematoxylin counterstain. Run: python3 bin/draw_ihc_example.py
+The successful-antibody column of the IHC panel on Using the Data
+(core/static/core/Edu-table.png), so the two pages draw one picture: cell
+pellets stacked WT / KO / mosaic, as the real crops are, with the caption
+underneath as the other examples have it. Brown is DAB, blue the haematoxylin
+counterstain; in the mosaic, stained and unstained cells share one field.
+500x500, fixed seeds so a re-run draws the same image.
+Run: python3 bin/draw_ihc_example.py
 """
 import math
+import random
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -18,9 +21,10 @@ d = ImageDraw.Draw(im)
 # Liberation Sans: metric-compatible with the Arial the other examples use.
 FONT = ImageFont.truetype(
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20 * S)
-BLACK = (20, 20, 20)
-DAB, DAB_CELL = (135, 65, 25), (196, 128, 78)
-HAEM, PALE = (80, 105, 190), (236, 238, 246)
+BLACK = (35, 31, 32)
+BROWN = [(120, 72, 30), (140, 88, 40), (158, 104, 52)]
+PALE = [(214, 214, 232), (200, 204, 226), (224, 222, 238)]
+NUC = [(52, 58, 128), (66, 74, 146), (82, 86, 156)]
 
 
 def text(x, y, s):
@@ -28,45 +32,41 @@ def text(x, y, s):
                      align="center", spacing=2 * S)
 
 
-def circle(cx, cy, r, fill, width):
-    d.ellipse([(cx - r) * S, (cy - r) * S, (cx + r) * S, (cy + r) * S],
-              fill=fill, outline=BLACK, width=width * S)
+def pellet(cx, cy, r, stained, seed, n=40):
+    """A pellet core: packed round cells, each brown (stained) or pale, with a
+    blue nucleus. `stained(rnd)` decides each cell."""
+    rnd = random.Random(seed)
+    cx, cy, r = cx * S, cy * S, r * S
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(246, 243, 238),
+              outline=BLACK, width=3 * S)
+    cells, tries = [], 0
+    while len(cells) < n and tries < 6000:
+        tries += 1
+        cr = rnd.uniform(8.5, 10.5) * S
+        ang = rnd.uniform(0, 2 * math.pi)
+        dist = math.sqrt(rnd.random()) * (r - cr - 4 * S)
+        x, y = cx + dist * math.cos(ang), cy + dist * math.sin(ang)
+        if all(math.hypot(x - a, y - b) > (cr + c) * 0.85 for a, b, c in cells):
+            cells.append((x, y, cr))
+    for x, y, cr in cells:
+        on = stained(rnd)
+        ex, ey = cr * rnd.uniform(0.9, 1.1), cr * rnd.uniform(0.9, 1.1)
+        d.ellipse([x - ex, y - ey, x + ex, y + ey],
+                  fill=rnd.choice(BROWN if on else PALE),
+                  outline=(90, 60, 40) if on else (160, 164, 196), width=S)
+        nr = cr * rnd.uniform(0.40, 0.5)
+        nx, ny = x + rnd.uniform(-2, 2) * S, y + rnd.uniform(-2, 2) * S
+        d.ellipse([nx - nr, ny - nr, nx + nr, ny + nr], fill=rnd.choice(NUC))
 
 
-def cell(cx, cy, r, fill, nucleus):
-    """An irregular cell, thick outline, dark nucleus."""
-    pts = []
-    for i in range(12):
-        a = i * math.pi * 2 / 12
-        rr = r * (0.82 + 0.26 * ((i * 5) % 4) / 3)
-        pts.append(((cx + rr * math.cos(a)) * S, (cy + rr * math.sin(a)) * S))
-    d.polygon(pts, fill=fill, outline=BLACK, width=6 * S)
-    circle(cx - 3, cy + 2, r * 0.36, nucleus, 3)
+rows = [("WT", 82, lambda r: True),
+        ("KO", 210, lambda r: False),
+        ("Mosaic", 338, lambda r: r.random() < 0.5)]
+for i, (label, cy, stained) in enumerate(rows):
+    text(150, cy, label)
+    pellet(285, cy, 60, stained, seed=i)
 
-
-def core(cx, cy, r, colour):
-    circle(cx, cy, r, "white", 6)
-    for i in range(70):                 # sunflower scatter: even, no stripes
-        rr = (r - 9) * math.sqrt((i + 0.5) / 70)
-        a = i * 2.39996
-        x, y = cx + rr * math.cos(a), cy + rr * math.sin(a)
-        d.ellipse([(x - 3.2) * S, (y - 3.2) * S, (x + 3.2) * S, (y + 3.2) * S],
-                  fill=colour)
-
-
-# Left: the WT and KO pellet cores, side by side on one slide.
-text(125, 78, "WT/KO\npellet cores")
-core(82, 190, 40, DAB)
-core(168, 190, 40, HAEM)
-
-# Right: one wild-type and one knockout cell, as IF-Ideal.png draws them.
-d.line([268 * S, 64 * S, 400 * S, 64 * S], fill=BLACK, width=2 * S)
-text(298, 92, "WT")
-text(370, 92, "KO")
-cell(298, 190, 34, DAB_CELL, DAB)
-cell(370, 190, 34, PALE, HAEM)
-
-text(335, 440, "Target protein\ndetected\n(brown staining)")
+text(285, 445, "Target protein\ndetected in WT, not KO\n(brown staining)")
 
 im = im.resize((500, 500), Image.LANCZOS)
 im.save(Path(__file__).resolve().parent.parent / "core/static/core/IHC-ideal.png",

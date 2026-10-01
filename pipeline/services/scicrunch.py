@@ -458,6 +458,76 @@ def match_registry(catalogue: str, company: str, gene: str, records: list,
                               f"vendor/gene (ours vendor={company!r}, registry says {said!r})")
 
 
+#: Cell Signaling Technology prints a pack size after the product number —
+#: `71031S` is product 71031 in its 100 µl size, `T` the trial size — and the
+#: Antibody Registry files the product, bare. On 1 Oct 2026 the 198 CST
+#: antibodies on file with an RRID were all written bare, and 13 of the 16 with
+#: none carried the `S`, so an exact lookup of the spelling on the tube found
+#: nothing for exactly the rows that needed it. Only a single size letter: `BF`
+#: (BSA-free) is a different formulation with an RRID of its own.
+_CST_PACK_SIZE_RE = re.compile(r"^(\d+)([ST])$", re.IGNORECASE)
+
+
+def catalogue_variants(catalogue: str, company: str) -> list:
+    """The catalogue as written, then any other spelling the registry may file
+    the same product under. Only CST has one: the pack size stripped, or — for a
+    bare number, which other suppliers reuse — the `S` size added. A variant is
+    only ever *looked up*; the match is still gated on gene and vendor by
+    ``match_registry``, and nothing here changes what we store."""
+    cat = (catalogue or "").strip()
+    if not cat:
+        return []
+    out = [cat]
+    if "cell signaling" in (company or "").lower():
+        m = _CST_PACK_SIZE_RE.match(cat)
+        if m:
+            out.append(m.group(1))
+        elif cat.isdigit():
+            out.append(cat + "S")
+    return out
+
+
+def lookup_and_match(catalogue: str, company: str, gene: str, aliases=(),
+                     lookup=None) -> dict:
+    """Look the antibody up under each of ``catalogue_variants`` and match it.
+
+    The first HIGH wins. Otherwise the answer is the first variant that found a
+    record (its REVIEW note names what the registry said), else NOMATCH. A
+    variant is tried only while nothing has matched, so a supplier with no
+    variants costs exactly the one call it always did.
+
+    Returns {status, rrid, url, note, reg, catalogue}: ``reg`` is the first
+    lookup's raw result, so a caller can tell an outage (``error`` naming the
+    API) from a catalogue the registry does not hold; ``catalogue`` is the
+    spelling that produced the answer.
+    """
+    lookup = lookup or lookup_by_catalogue
+    variants = catalogue_variants(catalogue, company)
+    answer = {"status": "nomatch", "rrid": "", "url": "", "note": "", "reg": None,
+              "catalogue": variants[0] if variants else ""}
+    found_any = False
+    for i, cat in enumerate(variants):
+        reg = lookup(cat)
+        if answer["reg"] is None:
+            answer["reg"] = reg
+        if not reg.get("records"):
+            err = reg.get("error") or ""
+            if i == 0 and ("unavailable" in err or "not set" in err):
+                return answer        # the registry is down; a variant would be too
+            continue
+        status, rrid, url, note = match_registry(cat, company, gene, reg["records"],
+                                                 aliases=aliases)
+        if status == "high":
+            if i:
+                note = f"{note}; registry files it as {cat!r}"
+            return dict(answer, status=status, rrid=rrid, url=url, note=note,
+                        catalogue=cat)
+        if not found_any and status != "nomatch":
+            found_any = True
+            answer.update(status=status, rrid="", url=url, note=note, catalogue=cat)
+    return answer
+
+
 def resolve_rrid(catalogue: str, company: str, gene: str, aliases=()):
     """Best-effort HIGH-confidence RRID for one antibody. Returns
     (rrid_or_None, url, note). Never raises — network/parse failures return
@@ -466,11 +536,12 @@ def resolve_rrid(catalogue: str, company: str, gene: str, aliases=()):
     if not catalogue:
         return (None, "", "no catalogue")
     try:
-        reg = lookup_by_catalogue(catalogue)
+        found = lookup_and_match(catalogue, company, gene, aliases=aliases)
     except Exception as e:
         return (None, "", f"lookup failed: {e}")
-    if not reg.get("records"):
+    if found["status"] == "high":
+        return (found["rrid"], found["url"], found["note"])
+    if found["status"] == "nomatch":
+        reg = found["reg"] or {}
         return (None, "", reg.get("error") or "no registry record")
-    status, rrid, url, note = match_registry(catalogue, company, gene,
-                                             reg["records"], aliases=aliases)
-    return (rrid, url, note) if status == "high" else (None, url, note or status)
+    return (None, found["url"], found["note"] or found["status"])

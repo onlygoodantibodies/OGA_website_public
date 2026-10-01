@@ -116,12 +116,17 @@
                                 a query string on a static page would only make
                                 the link look filtered.{% endcomment %}
                                 <a href="{% url 'pipeline:walkthrough' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">How it all works</a>
+                                {% comment %}The Academy's modules, which members
+                                now edit here rather than in Django admin. No
+                                `?gene=`: a module is not about a gene.{% endcomment %}
+                                <a href="{% url 'pipeline:academy_modules' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Academy modules</a>
                                 {% if user.is_superuser or nav_extension_preview %}
                                 <hr class="border-gray-100 my-1">
                                 {% endif %}
                                 {% if user.is_superuser %}
                                 <a href="{% url 'pipeline:user_board' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">People &amp; access</a>
                                 <a href="{% url 'pipeline:impact' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Impact</a>
+                                <a href="{% url 'pipeline:manufacturer_emails' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">Manufacturer emails</a>
                                 {% endif %}
                                 {% if nav_extension_preview %}
                                 <a href="{% url 'extension' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-ycharos-50">
@@ -239,9 +244,11 @@
                 <a href="{% url 'pipeline:feasibility' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Add a gene</a>
                 <a href="{% url 'pipeline:gene_requests' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Gene requests</a>
                 <a href="{% url 'pipeline:walkthrough' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">How it all works</a>
+                <a href="{% url 'pipeline:academy_modules' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Academy modules</a>
                 {% if user.is_superuser %}
                 <a href="{% url 'pipeline:user_board' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">People &amp; access</a>
                 <a href="{% url 'pipeline:impact' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Impact</a>
+                <a href="{% url 'pipeline:manufacturer_emails' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Manufacturer emails</a>
                 {% endif %}
                 {% if nav_extension_preview %}
                 <a href="{% url 'extension' %}" class="text-gray-200 hover:text-white block px-3 py-2 rounded-md text-base font-medium">

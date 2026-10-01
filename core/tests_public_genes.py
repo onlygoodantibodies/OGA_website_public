@@ -292,6 +292,14 @@ class OneColourPerCellTests(TestCase):
         self.assertIn("Supportive — strongly selective", body)
         self.assertIn("Supportive — detects the target, but is not selective", body)
 
+    def test_a_blank_rrid_or_host_says_so_rather_than_printing_none(self):
+        """189 antibodies have no RRID (1 Oct 2026), 45 of them published; the
+        page printed Python's ``None`` beside the label (MAPT ZMS3420)."""
+        body = self._body()
+        self.assertNotIn("RRID: None", body)
+        self.assertNotIn("Host: None", body)
+        self.assertIn("RRID: not recorded", body)
+
     def test_the_amber_cell_carries_the_qualifier_as_its_colour_not_a_tab(self):
         """A tab as well would say one thing twice — and yellow-on-red is the
         pair that could not be told apart in the first place."""

@@ -65,6 +65,7 @@ from pipeline.public import (control_word, is_verdict_application,
 # Clonality from the enum and `is_recombinant` together — see
 # pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
+from pipeline.services import methods_text
 
 from . import recommendations as R
 from .recommendations import (SCOPE_NOTE, curated_gene_ids,
@@ -403,7 +404,7 @@ def _get_report_link(target):
 # ─────────────────────────────────────────────────────────
 
 def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
-                        axes=None):
+                        axes=None, methods=None):
     """
     Build the JSON representation of a pipeline antibody.
 
@@ -534,6 +535,15 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
         # three controlled values goes on working and one that wants the site's
         # own language and colours reads this instead of reinventing them.
         'oga_display': {},
+        # How each published figure was made, keyed by application like the
+        # four keys above (API 2.4.0, 30 Sep 2026): the run's conditions as the
+        # report states them, this antibody's own dilution or amount, and the
+        # paragraph the website's "Copy methods" button copies. Only for an
+        # application whose result is SUPPORTIVE and has a methods record —
+        # the button is not offered under a negative, and a key appears the
+        # day a result is regraded upwards. `services/methods_text.py` is the one writer, so the API,
+        # the gene page and the portal cannot copy different text.
+        'oga_methods': {},
         'experiments': experiments,
         'embed_urls': None,
     }
@@ -574,6 +584,21 @@ def _serialise_antibody(antibody, gene_rec_status, include_recs=True,
         result['oga_display'] = {
             app: {key: value for key, value in d.items() if key != 'verdict'}
             for app, d in described.items()}
+
+    # `methods` is resolved in bulk by the feeds, like `axes`; a caller
+    # serialising one antibody may omit it and pay four queries.
+    if methods is None:
+        methods = methods_text.for_antibodies([antibody])
+    result['oga_methods'] = {
+        app: {
+            'text': m['text'],
+            'amount': m['amount'],
+            'amount_basis': m['basis'],
+            'source': m['source'],
+            'conditions': m['conditions'],
+        }
+        for app, m in (methods.get(antibody.pk) or {}).items()
+    }
 
     # Embed card URLs
     if antibody.rrid:
@@ -733,9 +758,13 @@ def antibodies_feed(request):
     # Same reason, one level down: the capability behind each negative, for the
     # whole page at once.
     feed_axes = capability_axes([ab.pk for ab in rows])
+    # And the methods behind each figure, in four queries for the page.
+    feed_methods = methods_text.for_antibodies(rows, axes=feed_axes,
+                                                curated=curated)
 
     results = [
-        _serialise_antibody(ab, ab.target_id in curated, axes=feed_axes)
+        _serialise_antibody(ab, ab.target_id in curated, axes=feed_axes,
+                            methods=feed_methods)
         for ab in rows
     ]
 
@@ -1004,8 +1033,11 @@ def gene_detail(request):
     results = []
     supplier_summary = {}
 
-    for ab in qs:
-        serialised = _serialise_antibody(ab, target_rec_status)
+    rows = list(qs)
+    detail_methods = methods_text.for_antibodies(rows)
+    for ab in rows:
+        serialised = _serialise_antibody(ab, target_rec_status,
+                                         methods=detail_methods)
         results.append(serialised)
 
         supplier = serialised['metadata'].get('supplier') or 'Unknown'

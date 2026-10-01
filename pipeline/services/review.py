@@ -1006,9 +1006,13 @@ def set_recommended(rows, value: bool, *, actor: str = "") -> int:
         return 0
     value = bool(value)
     changed = [r for r in rows if bool(r.recommended) != value]
+    from pipeline.services import judgement_log
     for item in changed:
         item.recommended = value
         item.save(using=DB, update_fields=["recommended", "updated_at"])
+        judgement_log.log(item.antibody_id, item.application_type,
+                          "recommended", judgement_log.yes_no(not value),
+                          judgement_log.yes_no(value), queued=True, actor=actor)
     return len(changed)
 
 

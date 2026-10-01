@@ -602,7 +602,7 @@ def reading_notes(figures) -> list[str]:
             "a claim that is the supplier's, not OGA's result.")
     if any(s.get("tissue") for s in samples):
         notes.append(
-            "Tissue panels carry no OGA rating: OGA's result is for the HAP1 "
+            "Tissue panels carry no OGA rating: OGA's result is for the cell "
             "pellets only. An antibody missing from a tissue figure is absent "
             "from that figure, not a failed result.")
     notes.append(

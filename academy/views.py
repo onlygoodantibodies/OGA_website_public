@@ -1,5 +1,5 @@
 from django.shortcuts                     import render, get_object_or_404, redirect
-from django.http                          import HttpResponse
+from django.http                          import HttpResponse, Http404
 from django.contrib.auth.decorators      import login_required
 from django.contrib.auth.forms           import UserCreationForm
 from django.contrib.auth                 import authenticate, login, logout as auth_logout
@@ -53,8 +53,11 @@ def home(request):
     to this template and read by none of it, left over from the retired AI
     tutor. ``assistant_page`` computes its own; nothing else wanted these.
     """
+    # A module still being written is kept off the list (``is_published``);
+    # its editors reach it from the pipeline's editor instead.
     lessons = list(
         Lesson.objects
+        .filter(is_published=True)
         .annotate(section_total=Count('sections', distinct=True))
         .order_by('order')
     )
@@ -114,10 +117,19 @@ from django.shortcuts               import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from .models                        import Lesson, LessonProgress, LessonSection, SectionProgress
 
+def _refuse_unpublished(request, lesson):
+    """An unpublished module is a draft: its editors (pipeline members) may open
+    it to see what learners will see, and to everyone else it does not exist."""
+    from pipeline.decorators import is_pipeline_member
+    if not lesson.is_published and not is_pipeline_member(request):
+        raise Http404('No such module')
+
+
 @login_required
 def lesson_detail(request, lesson_id):
     # 1) Fetch lesson & its sections
     lesson   = get_object_or_404(Lesson, pk=lesson_id)
+    _refuse_unpublished(request, lesson)
     sections = lesson.sections.all()
 
     # 2) Ensure we have a LessonProgress record (visited but not necessarily completed)
@@ -147,6 +159,7 @@ def lesson_detail(request, lesson_id):
 def quiz_view(request, quiz_id):
     quiz      = get_object_or_404(Quiz, id=quiz_id)
     lesson    = quiz.lesson
+    _refuse_unpublished(request, lesson)
     questions = quiz.question_set.all()
 
     if request.method == 'POST':
@@ -167,6 +180,9 @@ def quiz_view(request, quiz_id):
             cert = Certificate.objects.create(
                 user=request.user,
                 lesson=lesson,
+                # The title it was earned under, so a later rename of the
+                # module does not rewrite this certificate.
+                lesson_title=lesson.title,
                 score=round(score, 1),
             )
 
@@ -277,7 +293,7 @@ def generate_pdf(request, cert_id):
     c.setFont("Helvetica", 12)
     c.drawCentredString(width/2, height - margin - (3.2*inch), "has successfully completed the module")
     c.setFont("Helvetica-BoldOblique", 16)
-    c.drawCentredString(width/2, height - margin - (3.8*inch), cert.lesson.title)
+    c.drawCentredString(width/2, height - margin - (3.8*inch), cert.module_title)
 
     # Score and date
     c.setFont("Helvetica", 12)

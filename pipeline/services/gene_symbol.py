@@ -60,6 +60,24 @@ def canonical(symbol) -> str:
     return upper
 
 
+def spellings(symbol) -> list:
+    """The exact spellings to look a typed symbol up by, for an indexed match.
+
+    ``gene_name__iexact`` is ``UPPER(gene_name) = UPPER(%s)`` on PostgreSQL,
+    which no plain index serves, so on the 461,160-row DepMap table every
+    lookup was a sequential scan — 1.9 s each on the live database, run on
+    every pause in a stranger's typing on the public selection tool, until
+    all four threads were parked on it and the site answered 502
+    (30 Sep 2026). The reference tables store the HGNC spelling (uppercase,
+    ``orf`` lowercase, no two rows differing by case only — checked live), so
+    ``gene_name__in=spellings(x)`` finds what ``iexact`` found, on the index.
+    """
+    text = (symbol or "").strip()
+    if not text:
+        return []
+    return list(dict.fromkeys([canonical(text), text, text.upper()]))
+
+
 def is_canonical(symbol) -> bool:
     """True when a symbol is already spelled the way :func:`canonical` spells it."""
     text = (symbol or "").strip()

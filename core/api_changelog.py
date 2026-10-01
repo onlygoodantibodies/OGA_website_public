@@ -26,6 +26,48 @@ from __future__ import annotations
 
 CHANGELOG = [
     {
+        "version": "2.5.0",
+        "date": "2026-10-01",
+        "summary": "The manifest carries the methods paragraph for each "
+                   "supportive figure, and the paragraph names only the "
+                   "secondary antibody matching the primary's host.",
+        "changes": [
+            {"kind": "added", "where": "/manifest/ (JSON and CSV), bulk archive manifest.csv",
+             "what": "oga_methods_text: the Copy methods paragraph for that "
+                     "figure, the same text as oga_methods[application].text. "
+                     "Empty where the result is not supportive; the last CSV "
+                     "column, so positional readers keep their indices. "
+                     "manifest_version is 6, so a held ETag is told once."},
+            {"kind": "changed", "where": "oga_methods.text, oga_methods_text",
+             "what": "Where a report lists several secondary antibodies, the "
+                     "paragraph names the one raised against the primary's "
+                     "host species (and its concentration, where the report "
+                     "gives one per species); figure references and the "
+                     "extraction's notes are no longer printed.",
+             "action": "None: the field is the same text, written better."},
+        ],
+    },
+    {
+        "version": "2.4.0",
+        "date": "2026-09-30",
+        "summary": "oga_methods: how each supportive published figure was "
+                   "made, per application, with the paragraph the website's "
+                   "Copy methods button copies.",
+        "changes": [
+            {"kind": "added", "where": "/antibodies/, /gene-detail/",
+             "what": "oga_methods, keyed by application like oga_support: "
+                     "text (the methods paragraph, citing the report DOI), "
+                     "amount (this antibody's dilution or amount), "
+                     "amount_basis (report_named, report_protocol, "
+                     "report_general or lab_record), source (the DOI) and "
+                     "conditions (the run's conditions as the report states "
+                     "them). Present only where the result is supportive and "
+                     "there is a methods record, so a key appears when a "
+                     "result is regraded to supportive. An absent key says "
+                     "nothing about the antibody."},
+        ],
+    },
+    {
         "version": "2.3.0",
         "date": "2026-09-29",
         "summary": "?application= refuses a value it does not know, and accepts "
@@ -71,7 +113,7 @@ CHANGELOG = [
     {
         "version": "2.2.0",
         "date": "2026-09-26",
-        "summary": "IHC (on HAP1 cell pellets, not tissue) joins as a fifth "
+        "summary": "IHC (on cell pellets, not tissue) joins as a fifth "
                    "application.",
         "changes": [
             {"kind": "added", "where": "/antibodies/",

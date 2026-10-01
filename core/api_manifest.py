@@ -54,6 +54,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_safe
 
 from pipeline.models import PublicationImage
+from pipeline.services import methods_text
 
 from . import api_throttle, recommendations as R
 from .api_views import (
@@ -82,7 +83,10 @@ from .api_views import (
 # 5 since 26 Sep 2026 (API 2.2.0): the rows include IHC figures, with their
 # verdict. No column changed; the bump is how an ETag holder learns that the
 # scope did.
-MANIFEST_VERSION = 5
+#
+# 6 since 1 Oct 2026 (API 2.5.0): `oga_methods_text`, the Copy methods
+# paragraph, as the last column.
+MANIFEST_VERSION = 6
 
 # Default filename pattern, matching the portal's Settings panel default so a
 # consumer who set one there gets the same names from both routes.
@@ -232,6 +236,9 @@ def _fingerprint(qs, curated_ids):
     digest.update(('curated:' + ','.join(str(i) for i in sorted(curated_ids))
                    + '\n').encode())
     digest.update((f'outcomes:{R.outcome_stamp()}\n').encode())
+    # A methods record loaded or corrected changes `oga_methods_text` with no
+    # figure moving, so it breaks the ETag the way a verdict does.
+    digest.update((f'methods:{methods_text.stamp()}\n').encode())
     # Every recommendation flag, from the one list — an IHC verdict moves the
     # ETag like any other.
     rows = qs.values_list(
@@ -326,6 +333,11 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
     # scope at once; iterating the queryset would populate the same cache.
     images = list(qs)
     display = _display_map(images, curated_ids) if include_recommendations else {}
+    # The Copy methods paragraph, offered under a supportive result only — so
+    # it travels with the verdict and is withheld where the verdict is.
+    methods = (methods_text.for_antibodies({i.antibody for i in images},
+                                           curated=set(curated_ids))
+               if include_recommendations else {})
 
     rows = []
     seen_names = {}
@@ -382,6 +394,10 @@ def _rows(qs, consumer, curated_ids, include_recommendations, attach_images=Fals
             row['oga_support'] = support
             row['oga_display'] = words
             row['oga_qualifier'] = clause
+            # How the figure was made, as the button under it copies it
+            # (2.5.0); blank where there is no button.
+            row['oga_methods_text'] = (methods.get(image.antibody_id, {})
+                                       .get(image.application_type, {}).get('text', ''))
 
         filename = _filename(pattern, row, _extension_of(url))
         if filename in seen_names:
@@ -424,7 +440,7 @@ CSV_COLUMNS = [
     'application', 'application_display', 'oga_recommendation',
     'oga_display', 'oga_qualifier',
     'product_link', 'discontinued', 'gene_page_url', 'image_id', 'added_at',
-    'oga_support',
+    'oga_support', 'oga_methods_text',
 ]
 
 

@@ -1130,7 +1130,8 @@ class TheApiSaysWhatChangedTests(APIFeedTestCase):
         whole = self.client.get(url).json()
         self.assertEqual(whole['releases'][0]['version'], CURRENT)
         newer = self.client.get(url, {'since': '2.2.0'}).json()
-        self.assertEqual([r['version'] for r in newer['releases']], ['2.3.0'])
+        self.assertEqual([r['version'] for r in newer['releases']],
+                         ['2.5.0', '2.4.0', '2.3.0'])
         self.assertTrue(self.client.get(url, {'since': CURRENT}).json()['up_to_date'])
         self.assertEqual(self.client.get(url, {'since': 'latest'}).status_code, 400)
         # A version from the future is a typo, not "up to date" (field test,

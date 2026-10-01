@@ -32,6 +32,7 @@ from pipeline.models import (Antibody, ExperimentSession, GrantingAgency,
 from pipeline.services import board_page as board_page_svc
 from pipeline.services import doi as doi_svc
 from pipeline.services import find
+from pipeline.services import gene_symbol
 from pipeline.services import sites as site_svc
 from pipeline.services import targets as target_svc
 from pipeline.services.protein_class import gene_family
@@ -630,7 +631,8 @@ def nomination_check(gene: str) -> dict:
                 f"({stats['completed']} published) — they may be the right site "
                 f"to run this one.")
 
-    ko = list(HorizonKoLine.objects.using(DB).filter(gene_name__iexact=gene)
+    ko = list(HorizonKoLine.objects.using(DB).filter(
+        gene_name__in=gene_symbol.spellings(gene))
               .values("item_number", "product_name", "background")[:5])
     out["horizon_ko"] = ko
     if ko:

@@ -99,11 +99,16 @@ class TheRecommendationStampTests(TestCase):
 
     def test_the_stamp_costs_no_extra_query(self):
         """A snapshot taken as the row loads, not a re-read: this fires on every
-        antibody save in the app."""
+        antibody save in the app. A save that moves no flag is the save alone;
+        one that moves a flag also writes its history (`JudgementChange`) —
+        the gene's name and the row, two more, and only then."""
         ab = self._antibody()
         loaded = Antibody.objects.using(DB).get(pk=ab.pk)
-        loaded.wb_recommended = True
+        loaded.comments = "nothing judged"
         with self.assertNumQueries(1, using=DB):
+            loaded.save(using=DB, update_fields=["comments"])
+        loaded.wb_recommended = True
+        with self.assertNumQueries(3, using=DB):
             loaded.save(using=DB, update_fields=["wb_recommended"])
 
     def test_every_flag_is_watched(self):

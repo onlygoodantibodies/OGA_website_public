@@ -362,7 +362,15 @@ class SupplierMailing(models.Model):
 
     LAUNCH = 'launch'
     UPDATE = 'update'
-    KIND_CHOICES = [(LAUNCH, 'First summary'), (UPDATE, 'Update')]
+    #: The full summary sent again by hand to chosen people, from the pipeline's
+    #: Manufacturer emails page — somebody new, or somebody whose copy a filter
+    #: ate. Recorded so "who was sent what" stays whole, and **never** the
+    #: cursor: a resend is not news to the organisation, so it must not move the
+    #: week or what the next update counts as new (``CURSOR_KINDS``).
+    RESEND = 'resend'
+    KIND_CHOICES = [(LAUNCH, 'First summary'), (UPDATE, 'Update'),
+                    (RESEND, 'Summary resent')]
+    CURSOR_KINDS = (LAUNCH, UPDATE)
 
     consumer = models.ForeignKey(
         APIConsumer, on_delete=models.CASCADE, related_name='mailings')
@@ -384,6 +392,12 @@ class SupplierMailing(models.Model):
 
     def __str__(self):
         return f"{self.consumer.name} — {self.get_kind_display()} {self.sent_at:%d %b %Y}"
+
+    @classmethod
+    def cursor_for(cls, consumer):
+        """The last email the organisation's weekly updates are measured from."""
+        return (cls.objects.filter(consumer=consumer, kind__in=cls.CURSOR_KINDS)
+                .order_by('-sent_at').first())
 
 
 class KeyRequest(models.Model):

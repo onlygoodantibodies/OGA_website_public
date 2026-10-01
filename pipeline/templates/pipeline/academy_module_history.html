@@ -1,0 +1,34 @@
+{% extends "pipeline/base.html" %}
+{% block title %}History — {{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <a class="text-sm underline text-ycharos-700" href="{% url 'pipeline:academy_module_edit' lesson.pk %}">← Back to editing {{ lesson.title }}</a>
+  <h1 class="text-2xl font-bold text-gray-900 mt-2">History of this module</h1>
+  <p class="text-sm text-gray-600 mt-1 max-w-3xl">Every save from the editor, newest first. Open a version to read
+    it as it was; Restore puts it back as a new save, so restoring can itself be undone.
+    Changes made in Django admin are not listed until the next save here picks them up.</p>
+
+  <div class="mt-6 overflow-x-auto rounded border border-gray-200 bg-white">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
+        <tr><th class="px-4 py-3">Saved</th><th class="px-4 py-3">By</th><th class="px-4 py-3">What changed</th><th class="px-4 py-3"></th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for rev in revisions %}
+        <tr class="align-top">
+          <td class="px-4 py-3 whitespace-nowrap">{{ rev.saved_at|date:"j M Y, H:i" }}</td>
+          <td class="px-4 py-3">{{ rev.saved_by|default:"—" }}</td>
+          <td class="px-4 py-3 text-gray-700">{{ rev.note|default:"(no note)" }}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            <a class="underline text-ycharos-700" href="{% url 'pipeline:academy_module_version' lesson.pk rev.pk %}">{% if rev == current %}Current version{% else %}Open{% endif %}</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No saves yet. The first save keeps the module as it stands now as well, so it can be put back.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

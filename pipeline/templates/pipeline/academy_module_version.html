@@ -1,0 +1,39 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Version of {{ revision.saved_at|date:"j M Y H:i" }} — {{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <a class="text-sm underline text-ycharos-700" href="{% url 'pipeline:academy_module_history' lesson.pk %}">← History</a>
+  <h1 class="text-2xl font-bold text-gray-900 mt-2">{{ snap.title }}</h1>
+  <p class="text-sm text-gray-600 mt-1">Saved {{ revision.saved_at|date:"j M Y, H:i" }}{% if revision.saved_by %} by {{ revision.saved_by }}{% endif %}{% if revision.note %} — {{ revision.note }}{% endif %}.
+    {% if snap.is_published %}Published{% else %}Not published{% endif %}; {{ sections|length }} section{{ sections|length|pluralize }}{% if snap.quiz %}; {{ snap.quiz.questions|length }} quiz question{{ snap.quiz.questions|length|pluralize }}{% endif %}.</p>
+
+  {% if is_current %}
+    <p class="mt-4 rounded bg-green-50 border border-green-200 px-4 py-3 text-sm">This is the version learners see now.</p>
+  {% else %}
+  <form method="post" class="mt-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+    {% csrf_token %}
+    <p>Restoring saves this version over the current one — learners see it at once, and the current
+      version stays in History.
+      {% if impact.sections_removed %}It removes {{ impact.sections_removed }} section{{ impact.sections_removed|pluralize }} added since{% if impact.viewed_marks_removed %}, with {{ impact.viewed_marks_removed }} learner "opened" mark{{ impact.viewed_marks_removed|pluralize }}{% endif %}.{% endif %}
+      The module's {{ impact.certificates }} certificate{{ impact.certificates|pluralize }} {{ impact.certificates|pluralize:"is,are" }} not affected.</p>
+    <button class="mt-2 rounded bg-ycharos-600 px-4 py-2 text-white font-semibold hover:bg-ycharos-700">Restore this version</button>
+  </form>
+  {% endif %}
+
+  {% for s in sections %}
+  <section class="mt-6 rounded border border-gray-200 bg-white p-4">
+    <h2 class="font-semibold text-gray-900">{{ s.title|default:"(no heading)" }}</h2>
+    <div class="prose max-w-none text-sm mt-2">{{ s.body|safe }}</div>
+    {% if s.image_url %}<img src="{{ s.image_url }}" alt="" class="mt-2 max-w-full border border-gray-200">{% endif %}
+  </section>
+  {% endfor %}
+
+  {% if snap.quiz %}
+  <section class="mt-6 rounded border border-gray-200 bg-white p-4">
+    <h2 class="font-semibold text-gray-900">Quiz (pass mark {{ snap.quiz.pass_mark }}%)</h2>
+    <pre class="mt-2 whitespace-pre-wrap text-sm">{{ quiz_text }}</pre>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,200 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Manufacturer emails{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Manufacturer emails</h1>
+    <p class="text-sm text-gray-600 mt-2 max-w-3xl">
+      Who at each company is sent their Only Good Antibodies results. Everyone
+      listed here gets the weekly update (sent only when something is new, and
+      at most once a week), with {{ oga_cc|default:"OGA's own addresses" }} on Cc.
+      When somebody replies asking to add a colleague, add them below. When
+      somebody says they never got the summary, tick them under
+      <em>Resend the summary</em>: it sends the full summary with the
+      spreadsheet to the people you tick and nobody else, and does not change
+      when the company's next weekly update goes out.
+    </p>
+    <p class="text-xs text-gray-500 mt-2 max-w-3xl">
+      A company that is not listed here has no portal key yet; adding one is
+      done in Django admin (API Consumers) or with <code>manage.py supplier_contacts</code>.
+    </p>
+  </div>
+
+  <nav class="mb-6 flex flex-wrap gap-2 text-sm">
+    {% for o in organisations %}
+      <a href="#org-{{ o.consumer.pk }}" class="rounded border border-gray-200 bg-white px-2 py-1 text-ycharos-700 hover:bg-ycharos-50">{{ o.consumer.name }} <span class="text-gray-400">({{ o.active_count }})</span></a>
+    {% endfor %}
+  </nav>
+
+  {% for o in organisations %}
+  {% with c=o.consumer %}
+  <section id="org-{{ c.pk }}" class="mb-8 rounded border border-gray-200 bg-white p-5 scroll-mt-20">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-lg font-bold text-gray-900">{{ c.name }}
+        {% if not c.is_active %}<span class="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">key switched off</span>{% endif %}
+      </h2>
+      <p class="text-sm text-gray-600">
+        {% if o.cursor %}
+          Last regular email {{ o.cursor.sent_at|date:"j M Y" }} ({{ o.cursor.get_kind_display|lower }});
+          next update no earlier than {{ o.next_update|date:"j M" }}, and only if something is new.
+        {% else %}
+          No summary sent yet.
+        {% endif %}
+      </p>
+    </div>
+
+    {% if receipt and receipt.consumer == c.pk|stringformat:"s" %}
+      <div id="receipt" role="alert" class="mt-3 rounded-md p-3 text-sm {% if receipt.ok %}bg-green-50 text-green-800 border border-green-200{% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">{{ receipt.text }}</div>
+    {% endif %}
+
+    {% for note in o.notes %}
+      <p class="mt-2 text-sm text-amber-800">{{ note }}</p>
+    {% endfor %}
+
+    {# ── Contacts ── #}
+    <h3 class="mt-4 text-sm font-semibold text-gray-800">Who is emailed</h3>
+    {% if o.contacts %}
+    <table class="mt-2 w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
+          <th class="py-1 pr-2">Name</th><th class="py-1 pr-2">Email</th><th class="py-1 pr-2">Line</th><th class="py-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in o.contacts %}
+        <tr class="border-t border-gray-100 {% if not p.is_active %}text-gray-400{% endif %}">
+          <td class="py-1.5 pr-2">
+            <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}" class="flex gap-1">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="name"><input type="hidden" name="consumer" value="{{ c.pk }}"><input type="hidden" name="contact" value="{{ p.pk }}">
+              <input name="name" value="{{ p.name }}" placeholder="name" aria-label="Name of {{ p.email }}" class="w-36 rounded border border-gray-200 px-1.5 py-0.5">
+              <button class="text-xs text-ycharos-700 hover:underline">Save</button>
+            </form>
+          </td>
+          <td class="py-1.5 pr-2">
+            {{ p.email }}
+            {% if not p.is_active %}<span class="ml-1 text-xs font-semibold">stopped</span>{% endif %}
+            {% if p.outside_domains %}<span class="block text-xs text-amber-700">not on the key domains, so cannot request the key themselves</span>{% endif %}
+          </td>
+          <td class="py-1.5 pr-2">
+            <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="role"><input type="hidden" name="consumer" value="{{ c.pk }}"><input type="hidden" name="contact" value="{{ p.pk }}">
+              {% if p.role == 'to' %}
+                To <button name="role" value="cc" class="ml-1 text-xs text-ycharos-700 hover:underline">move to Cc</button>
+              {% else %}
+                Cc <button name="role" value="to" class="ml-1 text-xs text-ycharos-700 hover:underline">move to To</button>
+              {% endif %}
+            </form>
+          </td>
+          <td class="py-1.5 text-right whitespace-nowrap">
+            <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="consumer" value="{{ c.pk }}"><input type="hidden" name="contact" value="{{ p.pk }}">
+              {% if p.is_active %}
+                <button name="action" value="stop" class="text-xs text-red-700 hover:underline">Stop emailing</button>
+              {% else %}
+                <button name="action" value="start" class="text-xs text-green-700 hover:underline">Start emailing</button>
+              {% endif %}
+              <button name="action" value="remove" class="ml-2 text-xs text-gray-500 hover:underline">Remove (typo)</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="mt-1 text-sm text-gray-500">Nobody yet.</p>
+    {% endif %}
+
+    <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}" class="mt-3 flex flex-wrap items-end gap-2 text-sm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add"><input type="hidden" name="consumer" value="{{ c.pk }}">
+      <label class="flex flex-col text-xs text-gray-600">Name
+        <input name="name" placeholder="e.g. Jane Smith" class="w-40 rounded border border-gray-300 px-2 py-1 text-sm"></label>
+      <label class="flex flex-col text-xs text-gray-600">Email
+        <input name="email" type="email" required placeholder="e.g. name@{{ o.domains.0|default:'company.com' }}" class="w-64 rounded border border-gray-300 px-2 py-1 text-sm"></label>
+      <label class="flex flex-col text-xs text-gray-600">Line
+        <select name="role" class="rounded border border-gray-300 px-2 py-1 text-sm"><option value="to">To</option><option value="cc">Cc</option></select></label>
+      <button class="rounded bg-ycharos-600 px-3 py-1.5 text-white hover:bg-ycharos-700">Add contact</button>
+    </form>
+
+    {# ── Resend ── #}
+    {% if o.active_count %}
+    <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}" class="resend mt-5 rounded bg-gray-50 p-3 text-sm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="resend"><input type="hidden" name="consumer" value="{{ c.pk }}">
+      <input type="hidden" name="consented" value="">
+      <h3 class="font-semibold text-gray-800">Resend the summary</h3>
+      <p class="text-xs text-gray-600">The full summary of {{ c.name }}'s results with the spreadsheet, sent now to the people ticked.</p>
+      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {% for p in o.contacts %}{% if p.is_active %}
+          <label class="flex items-center gap-1"><input type="checkbox" name="contacts" value="{{ p.pk }}" data-email="{{ p.email }}"> {{ p.name|default:p.email }}</label>
+        {% endif %}{% endfor %}
+      </div>
+      <div class="mt-2 flex items-center gap-3">
+        <button type="submit" disabled class="rounded bg-ycharos-600 px-3 py-1.5 text-white hover:bg-ycharos-700 disabled:cursor-not-allowed disabled:bg-gray-300">Send the summary</button>
+        <span class="why text-xs text-gray-500">Tick at least one person.</span>
+      </div>
+    </form>
+    {% endif %}
+
+    {# ── Key domains ── #}
+    <form method="post" action="{% url 'pipeline:manufacturer_emails_action' %}" class="mt-5 flex flex-wrap items-end gap-2 text-sm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="domains"><input type="hidden" name="consumer" value="{{ c.pk }}">
+      <label class="flex flex-col text-xs text-gray-600">Key domains — anyone with an address here can have the portal key emailed to them
+        <input name="email_domains" value="{{ o.domains|join:', ' }}" placeholder="e.g. cellsignal.com" class="w-96 max-w-full rounded border border-gray-300 px-2 py-1 text-sm"></label>
+      <button class="rounded border border-gray-300 bg-white px-3 py-1.5 hover:bg-gray-50">Save domains</button>
+    </form>
+
+    {# ── Sent ── #}
+    <details class="mt-5 text-sm" {% if receipt and receipt.consumer == c.pk|stringformat:"s" and receipt.ok %}open{% endif %}>
+      <summary class="cursor-pointer text-gray-700">Sent ({{ o.mailings|length }}{% if o.mailings|length == 5 %}, latest five{% endif %})</summary>
+      {% if o.mailings %}
+      <ul class="mt-2 space-y-1 text-gray-700">
+        {% for m in o.mailings %}
+          <li><span class="font-medium">{{ m.sent_at|date:"j M Y, H:i" }}</span> · {{ m.get_kind_display }} · {{ m.recipients }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+        <p class="mt-2 text-gray-500">Nothing sent yet.</p>
+      {% endif %}
+    </details>
+  </section>
+  {% endwith %}
+  {% empty %}
+    <p class="text-gray-600">No manufacturer has a portal key yet.</p>
+  {% endfor %}
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll('form.resend').forEach(function (form) {
+    var button = form.querySelector('button[type=submit]');
+    var why = form.querySelector('.why');
+    var consented = form.querySelector('input[name=consented]');
+    function refresh() {
+      var ticked = Array.prototype.filter.call(
+        form.querySelectorAll('input[name=contacts]'), function (b) { return b.checked; });
+      var emails = ticked.map(function (b) { return b.dataset.email; });
+      consented.value = emails.join(',');
+      button.disabled = ticked.length === 0;
+      button.textContent = ticked.length === 0 ? 'Send the summary'
+        : 'Send the summary to ' + (ticked.length === 1 ? '1 person' : ticked.length + ' people');
+      why.textContent = ticked.length === 0 ? 'Tick at least one person.' : 'To: ' + emails.join(', ');
+    }
+    form.addEventListener('change', refresh);
+    form.addEventListener('submit', function () {
+      button.disabled = true;
+      button.textContent = 'Sending…';
+    });
+    refresh();
+  });
+  var receipt = document.getElementById('receipt');
+  if (receipt) { receipt.scrollIntoView({block: 'center'}); }
+})();
+</script>
+{% endblock %}

@@ -154,6 +154,10 @@
     <div class="out-stat">Figures: <b id="stat-total">—</b></div>
     <div class="out-stat">Still to judge: <b id="stat-gaps">—</b></div>
     <div class="out-stat">Judged this visit: <b id="stat-changes">0</b></div>
+    {% comment %}Every change here is logged (JudgementChange). The link
+    carries the gene the grid is showing, set by loadGene.{% endcomment %}
+    <div class="out-stat"><a id="history-link" href="{% url 'pipeline:outcome_history' %}"
+       style="color:#1d4ed8;text-decoration:underline">Who changed what — history</a></div>
   </div>
 
   {% if gene_note %}<p class="out-stat" style="margin-top:10px">{{ gene_note }}</p>{% endif %}
@@ -373,8 +377,13 @@ async function loadGenes(wanted) {
   await loadGene();
 }
 
+const URL_HISTORY = "{% url 'pipeline:outcome_history' %}";
+
 async function loadGene() {
   const gene = document.getElementById('out-gene').value;
+  const worklists = [CONFLICTS, REVIEW, UNUSED, FCREVIEW];
+  document.getElementById('history-link').href = (gene && !worklists.includes(gene))
+    ? URL_HISTORY + '?gene=' + encodeURIComponent(gene) : URL_HISTORY;
   const grid = document.getElementById('out-grid');
   clearBanner();
   /* Cleared on every load: a button left over from the previous gene would

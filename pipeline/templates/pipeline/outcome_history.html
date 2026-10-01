@@ -1,0 +1,85 @@
+{% extends "pipeline/base.html" %}
+
+{% block title %}Judgement history{% if gene %} — {{ gene }}{% endif %} — YCharOS Pipeline{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <h1 class="text-2xl font-bold" style="color:#0b406d">
+    Judgement history{% if gene %} — {{ gene }}{% endif %}
+  </h1>
+  <p class="text-sm text-gray-600 mt-1 mb-4" style="max-width:64rem">
+    Every change to a recommendation or an outcome answer, newest first: who
+    made it, what it said before and after, and which page it was made on.
+    A change marked <b>in the queue</b> was made to a figure still waiting for
+    release, and reached the public page only when that figure was released.
+    Changes made before 30 Sep 2026 were not recorded.
+  </p>
+
+  <form method="get" class="flex items-center gap-2 mb-4 text-sm">
+    <label for="history-gene">Gene</label>
+    <input id="history-gene" name="gene" value="{{ gene }}"
+           placeholder="all genes" class="border rounded px-2 py-1">
+    <button type="submit" class="border rounded px-3 py-1 bg-gray-50">Show</button>
+    {% if gene %}<a href="{% url 'pipeline:outcome_history' %}" class="text-blue-700 underline">every gene</a>{% endif %}
+    <a href="{% url 'pipeline:outcomes' %}{% if gene %}?gene={{ gene|urlencode }}{% endif %}"
+       class="text-blue-700 underline ml-auto">Back to Judge outcomes</a>
+  </form>
+
+  <p class="text-sm text-gray-700 mb-2">
+    {{ total }} change{{ total|pluralize }}{% if gene %} on {{ gene }}{% endif %}.
+  </p>
+
+  {% if rows %}
+  <div class="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-700">
+        <tr>
+          <th class="px-3 py-2">When</th>
+          <th class="px-3 py-2">Gene</th>
+          <th class="px-3 py-2">Antibody</th>
+          <th class="px-3 py-2">Application</th>
+          <th class="px-3 py-2">What</th>
+          <th class="px-3 py-2">Before</th>
+          <th class="px-3 py-2">After</th>
+          <th class="px-3 py-2">By</th>
+          <th class="px-3 py-2">Where</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="border-t border-gray-100 align-top">
+          <td class="px-3 py-2 whitespace-nowrap">{{ r.at|date:"j M Y, H:i" }}</td>
+          <td class="px-3 py-2">{{ r.gene|default:"—" }}</td>
+          <td class="px-3 py-2">{{ r.catalogue|default:"—" }}</td>
+          <td class="px-3 py-2">{{ r.application }}</td>
+          <td class="px-3 py-2">{{ r.what }}{% if r.queued %} <span class="text-amber-700">(in the queue)</span>{% endif %}</td>
+          <td class="px-3 py-2">{{ r.old|default:"not set" }}</td>
+          <td class="px-3 py-2">{{ r.new|default:"cleared" }}</td>
+          <td class="px-3 py-2">{{ r.by|default:"not recorded" }}</td>
+          <td class="px-3 py-2">{{ r.door|default:"not recorded" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-600">No changes recorded{% if gene %} for {{ gene }}{% endif %} yet.</p>
+  {% endif %}
+
+  {% if page.has_other_pages %}
+  <div class="py-3 flex items-center justify-between text-xs text-gray-500">
+    <span>{{ page.start_index }}–{{ page.end_index }} of {{ total }}</span>
+    <span class="flex items-center gap-3">
+      {% if page.has_previous %}
+        <a href="?{% if gene %}gene={{ gene|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}" class="text-blue-700">← Previous</a>
+      {% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a href="?{% if gene %}gene={{ gene|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}" class="text-blue-700">Next →</a>
+      {% endif %}
+    </span>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

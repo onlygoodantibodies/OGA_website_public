@@ -100,6 +100,12 @@
       background: #f8faff;
       border-bottom: 1px solid #eef2f8;
     }
+    /* Copy methods under each figure — the same button as the gene page. */
+    .embed-exp-methods { text-align: center; padding: 4px 0 6px; }
+    .copy-methods { font-size: 0.68rem; padding: 2px 8px; color: #10428a; background: #fff;
+      border: 1px solid #b8c7df; border-radius: 999px; cursor: pointer; }
+    .copy-methods:hover, .copy-methods:focus-visible { background: #eef3fb; }
+    .copy-methods.is-copied { color: #0b6b3a; border-color: #0f9d58; background: #eafaf0; }
     .embed-exp-img {
       padding: 6px 4px;
       display: flex;
@@ -220,6 +226,7 @@
           <div class="embed-exp-img">
             <img src="{{ card.image_url }}" alt="{{ card.label }} image for {{ antibody.name }}">
           </div>
+          {% if card.methods %}<div class="embed-exp-methods"><button type="button" class="copy-methods" data-methods="{{ card.methods }}">Copy methods</button></div>{% endif %}
         </div>
       {% empty %}
         <div style="padding: 1.5rem; text-align: center; color: #999; font-style: italic; font-size: 0.85rem;">
@@ -258,5 +265,6 @@
 
 {% endif %}
 
+<script src="{% static 'core/copy_methods.js' %}" defer></script>
 </body>
 </html>

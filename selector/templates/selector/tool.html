@@ -469,7 +469,7 @@ sample:{ sect:"experiment", render:function(){
 
 // ===== CELL MODEL =====
 cellline:{ sect:"experiment", render:function(){
-  guide("Cell-model step: choose a line that expresses the target so KO/KD/over-expression controls are meaningful. HAP1 is the go-to knockout background; DepMap RNA-seq shows which commonly used lines express the target, and we check for a ready-made Horizon HAP1 knockout.");
+  guide("Cell-model step: choose a line that expresses the target so KO/KD/over-expression controls are meaningful. HAP1 is a common knockout background; DepMap RNA-seq shows which commonly used lines express the target, and we check for a ready-made Horizon HAP1 knockout.");
   return {
   eyebrow:"Your cell model",
   q:"Which cell line will you build your controls in?",
@@ -490,7 +490,7 @@ cellline:{ sect:"experiment", render:function(){
         ? (hz.count+" ready-made Horizon HAP1 KO clone"+(hz.count==1?"":"s")+" available")
         : "no ready-made Horizon HAP1 KO listed — you'd make one, or use a knockdown";
       wrap.appendChild(el('<div class="small muted" style="margin-bottom:8px">Commonly used lines expressing '+
-        esc(A.target_gene||"the target")+' (DepMap RNA-seq, TPM). HAP1 is the usual knockout background — for '+
+        esc(A.target_gene||"the target")+' (DepMap RNA-seq, TPM). HAP1 is a common knockout background — for '+
         esc(A.target_gene||"this target")+', '+esc(koNote)+'.</div>'));
       lines.forEach(function(o){
         var sel=A.cell_line===o.name;

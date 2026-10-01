@@ -58,8 +58,9 @@ def subject(digest):
     return f'{name}: new Only Good Antibodies results since {digest.since.sent_at:%d %B}'
 
 
-def _greeting(contacts):
-    first = [c.name.split()[0] for c in contacts if c.role == c.TO and c.name.strip()]
+def _greeting(contacts, any_role=False):
+    first = [c.name.split()[0] for c in contacts
+             if (any_role or c.role == c.TO) and c.name.strip()]
     if not first:
         return 'Hello,'
     if len(first) == 1:
@@ -170,9 +171,9 @@ def paragraphs(digest, review, with_screenshot):
 
 
 def build_message(digest, review, attachment, attachment_name, to, cc, contacts,
-                  with_screenshot, subject_prefix=''):
+                  with_screenshot, subject_prefix='', greet_everyone=False):
     parts = paragraphs(digest, review, with_screenshot and SCREENSHOT.exists())
-    greeting = _greeting(contacts)
+    greeting = _greeting(contacts, any_role=greet_everyone)
     sign = ['Best wishes,', 'The Only Good Antibodies team', SD.BASE_URL]
 
     text = [greeting, '']

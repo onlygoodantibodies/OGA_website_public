@@ -2515,6 +2515,11 @@ function trimWhite(cx, x,y,w,h, keep=3, thresh=245){
   maxX=Math.min(w-1,maxX+keep); maxY=Math.min(h-1,maxY+keep);
   return {x:x+minX, y:y+minY, w:maxX-minX+1, h:maxY-minY+1};
 }
+// The crop's file name — engine.py::filename_for, which the save uses: a
+// slash in a catalogue (DSHB's N258/5) becomes a hyphen, or it is a folder.
+function cropFileName(gene,cat,tag){
+  return `${gene}_${cat.replace(/\*/g,"").replace(/[\/\\]/g,"-").trim()}_${tag}.png`;
+}
 // Generate crops for EVERY image in the session (the whole gene), grouped by
 // image/application. One PublicationImage per antibody per application on commit.
 function generate(){
@@ -2582,7 +2587,7 @@ function generate(){
       if(app==="ICC-IF"){ drawVText(o,"antibody",gutter/2,dy+dh*0.25); drawVText(o,"DAPI",gutter/2,dy+dh*0.75); }
       drawLegend(o,app,cat,{gene,cellLine,geno,fcsec});
       const tag=app==="ICC-IF"?"IF":app;
-      const fn=`${gene}_${cat.replace(/\*/g,"").trim()}_${tag}.png`;
+      const fn=cropFileName(gene,cat,tag);
       const div=document.createElement("div"); div.className="crop"; div.appendChild(out);
       const a=document.createElement("a"); a.className="fn"; a.textContent=fn;
       a.href=out.toDataURL("image/png"); a.download=fn; a.style.display="block";
@@ -2665,7 +2670,7 @@ function generateIhc(im, src, scx, crops, gene, cellLine, list){
     pieces.forEach((p,j)=>{ if(labels[j]) drawVText(o,labels[j],Math.max(gutter/2,dx-14),dy+(top+p.h/2)*s); top+=p.h+IHC_GAP; });
     if(note){ o.fillStyle="#000"; o.font="15px DejaVu Sans, sans-serif"; o.textAlign="center"; o.textBaseline="middle";
       o.fillText(note,CANVAS/2,CANVAS-reserve/2); o.textAlign="left"; }
-    const fn=`${gene}_${cat.replace(/\*/g,"").trim()}_IHC.png`;
+    const fn=cropFileName(gene,cat,"IHC");
     const div=document.createElement("div"); div.className="crop"; div.appendChild(out);
     const a=document.createElement("a"); a.className="fn"; a.textContent=fn;
     a.href=out.toDataURL("image/png"); a.download=fn; a.style.display="block";

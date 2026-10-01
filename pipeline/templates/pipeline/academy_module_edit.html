@@ -1,0 +1,150 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Edit module — {{ lesson.title }}{% endblock %}
+
+{% block extra_head %}
+{{ formset.media }}
+<style>
+  /* CKEditor draws its own chrome; keep the page's Tailwind reset off it. */
+  .academy-editor .cke { border: 1px solid #d1d5db; }
+  .academy-editor .errorlist { color: #b91c1c; font-size: .85rem; margin: .25rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto academy-editor">
+
+  <div class="mb-4">
+    <a class="text-sm underline text-ycharos-700" href="{% url 'pipeline:academy_modules' %}">← All Academy modules</a>
+    <h1 class="text-2xl font-bold text-gray-900 mt-2">{{ lesson.title }}</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      <a class="underline" href="{{ learner_url }}" target="_blank" rel="noopener">Open as a learner</a> (new tab)
+      · <a class="underline" href="{% url 'pipeline:academy_module_history' lesson.pk %}">History</a>
+      {% if latest %}· last saved {{ latest.saved_at|date:"j M Y, H:i" }}{% if latest.saved_by %} by {{ latest.saved_by }}{% endif %}{% endif %}
+    </p>
+  </div>
+
+  <div class="mb-6 rounded border-l-4 border-green-500 bg-green-50 px-4 py-3 text-sm text-gray-700">
+    <strong>{{ certificates }} certificate{{ certificates|pluralize }}</strong>
+    {% if certificates %}({{ holders }} learner{{ holders|pluralize }}){% endif %}
+    {{ certificates|pluralize:"has,have" }} been issued for this module, and {{ passed }}
+    learner{{ passed|pluralize }} {{ passed|pluralize:"has,have" }} passed it. Nothing you save here
+    changes or removes them: a certificate keeps the title it was earned under, and
+    learners who have passed keep their pass. Saving goes live at once; the version
+    before it stays in History.
+  </div>
+
+  {% if conflict %}
+  <div class="mb-6 rounded border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-gray-800" role="alert">
+    <strong>Not saved — somebody else saved this module while you were editing.</strong>
+    {{ conflict.saved_by|default:"Someone" }} saved it at {{ conflict.saved_at|date:"H:i, j M" }}.
+    Your changes are still in the boxes below. Compare them with
+    <a class="underline" href="{% url 'pipeline:academy_module_version' lesson.pk conflict.pk %}" target="_blank" rel="noopener">their version</a>
+    (new tab); pressing Save again will replace theirs with yours, and theirs will stay in History.
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.based_on }}
+    {{ formset.management_form }}
+    {% if form.non_field_errors %}<div class="errorlist">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="rounded border border-gray-200 bg-white p-4 mb-6">
+      <h2 class="font-semibold text-gray-900 mb-3">The module</h2>
+      <div class="grid md:grid-cols-4 gap-4">
+        <label class="md:col-span-3 text-sm"><span class="block font-medium">Title</span>
+          {{ form.title.errors }}
+          <input name="title" value="{{ form.title.value|default:'' }}" maxlength="200" class="w-full rounded border border-gray-300 px-3 py-2">
+        </label>
+        <label class="text-sm"><span class="block font-medium">Order</span>
+          {{ form.order.errors }}
+          <input type="number" min="0" name="order" value="{{ form.order.value|default:0 }}" class="w-full rounded border border-gray-300 px-3 py-2">
+        </label>
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Renaming a module does not rename the certificates already issued for it.</p>
+      <div class="mt-3 space-y-1 text-sm">
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_published" {% if form.is_published.value %}checked{% endif %}> {{ form.is_published.label }}</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="has_quiz" {% if form.has_quiz.value %}checked{% endif %}> {{ form.has_quiz.label }}</label>
+      </div>
+    </section>
+
+    <h2 class="font-semibold text-gray-900 mb-1">Sections</h2>
+    <p class="text-sm text-gray-600 mb-3">Each section is one fold-out panel on the module's page, in the order of the
+      numbers. A learner has read the module once they have opened every section. The last, empty
+      section is there for adding one; leave it blank if you do not need it.</p>
+
+    {% for sf in formset.forms %}
+    <section class="rounded border {% if sf.errors %}border-red-400{% else %}border-gray-200{% endif %} bg-white p-4 mb-4">
+      {{ sf.id }}
+      {% if sf.non_field_errors %}<div class="errorlist">{{ sf.non_field_errors }}</div>{% endif %}
+      <div class="grid md:grid-cols-6 gap-4">
+        <label class="text-sm"><span class="block font-medium">Order</span>
+          {{ sf.order.errors }}
+          <input type="number" min="0" name="{{ sf.order.html_name }}" value="{{ sf.order.value|default_if_none:forloop.counter }}" class="w-full rounded border border-gray-300 px-3 py-2">
+        </label>
+        <label class="md:col-span-5 text-sm"><span class="block font-medium">{% if sf.existing %}Section heading{% else %}New section — heading{% endif %}</span>
+          {{ sf.title.errors }}
+          <input name="{{ sf.title.html_name }}" value="{{ sf.title.value|default:'' }}" maxlength="200" class="w-full rounded border border-gray-300 px-3 py-2">
+        </label>
+      </div>
+      <div class="mt-3 text-sm">
+        <span class="block font-medium mb-1">Text</span>
+        {{ sf.body.errors }}
+        {{ sf.body }}
+      </div>
+      <div class="mt-3 grid md:grid-cols-2 gap-4 text-sm">
+        <div>
+          <span class="block font-medium">{{ sf.image.label }}</span>
+          {{ sf.image.errors }}
+          {% if sf.existing.image %}
+            <img src="{{ sf.existing.image.url }}" alt="" class="max-h-40 my-2 border border-gray-200">
+            <label class="flex items-center gap-2"><input type="checkbox" name="{{ sf.remove_image.html_name }}"> {{ sf.remove_image.label }}</label>
+            <span class="block text-xs text-gray-500 mt-1">Choose a file to replace it:</span>
+          {% endif %}
+          <input type="file" accept="image/*" name="{{ sf.image.html_name }}" class="mt-1">
+        </div>
+        {% if sf.existing %}
+        <div>
+          <label class="flex items-center gap-2 text-red-700"><input type="checkbox" name="{{ sf.DELETE.html_name }}" {% if sf.DELETE.value %}checked{% endif %}> Remove this section when I save</label>
+          <p class="text-xs text-gray-500 mt-1">
+            {% if sf.viewed %}{{ sf.viewed }} learner{{ sf.viewed|pluralize }} {{ sf.viewed|pluralize:"has,have" }} opened it; their "opened" mark for it goes with it, which only changes the progress bar of anyone still part-way through.
+            {% else %}No learner has opened it yet.{% endif %}
+            Certificates are not affected.
+          </p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+    {% endfor %}
+
+    <section class="rounded border {% if form.quiz.errors %}border-red-400{% else %}border-gray-200{% endif %} bg-white p-4 mb-6">
+      <h2 class="font-semibold text-gray-900">Quiz</h2>
+      <p class="text-sm text-gray-600 mt-1">One question per numbered line, then its answers underneath:
+        <code>*</code> in front of the correct answer, <code>-</code> in front of each wrong one.
+        Exactly one answer per question is correct. Changing the questions does not affect anyone who has already passed.</p>
+      <pre class="text-xs bg-gray-50 border border-gray-200 rounded p-2 my-2">1. What does an RRID give you?
+- The antibody's price
+* A unique identifier to cite the antibody by
+- The gene's accession number</pre>
+      <label class="text-sm inline-block mb-2"><span class="font-medium">{{ form.pass_mark.label }}</span>
+        {{ form.pass_mark.errors }}
+        <input type="number" min="1" max="100" name="pass_mark" value="{{ form.pass_mark.value|default:80 }}" class="w-24 rounded border border-gray-300 px-2 py-1">
+      </label>
+      {{ form.quiz.errors }}
+      <textarea name="quiz" rows="18" class="w-full font-mono text-sm rounded border border-gray-300 px-3 py-2">{{ form.quiz.value|default:'' }}</textarea>
+    </section>
+
+    <section class="rounded border border-gray-200 bg-white p-4 mb-6">
+      <label class="text-sm block"><span class="font-medium">{{ form.note.label }}</span>
+        <span class="text-xs text-gray-500">{{ form.note.help_text }}</span>
+        {{ form.note.errors }}
+        <input name="note" maxlength="300" value="{{ form.note.value|default:'' }}" placeholder="e.g. Rewrote the gene page section for the four results" class="w-full rounded border border-gray-300 px-3 py-2 mt-1">
+      </label>
+      <div class="mt-4 flex items-center gap-4">
+        <button class="rounded bg-ycharos-600 px-5 py-2 text-white font-semibold hover:bg-ycharos-700">Save — goes live now</button>
+        <span class="text-xs text-gray-500">The version before this save stays in History, where one press puts it back.</span>
+      </div>
+    </section>
+  </form>
+</div>
+{% endblock %}

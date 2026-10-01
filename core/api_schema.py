@@ -230,6 +230,66 @@ def _schemas():
             },
         },
 
+        'OgaMethods': {
+            'type': 'object',
+            'description': (
+                'How each supportive published figure was made, per '
+                'application (2.4.0). Keys appear only where the result is '
+                'supportive AND there is a methods record, so a key appears '
+                'when a result is regraded to supportive; an absent key says '
+                'nothing about the antibody. Read from the report that '
+                'published the figure, never from an unpublished lab record, '
+                'except where `amount_basis` says `lab_record`.'),
+            'properties': {
+                app: {
+                    'type': 'object',
+                    'properties': {
+                        'text': {
+                            'type': 'string',
+                            'description': (
+                                'The methods paragraph the website\'s "Copy '
+                                'methods" button copies: a heading line, the '
+                                'paragraph with this antibody and its '
+                                'dilution, and the DOI it was published '
+                                'under. A condition the report does not state '
+                                'is left out, never written as "not '
+                                'recorded".')},
+                        'amount': {
+                            'type': ['string', 'null'],
+                            'description': (
+                                'The dilution or amount of THIS antibody, as '
+                                'the source writes it - "1/500", "2 µg", '
+                                '"2 µg/ml". null when no source states one.'),
+                            'example': '1/500'},
+                        'amount_basis': {
+                            'type': ['string', 'null'],
+                            'enum': ['report_named', 'report_protocol',
+                                     'report_general', 'lab_record', None],
+                            'description': (
+                                'Where `amount` came from: the report naming '
+                                'this antibody with its value; the protocol '
+                                'amount the report gives every antibody; a '
+                                'general statement in the report; or, where '
+                                'the report gives none or its value was found '
+                                'to be an error, the lab record.')},
+                        'source': {
+                            'type': ['string', 'null'], 'format': 'uri',
+                            'description': 'The report DOI the text cites.'},
+                        'conditions': {
+                            'type': 'object',
+                            'additionalProperties': {'type': 'string'},
+                            'description': (
+                                'The run-level conditions as stated in the '
+                                'report, keyed by name - e.g. lysis_buffer, '
+                                'blocking, secondary_antibody, microscope. '
+                                'Only keys the report states are present; '
+                                'the set of possible keys differs by '
+                                'application.')},
+                    },
+                } for app in applications
+            },
+        },
+
         'OgaQualifiers': {
             'type': 'object',
             'description': (
@@ -274,7 +334,7 @@ def _schemas():
                 'experiment_type': {
                     'type': 'string', 'enum': applications,
                     'description': (
-                        '`IHC` since 2.2.0: immunohistochemistry on HAP1 cell '
+                        '`IHC` since 2.2.0: immunohistochemistry on cell '
                         'pellets, not tissue.')},
                 'experiment_type_display': {'type': 'string',
                                             'example': 'Western Blot'},
@@ -322,6 +382,7 @@ def _schemas():
                 'oga_display': {'$ref': '#/components/schemas/OgaDisplay'},
                 'oga_qualifiers': {
                     '$ref': '#/components/schemas/OgaQualifiers'},
+                'oga_methods': {'$ref': '#/components/schemas/OgaMethods'},
                 'experiments': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/Experiment'}},
@@ -366,6 +427,16 @@ def _schemas():
                         'target, but is not selective". Empty where the axis '
                         'behind it was not judged. It qualifies a supportive '
                         'result as readily as a negative one.')},
+                'oga_methods_text': {
+                    'type': 'string',
+                    'description': (
+                        'How this figure was made: the methods paragraph the '
+                        "website's Copy methods button copies, citing the "
+                        'report it was published in (2.5.0). The same text as '
+                        '`oga_methods[application].text` on /antibodies/. '
+                        'Empty where the result is not supportive or no '
+                        'methods are on file; absent when recommendations '
+                        'are not in scope.')},
                 'gene': {'type': 'string'},
                 'catalogue_number': {'type': 'string'},
                 'rrid': {'type': ['string', 'null']},

@@ -95,6 +95,57 @@ def outcomes(request):
     })
 
 
+#: Rows per page on the history — a long table pages, and says its total.
+HISTORY_PER_PAGE = 100
+
+
+@pipeline_member_required
+def outcome_history(request):
+    """Every change to a judgement, newest first — for one gene or for all.
+
+    The record ``JudgementChange`` keeps: who moved a recommendation or an
+    axis, from what, to what, when, and through which page. A changed mind
+    used to overwrite the previous one with nothing left to say it happened.
+    """
+    from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+    from pipeline.models import AntibodyOutcome
+    from pipeline.saved_by import who
+    from pipeline.services import judgement_log
+
+    verdicts = dict(AntibodyOutcome.Verdict.choices)
+
+    gene = (request.GET.get("gene") or "").strip()
+    qs = judgement_log.for_gene(gene)
+    paginator = Paginator(qs, HISTORY_PER_PAGE)
+    try:
+        page = paginator.page(int(request.GET.get("page", 1)))
+    except (EmptyPage, PageNotAnInteger, TypeError, ValueError):
+        page = paginator.page(1)
+    rows = [{
+        "at": c.changed_at,
+        "gene": c.gene,
+        "catalogue": c.catalogue_number,
+        "application": APPLICATION_LABELS.get(c.application_type,
+                                              c.application_type),
+        "what": ("Recommendation" if c.field == "recommended" else
+                 "Note" if c.field == "note" else
+                 outcome_svc.AXIS_LABELS.get(c.field, c.field)),
+        "old": c.old_value if c.field == "note" else
+               verdicts.get(c.old_value, c.old_value),
+        "new": c.new_value if c.field == "note" else
+               verdicts.get(c.new_value, c.new_value),
+        "queued": c.queued,
+        "by": who(c.changed_by),
+        "door": judgement_log.door(c.source),
+    } for c in page.object_list]
+    return render(request, "pipeline/outcome_history.html", {
+        "gene": gene,
+        "rows": rows,
+        "page": page,
+        "total": paginator.count,
+    })
+
+
 @pipeline_member_required
 def outcome_genes(request):
     """Genes with at least one published WB figure, most outstanding first.

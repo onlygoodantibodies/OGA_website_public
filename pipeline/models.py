@@ -1023,6 +1023,17 @@ class Antibody(SavedBy):
                     set(fields) | {'recommendations_set_at'})
         super().save(*args, **kwargs)
         if moved:
+            # The history (`JudgementChange`), here for the same reason as the
+            # stamp: six doors move these flags and the seventh would forget.
+            from pipeline.services import judgement_log
+            before = (snapshot if snapshot is not None else
+                      dict.fromkeys(self.RECOMMENDATION_FIELDS, False))
+            for f, was in before.items():
+                now = getattr(self, f)
+                if bool(was) != bool(now):
+                    judgement_log.log(
+                        self, judgement_log.flag_application(f), 'recommended',
+                        judgement_log.yes_no(was), judgement_log.yes_no(now))
             self._recommendation_snapshot = {
                 f: getattr(self, f) for f in self.RECOMMENDATION_FIELDS}
 
@@ -2041,6 +2052,86 @@ class PublicationImage(models.Model):
         return f"{self.antibody.catalogue_number} — {self.get_application_type_display()}"
 
 
+class MethodsRecord(models.Model):
+    """How one gene's published figures for one application were made, as the
+    report that published them says (30 Sep 2026).
+
+    **The report is the authority, not the lab's session rows.** A published
+    figure is the report's figure, and it points at an antibody, never at the
+    session that produced it — so for the 148 WB, 76 IP and 193 IF antibodies
+    whose lab records hold several runs with differing conditions, a methods
+    paragraph drawn from the sessions would have to guess which run it was.
+    One row per gene and application, read from the report, removes the guess.
+
+    ``conditions`` holds the run-level facts under the keys
+    `services/methods_text.py` knows for this application (lysis buffer,
+    blocking, microscope, …); a key that is absent is simply not written about.
+    The per-antibody half — the dilution or amount — is `AntibodyMethod`.
+    The citation is the gene's own `Report` DOI, read at display time, so it is
+    not stored here twice.
+    """
+    target = models.ForeignKey(
+        Target, on_delete=models.CASCADE, related_name='methods_records')
+    # The figure vocabulary (`ICC-IF`, not the bench's `IF`), because what this
+    # describes is a published figure.
+    application = models.CharField(
+        max_length=10, choices=PublicationImage.ApplicationType.choices)
+    conditions = models.JSONField(default=dict, blank=True)
+    # Which report file the values were read from, and the extraction's own
+    # record id — provenance for a person checking a value, never drawn.
+    report_file = models.CharField(max_length=255, blank=True)
+    source_ref = models.CharField(max_length=32, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'methods record'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['target', 'application'],
+                name='unique_methods_per_target_app'),
+        ]
+
+    def __str__(self):
+        return f"{self.target} — {self.application} methods"
+
+
+class AntibodyMethod(models.Model):
+    """The part of a methods paragraph that belongs to one antibody: how much
+    of it was used (`1/500`, `2 µg`, `2 µg/ml`) and on what evidence.
+
+    ``basis`` says where the value came from, because the four are not the
+    same claim: the report naming this antibody with its value; the report's
+    protocol amount for every antibody (IP's "2 µg of the indicated
+    antibodies"); a general statement in the report; or the lab's own record
+    where the report gives none. No unique constraint, on purpose: an
+    antibody merge moves these rows with the rest (`dedup_utils.
+    CHILD_RELATIONS`) and a constraint would make the merge refuse itself;
+    the reader takes the most recent row.
+    """
+    class Basis(models.TextChoices):
+        REPORT_NAMED = 'report_named', 'Named with its value in the report'
+        REPORT_PROTOCOL = 'report_protocol', 'Protocol amount for every antibody'
+        REPORT_GENERAL = 'report_general', 'General statement in the report'
+        LAB_RECORD = 'lab_record', "The lab's own record"
+
+    record = models.ForeignKey(
+        MethodsRecord, on_delete=models.CASCADE, related_name='antibodies')
+    antibody = models.ForeignKey(
+        Antibody, on_delete=models.CASCADE, related_name='methods')
+    amount = models.CharField(max_length=120, blank=True)
+    basis = models.CharField(max_length=20, choices=Basis.choices, blank=True)
+    # Page and figure in the report, for a person checking the value.
+    where = models.CharField(max_length=255, blank=True)
+    source_ref = models.CharField(max_length=32, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'antibody method'
+
+    def __str__(self):
+        return f"{self.antibody} — {self.amount}"
+
+
 class PendingPublicationImage(models.Model):
     """A cropped figure that has been made but not yet published.
 
@@ -2469,6 +2560,59 @@ class AntibodyOutcome(models.Model):
     def __str__(self):
         return (f"{self.antibody.catalogue_number} — {self.application_type}: "
                 f"detects={self.detects or '?'} selective={self.selective or '?'}")
+
+
+class JudgementChange(models.Model):
+    """One change to a judgement: who moved it, from what, to what, and when.
+
+    ``AntibodyOutcome`` and the ``*_recommended`` flags hold only the answer
+    as it stands — a changed mind overwrote the previous one, and
+    ``assessed_by`` named only the last person to press anything. Asked "who
+    changed this antibody from selective to not, and what did it say before",
+    the database had no answer (owner's request, 30 Sep 2026). This table is
+    that answer, and nothing reads it but the history page: it is a record,
+    never a source of the verdict.
+
+    ``services/judgement_log.py`` is the one writer, called from the three
+    places a judgement moves — ``outcomes.record`` (the axes and the note),
+    ``Antibody.save`` (the public recommendation, whichever of its six doors
+    moved it) and ``review.set_recommended`` (the recommendation on a figure
+    still in the queue, ``queued=True``, which applies only at release).
+
+    **The antibody is a number, not a foreign key**, and the catalogue and gene
+    are copied onto the row: a log that cascaded away with a deleted antibody,
+    or joined every merge's list of child tables, would lose the history at the
+    moment somebody most wants to read it.
+    """
+
+    antibody_id = models.IntegerField(db_index=True)
+    catalogue_number = models.CharField(max_length=255, blank=True)
+    gene = models.CharField(max_length=100, blank=True, db_index=True)
+    # `PublicationImage`'s spelling, `ICC-IF` included.
+    application_type = models.CharField(max_length=10)
+    # `recommended`, an axis name (`detects`, `selective`, `enriches`,
+    # `background`) or `note`.
+    field = models.CharField(max_length=20)
+    # True when the change is to a figure still waiting in the review queue:
+    # it reaches the public page only when the figure is released.
+    queued = models.BooleanField(default=False)
+    old_value = models.TextField(blank=True)
+    new_value = models.TextField(blank=True)
+    # Username, as `saved_by` stamps it — `command:<name>` for a script.
+    changed_by = models.CharField(max_length=150, blank=True)
+    # The page path the change came through, so a reader can tell the review
+    # meeting from Judge outcomes from a release.
+    source = models.CharField(max_length=200, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Judgement change'
+        verbose_name_plural = 'Judgement changes'
+        ordering = ['-changed_at', '-id']
+
+    def __str__(self):
+        return (f"{self.catalogue_number} {self.application_type} {self.field}: "
+                f"{self.old_value or '—'} → {self.new_value or '—'}")
 
 
 # =============================================================================

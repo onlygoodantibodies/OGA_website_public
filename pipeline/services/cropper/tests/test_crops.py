@@ -92,6 +92,7 @@ def main():
     assert filename_for("TREM2", "ARP49413_P050", "ICC-IF") == "TREM2_ARP49413_P050_IF.png"
     assert filename_for("TREM2", "ab209814**", "WB") == "TREM2_ab209814_WB.png"  # asterisks stripped
     assert filename_for("TREM2", "168 013", "FC") == "TREM2_168 013_FC.png"      # internal space kept
+    assert filename_for("CLCN3", "N258/5", "WB") == "CLCN3_N258-5_WB.png"        # a slash is not a folder
 
     # WB has no reserved legend band; IP/IF/FC do.
     assert LEGEND_H["WB"] == 0 and LEGEND_H["IP"] > 0 and LEGEND_H["ICC-IF"] > 0

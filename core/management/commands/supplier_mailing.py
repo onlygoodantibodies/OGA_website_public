@@ -18,7 +18,7 @@ hand, after reading a preview. A cron that could start mailing a supplier
 the moment their contact row was added is not one anybody signed off.
 
 Recipients: the organisation's active ``SupplierContact`` rows, with
-``settings.SUPPLIER_MAILING_CC`` (the owner and Carl) on Cc of every email.
+``settings.SUPPLIER_MAILING_CC`` (the owner and Chetan Raina) on Cc of every email.
 An organisation with no *To* contact, or nothing to report, is skipped by
 name.
 """
@@ -138,7 +138,7 @@ class Command(BaseCommand):
         sent = skipped = failed = 0
 
         for consumer in consumers:
-            previous = consumer.mailings.order_by('-sent_at').first()
+            previous = SupplierMailing.cursor_for(consumer)
             digest = SD.build(consumer, previous)
             kind, reason = decide(digest, previous, now, opts['updates_only'])
             to, cc, contacts = SM.recipients(consumer)
@@ -151,7 +151,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"  skip  {head} — {reason}")
                 continue
 
-            with_shot = consumer.mailings.count() < SM.SCREENSHOT_EMAILS
+            with_shot = (consumer.mailings.filter(kind__in=SupplierMailing.CURSOR_KINDS)
+                         .count() < SM.SCREENSHOT_EMAILS)
             blob = SD.workbook(digest, review)
             name = SD.attachment_name(digest)
             if opts['preview_to']:

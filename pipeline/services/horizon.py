@@ -9,6 +9,7 @@ so it never touches the network — mirrors the DepMap service pattern.
 import logging
 
 from pipeline.models import HorizonKoLine
+from pipeline.services import gene_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def lookup(gene_name: str) -> dict:
     try:
         lines = (
             HorizonKoLine.objects.using(DB)
-            .filter(gene_name__iexact=result["gene"])
+            .filter(gene_name__in=gene_symbol.spellings(gene_name))
             .order_by("item_number")
         )
         result["count"] = lines.count()

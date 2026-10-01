@@ -178,8 +178,9 @@ def _horizon(gene):
 
 def _proteomics(gene):
     from pipeline.models import ProteomicsExpression
+    from pipeline.services import gene_symbol
     entries = (ProteomicsExpression.objects.using("pipeline_db")
-               .filter(gene_name__iexact=gene.strip())
+               .filter(gene_name__in=gene_symbol.spellings(gene))
                .order_by("-protein_intensity"))
     if not entries.exists():
         return {"found": False}

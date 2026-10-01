@@ -13,9 +13,33 @@ class Lesson(models.Model):
     order   = models.PositiveIntegerField(default=0)
     content = RichTextUploadingField()
     has_quiz = models.BooleanField(default=True)   # ✅ new field
+    # A module somebody is still writing is kept off the learners' list until it
+    # is ready. ``db_default`` as well as ``default``, so code rolled back past
+    # this migration can still insert a lesson (see CLAUDE.md, rollbacks).
+    is_published = models.BooleanField(default=True, db_default=True)
 
     def __str__(self):
         return f"{self.order}. {self.title}"
+
+    def save(self, *args, **kwargs):
+        """A certificate says the module it was earned in, not today's title.
+
+        The PDF, the certificate page and the public verify page all printed
+        ``cert.lesson.title`` live, so renaming a module rewrote every
+        certificate already issued for it. Before a title changes, each of this
+        module's certificates that has not got a title of its own is stamped
+        with the one it was earned under. Here rather than in the editor, so
+        Django admin's save does it too.
+        """
+        db = kwargs.get('using') or self._state.db or 'academy_db'
+        if self.pk:
+            old = (Lesson.objects.using(db)
+                   .filter(pk=self.pk).values_list('title', flat=True).first())
+            if old is not None and old != self.title:
+                (Certificate.objects.using(db)
+                 .filter(lesson_id=self.pk, lesson_title='')
+                 .update(lesson_title=old))
+        super().save(*args, **kwargs)
 
 class LessonSection(models.Model):
     lesson = models.ForeignKey(
@@ -62,7 +86,14 @@ class Answer(models.Model):
 
 class Certificate(models.Model):
     user      = models.ForeignKey(User, on_delete=models.CASCADE)
-    lesson    = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    # PROTECT: deleting a module must never take the certificates earned in it
+    # with it. Django refuses the delete by name instead — in admin too.
+    lesson    = models.ForeignKey(Lesson, on_delete=models.PROTECT)
+    # The module's title when this certificate was earned; blank means "the
+    # title has not changed since", so ``module_title`` falls back to the live
+    # one. Filled at issue, and by ``Lesson.save`` before a rename.
+    lesson_title = models.CharField(max_length=200, blank=True, default='',
+                                    db_default='')
     issued_at = models.DateTimeField(auto_now_add=True)
     score     = models.FloatField()
     # Public, unguessable handle printed on the PDF (with a QR) so a certificate
@@ -72,11 +103,16 @@ class Certificate(models.Model):
     verification_code = models.UUIDField(default=uuid.uuid4, editable=False,
                                          unique=True, null=True)
 
+    @property
+    def module_title(self):
+        """The title to print on this certificate — the one it was earned under."""
+        return self.lesson_title or self.lesson.title
+
     def get_verify_url(self):
         return reverse("academy:certificate_verify", args=[self.verification_code])
 
     def __str__(self):
-        return f"Cert for {self.user.username} – {self.lesson.title} ({self.score}%)"
+        return f"Cert for {self.user.username} – {self.module_title} ({self.score}%)"
 
 class LessonProgress(models.Model):
     user         = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -122,3 +158,26 @@ class AIChatUsage(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.date}: {self.message_count} msgs"
+
+
+class LessonRevision(models.Model):
+    """One saved version of a module — its title, sections and quiz.
+
+    Written by ``academy/editing.py`` every time a module is saved from the
+    editor, so any earlier version can be looked at and put back. ``snapshot``
+    is the whole module as ``editing.snapshot`` returns it. The person is kept
+    as a username rather than a foreign key: editors sign in to the pipeline,
+    and a version should outlive the account that wrote it.
+    """
+    lesson   = models.ForeignKey(Lesson, related_name='revisions',
+                                 on_delete=models.CASCADE)
+    saved_at = models.DateTimeField(auto_now_add=True)
+    saved_by = models.CharField(max_length=150, blank=True)
+    note     = models.CharField(max_length=300, blank=True)
+    snapshot = models.JSONField()
+
+    class Meta:
+        ordering = ['-saved_at', '-pk']
+
+    def __str__(self):
+        return f"{self.lesson} — {self.saved_at:%d %b %Y %H:%M} by {self.saved_by or 'unknown'}"

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -155,6 +155,12 @@
        `Limited support` from `Not supportive` once colour is green-only. */
     .exp-caveat { font-size: 0.66rem; line-height: 1.35; color: #5a6570; padding: 4px 6px 6px; text-align: left; }
     .exp-caveat.supportive { color: #0b6b3a; font-weight: 600; }
+    /* Copy methods under the judgement — the same button as the gene page. */
+    .exp-methods { padding: 0 6px 8px; }
+    .copy-methods { font-size: 0.66rem; padding: 2px 8px; color: var(--blue); background: #fff;
+      border: 1px solid #b8c7df; border-radius: 999px; cursor: pointer; }
+    .copy-methods:hover, .copy-methods:focus-visible { background: #eef3fb; }
+    .copy-methods.is-copied { color: #0b6b3a; border-color: #0f9d58; background: #eafaf0; }
     .card-supports { font-size: 0.72rem; color: var(--muted); padding: 0 16px 6px; }
     .card-supports b { color: #0b6b3a; }
     .lg-swatch { font-size: 0.68rem; font-weight: 700; color: #5a6570; border: 1px solid var(--border); border-radius: 3px; padding: 2px 7px; white-space: nowrap; }
@@ -859,6 +865,14 @@ function renderAbCard(ab, showSupplier) {
          qualifiers, and the yellow tab already marks a supportive result
          with one (owner, 29 Sep 2026). */
       + ((d.words || d.sentence) ? '<p class="exp-caveat ' + esc(tone) + '" title="' + escAttr(d.sentence || '') + '">' + esc(d.words || d.sentence) + '</p>' : '')
+      /* Copy methods, under the judgement — the paragraph is the API's own
+         `oga_methods[app].text` (API 2.4.0), so the portal copies what the
+         gene page copies. The API sends it only under a supportive result;
+         no key (or an older cached reply): no button. */
+      + (((ab.oga_methods || {})[exp.experiment_type] || {}).text
+          ? '<div class="exp-methods"><button type="button" class="copy-methods" data-methods="'
+            + escAttr(ab.oga_methods[exp.experiment_type].text) + '">Copy methods</button></div>'
+          : '')
       + '</div>';
   }).join('');
 
@@ -1789,6 +1803,15 @@ function downloadOutcome(title, html) {
   show('download-close');
 }
 
+function methodsByImage() {
+  const out = new Map();
+  S.antibodies.forEach(ab => (ab.experiments || []).forEach(e => {
+    const m = ((ab.oga_methods || {})[e.experiment_type] || {}).text;
+    if (e.image_url && m) out.set(e.image_url, m);
+  }));
+  return out;
+}
+
 async function downloadSelected() {
   if (S.selected.size === 0) return;
   show('download-overlay'); hide('download-result'); hide('download-close'); show('download-bar');
@@ -1834,8 +1857,13 @@ async function downloadSelected() {
   }
 
   $('download-progress').textContent = 'Generating zip...';
-  const csvH = 'original_url,new_filename,target_url,gene,catalogue_number,rrid,application,recommended\n';
-  const csvR = manifest.map(r => csvRow([r.original_url,r.new_filename,r.target_url,r.gene,r.catalogue_number,r.rrid,r.application,r.recommended])).join('\n');
+  /* `methods` is the paragraph the figure's Copy methods button copies, the
+     API's `oga_methods[app].text` — blank where there is no button (a result
+     that is not supportive, or no methods on file). Last column, so a sheet
+     that read this file by position keeps its indices. */
+  const methods = methodsByImage();
+  const csvH = 'original_url,new_filename,target_url,gene,catalogue_number,rrid,application,recommended,methods\n';
+  const csvR = manifest.map(r => csvRow([r.original_url,r.new_filename,r.target_url,r.gene,r.catalogue_number,r.rrid,r.application,r.recommended,methods.get(r.original_url)||''])).join('\n');
   zip.file('manifest.csv', csvH + csvR);
   /* Beside the manifest, never merged into it: every row of manifest.csv is a
      file in this archive, and a row naming a file that is not here would break
@@ -1910,5 +1938,6 @@ document.addEventListener('keydown', e => {
 let toastTimer = null;
 function toast(msg, isErr) { const el=$('toast'); el.textContent=msg; el.style.background=isErr?'var(--red)':'var(--navy)'; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove('show'),2500); }
 </script>
+<script src="{% static 'core/copy_methods.js' %}" defer></script>
 </body>
 </html>

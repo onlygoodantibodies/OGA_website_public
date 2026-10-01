@@ -21,6 +21,11 @@ independent signals read off the registry record — the target **gene**
             written (a human reconciles);
   * NOMATCH — no registry record with that catalogue.
 
+Cell Signaling Technology is looked up a second way when the first finds nothing:
+we store ``71031S`` (pack size S) where the registry files product ``71031``, so
+``scicrunch.catalogue_variants`` strips the size letter, or adds ``S`` to a bare
+number. Still gated on gene and vendor; the stored catalogue is never changed.
+
 The RRID itself is read from ``item.identifier`` (bare ``AB_<n>``; ``item.curie``
 is ``ab:<n>`` and is NOT used), with ``rrid.curie`` as a fallback.
 
@@ -125,9 +130,23 @@ class Command(BaseCommand):
             stats["candidates"] += 1
             gene = ab.target.gene_name if ab.target_id else ""
             company = (ab.company.display_name or ab.company.name) if ab.company_id else ""
-            reg = _safe_lookup(ab.catalogue_number)
-            if sleep:
-                time.sleep(sleep)
+            # The other symbols this gene is known by, off our own Target row --
+            # no network. The registry names a gene by a synonym often enough
+            # that without these, ten PDPN antibodies from six vendors read as
+            # ten different antibodies. See match_registry.
+            aliases = targets.registry_names(ab.target) if ab.target_id else []
+
+            def _paced_lookup(cat):
+                reg = _safe_lookup(cat)
+                if sleep:
+                    time.sleep(sleep)
+                return reg
+
+            # One lookup per catalogue, plus a second only for a CST number the
+            # registry files under another spelling (scicrunch.catalogue_variants).
+            found = scicrunch.lookup_and_match(ab.catalogue_number, company, gene,
+                                               aliases=aliases, lookup=_paced_lookup)
+            reg = found["reg"] or {}
 
             if show_raw and raw_shown < show_raw:
                 raw_shown += 1
@@ -144,9 +163,10 @@ class Command(BaseCommand):
                                   f"error={reg.get('error')!r}")
                 self.stdout.write("  " + json.dumps(peek, indent=2, default=str)[:4000])
 
-            if reg.get("error") and not reg.get("records"):
+            if found["status"] == "nomatch":
                 # Distinguish "no such catalogue" (nomatch) from transport failure.
-                if "unavailable" in (reg["error"] or "") or "not set" in (reg["error"] or ""):
+                err = reg.get("error") or ""
+                if not reg.get("records") and ("unavailable" in err or "not set" in err):
                     stats["unreachable"] += 1
                     continue
                 stats["nomatch"] += 1
@@ -157,13 +177,8 @@ class Command(BaseCommand):
                                   f"(high={stats['high']} review={stats['review']} "
                                   f"nomatch={stats['nomatch']})")
 
-            # The other symbols this gene is known by, off our own Target row --
-            # no network. The registry names a gene by a synonym often enough
-            # that without these, ten PDPN antibodies from six vendors read as
-            # ten different antibodies. See match_registry.
-            aliases = targets.registry_names(ab.target) if ab.target_id else []
-            status, rrid, url, note = match_registry(
-                ab.catalogue_number, company, gene, reg["records"], aliases=aliases)
+            status, rrid, url, note = (found["status"], found["rrid"],
+                                       found["url"], found["note"])
             if status == "high":
                 stats["high"] += 1
                 fields = ["rrid", "rrid_link"]

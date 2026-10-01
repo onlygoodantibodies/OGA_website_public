@@ -16,7 +16,9 @@ CHILD_RELATIONS = ["wb_results", "ip_results", "if_results", "fc_results",
                    "ihc_results",
                    "publication_images", "locations",
                    # whole IHC figures — see services/duplicates.py
-                   "ihc_figure_links", "pending_ihc_figure_links"]
+                   "ihc_figure_links", "pending_ihc_figure_links",
+                   # the dilution a report used for it — services/duplicates.py
+                   "methods"]
 SIMPLE_RELATIONS = [r for r in CHILD_RELATIONS if r != "publication_images"]
 
 OR_BOOL_FIELDS = set(Antibody.RECOMMENDATION_FIELDS) | {

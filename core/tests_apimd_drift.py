@@ -24,7 +24,8 @@ from django.conf import settings
 from django.test import TestCase
 
 from core.models import APIConsumer
-from pipeline.models import Antibody, Company, PublicationImage, Target
+from pipeline.models import (Antibody, AntibodyMethod, Company, MethodsRecord,
+                             PublicationImage, Target)
 from pipeline.services import review
 
 #: Objects whose keys are data, not contract — a supplier name, a gene. An
@@ -35,8 +36,11 @@ from pipeline.services import review
 #: keys appear is a fact about the data rather than about the contract. The
 #: example documents a qualified IP because that is what the field is FOR, and a
 #: fixture with no judged axis must not make documenting it an error.
+#:
+#: ``conditions`` under ``oga_methods`` likewise: its keys are whatever the
+#: report stated, so they differ by gene as well as by application.
 DATA_KEYED = {'supplier_summary', 'recommendations_by_application',
-              'oga_qualifiers'}
+              'oga_qualifiers', 'conditions'}
 
 
 def documented_examples():
@@ -66,6 +70,15 @@ class TheExamplesMatchTheApiTests(TestCase):
             rrid='AB_2687467', wb_recommended=True)
         PublicationImage.objects.create(
             antibody=antibody, application_type='WB', image='pubs/x.png')
+        # §6 documents `oga_methods` with the keys its example shows; without a
+        # methods record the row would send `{}` and the walk would call them
+        # phantoms.
+        record = MethodsRecord.objects.create(
+            target=target, application='WB', conditions={
+                'protein_loading_ug': '40', 'membrane': 'nitrocellulose',
+                'blocking': '5% milk, 1 hr'})
+        AntibodyMethod.objects.create(record=record, antibody=antibody,
+                                      amount='1/10 000', basis='report_named')
         cls.key = str(APIConsumer.objects.create(
             name='doc-audit', consumer_type='manufacturer',
             is_active=True).api_key)

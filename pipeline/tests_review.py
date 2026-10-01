@@ -1371,6 +1371,17 @@ class OneObjectAtOnePublicKeyTests(TestCase):
                          "a re-crop landed on a suffixed key, so the public URL "
                          "a partner was given stopped being the live one")
 
+    def test_a_slash_in_a_catalogue_is_not_a_folder(self):
+        """DSHB sells clone N258/5 as catalogue N258/5; storage reads the
+        slash as a directory, so the file would be named ``5_WB.png``."""
+        from pipeline.services.cropper import engine
+        item = svc.stage(antibody=self.ab, application_type="WB",
+                         content=_png((5, 5, 5)),
+                         filename=engine.filename_for("CLCN3", "N258/5", "WB"),
+                         staged_by="tester")
+        self.assertEqual(item.image.name.rsplit("/", 1)[-1], "CLCN3_N258-5_WB.png")
+        self.assertNotIn("CLCN3_N258/", item.image.name)
+
 
 class OneProductHasOnePublicFigurePerApplicationTests(TestCase):
     """A crop's file is `{GENE}_{catalogue}_{TYPE}.png` — per *product* — while

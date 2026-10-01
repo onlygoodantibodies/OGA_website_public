@@ -406,6 +406,24 @@ body {
   .experiment-caveat { max-width: 120px; font-size: 0.65rem; min-height: 4em; }
 }
 
+/* "Copy methods" under the judgement (30 Sep 2026): the button and nothing
+   else — the paragraph it copies is in `data-methods`, composed by
+   `pipeline/services/methods_text.py` from the report the figure came from.
+   Quiet, because the caption above it is the thing a reader scans for. */
+.copy-methods-row { margin: -8px auto 14px; text-align: center; }
+.copy-methods {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  padding: 3px 9px;
+  color: #10428a;
+  background: #fff;
+  border: 1px solid #b8c7df;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.copy-methods:hover, .copy-methods:focus-visible { background: #eef3fb; }
+.copy-methods.is-copied { color: #0b6b3a; border-color: #0f9d58; background: #eafaf0; }
+
 /* --- Click-to-zoom images --- */
 .experiment-box img.zoomable { cursor: zoom-in; }
 /* The example row's IHC cell has no example figure; it says it in words. */
@@ -482,6 +500,29 @@ body {
 @media (max-width: 600px) {
   .oga-ab-focus { margin: 0.8rem 1rem 0; }
 }
+
+/* One column grid for every card (1 Oct 2026). Each card is its own <table>,
+   and auto table layout sized each one to its own content, so the Example strip
+   sat 3–13px off the cards under it; and every card was ~1530px wide whatever
+   the gene had, with 240px figures left-aligned in it — a one-application gene
+   (FETUB) was 70% empty card, with the heading, the verdict and Copy methods
+   centred somewhere the figure was not.
+   So: a fixed first column and a fixed layout make every card's columns the
+   same; `--apps` (the drawn column count, set on #antibody-table) fits the
+   card to what it holds, never narrower than the 800px blocks above it; and
+   the figure is centred, so heading, figure, verdict and button share one
+   axis. The Example's padding is one less to make up for its 2px border. */
+#antibody-table .row-box {
+  max-width: max(800px, calc(48px + 270px + var(--apps, 4) * 300px));
+}
+#antibody-table .ideal-antibody-row { padding: 23px; }
+#antibody-table .row-box > table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+#antibody-table .row-box > table > thead > tr > th:first-child { width: 270px; }
+#antibody-table .row-box td:not(.antibody-details) { padding: 0 6px; }
+#antibody-table .header-label { padding-bottom: 8px; }
+#antibody-table .antibody-details { width: auto; min-width: 0; padding-right: 12px; }
+#antibody-table .experiment-box { margin: 0 auto; max-width: 280px; height: auto; aspect-ratio: 1 / 1; }
+#antibody-table .experiment-caveat { max-width: 250px; text-align: center; }
 </style>
 
 <body class="antibody-table-page">
@@ -745,7 +786,7 @@ that could disagree.
   {% endif %}
 
             <!-- Table Container -->
-            <main class="table-container" id="antibody-table" data-gene="{{ gene_name }}">
+            <main class="table-container" id="antibody-table" data-gene="{{ gene_name }}" style="--apps: {{ columns|length }}">
                 <!-- Ideal Antibody Row -->
                 <div class="row-box ideal-antibody-row"> 
                     <table>
@@ -796,7 +837,7 @@ that could disagree.
 <td class="antibody-details">
     <h3>{{ antibody.name }}</h3>
     {% if antibody.description %}
-        <p>RRID: {{ antibody.description.rrid }}</p>
+        <p>RRID: {{ antibody.description.rrid|default:"not recorded" }}</p>
 
         <p>
             Supplier:
@@ -809,7 +850,7 @@ that could disagree.
             {% endif %}
         </p>
 
-        <p>Host: {{ antibody.description.host }}</p>
+        <p>Host: {{ antibody.description.host|default:"not recorded" }}</p>
         <p>{{ antibody.description.clonality }}</p>
 
         {% if antibody.description.clone_ID %}
@@ -856,6 +897,7 @@ that could disagree.
                                 </div>
                                 {% if cell.control == 'knockdown' %}<p class="experiment-control" title="The genetic control in this figure is a knockdown (siRNA/shRNA), not a knockout — the legend names the lines">knockdown control</p>{% endif %}
                                 {% if cell.caption %}<p class="experiment-caveat {{ cell.state }}">{{ cell.caption }}</p>{% endif %}
+                                {% if cell.methods %}<p class="copy-methods-row"><button type="button" class="copy-methods" data-methods="{{ cell.methods }}">Copy methods</button></p>{% endif %}
                                 {% if cell.tissue_url %}<p class="experiment-tissue"><a href="{{ cell.tissue_url }}">See tissue staining →</a></p>{% endif %}
                             </td>
                             {% endfor %}
@@ -949,6 +991,7 @@ that could disagree.
     <!-- Footer -->
 {% include 'core/footer.html' with footer_class="antibody-footer" %}
 <script src="{% static 'core/script.js' %}"></script>
+<script src="{% static 'core/copy_methods.js' %}" defer></script>
 {% if focus_id %}
 <script>
   {% comment %}

@@ -178,7 +178,7 @@ class OneGeneGateOnEverySurfaceTests(TestCase):
         body = self.client.get("/antibodies/PPP2R5D/").content.decode()
         self.assertNotIn("no OGA verdict for IHC", body)
         self.assertIn('<option value="ihc">', body)
-        self.assertIn("HAP1 cell pellets, not tissue", body)
+        self.assertIn("cell pellets, not tissue", body)
         self.assertIn('experiment-caveat supportive">Supportive</p>', body)
 
         from core.api_views import _serialise_antibody
@@ -271,7 +271,7 @@ class TheMcpNeverScoresAPapersIhcTests(TestCase):
         enriched = portal._enrich(ab, portal._axes_for([ab]))
         self.assertEqual(enriched["assessment"]["IHC"]["support"], "supportive")
         self.assertIn("pellets", enriched["assessment"]["IHC"]["sample"])
-        self.assertIn("HAP1 cell pellets", enriched["summary"])
+        self.assertIn("cell pellets", enriched["summary"])
         hit = portal._manuscript_hit("ab1", "catalogue", enriched)
         # The paper-scorable four only: an IHC-only reagent is no "concern"
         # and no "recommended" hit for a paper that blotted with it.
@@ -427,4 +427,4 @@ class ThePelletsSentenceOnlyUnderAnIhcColumnTests(TestCase):
         PublicationImage.objects.using(DB).create(
             antibody=ab, application_type="WB", image="pubs/wb.png")
         body = self.client.get("/antibodies/SOD1/").content.decode()
-        self.assertNotIn("HAP1 cell pellets, not tissue", body)
+        self.assertNotIn("cell pellets, not tissue", body)

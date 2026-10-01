@@ -350,7 +350,7 @@ APPLICATION_FACT = {
     # Drawn only on a gene page that draws an IHC column (`core/views.py`
     # filters by the columns), and never in `APPLICATION_SCOPE` below, which
     # iterates `_APPLICATION_VOCABULARY` and so never reaches `index.json`.
-    'IHC': 'Immunohistochemistry results are on HAP1 cell pellets, not tissue.',
+    'IHC': 'Immunohistochemistry results are on cell pellets, not tissue.',
 }
 
 #: What ‘not supportive’ leaves open, per application — the half that defers to

@@ -316,7 +316,12 @@ def render_cell(source: Image.Image, cell: Cell) -> Image.Image:
 
 def filename_for(gene: str, catalogue: str, app_type: str) -> str:
     """Spec §9 naming. Filename uses IF (DB uses ICC-IF); strip asterisks;
-    preserve Aviva suffixes and internal spaces."""
+    preserve Aviva suffixes and internal spaces.
+
+    A slash becomes a hyphen: DSHB catalogues are clone names (``N258/5``),
+    and storage reads a slash as a folder, so the key would have been
+    ``CLCN3_N258/`` + ``5_WB.png`` — a file whose own name says catalogue
+    ``5``. Mirrored by ``cropFileName`` in ``cropper.html``."""
     type_tag = "IF" if app_type == "ICC-IF" else app_type
-    cat = catalogue.replace("*", "").strip()
+    cat = catalogue.replace("*", "").replace("/", "-").replace("\\", "-").strip()
     return f"{gene}_{cat}_{type_tag}.png"

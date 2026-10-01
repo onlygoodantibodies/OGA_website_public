@@ -4801,3 +4801,27 @@ class AnotherSitesRowSaysSoBeforeAnybodyTypesInARealBrowserTests(_RealBrowserHar
         self.assertIsNone(self.page.query_selector(
             f'tr[data-row="{theirs.pk}"] input, tr[data-row="{theirs.pk}"] select'))
         self.assertEqual(self.errors, [])
+
+
+class AnAcademyModuleCountsItsOpenSectionInARealBrowserTests(_RealBrowserHarness):
+    """The first section of every Academy module opens by itself, and Bootstrap
+    fires no 'shown' event for a panel that starts open — so it was never
+    counted as read. A learner stopped short of 100% unless they closed and
+    reopened it, with nothing on the page saying why. Silent, and only a
+    browser runs the script that does the counting."""
+
+    def test_the_section_open_on_arrival_is_counted_as_read(self):
+        from academy.models import Lesson, LessonSection, SectionProgress
+        lesson = Lesson(title="Module X", slug="module-x", order=1, content="")
+        lesson.save(using="academy_db")
+        first = LessonSection(lesson=lesson, title="Opens by itself", body="<p>a</p>", order=1)
+        first.save(using="academy_db")
+        LessonSection(lesson=lesson, title="Closed", body="<p>b</p>", order=2).save(using="academy_db")
+        with self.page.expect_response(lambda r: "/academy/lesson/mark_section/" in r.url) as seen:
+            self.page.goto(f"{self.live_server_url}/academy/lesson/{lesson.pk}/")
+        self.assertEqual(seen.value.status, 200)
+        user = User.objects.using("academy_db").get(username="vera")
+        self.assertEqual(
+            list(SectionProgress.objects.using("academy_db").filter(user=user)
+                 .values_list("section_id", flat=True)),
+            [first.pk])

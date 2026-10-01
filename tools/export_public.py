@@ -177,6 +177,15 @@ RULES: list[tuple[str, str, str]] = [
     ("pipeline/data/horizon_hap1_ko.csv", SHIP, "Horizon's public catalogue."),
     ("pipeline/data/antibody_availability_2026_08_30.csv", SHIP,
      "The 30 Aug recheck of supplier availability; same kind of file as the 11-12 Aug pass above."),
+    ("pipeline/data/methods_record_2026_09_30.json", DROP,
+     "The methods are the published reports', and already public through Copy "
+     "methods and the API's oga_methods; the file also carries the lab's own "
+     "records beside them -- session and result-row ids, the dilution each "
+     "session row holds, 335 report-versus-bench disagreements with triage "
+     "notes, and internal SharePoint filenames. No test reads it."),
+    ("academy/content/module3/module.json", SHIP,
+     "Academy Module 3's text, sections and quiz -- the public course, served "
+     "on the site."),
     # The target-confusion notices and their paper lists are served to every
     # extension install through /extension/index.json (core/target_confusions.py
     # ::index_payload), so they are public by construction. Each CSV is a

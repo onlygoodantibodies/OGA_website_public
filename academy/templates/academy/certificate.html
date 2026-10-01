@@ -60,7 +60,7 @@
         <p class="lead mb-1">This certifies that</p>
         <h2 class="mb-3">{{ cert.user.get_full_name|default:cert.user.username }}</h2>
         <p class="mb-1">has successfully completed the module</p>
-        <h4 class="mb-3">{{ cert.lesson.title }}</h4>
+        <h4 class="mb-3">{{ cert.module_title }}</h4>
         <p>Your score: <strong>{{ cert.score }}%</strong></p>
         <a href="{% url 'academy:generate_pdf' cert.id %}" class="btn btn-success btn-lg mt-3">
           <i class="bi bi-download me-2"></i>Download PDF

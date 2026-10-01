@@ -232,13 +232,13 @@ def _assessment(ab, image_types, gene_has_recommendations,
 
 
 #: What OGA's IHC result is ON, said wherever a model reads one.
-_IHC_SAMPLE = "FFPE HAP1 cell pellets (wild type, knockout, mosaic) — not tissue"
+_IHC_SAMPLE = "FFPE cell pellets (wild type, knockout, mosaic) — not tissue"
 
 
 def _app_label(app):
     """An application as the summary sentence names it — IHC with its sample,
     because "supports IHC" alone is read as tissue IHC."""
-    return "IHC (on HAP1 cell pellets, not tissue)" if app == "IHC" else app
+    return "IHC (on cell pellets, not tissue)" if app == "IHC" else app
 
 
 #: What a rung degrades to when the site's module is not importable in this
@@ -388,9 +388,16 @@ def _enrich(ab, axes=None):
     """
     A = _api()
     rec = A._target_has_recommendations(ab.target)
+    # `methods={}`: the API's `oga_methods` reads two tables the read-only
+    # role is not granted (`grants.py`), so the connector does not ask for
+    # them. Granting them is a decision for when a tool needs the methods.
     d = A._serialise_antibody(ab, rec, include_recs=True,
                               axes={k: v for k, v in (axes or {}).items()
-                                    if k[0] == ab.pk} or None)
+                                    if k[0] == ab.pk} or None,
+                              methods={})
+    # And the key itself stays off the connector's payload until then:
+    # `tests/test_published_scope.py` makes adding a key a decision.
+    d.pop("oga_methods", None)
     reports = _reports(ab.target)
     dois = _report_dois(reports)
     image_types = {img.application_type for img in ab.publication_images.all()}
@@ -1120,7 +1127,7 @@ _TISSUE_APP_NOTE = (
     "verdict. What is known about the antibody is in `oga_result`, which covers "
     "the applications OGA did test — report that as context, and be explicit that "
     "it is not a result in this preparation. "
-    "OGA's IHC result, where `assessment.IHC` has one, is on FFPE HAP1 "
+    "OGA's IHC result, where `assessment.IHC` has one, is on FFPE "
     "cell pellets — a cell line prepared like tissue. Report it as the "
     "closest context; it is not a result in tissue.")
 
@@ -2780,7 +2787,7 @@ def _build_table(base, controls, reagents, apps_for=None, app_notes_for=None,
                 pellet = (
                     " OGA's own IHC result for this antibody — "
                     f"{ihc.get('verdict') or ihc.get('support')} — is on FFPE "
-                    "HAP1 cell pellets, not tissue (`assessment.IHC`): the "
+                    "cell pellets, not tissue (`assessment.IHC`): the "
                     "closest context, not a result in this paper's preparation."
                     if ihc.get("tested") else "")
                 row["oga_result_context"] = (

@@ -66,7 +66,7 @@ own words; OGA's result sits in its own column, from the one verdict reader.
     <h1>{{ gene_name }} immunohistochemistry figures</h1>
     <p>{{ antibody_count }} {{ gene_name }} antibod{{ antibody_count|pluralize:'y,ies' }}
       stained in wild-type and knockout tissue, each figure with its legend as published.
-      Their HAP1 cell pellet results are on the <a href="{% url 'antibody_table' gene_name %}">{{ gene_name }} page</a>.
+      Their cell pellet results are on the <a href="{% url 'antibody_table' gene_name %}">{{ gene_name }} page</a>.
       Free to reuse under <a href="{{ licence_url }}" target="_blank" rel="noopener license">{{ licence_name }}</a>{% if report_link %} —
       please cite <a href="{{ report_link }}" target="_blank" rel="noopener">the {{ gene_name }} report</a>{% endif %}.</p>
   </div>
@@ -120,7 +120,7 @@ own words; OGA's result sits in its own column, from the one verdict reader.
           <th scope="col" class="ihc-optional">Clonality</th>
           <th scope="col" class="ihc-optional">RRID</th>
           <th scope="col">Supplier lists IHC</th>
-          <th scope="col">OGA result on HAP1 pellets</th>
+          <th scope="col">OGA result on cell pellets</th>
         </tr>
       </thead>
       <tbody>

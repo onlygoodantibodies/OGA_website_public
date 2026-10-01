@@ -542,7 +542,7 @@ def _check_proteomics(gene: str) -> dict:
     result = {"found": False, "cell_lines": [], "detected_count": 0, "total_lines_checked": 12}
     try:
         entries = (ProteomicsExpression.objects.using(DB)
-                   .filter(gene_name__iexact=gene.strip())
+                   .filter(gene_name__in=gene_symbol.spellings(gene))
                    .order_by('-protein_intensity'))
         if entries.exists():
             result["found"] = True

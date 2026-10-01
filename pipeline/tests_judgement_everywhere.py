@@ -155,16 +155,10 @@ class ReleasingClearsTheEdgeTests(_Base):
         self.assertNotEqual(before["/"], after["/"])
         self.assertEqual(after["/"], after["/about/"])
 
-    def test_a_release_purges_the_tag_and_keeps_what_it_cannot_change(self):
-        """Purging the whole zone also emptied every Cloudflare location of the
-        static images and the 741 KB citation snapshot, each re-fetched from
-        the origin on Render's bandwidth bill. Pages carry the tag; those do
-        not; the purge names the tag, never the zone."""
-        from OGA_website.cache_headers import RELEASE_TAG
-        self.assertEqual(self.client.get("/")["Cache-Tag"], RELEASE_TAG)
-        self.assertFalse(self.client.get(
-            "/extension/citations.json").has_header("Cache-Tag"))
-
+    def test_a_release_purges_everything(self):
+        """A tag purge was answered `success` by Cloudflare and dropped
+        nothing (30 Sep 2026), so the home page went on counting the day
+        before two releases. The release purges the zone, as a deploy does."""
         sent = {}
 
         class _Reply:
@@ -185,7 +179,7 @@ class ReleasingClearsTheEdgeTests(_Base):
                 mock.patch("json.load", return_value={"success": True}):
             done, _ = edge_cache.purge_public_pages()
         self.assertTrue(done)
-        self.assertEqual(sent["body"], {"tags": [RELEASE_TAG]})
+        self.assertEqual(sent["body"], {"purge_everything": True})
 
     def test_a_test_run_never_purges_the_live_site(self):
         """The cloud sessions carry the real token."""

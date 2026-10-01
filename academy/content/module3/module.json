@@ -1,0 +1,20 @@
+{
+  "replaces": "MODULE 3 - NAVIGATING THE OGA DATABASE",
+  "title": "MODULE 3 - USING THE OGA DATABASE AND TOOLS",
+  "has_quiz": true,
+  "pass_mark": 80,
+  "quiz": "quiz.txt",
+  "note": "Rewritten for the site as it is in September 2026: search by catalogue number and RRID, nominating a gene, the four results, IHC on cell pellets and tissue pages, and the tools built on the data",
+  "sections": [
+    {"title": "Learning objectives", "body": "01-objectives.html"},
+    {"title": "What the OGA database is — and what it is not", "body": "02-what-it-is.html"},
+    {"title": "Finding an antibody: one search box", "body": "03-search.html", "image": "03-search.jpg"},
+    {"title": "When your gene is not there: nominate it", "body": "04-nominate.html", "image": "04-nominate.jpg"},
+    {"title": "Reading a gene page: the top", "body": "05-gene-page-top.html", "image": "05-gene-page-top.jpg"},
+    {"title": "Reading a gene page: the example row and each antibody", "body": "06-example-and-antibody.html", "image": "06-example-and-antibody.jpg"},
+    {"title": "The four results", "body": "07-four-results.html", "image": "07-four-results.jpg"},
+    {"title": "Reading the figures, application by application", "body": "08-figures.html", "image": "08-ihc-tissue-page.jpg"},
+    {"title": "Tools built on the same data", "body": "09-tools.html", "image": "09-tools.jpg"},
+    {"title": "Citing antibodies and reusing the data", "body": "10-citing.html"}
+  ]
+}

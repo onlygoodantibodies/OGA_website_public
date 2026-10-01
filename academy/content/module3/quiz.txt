@@ -1,0 +1,59 @@
+1. What does OGA's database show?
+- A list of antibodies that are validated for any experiment
+* Independent characterisation data, comparing each antibody in wild-type and knockout (or knockdown) cells
+- Customer reviews of commercial antibodies
+- The applications each manufacturer recommends
+
+2. Which of these can you type into the OGA search box?
+- Only an official gene symbol
+- Only a catalogue number
+* A gene symbol or alias, a catalogue number, or an RRID
+- Only an RRID
+
+3. Your gene is not in the database. What should you do?
+- Assume no commercial antibody for it works
+* Nominate it, saying which application you need and whether you may have funding
+- Email every supplier
+- Use the closest gene that is in the database
+
+4. The antibodies on a gene page are listed in a different order each time. Why?
+* The order is random on purpose, so it is never read as a ranking
+- The best antibody is always listed first
+- They are sorted by price
+- They are sorted by supplier
+
+5. What is the "Example — High-performing Antibody" row?
+- The antibody with the best results for that gene
+* A drawing of what ideal data looks like in each application, to compare the real figures with
+- An antibody OGA recommends buying
+- The first antibody that was tested
+
+6. An antibody shows "Limited support — detects the target" for western blot. What does that mean?
+- It was not tested by western blot
+- The data fully supports it for western blot
+* It was tested and the data does not support western blot overall, but it was seen to detect the target
+- Nothing on-target was seen
+
+7. An antibody is Supportive for western blot. What does that tell you about immunofluorescence?
+- It will also work in immunofluorescence
+* Nothing. Each result belongs to one application, so check the immunofluorescence result separately
+- It will not work in immunofluorescence
+- Immunofluorescence was not tested
+
+8. What does the IHC result on an OGA gene page rest on?
+- The supplier's own IHC images
+- A single wild-type tissue section with no control
+* Wild-type, knockout and mosaic cell pellets, stained side by side
+- Customer reviews
+
+9. An antibody you want to use is not in the OGA database. What does that tell you about it?
+- It performed badly and was removed
+- It is discontinued
+* Only that it has not been characterised, which is not a verdict on its quality
+- It is not specific
+
+10. How should you cite an antibody in your methods?
+- By its catalogue number alone
+- By the supplier's name alone
+* With its RRID, e.g. "Proteintech Cat# 10269-1-AP, RRID:AB_2193750"
+- By the gene name

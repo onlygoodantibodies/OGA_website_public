@@ -52,6 +52,10 @@ CHILD_RELATIONS = [
     # is already in (one row per figure per antibody).
     "ihc_figure_links",
     "pending_ihc_figure_links",
+    # The dilution or amount a report used for this antibody
+    # (`AntibodyMethod`). Missing here, a merge would delete it by cascade and
+    # the survivor's copied methods would lose its concentration.
+    "methods",
 ]
 
 

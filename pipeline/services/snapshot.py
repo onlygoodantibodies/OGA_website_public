@@ -60,7 +60,11 @@ DB = "pipeline_db"
 # ``PendingIhcFigure``/``IhcFigure`` and their explicit antibody tables, which
 # is the only place the figure-to-antibody links exist.
 # 5 since 26 Sep 2026: ``IhcResult`` joined — IHC readings at the bench.
-FORMAT_VERSION = 5
+# 6 since 30 Sep 2026: ``JudgementChange`` joined — the history of every
+# changed recommendation and outcome answer, which exists nowhere else.
+# 7 since 30 Sep 2026: ``MethodsRecord``/``AntibodyMethod`` joined — the
+# methods read out of the published reports, behind the Copy methods button.
+FORMAT_VERSION = 7
 
 # Everything the lab authors, in dependency order — the order a restore would
 # want, and the order that reads sensibly in a diff.
@@ -73,6 +77,8 @@ CAPTURED = [
     "ExperimentSession", "WbResult", "IpResult", "IfResult", "FcResult",
     "IhcResult",
     "Report", "PublicationImage", "PendingPublicationImage", "AntibodyOutcome",
+    "MethodsRecord", "AntibodyMethod",
+    "JudgementChange",
     "PendingIhcFigure", "PendingIhcFigureAntibody",
     "IhcFigure", "IhcFigureAntibody",
     "FileAttachment",

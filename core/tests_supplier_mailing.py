@@ -15,7 +15,7 @@ from unittest import mock
 from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
@@ -238,3 +238,14 @@ class TheContactsLoaderMakesOneKeyPerOrganisationTests(_Fixture):
         orgs = read(DEFAULT_FILE)
         self.assertNotIn("OriGene", orgs)
         self.assertTrue(all(e["contacts"] for e in orgs.values()))
+
+
+class ThePublicFormsAreNeverCachedTests(SimpleTestCase):
+    """A cached form page reaches every visitor without its CSRF cookie, so every
+    submission 403s. The Cloudflare rule's exclusions mirror this list."""
+
+    def test_each_form_is_under_a_never_cached_prefix(self):
+        from OGA_website.cache_headers import NEVER_CACHED_PREFIXES
+        for name in ("request_key", "contact", "nominate_gene"):
+            with self.subTest(name=name):
+                self.assertTrue(reverse(name).startswith(NEVER_CACHED_PREFIXES), reverse(name))

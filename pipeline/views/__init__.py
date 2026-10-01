@@ -40,7 +40,9 @@ from pipeline.views.cell_line_board import *   # Cell lines board (find + edit i
 from pipeline.views.guides import *            # Board guides (one Markdown file each)
 from pipeline.views.find import *              # The one search box, and where it lands
 from pipeline.views.gene_requests import *     # Genes the public asked for
+from pipeline.views.academy_modules import *   # Editing the Academy's modules
 from pipeline.views.user_admin import *        # People board (logins + access), superusers only
 from pipeline.views.impact import *          # Impact metrics across all four apps, superusers only
+from pipeline.views.manufacturer_emails import *  # Manufacturer results-email contacts, superusers only
 # from pipeline.views.reports import *
 # from pipeline.views.receiving import *

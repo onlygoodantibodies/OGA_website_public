@@ -159,7 +159,7 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
 
         Returns antibody hits grouped as recommended / not_recommended / not_tested
         / not_in_dataset, each with its PER-APPLICATION verdict (WB/IP/IF/FC, plus
-        IHC on HAP1 cell pellets in ``assessment``), RRID, product link, report DOI
+        IHC on cell pellets in ``assessment``), RRID, product link, report DOI
         and gene page URL. The grouping and ``applications`` use WB/IP/IF/FC only:
         OGA's IHC is on cell pellets, never scored against a paper's tissue IHC.
 
@@ -204,7 +204,7 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
 
         Each match is serialised exactly as the public data portal, plus:
           * ``assessment``: per application (WB/IP/IF/FC/IHC — IHC is on FFPE
-            HAP1 cell pellets, NOT tissue, and its entry says so in ``sample``),
+            cell pellets, NOT tissue, and its entry says so in ``sample``),
             ``support`` is one of
             ``supportive``, ``limited_support`` (tested with KO controls, not
             supported overall, and the antibody was still seen to do what the
@@ -293,7 +293,7 @@ def build_server(auth_settings=None, token_verifier=None, http_path=None,
 
         ``gene`` is REQUIRED (this is a per-gene question, not a whole-database
         list). ``application`` is one of WB, IP, IF (a.k.a. ICC-IF), FC, IHC
-        (on HAP1 cell pellets, not tissue) — results are per application, so
+        (on cell pellets, not tissue) — results are per application, so
         never carry one application's result over to another.
 
         ``support`` is one of:

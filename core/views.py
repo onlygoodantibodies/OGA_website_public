@@ -234,10 +234,10 @@ _APP_TECHNIQUE = {
 _COLUMN_LABEL = {'WB': 'WB', 'IP': 'IP', 'ICC-IF': 'ICC-IF', 'FC': 'FC',
                  'IHC': 'IHC'}
 
-# What the example row shows in each column. IHC's (26 Sep 2026) is laid out
-# as the real crops are — WT, KO, then both cores at low power — with what each
-# panel is for written beside it, since the cores panel explained nothing on
-# its own. Drawn by `bin/draw_ihc_example.py`.
+# What the example row shows in each column. IHC's is the successful column of
+# the IHC panel on Using the Data — pellets stacked WT / KO / mosaic, as the
+# real crops are — so both pages draw one picture. Drawn by
+# `bin/draw_ihc_example.py`.
 _EXAMPLE_IMAGE = {'WB': 'core/WB-ideal.png', 'IP': 'core/Ideal-IP.png',
                   'ICC-IF': 'core/IF-Ideal.png', 'FC': 'core/FC-ideal.png',
                   'IHC': 'core/IHC-ideal.png'}
@@ -246,10 +246,13 @@ _EXAMPLE_TEXT = {}
 
 
 def _gene_page_cells(columns, experiments, states, tabs, captions, controls,
-                     tissue_url=''):
+                     tissue_url='', methods=None):
     """One dict per drawn column, in order — what the template loops over.
     ``tissue_url`` goes on the IHC cell only: the antibody's staining in
-    tissue, on the gene's IHC page, linked from under its HAP1 result."""
+    tissue, on the gene's IHC page, linked from under its HAP1 result.
+    ``methods`` is `services/methods_text.for_antibodies`'s answer for this
+    antibody — the paragraph the Copy methods button under the cell copies."""
+    methods = methods or {}
     cells = []
     for app in columns:
         key = app.replace('-', '_')
@@ -264,6 +267,7 @@ def _gene_page_cells(columns, experiments, states, tabs, captions, controls,
             'caption': captions.get(key, ''),
             'control': controls.get(key, ''),
             'tissue_url': tissue_url if app == 'IHC' else '',
+            'methods': (methods.get(app) or {}).get('text', '') if image else '',
         })
     return cells
 
@@ -862,6 +866,13 @@ def antibody_table(request, gene_name):
     tissue_anchors = _tissue_anchors(target) if 'IHC' in columns else {}
     ihc_page_path = (reverse('antibody_ihc', kwargs={'gene_name': target.gene_name})
                      if tissue_anchors else '')
+    # The Copy methods paragraph under every supportive figure on the page,
+    # in four queries — the report's conditions with each antibody's own
+    # dilution, asked of the same verdict the cell draws.
+    from pipeline.services import methods_text
+    page_methods = methods_text.for_antibodies(
+        antibodies, axes=gene_axes,
+        curated={target.pk} if gene_is_curated else set())
 
     antibody_data = []
     for ab in antibodies:
@@ -938,7 +949,8 @@ def antibody_table(request, gene_name):
             "cells": _gene_page_cells(
                 columns, experiments, states, tabs, captions, controls,
                 tissue_url=(f"{ihc_page_path}#{tissue_anchors[ab.pk]}"
-                            if ab.pk in tissue_anchors else '')),
+                            if ab.pk in tissue_anchors else ''),
+                methods=page_methods.get(ab.pk)),
             "description": description,
             # Drawn in the experiment cells, keyed as `experiments` is.
             "recommended": recommended,
@@ -1997,6 +2009,11 @@ def embed_antibody_card(request):
     if application and application in valid_apps:
         app_types = [(application, application)]
 
+    # The Copy methods paragraph under each figure — the same writer the gene
+    # page uses, so the card and the page cannot copy different methods.
+    from pipeline.services import methods_text
+    card_methods = methods_text.for_antibodies([antibody]).get(antibody.pk, {})
+
     experiment_cards = []
     for code, label in app_types:
         img = pub_images.get(code)
@@ -2005,6 +2022,7 @@ def embed_antibody_card(request):
                 'label': label,
                 'has_data': True,
                 'image_url': img.image.url,
+                'methods': (card_methods.get(code) or {}).get('text', ''),
             })
 
     applications = []

@@ -274,3 +274,74 @@ def test_a_contradiction_with_nothing_confirming_still_refuses():
     status, rrid, _url, note = scicrunch.match_registry(
         "x", "Abcam", "APOE", records, aliases=["Apolipoprotein E"])
     assert status == "review" and not rrid and "PSMC3" in note
+
+
+# --- Cell Signaling's pack-size suffix (1 Oct 2026) --------------------------
+# We store `71031S`; the registry files product 71031 bare. Thirteen of the
+# sixteen CST antibodies with no RRID were written with the S.
+
+def _registry(by_cat, calls):
+    def _fake(cat, size=25):
+        calls.append(cat)
+        recs = by_cat.get(cat, [])
+        return {"found": bool(recs), "records": recs,
+                "error": None if recs else f"No registry record for catalogue '{cat}'"}
+    return _fake
+
+
+def test_cst_pack_size_is_looked_up_bare(monkeypatch):
+    calls = []
+    monkeypatch.setattr(scicrunch, "lookup_by_catalogue", _registry({"71031": [
+        {"rrid": "AB_2799999", "genes": ["MMP7"],
+         "vendors": [{"vendor": "Cell Signaling Technology", "catalogue": "71031", "url": ""}]},
+    ]}, calls))
+    rrid, _url, note = scicrunch.resolve_rrid("71031S", "Cell Signaling Technology", "MMP7")
+    assert rrid == "AB_2799999"
+    assert calls == ["71031S", "71031"]
+    assert "71031" in note
+
+
+def test_a_bare_cst_number_another_vendor_reuses_tries_the_s_size(monkeypatch):
+    """`5589` is an ARHGAP18 antibody from somebody else; CST's is 5589S."""
+    calls = []
+    monkeypatch.setattr(scicrunch, "lookup_by_catalogue", _registry({
+        "5589": [{"rrid": "AB_1", "genes": ["ARHGAP18"],
+                  "vendors": [{"vendor": "Other Co", "catalogue": "5589", "url": ""}]}],
+        "5589S": [{"rrid": "AB_2", "genes": ["RAB11A"],
+                   "vendors": [{"vendor": "Cell Signaling Technology", "catalogue": "5589S", "url": ""}]}],
+    }, calls))
+    rrid, _url, _note = scicrunch.resolve_rrid("5589", "Cell Signaling Technology", "RAB11A")
+    assert rrid == "AB_2"
+
+
+def test_the_variant_is_still_gated_on_gene_and_vendor(monkeypatch):
+    """Stripping the S widens the lookup, never the match: product 71031 from
+    another vendor, for another gene, is not ours."""
+    calls = []
+    monkeypatch.setattr(scicrunch, "lookup_by_catalogue", _registry({"71031": [
+        {"rrid": "AB_9", "genes": ["BAG1"],
+         "vendors": [{"vendor": "Other Co", "catalogue": "71031", "url": ""}]},
+    ]}, calls))
+    rrid, _url, note = scicrunch.resolve_rrid("71031S", "Cell Signaling Technology", "MMP7")
+    assert rrid is None and "differs" in note
+
+
+def test_other_suppliers_cost_one_lookup(monkeypatch):
+    calls = []
+    monkeypatch.setattr(scicrunch, "lookup_by_catalogue", _registry({}, calls))
+    scicrunch.resolve_rrid("12345S", "Abcam", "APOE")
+    assert calls == ["12345S"]
+
+
+def test_an_outage_is_not_retried_under_a_variant(monkeypatch):
+    calls = []
+    def _down(cat, size=25):
+        calls.append(cat)
+        return {"found": False, "records": [], "error": "SciCrunch API unavailable: boom"}
+    monkeypatch.setattr(scicrunch, "lookup_by_catalogue", _down)
+    rrid, _url, note = scicrunch.resolve_rrid("71031S", "Cell Signaling Technology", "MMP7")
+    assert rrid is None and calls == ["71031S"] and "unavailable" in note
+
+
+def test_bsa_free_is_a_different_product_and_keeps_its_letters():
+    assert scicrunch.catalogue_variants("12345BF", "Cell Signaling Technology") == ["12345BF"]

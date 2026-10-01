@@ -214,11 +214,24 @@ urlpatterns = [
     # consortium's own nominations, and deliberately read-only. See
     # pipeline/gene_request_models.py.
     path('gene-requests/', views.gene_request_board, name='gene_requests'),
+    # The Academy's modules, editable by any member (they were admin-only).
+    # The rows are in academy_db; see academy/editing.py.
+    path('academy/', views.academy_modules, name='academy_modules'),
+    path('academy/<int:pk>/', views.academy_module_edit, name='academy_module_edit'),
+    path('academy/<int:pk>/history/', views.academy_module_history,
+         name='academy_module_history'),
+    path('academy/<int:pk>/history/<int:rev>/', views.academy_module_version,
+         name='academy_module_version'),
     path('impact/', views.impact_dashboard, name='impact'),
     # One organisation's API activity, reached by clicking its name on the
     # impact page. A detail page rather than a Browse destination, the same
     # shape as `target_detail`: arriving here means somebody picked a row.
     path('impact/consumer/<int:pk>/', views.api_consumer, name='api_consumer'),
+    # Who at each manufacturer is sent their results, and resending the
+    # summary. Superusers only (`core/manufacturer_contacts.py`).
+    path('manufacturer-emails/', views.manufacturer_emails, name='manufacturer_emails'),
+    path('manufacturer-emails/action/', views.manufacturer_emails_action,
+         name='manufacturer_emails_action'),
 
     # === People board — logins + pipeline access. Superusers only. ===
     # The fifth board. It exists because a working login is three rows in two
@@ -246,6 +259,8 @@ urlpatterns = [
     path('outcomes/genes/', views.outcome_genes, name='outcome_genes'),
     path('outcomes/antibodies/', views.outcome_antibodies, name='outcome_antibodies'),
     path('outcomes/save/', views.outcome_save, name='outcome_save'),
+    path('outcomes/history/', views.outcome_history,
+         name='outcome_history'),
     path('outcomes/recommend/', views.outcome_recommend,
          name='outcome_recommend'),
     path('outcomes/withdraw/', views.outcome_withdraw,
