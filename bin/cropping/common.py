@@ -74,6 +74,22 @@ def start(pw, w=1700, h=1100):
     return browser, page, dialogs, errors
 
 
+def pick_session(page, plan):
+    """Resume the session ``build.py`` recorded, by its id — two sessions built
+    in one minute carry the same label, and a plan from before ids were
+    recorded still names one by label. Returns the label resumed."""
+    want = str(plan.get("session") or "")
+    if not want:
+        sys.exit("No session recorded in the plan — run build.py first.")
+    opts = page.evaluate("() => [...document.querySelectorAll('#sessionpick option')]"
+                         ".map(o => [o.value, o.textContent.trim()])")
+    hits = [o for o in opts if (o[0] == want if want.isdigit() else o[1] == want)]
+    if len(hits) != 1:
+        sys.exit(f"Session “{want}” is not exactly one entry in the list: {[o[1] for o in opts]}")
+    page.select_option("#sessionpick", value=hits[0][0])
+    return hits[0][1]
+
+
 def txt(page, sel):
     loc = page.locator(sel)
     return loc.inner_text() if loc.count() else ""

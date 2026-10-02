@@ -17,7 +17,7 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-from common import SITE, load_plan, save_plan, start, txt
+from common import SITE, load_plan, pick_session, save_plan, start, txt
 
 
 def main():
@@ -32,10 +32,8 @@ def main():
         browser, page, dialogs, errors = start(pw)
         page.goto(f"{SITE}/pipeline/cropper/?gene={plan['gene']}")
         page.wait_for_load_state("networkidle")
-        options = page.locator("#sessionpick option").all_inner_texts()
-        if options.count(name) != 1:
-            sys.exit(f"“{name}” is not exactly one entry in the session list: {options}")
-        page.select_option("#sessionpick", label=name)
+        label = pick_session(page, plan)
+        sid = page.locator("#sessionpick").input_value()
         page.wait_for_timeout(1500)
         page.click("#delsession")
         page.wait_for_selector("#session-delete-yes", timeout=10000)
@@ -46,15 +44,15 @@ def main():
         said = txt(page, "#sessionnotice")
         page.reload()
         page.wait_for_load_state("networkidle")
-        left = page.locator("#sessionpick option").all_inner_texts()
+        left = page.locator("#sessionpick option").evaluate_all("os => os.map(o => o.value)")
         browser.close()
     print("Page:", said)
-    if name in left:
-        print(f"“{name}” is still in the list.")
+    if sid in left:
+        print(f"“{label}” (session {name}) is still in the list.")
         return 1
     plan.pop("session")
     save_plan(plan)
-    print(f"“{name}” deleted; the review queue was not touched.")
+    print(f"“{label}” (session {name}) deleted; the review queue was not touched.")
     if dialogs or errors:
         print("Page dialogs:", dialogs, "errors:", errors)
     return 0

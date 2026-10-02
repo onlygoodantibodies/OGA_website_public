@@ -270,12 +270,17 @@ def main():
                               ".map(a => [a.download, a.href])")
         for name, href in crops:
             (out / name).write_bytes(base64.b64decode(href.split(",", 1)[1]))
-        plan["session"] = page.locator("#sessionpick option:checked").inner_text().strip()
+        # The id, not the picker's text: after a save the picker shows its
+        # placeholder, and two sessions built in a minute share a label.
+        sid = page.evaluate("() => SESS.id")
+        if not sid:
+            sys.exit("The session was not saved — no id to resume it by.")
+        plan["session"] = str(sid)
         browser.close()
     save_plan(plan)
     expected = len(crop_files(plan))
     print(summary)
-    print(f"Session saved as “{plan['session']}”. {len(crops)} crops extracted, {expected} planned"
+    print(f"Session {plan['session']} saved. {len(crops)} crops extracted, {expected} planned"
           f" · {whole_figures(plan)} whole IHC figure(s) set in box 6.")
     for s in sheets(out, crop_files(plan), "preview", plan["gene"]):
         print("sheet:", s)
