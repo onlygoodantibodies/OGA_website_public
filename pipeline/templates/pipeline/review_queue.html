@@ -252,6 +252,7 @@ uploads shipped with a marked download anchor and no script tag for months, and
 every button on it did nothing. A page that uses `OGABoard` says so here.
 {% endcomment %}
 <script src="{% static 'pipeline/board.js' %}"></script>
+<script src="{% static 'core/copy_methods.js' %}" defer></script>
 {% comment %}The rows as JSON through `json_script`, not `|safe`: a Python list
 rendered straight into a script block is `True`, `None` and single quotes —
 valid Python and not valid JavaScript, so the page would parse until the first
@@ -289,6 +290,7 @@ boolean and then silently do nothing.{% endcomment %}
   var WHY_NOT_RELEASE = JSON.parse(
     document.getElementById('why-not-release').textContent);
   var CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  var METHODS_URL = '{% url "pipeline:methods_entry" %}';
   var banner = B.banner('banner', 'banner-text', 'banner-close');
 
   var ME = "{{ request.user.username|escapejs }}";
@@ -338,6 +340,21 @@ boolean and then silently do nothing.{% endcomment %}
       '</button>' +
       '<div class="px-3 py-2 border-t border-gray-100 cursor-default" data-judge="' + r.id + '">' +
         judgeSlot(r) +
+      '</div>' +
+      /* The paragraph the Copy methods button copies once this figure is
+         released (`methods_text.for_staged`), read here beside the blot so a
+         wrong value is caught before release. Where none is entered the row
+         says so and goes to the page that enters it — a button that is merely
+         absent reads as a feature that does not exist. */
+      '<div class="px-3 py-2 border-t border-gray-100 cursor-default text-xs text-gray-500">' +
+        (r.methods
+          ? '<button type="button" class="copy-methods rounded border border-ycharos-200 px-2 py-0.5 ' +
+              'font-semibold text-ycharos-700 hover:bg-ycharos-50" data-methods="' + B.esc(r.methods) +
+              '">Copy methods</button>'
+          : 'No methods entered for ' + B.esc(r.application) + ' yet — ' +
+              '<a class="underline text-ycharos-700" href="' + METHODS_URL + '?gene=' +
+              encodeURIComponent(r.gene) + '&app=' + encodeURIComponent(r.application) +
+              '">add them</a>') +
       '</div>' +
       '<div class="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">' +
         'staged by ' + B.esc(r.staged_by || '—') +

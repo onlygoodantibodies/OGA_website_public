@@ -26,6 +26,7 @@ from pipeline.views.session_bulk import *    # Plan a session by paste/upload + 
 from pipeline.views.cropper import *          # Figure cropper (grid → crops → review queue)
 from pipeline.views.review import *           # Review queue: release crops to the public site
 from pipeline.views.figure_replace import *   # Replace one antibody's figure (→ review queue)
+from pipeline.views.methods_entry import *    # A gene's published methods, typed from the report
 from pipeline.views.bulk_import import *       # Bulk antibody paste (add/update many)
 from pipeline.views.imports import *           # xlsx/csv templates + upload
 from pipeline.views.deletion import *      # Delete one record, typed confirmation

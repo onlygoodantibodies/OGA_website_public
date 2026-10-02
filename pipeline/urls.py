@@ -194,6 +194,12 @@ urlpatterns = [
     path('review/ihc-withdraw/', views.review_ihc_withdraw, name='review_ihc_withdraw'),
     # Replacing one antibody's figure with a finished panel: stages into the
     # same review queue, so releasing is still what publishes it.
+    # A gene's published methods, typed from its report — what the Copy
+    # methods button prints (services/methods_entry.py).
+    path('methods/', views.methods_entry, name='methods_entry'),
+    path('methods/state/', views.methods_entry_state, name='methods_entry_state'),
+    path('methods/preview/', views.methods_entry_preview, name='methods_entry_preview'),
+    path('methods/save/', views.methods_entry_save, name='methods_entry_save'),
     path('figures/replace/', views.figure_replace, name='figure_replace'),
     path('figures/replace/upload/', views.figure_replace_upload,
          name='figure_replace_upload'),

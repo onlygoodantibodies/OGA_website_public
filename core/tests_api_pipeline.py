@@ -270,3 +270,52 @@ class ItDoesNotGrowAQueryPerGeneTests(TestCase):
             one, five,
             f"one gene cost {one} queries and five cost {five} — this endpoint "
             f"grows with the dataset")
+
+
+class PreReleaseMethodsFollowTheProvisionalVerdictTests(TestCase):
+    """The methods paragraph a staged figure will be published with: offered to
+    its manufacturer only under a provisionally supportive figure — the gate the
+    public button has — and to the review meeting on every card, since that is
+    where a wrong value is caught. Silent if wrong: a paragraph under a figure
+    OGA has not supported reads as an invitation to repeat it."""
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        cache.clear()
+
+    @classmethod
+    def setUpTestData(cls):
+        from pipeline.models import AntibodyMethod, MethodsRecord
+        abcam = Company.objects.create(name="Abcam", display_name="Abcam")
+        target = Target.objects.create(gene_name="DHX58")
+        cls.good = Antibody.objects.create(target=target, company=abcam,
+                                           catalogue_number="ab111", host_species="rabbit")
+        cls.poor = Antibody.objects.create(target=target, company=abcam,
+                                           catalogue_number="ab222", host_species="rabbit")
+        cls.good_fig = svc.stage(antibody=cls.good, application_type="WB", content=_png(),
+                                 filename="DHX58_ab111_WB.png", recommended=True)
+        cls.poor_fig = svc.stage(antibody=cls.poor, application_type="WB", content=_png(),
+                                 filename="DHX58_ab222_WB.png", recommended=False)
+        record = MethodsRecord.objects.create(target=target, application="WB",
+                                              conditions={"blocking": "5% milk, 1 hr"})
+        for ab, amount in ((cls.good, "1/500"), (cls.poor, "1/1000")):
+            AntibodyMethod.objects.create(record=record, antibody=ab, amount=amount,
+                                          basis="report_named")
+        cls.consumer = APIConsumer.objects.create(
+            name="Abcam", consumer_type="manufacturer", supplier_filter="Abcam")
+
+    def test_only_the_provisionally_supportive_figure_carries_its_paragraph(self):
+        body = self.client.get(reverse("api:pipeline_data"),
+                               HTTP_X_API_KEY=str(self.consumer.api_key)).json()
+        by_cat = {r["catalogue_number"]: r["oga_methods_text"] for r in body["figures"]}
+        self.assertIn("Abcam ab111", by_cat["ab111"])
+        self.assertIn("diluted 1/500", by_cat["ab111"])
+        self.assertEqual(by_cat["ab222"], "")
+
+    def test_every_review_card_carries_its_own_antibodys_paragraph(self):
+        rows = {r["catalogue"]: r["methods"]
+                for r in svc.rows_for(svc.for_target(self.good.target_id))}
+        self.assertIn("diluted 1/500", rows["ab111"])
+        self.assertIn("diluted 1/1000", rows["ab222"])
+        self.assertNotIn("1/500", rows["ab222"])

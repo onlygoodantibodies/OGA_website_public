@@ -1007,13 +1007,20 @@ curl -s -H "X-API-Key: YOUR_API_KEY_HERE" \
       "provisional_recommendation": true,
       "replaces_a_published_figure": false,
       "staged_at": "2026-08-13T09:12:44.108Z",
-      "image_url": "https://onlygoodantibodies.co.uk/api/v1/pipeline-image/?id=12"
+      "image_url": "https://onlygoodantibodies.co.uk/api/v1/pipeline-image/?id=12",
+      "oga_methods_text": "Western blot\nLysates of HAP1 WT and SNCA KO cells were prepared in …"
     }
   ]
 }
 ```
 
 `?gene=` narrows to one exact gene symbol.
+
+`oga_methods_text` is the paragraph the figure's *Copy methods* button will copy
+once it is released — the same text the published figure's `oga_methods_text`
+will carry. It is filled only where `provisional_recommendation` is true and
+OGA has entered the methods, and is empty otherwise; it is unpublished like the
+figure, so the same "do not quote" applies until release.
 
 `image_url` needs your key like any other request here — it is served by the
 application, not from object storage, and your scope is re-checked on every
@@ -1379,6 +1386,13 @@ until something actually changes.
 
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
+
+### 2.6.0 — 2 October 2026
+
+**Added: `oga_methods_text`** on every `/pipeline-data/` figure: the *Copy
+methods* paragraph that figure will carry once released, filled where the
+figure is provisionally supportive and its methods are entered, empty
+otherwise. Unpublished, like the rest of that endpoint.
 
 ### 2.5.0 — 1 October 2026
 

@@ -1046,7 +1046,16 @@ function pipelineFigureHtml(r) {
     + (r.provisional_recommendation
         ? 'Provisionally supportive'
         : 'No rating yet')
-    + '</div></div>';
+    + '</div>'
+    /* The paragraph the published figure's Copy methods button will copy,
+       from `oga_methods_text` — present only under a provisionally supportive
+       result, the same gate as the public button. Unpublished like the rest
+       of this tab. */
+    + (r.oga_methods_text
+        ? '<div class="exp-methods" style="padding:0 12px 10px"><button type="button" class="copy-methods" data-methods="'
+          + escAttr(r.oga_methods_text) + '">Copy methods</button></div>'
+        : '')
+    + '</div>';
 }
 
 function pipelineMore() {

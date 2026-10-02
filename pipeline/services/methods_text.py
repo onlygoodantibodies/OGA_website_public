@@ -841,6 +841,49 @@ def source_for(reports) -> str:
     return ""
 
 
+def for_staged(items) -> dict:
+    """``{item.pk: text}`` for figures waiting in the review queue — the
+    paragraph the button will copy once the figure is released.
+
+    For the two surfaces that show a figure before release: the review queue,
+    so the meeting reads the methods with the blot, and a manufacturer's
+    pre-release tab, which offers it only where the figure is provisionally
+    recommended (`core/api_pipeline.py`) — the gate `for_antibodies` asks of
+    a published result. No gate here: the caller knows which question it is
+    asking. ``items`` carry ``antibody`` and ``application_type``; three
+    queries whatever their number, and ``{}`` before the tables exist.
+    """
+    items = list(items)
+    if not items or not available():
+        return {}
+    from pipeline.models import AntibodyMethod, MethodsRecord, Report
+    target_ids = {i.antibody.target_id for i in items if i.antibody.target_id}
+    records = {(r.target_id, r.application): r
+               for r in MethodsRecord.objects.filter(target_id__in=target_ids)}
+    if not records:
+        return {}
+    values = {}
+    for m in (AntibodyMethod.objects.filter(antibody_id__in={i.antibody_id for i in items})
+              .select_related("record").order_by("updated_at", "id")):
+        values[(m.antibody_id, m.record.application)] = m
+    reports = {}
+    for r in Report.objects.filter(target_id__in=target_ids):
+        reports.setdefault(r.target_id, []).append(r)
+    out = {}
+    for item in items:
+        ab, app = item.antibody, item.application_type
+        record = records.get((ab.target_id, app))
+        if record is None:
+            continue
+        value = values.get((ab.pk, app))
+        body = text(app, conditions_of(record), antibody_label(ab),
+                    value.amount if value else "",
+                    source_for(reports.get(ab.target_id, [])), ab.host_species)
+        if body:
+            out[item.pk] = body
+    return out
+
+
 def for_antibodies(antibodies, axes=None, curated=None) -> dict:
     """``{antibody_id: {application: payload}}`` for every application where
     the antibody's published result is **supportive** and there is a methods

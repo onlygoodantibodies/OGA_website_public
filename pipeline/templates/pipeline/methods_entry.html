@@ -1,0 +1,245 @@
+{% extends "pipeline/base.html" %}
+{% block title %}Methods{% if gene %} · {{ gene }}{% endif %}{% endblock %}
+
+{% comment %}
+A gene's published methods, one application at a time — the run-level facts
+and each antibody's dilution or amount, typed from the report. The paragraph
+under Preview is the one the Copy methods button copies, composed by the same
+function (`services/methods_text.py::text`), so what is previewed is what is
+printed. The button itself only appears under a released figure whose result
+is supportive; nothing typed here reaches a public page before that.
+
+Save is greyed with its reason until a preview of exactly what is in the boxes
+has been made, and a save refuses if somebody else saved in between
+(`services/methods_entry.py::apply`).
+{% endcomment %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <div class="mb-5">
+    <p class="text-xs font-bold uppercase tracking-widest text-ycharos-600">Publishing</p>
+    <h1 class="text-2xl font-bold text-gray-900 mt-1">Methods{% if gene %} · {{ gene }}{% endif %}</h1>
+    <p class="text-gray-600 mt-1 max-w-3xl text-sm">
+      Type the methods <strong>as the gene's report states them</strong>. They become the
+      paragraph a reader copies with <em>Copy methods</em> under a published figure — shown
+      only under a released figure whose result is <strong>supportive</strong>. A box left
+      empty is left out of the paragraph; nothing is filled in for you.
+    </p>
+  </div>
+
+  <form method="get" action="{% url 'pipeline:methods_entry' %}" class="flex flex-wrap items-end gap-3 mb-5">
+    <label class="text-sm">
+      <span class="block text-gray-600 mb-1">Gene</span>
+      <input id="m-gene" name="gene" value="{{ gene }}" required placeholder="e.g. DHX58"
+             class="border border-gray-300 rounded px-2 py-1.5 w-40">
+    </label>
+    <label class="text-sm">
+      <span class="block text-gray-600 mb-1">Application</span>
+      <select id="m-app" name="app" class="border border-gray-300 rounded px-2 py-1.5">
+        {% for code, label in applications %}
+          <option value="{{ code }}" {% if code == app %}selected{% endif %}>{{ label }} ({{ code }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="px-3 py-1.5 bg-ycharos-600 text-white rounded text-sm">Open</button>
+    {% if target %}
+      <a href="{% url 'pipeline:target_detail' target.pk %}" class="text-sm text-ycharos-700 underline ml-2">{{ gene }}'s page</a>
+    {% endif %}
+  </form>
+
+  {% if error %}
+    <div id="m-refusal" role="alert" class="mb-4 rounded border-l-4 border-red-400 bg-red-50 px-4 py-3 text-sm text-gray-800">{{ error }}</div>
+  {% endif %}
+
+  {% if state %}
+  {{ state|json_script:"m-state" }}
+  {% csrf_token %}
+  <div id="m-banner" role="alert" class="hidden mb-4 rounded border-l-4 px-4 py-3 text-sm text-gray-800"></div>
+
+  <p id="m-provenance" class="text-xs text-gray-500 mb-3"></p>
+
+  <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-5">
+    <h2 class="font-semibold text-gray-900 mb-1">The run</h2>
+    <p class="text-xs text-gray-500 mb-3">What every antibody in this application was given. Include catalogue numbers where the report gives them.</p>
+    <label class="block text-sm mb-3">
+      <span class="block text-gray-700 mb-1">Report it comes from <span class="text-gray-400">(file name or title — kept for checking, never printed)</span></span>
+      <input id="m-report" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+    </label>
+    <div id="m-fields" class="grid md:grid-cols-2 gap-3"></div>
+  </section>
+
+  <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-5">
+    <h2 class="font-semibold text-gray-900 mb-1">Each antibody</h2>
+    <p class="text-xs text-gray-500 mb-3">Antibodies with a figure in this application are listed first. Emptying a value that is stored removes it.</p>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-left text-xs uppercase text-gray-500">
+          <th class="py-1 pr-3">Antibody</th><th class="py-1 pr-3">Figure</th>
+          <th class="py-1 pr-3" id="m-amount-head"></th><th class="py-1 pr-3">Where the report gives it</th>
+          <th class="py-1 pr-3">On what evidence</th>
+        </tr></thead>
+        <tbody id="m-abs"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <button type="button" id="m-preview" class="px-4 py-2 bg-ycharos-600 text-white rounded text-sm">Preview the paragraph</button>
+    <button type="button" id="m-save" disabled class="px-4 py-2 bg-emerald-600 text-white rounded text-sm disabled:opacity-40">Save</button>
+    <span id="m-save-why" class="text-sm text-gray-600">Preview first — Save stores exactly what the preview shows.</span>
+  </div>
+
+  <section id="m-result" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-8"></section>
+  {% endif %}
+</div>
+
+{% if state %}
+<script>
+(function () {
+  const state = JSON.parse(document.getElementById('m-state').textContent);
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g,
+    (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  let previewed = null;   // the body the last preview was made from
+  let stamp = state.stamp;
+
+  function prov() {
+    $('m-provenance').textContent = state.saved_at
+      ? `Stored: last saved ${new Date(state.saved_at).toLocaleString()}${state.saved_by ? ' (' + state.saved_by + ')' : ''}.`
+        + (state.source ? ` The paragraph will cite ${state.source}.` : ' The gene has no report DOI on file yet, so the paragraph will not cite one until it does.')
+      : 'Nothing stored for this application yet.'
+        + (state.source ? ` The paragraph will cite ${state.source}.` : ' The gene has no report DOI on file yet, so the paragraph will not cite one until it does.');
+  }
+
+  function draw() {
+    $('m-report').value = state.report_file || '';
+    $('m-fields').innerHTML = state.fields.map((f) => `
+      <label class="block text-sm">
+        <span class="block text-gray-700 mb-1">${esc(f.label)}</span>
+        <textarea data-key="${esc(f.key)}" id="m-c-${esc(f.key)}" rows="2" placeholder="${esc(f.hint)}"
+          class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">${esc(state.conditions[f.key] || '')}</textarea>
+      </label>`).join('');
+    $('m-amount-head').textContent = state.amount_label;
+    const opts = (sel) => state.bases.map(([v, l]) =>
+      `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(l)}</option>`).join('');
+    $('m-abs').innerHTML = state.antibodies.map((a) => `
+      <tr class="border-t border-gray-100" data-id="${a.id}">
+        <td class="py-1.5 pr-3">${esc(a.label)}${a.site ? ` <span class="text-xs text-gray-400">${esc(a.site)}</span>` : ''}</td>
+        <td class="py-1.5 pr-3 text-xs ${a.figure ? 'text-gray-700' : 'text-gray-400'}">${esc(a.figure || 'no figure')}</td>
+        <td class="py-1.5 pr-3"><input id="m-amount-${a.id}" data-f="amount" value="${esc(a.amount)}" placeholder="e.g. 1/500"
+             class="w-28 border border-gray-300 rounded px-2 py-1 text-sm"></td>
+        <td class="py-1.5 pr-3"><input id="m-where-${a.id}" data-f="where" value="${esc(a.where)}" placeholder="e.g. Table 4"
+             class="w-44 border border-gray-300 rounded px-2 py-1 text-sm"></td>
+        <td class="py-1.5 pr-3"><select id="m-basis-${a.id}" data-f="basis" class="border border-gray-300 rounded px-2 py-1 text-sm">${opts(a.basis)}</select></td>
+      </tr>`).join('');
+    prov();
+  }
+
+  function body() {
+    const conditions = {};
+    document.querySelectorAll('#m-fields textarea').forEach((t) => { conditions[t.dataset.key] = t.value; });
+    const antibodies = [...document.querySelectorAll('#m-abs tr')].map((tr) => {
+      const v = (f) => tr.querySelector(`[data-f="${f}"]`).value;
+      return {id: Number(tr.dataset.id), amount: v('amount'), basis: v('basis'), where: v('where')};
+    });
+    return {gene: state.gene, application: state.application, report_file: $('m-report').value,
+            conditions, antibodies};
+  }
+
+  function banner(kind, html) {
+    const b = $('m-banner');
+    b.className = 'mb-4 rounded border-l-4 px-4 py-3 text-sm text-gray-800 '
+      + (kind === 'error' ? 'border-red-400 bg-red-50' : 'border-emerald-400 bg-emerald-50');
+    b.innerHTML = html;
+    b.scrollIntoView({block: 'center'});
+  }
+
+  function arm(on, why) {
+    $('m-save').disabled = !on;
+    $('m-save-why').textContent = why;
+  }
+
+  async function post(url, data) {
+    try {
+      const r = await fetch(url, {method: 'POST', credentials: 'same-origin',
+        headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+      const d = await r.json();
+      return d;
+    } catch (e) {
+      return {ok: false, error: 'The server could not be reached. Nothing was saved — try again in a moment.'};
+    }
+  }
+
+  function list(title, items, fmt) {
+    if (!items || !items.length) return '';
+    return `<p class="mt-3 text-sm font-medium text-gray-800">${esc(title)}</p><ul class="list-disc ml-5 text-sm text-gray-700">`
+      + items.map((i) => `<li>${fmt(i)}</li>`).join('') + '</ul>';
+  }
+
+  function render(d, saved) {
+    const out = $('m-result');
+    out.classList.remove('hidden');
+    const paras = d.previews.length
+      ? d.previews.map((p) => `<div class="mt-3"><p class="text-xs text-gray-500">${esc(p.catalogue)} · ${esc(p.figure || 'no figure')}</p>
+          <pre class="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded p-3 font-sans">${esc(p.text || '(nothing to print — every box is empty)')}</pre></div>`).join('')
+      : '<p class="text-sm text-gray-600 mt-2">No antibody has a value or a figure yet, so there is no paragraph to show.</p>';
+    out.innerHTML = `<h2 class="font-semibold text-gray-900">${saved ? 'Saved — this is what is stored' : 'Preview — this is what Save will store'}</h2>
+      <p class="text-xs text-gray-500">The text the Copy methods button copies, per antibody. It appears only under a released figure whose result is supportive.</p>`
+      + list('Left out — what you typed reads as a note, not a method:', d.dropped, (x) => `${esc(x.label)}: “${esc(x.typed)}”`)
+      + list('Tidied — stored as:', d.changed, (x) => `${esc(x.label)}: “${esc(x.stored)}”`)
+      + list(saved ? 'Removed:' : 'Will be removed (the box is now empty):', d.removed, (x) => `${esc(x.label)} (was “${esc(x.was)}”)`)
+      + list(saved ? 'Antibody values removed:' : 'Antibody values that will be removed:', d.antibodies_removed, (x) => `${esc(x.catalogue)} (was “${esc(x.was)}”)`)
+      + paras;
+    return out;
+  }
+
+  $('m-preview').addEventListener('click', async () => {
+    arm(false, 'Checking…');
+    const sent = body();
+    const d = await post('{% url "pipeline:methods_entry_preview" %}', sent);
+    if (!d.ok) { arm(false, 'Preview first.'); banner('error', esc(d.error)); return; }
+    if (d.refusals && d.refusals.length) {
+      arm(false, 'Fix the refusal above, then preview again.');
+      banner('error', d.refusals.map(esc).join('<br>'));
+      return;
+    }
+    $('m-banner').classList.add('hidden');
+    previewed = JSON.stringify(sent);
+    stamp = d.stamp;
+    render(d, false).scrollIntoView({block: 'start'});
+    arm(true, 'Saves exactly what the preview shows.');
+  });
+
+  ['input', 'change'].forEach((ev) => document.addEventListener(ev, () => {
+    if (previewed && JSON.stringify(body()) !== previewed) arm(false, 'Changed since the preview — preview again.');
+  }));
+
+  $('m-save').addEventListener('click', async () => {
+    const sent = body();
+    if (JSON.stringify(sent) !== previewed) { arm(false, 'Changed since the preview — preview again.'); return; }
+    arm(false, 'Saving…');
+    const d = await post('{% url "pipeline:methods_entry_save" %}', {...sent, based_on: stamp});
+    if (!d.ok) {
+      arm(false, 'Not saved.');
+      banner('error', esc(d.error) + ' <button type="button" class="underline ml-1" onclick="location.reload()">Reload</button>');
+      return;
+    }
+    state.conditions = d.conditions; state.report_file = d.report_file;
+    state.saved_at = new Date().toISOString(); state.saved_by = 'web:{{ request.user.username|escapejs }}';
+    state.stamp = d.stamp; stamp = d.stamp; previewed = JSON.stringify(body());
+    prov();
+    render(d, true);
+    const n = d.antibody_values;
+    banner('ok', `Saved ${esc(state.gene)} ${esc(state.application)} methods: ${Object.keys(d.conditions).length} run `
+      + `${Object.keys(d.conditions).length === 1 ? 'detail' : 'details'} and ${n} antibody ${n === 1 ? 'value' : 'values'}`
+      + (d.removed.length + d.antibodies_removed.length ? `, ${d.removed.length + d.antibodies_removed.length} removed` : '') + '.');
+    arm(false, 'Saved. Change a box and preview again to make another change.');
+  });
+
+  draw();
+})();
+</script>
+{% endif %}
+{% endblock %}

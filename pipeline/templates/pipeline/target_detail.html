@@ -494,6 +494,12 @@
            class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
           ★ Judge outcomes &amp; recommendations
         </a>
+        {% comment %}The methods the Copy methods button prints, typed from
+        this gene's report (services/methods_entry.py).{% endcomment %}
+        <a href="{% url 'pipeline:methods_entry' %}?gene={{ target.gene_name|urlencode }}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+          ✎ Methods
+        </a>
         {% comment %}Assign or rearrange this gene's A-numbers without leaving
         the page. The board has the same button and the same panel — one
         implementation, in board.js — because a renumbering that behaved

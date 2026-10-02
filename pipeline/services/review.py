@@ -202,9 +202,15 @@ def rows_for(items, *, url_of=None) -> list[dict]:
     """
     items = list(items)
     replaces = published_pairs(items)
-    return [row(i,
-                image_url=(url_of(i) if url_of else ""),
-                replaces_published=(i.antibody_id, i.application_type) in replaces)
+    from pipeline.services import methods_text
+    methods = methods_text.for_staged(items)
+    return [{**row(i,
+                   image_url=(url_of(i) if url_of else ""),
+                   replaces_published=(i.antibody_id, i.application_type) in replaces),
+             # The paragraph the Copy methods button will copy once released
+             # — read here with the blot, so a wrong value is caught before it
+             # reaches a page. "" where no methods are entered yet.
+             "methods": methods.get(i.pk, "")}
             for i in items]
 
 

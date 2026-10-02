@@ -139,7 +139,7 @@ def _their_pending(company_ids, allowed_genes):
     return qs
 
 
-def _row(item, published_pairs):
+def _row(item, published_pairs, methods):
     ab = item.antibody
     target = ab.target if ab.target_id else None
     return {
@@ -161,6 +161,11 @@ def _row(item, published_pairs):
             (item.antibody_id, item.application_type) in published_pairs),
         'staged_at': item.updated_at.isoformat() if item.updated_at else None,
         'image_url': f'{BASE_URL}/api/v1/pipeline-image/?id={item.pk}',
+        # The paragraph the Copy methods button will copy once released
+        # (`methods_text.for_staged`), offered under the same gate the public
+        # button has — a supportive result, here the provisional one — and
+        # empty otherwise. Unpublished like the figure itself.
+        'oga_methods_text': methods.get(item.pk, '') if item.recommended else '',
     }
 
 
@@ -182,7 +187,9 @@ def pipeline_data(request):
     items = list(qs)
     from pipeline.services import review as review_svc
     published_pairs = review_svc.published_pairs(items)
-    rows = [_row(i, published_pairs) for i in items]
+    from pipeline.services import methods_text
+    methods = methods_text.for_staged([i for i in items if i.recommended])
+    rows = [_row(i, published_pairs, methods) for i in items]
 
     genes = sorted({r['gene'] for r in rows if r['gene']})
     return JsonResponse({

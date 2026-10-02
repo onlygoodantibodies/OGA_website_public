@@ -26,6 +26,19 @@ from __future__ import annotations
 
 CHANGELOG = [
     {
+        "version": "2.6.0",
+        "date": "2026-10-02",
+        "summary": "Pre-release figures carry the methods paragraph they "
+                   "will be published with.",
+        "changes": [
+            {"kind": "added", "where": "/pipeline-data/",
+             "what": "oga_methods_text on each figure: the Copy methods "
+                     "paragraph it will carry once released. Filled where "
+                     "provisional_recommendation is true and the methods are "
+                     "entered; empty otherwise. Unpublished, like the figure."},
+        ],
+    },
+    {
         "version": "2.5.0",
         "date": "2026-10-01",
         "summary": "The manifest carries the methods paragraph for each "
