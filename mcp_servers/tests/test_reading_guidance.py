@@ -25,6 +25,10 @@ import os
 import pytest
 
 from mcp_servers.common import content_pack, portal
+from OGA_website.public_snapshot import REASON, withheld
+
+#: The guidance is a skill file, and the public export ships no skills.
+without_skill = pytest.mark.skipif(withheld(content_pack.SKILL_PATH), reason=REASON)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -53,6 +57,7 @@ def test_both_doors_are_registered(server):
     assert "controls_rubric" in tools
 
 
+@without_skill
 def test_the_tool_serves_the_guidance(server):
     data = _tool(server, "how_to_read_a_paper")
     assert data["available"] is True
@@ -61,6 +66,7 @@ def test_the_tool_serves_the_guidance(server):
     assert not data["text"].lstrip().startswith("---")
 
 
+@without_skill
 def test_the_prompt_serves_the_same_words(server):
     got = asyncio.run(server.get_prompt("how_to_read_a_paper", {}))
     assert got.messages[0].content.text == _tool(server, "how_to_read_a_paper")["text"]
@@ -80,6 +86,7 @@ def test_a_deployment_without_the_file_says_so_rather_than_serving_nothing(
     assert "scan_controls" in data["note"]
 
 
+@without_skill
 def test_the_served_text_is_the_skill_file_itself():
     """The point of the exercise. If someone pastes the guidance into the server
     instead of reading the file, this is what notices."""

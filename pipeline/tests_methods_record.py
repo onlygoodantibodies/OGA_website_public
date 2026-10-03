@@ -20,6 +20,7 @@ from pipeline.models import (Antibody, AntibodyMethod, Company, ExperimentSessio
                              Target, WbResult)
 from pipeline.services import methods_backfill as B
 from pipeline.services import methods_text as M
+from OGA_website.public_snapshot import REASON, withheld
 
 DOI = "https://doi.org/10.5281/zenodo.1234567"
 WB_CONDITIONS = {"lysis_buffer": "RIPA buffer", "protein_loading_ug": "40",
@@ -40,6 +41,8 @@ class TheParagraphLeavesOutWhatWasNotStatedTests(SimpleTestCase):
         self.assertEqual(M.clean("not stated in methods text"), "")
 
     def test_every_record_on_file_reads_without_a_placeholder(self):
+        if withheld(B.DATA_FILE):
+            self.skipTest(REASON)
         data = B.load()
         for run in data["run_conditions"]:
             app = B.FIGURE_APP[run["app"]]
@@ -274,6 +277,8 @@ class OnePrimaryOneSecondaryTests(SimpleTestCase):
 
     def test_no_composed_paragraph_carries_an_extraction_note(self):
         import re
+        if withheld(B.DATA_FILE):
+            self.skipTest(REASON)
         bad = re.compile(r"\bFig\b|Figure|\bTable\b|legend|as printed|printed '|working "
                          r"concentration|secondary table|listed (in|under)|\(methods\)|\(\)")
         for run in B.load()["run_conditions"]:

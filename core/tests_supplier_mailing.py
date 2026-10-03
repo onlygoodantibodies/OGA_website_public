@@ -235,6 +235,9 @@ class TheContactsLoaderMakesOneKeyPerOrganisationTests(_Fixture):
 
     def test_the_shipped_file_parses(self):
         from core.management.commands.supplier_contacts import DEFAULT_FILE, read
+        from OGA_website.public_snapshot import REASON, withheld
+        if withheld(DEFAULT_FILE):
+            self.skipTest(REASON)
         orgs = read(DEFAULT_FILE)
         self.assertNotIn("OriGene", orgs)
         self.assertTrue(all(e["contacts"] for e in orgs.values()))
