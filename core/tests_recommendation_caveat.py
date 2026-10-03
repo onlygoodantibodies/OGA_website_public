@@ -184,6 +184,14 @@ class EverySurfaceThatShowsARecommendationCarriesTheCaveatTests(TestCase):
             with self.subTest(page=name):
                 self.assertIn(emphasised, page)
 
+    def test_the_interim_notice_keeps_its_bold(self):
+        """The notice's news is set in bold (owner, 3 Oct 2026); a reworded
+        notice that lost the phrase would print whole and silently plain."""
+        for app, fragment in R.INTERIM_EMPHASIS.items():
+            self.assertIn(fragment, R.INTERIM_NOTES[app])
+        page = self.client.get('/portal/').content.decode()
+        self.assertIn(f"<strong>{R.INTERIM_EMPHASIS['WB']}</strong>", page)
+
     def test_every_page_says_where_to_plan_those_controls(self):
         """"Needs its own controls" with nowhere to click is half a message.
 

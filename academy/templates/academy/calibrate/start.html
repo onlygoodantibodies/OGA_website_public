@@ -1,0 +1,59 @@
+{% extends 'academy/calibrate/_base.html' %}
+{% block title %}Western blot calibration{% endblock %}
+{% block content %}
+<h1>Can these criteria be applied consistently?</h1>
+<p class="lead">We are formalising how knockout-controlled western blots are classified. You will read three short criteria, tell us what you think of them, then classify {{ total }} blots. Some are drawn by computer, some are published blots with the antibody's name removed. It takes about 20 minutes, and you can stop and come back.</p>
+
+{% if rater %}<p class="banner">You are signed up as {{ rater.name }}. <a href="{% url 'academy:calibrate_rate' %}">Carry on rating</a>, or sign up again below with a different email.</p>{% endif %}
+
+<form method="post" class="card" novalidate>
+  {% csrf_token %}
+  <div class="field">
+    <label for="name">Your name</label>
+    <input type="text" id="name" name="name" value="{{ form.name }}" autocomplete="name" required>
+    {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+  </div>
+  <div class="field">
+    <label for="email">Institutional email <span class="hint">university, institute or company; signing up again with it resumes where you stopped</span></label>
+    <input type="email" id="email" name="email" value="{{ form.email }}" autocomplete="email" required>
+    {% if errors.email %}<span class="error">{{ errors.email }}</span>{% endif %}
+  </div>
+  <div class="field">
+    <label for="organisation">Institution or company <span class="hint">optional</span></label>
+    <input type="text" id="organisation" name="organisation" value="{{ form.organisation }}" autocomplete="organization">
+  </div>
+  <div class="field">
+    <label for="role">Your role</label>
+    <select id="role" name="role" required>
+      <option value="">Choose…</option>
+      {% for value, label in roles %}<option value="{{ value }}"{% if form.role == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% if errors.role %}<span class="error">{{ errors.role }}</span>{% endif %}
+  </div>
+  <div class="field">
+    <label for="wb_experience">Your experience with western blots</label>
+    <select id="wb_experience" name="wb_experience" required>
+      <option value="">Choose…</option>
+      {% for value, label in experience %}<option value="{{ value }}"{% if form.wb_experience == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% if errors.wb_experience %}<span class="error">{{ errors.wb_experience }}</span>{% endif %}
+  </div>
+  <div class="field">
+    <label for="wb_years">Years running or interpreting western blots <span class="hint">optional</span></label>
+    <input type="number" id="wb_years" name="wb_years" min="0" max="60" value="{{ form.wb_years }}" inputmode="numeric">
+    {% if errors.wb_years %}<span class="error">{{ errors.wb_years }}</span>{% endif %}
+  </div>
+  <div class="field">
+    <span>Have you interpreted knockout-controlled western blots before?</span>
+    <div class="row">
+      <label><input type="radio" name="ko_experience" value="yes"{% if form.ko_experience %} checked{% endif %}> Yes</label>
+      <label><input type="radio" name="ko_experience" value="no"{% if form and not form.ko_experience %} checked{% endif %}> No</label>
+    </div>
+  </div>
+  <div class="field">
+    <label><input type="checkbox" name="consent" value="yes"> I agree that Only Good Antibodies stores my name, email and answers to analyse how consistently the criteria are applied. Results are reported without names.</label>
+    {% if errors.consent %}<span class="error">{{ errors.consent }}</span>{% endif %}
+  </div>
+  <button class="btn" type="submit">Continue to the criteria</button>
+</form>
+{% endblock %}

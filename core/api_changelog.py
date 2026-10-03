@@ -26,6 +26,25 @@ from __future__ import annotations
 
 CHANGELOG = [
     {
+        "version": "2.7.0",
+        "date": "2026-10-03",
+        "summary": "A notice that the western blot criteria are being "
+                   "re-evaluated travels with every response that carries "
+                   "results.",
+        "changes": [
+            {"kind": "added",
+             "where": "/antibodies/, /genes/, /gene-detail/, /manifest/ "
+                      "(scope), /not-supportive/",
+             "what": "application_notes: temporary notices keyed by "
+                     "application, on the envelope beside "
+                     "recommendation_scope. WB carries one now: the criteria "
+                     "for support in western blot are being re-evaluated. "
+                     "Empty when no notice is in force.",
+             "action": "Show the sentence beside that application's "
+                       "results. No verdict values changed."},
+        ],
+    },
+    {
         "version": "2.6.0",
         "date": "2026-10-02",
         "summary": "Pre-release figures carry the methods paragraph they "

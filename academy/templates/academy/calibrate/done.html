@@ -1,0 +1,28 @@
+{% extends 'academy/calibrate/_base.html' %}
+{% block title %}Thank you{% endblock %}
+{% block style %}.scale { display: flex; gap: 8px; flex-wrap: wrap; } .scale label { font-weight: 400; border: 1px solid var(--rule-strong); border-radius: 6px; padding: 6px 12px; }{% endblock %}
+{% block content %}
+{% if remaining %}
+<h1>Your answers so far are saved</h1>
+<p class="lead">You have classified <span class="num">{{ count }}</span> of <span class="num">{{ total }}</span> blots. Come back to this page, or sign up again with the same email, to carry on.</p>
+<p><a class="btn" href="{% url 'academy:calibrate_rate' %}">Carry on rating</a></p>
+{% else %}
+<h1>Thank you, {{ rater.name }}</h1>
+<p class="lead">You have classified all <span class="num">{{ total }}</span> blots. Your answers will help us test and refine the criteria.</p>
+{% endif %}
+
+<h2>Now that you have used them</h2>
+{% if saved %}<p class="banner" role="status">Thank you, your comments are saved.</p>{% endif %}
+<form method="post" class="card">
+  {% csrf_token %}
+  <div class="field">
+    <span>How clear were the criteria in practice? <span class="hint">1 unclear, 5 very clear</span></span>
+    <div class="scale">{% for n in "12345" %}<label><input type="radio" name="clarity" value="{{ n }}"> {{ n }}</label>{% endfor %}</div>
+  </div>
+  <div class="field">
+    <label for="comments">Which blots were hardest to classify, and what would have helped?</label>
+    <textarea id="comments" name="comments"></textarea>
+  </div>
+  <button class="btn" type="submit">Send comments</button>
+</form>
+{% endblock %}

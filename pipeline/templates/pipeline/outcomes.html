@@ -61,6 +61,9 @@
 
   .fig-wrap { position: relative; background: var(--grey-bg); border-bottom: 1px solid var(--border); }
   .fig-wrap img { display: block; width: 100%; max-height: 260px; object-fit: contain; cursor: zoom-in; }
+  .fig-size { padding: 5px 14px; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .fig-size strong { color: var(--navy); }
+  .fig-size a { color: var(--blue); }
   .fig-none { padding: 28px 14px; text-align: center; color: var(--muted); font-size: 0.8rem; }
   .fig-zoom { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.92); border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem; line-height: 1; padding: 4px 6px; cursor: pointer; }
 
@@ -499,9 +502,35 @@ function renderCard(ab) {
     + '<span class="meta-sep">·</span><span>' + esc(ab.clonality || '') + '</span>'
     + '</div></div>'
     + fig
+    + renderSize(ab)
     + renderConflict(ab)
     + AXES.map(axis => renderAxis(ab, axis)).join('')
     + renderVerdict(ab)
+    + '</div>';
+}
+
+/* The size a blot is read against. Western blot and IP only — those figures
+   are blots with a ladder. UniProt's weight is for the full-length sequence,
+   so the line says so and links to the entry's processing section: a cleaved
+   or glycosylated protein runs elsewhere, and the right band is not always
+   the one at the predicted size. */
+const SIZED_APPS = ['WB', 'IP'];
+function renderSize(ab) {
+  if (!SIZED_APPS.includes(application)) return '';
+  const entry = ab.uniprot_id
+    ? 'https://www.uniprot.org/uniprotkb/' + encodeURIComponent(ab.uniprot_id) + '/entry'
+    : '';
+  if (ab.predicted_kda == null) {
+    return '<div class="fig-size">No predicted weight on file for ' + esc(ab.gene)
+      + (entry ? ' — <a href="' + esc(entry) + '#ptm_processing" target="_blank" rel="noopener">UniProt ' + esc(ab.uniprot_id) + '</a>' : '')
+      + '</div>';
+  }
+  const kda = ab.predicted_kda >= 100 ? Math.round(ab.predicted_kda)
+                                      : Math.round(ab.predicted_kda * 10) / 10;
+  return '<div class="fig-size">Predicted <strong>' + kda + ' kDa</strong>'
+    + ' (full-length sequence)'
+    + (entry ? ' · <a href="' + esc(entry) + '#ptm_processing" target="_blank" rel="noopener"'
+        + ' title="Cleaved chains, propeptides and modifications">processed forms</a>' : '')
     + '</div>';
 }
 
@@ -915,7 +944,9 @@ function openPreview(id) {
     .selectedOptions[0].textContent.toLowerCase() + ' figure';
   document.getElementById('out-preview-caption').textContent =
     ab.name + ' — ' + ab.gene + ' '
-    + document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase();
+    + document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase()
+    + (SIZED_APPS.includes(application) && ab.predicted_kda != null
+       ? ' · predicted ' + (Math.round(ab.predicted_kda * 10) / 10) + ' kDa' : '');
   document.getElementById('out-preview').classList.remove('out-hidden');
 }
 function closePreview() {

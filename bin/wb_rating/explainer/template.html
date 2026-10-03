@@ -1,0 +1,391 @@
+<title>Blot Measurement Workings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column (~68ch) for the explanation, widening to a two-panel bench (image | traces) for the worked example and the explorer. */
+:root{
+  --bg:#f5f6f7; --panel:#ffffff; --ink:#15191d; --ink2:#4a525a; --muted:#7a838c; --rule:#dde1e5; --grid:#eceff2;
+  --accent:#0f6e74; --accent-soft:#e3f0f0;
+  --wt:#15191d; --ko:#4a3aa7; --floor:#9aa3ab;
+  --m:#1baf7a; --o:#2a78d6; --n:#eb6834;
+  --font-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111417; --panel:#181c20; --ink:#e6e9ec; --ink2:#b3bac1; --muted:#87909a; --rule:#2c3238; --grid:#22282d;
+  --accent:#4fb3b9; --accent-soft:#16302f; --wt:#e6e9ec; --ko:#9085e9; --floor:#6b747d;
+  --m:#199e70; --o:#3987e5; --n:#d95926; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111417; --panel:#181c20; --ink:#e6e9ec; --ink2:#b3bac1; --muted:#87909a; --rule:#2c3238; --grid:#22282d;
+  --accent:#4fb3b9; --accent-soft:#16302f; --wt:#e6e9ec; --ko:#9085e9; --floor:#6b747d;
+  --m:#199e70; --o:#3987e5; --n:#d95926; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.55}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 64px}
+.read{max-width:68ch}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:2.3rem;letter-spacing:-.01em}
+h2{font-size:1.55rem;margin-top:3.2rem;padding-top:1rem;border-top:1px solid var(--rule)}
+h3{font-size:1.12rem;margin-top:1.6rem}
+p{margin:.7rem 0}
+.lede{font-size:1.08rem;color:var(--ink2)}
+.eyebrow{font-family:var(--font-data);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+code,.num{font-family:var(--font-data);font-size:.88em;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+a{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:1rem 0}
+.chip{font:inherit;font-size:.9rem;border:1px solid var(--rule);background:var(--panel);color:var(--ink);padding:.35rem .7rem;border-radius:4px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.chip:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bench{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start;margin-top:1rem}
+@media (max-width:820px){.bench{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:14px;min-width:0}
+.panel h4{margin:0 0 .4rem;font-family:var(--font-display);font-size:.95rem;font-weight:600}
+canvas{max-width:100%;display:block}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.two{grid-template-columns:minmax(0,1fr)}}
+.traces{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:520px){.traces{grid-template-columns:1fr}}
+svg text{fill:var(--muted);font-family:var(--font-data);font-size:10px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--ink2);margin:.4rem 0}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+.tbl{overflow-x:auto;margin-top:.6rem}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{text-align:left;padding:.38rem .55rem;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;color:var(--ink2);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+td.n{font-family:var(--font-data);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.lost td{background:var(--accent-soft)}
+.pill{display:inline-block;font-size:.78rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;border:1.5px solid;white-space:nowrap}
+.pill.M{border-color:var(--m)} .pill.O{border-color:var(--o)} .pill.N{border-color:var(--n)} .pill.Q{border-color:var(--muted)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:1rem 0;display:grid;gap:14px}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:2.2rem minmax(0,1fr);gap:10px}
+.steps>li::before{content:counter(s);font-family:var(--font-display);font-weight:600;font-size:1.25rem;color:var(--accent);border-top:2px solid var(--accent);padding-top:.15rem}
+.steps h3{margin:0 0 .2rem}
+.path{list-style:none;padding:0;margin:.5rem 0;font-size:.9rem;display:grid;gap:4px}
+.path li{display:grid;grid-template-columns:1.4rem minmax(0,1fr);gap:6px}
+.path .mk{font-family:var(--font-data);color:var(--muted)}
+.path li.hit .mk{color:var(--accent);font-weight:600}
+.path li.hit{font-weight:500}
+.callout{border-left:3px solid var(--accent);padding:.2rem 0 .2rem 1rem;margin:1.2rem 0}
+.strip{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;margin-top:1rem}
+.strip .panel{padding:12px 14px}
+.strip .hd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.score{font-family:var(--font-data);font-size:.82rem;color:var(--ink2);white-space:nowrap}
+.tip{position:fixed;pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--rule);box-shadow:0 4px 14px rgba(0,0,0,.15);border-radius:4px;padding:.4rem .55rem;font-size:.8rem;z-index:10;max-width:260px}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:.8rem 0}
+select{font:inherit;font-size:.9rem;padding:.3rem .4rem;border:1px solid var(--rule);background:var(--panel);color:var(--ink);border-radius:4px;max-width:100%}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px;font-size:.86rem}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;font-family:var(--font-data);text-align:right;font-variant-numeric:tabular-nums}
+.decide{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:4px 18px 10px;margin-top:1rem}
+.decide li{margin:.5rem 0}
+</style>
+
+<div class="wrap">
+<header class="read">
+  <div class="eyebrow">Western blot ratings · prototype measurement · 3 Oct 2026</div>
+  <h1>How the blot measurement works</h1>
+  <p class="lede">The prototype turns a published western blot crop into a handful of numbers, then applies your rules to those numbers. This page shows each step on your own blots, defines every number, and shows which numbers line up with the decisions you have made. Everything here was computed from the 195 of your 212 decided blots the program could read.</p>
+</header>
+
+<section>
+<h2>The measurement, step by step</h2>
+<p class="read">Pick a blot. The panels below redraw for it, so you can see each step with real numbers.</p>
+<div class="chips" id="exChips" role="group" aria-label="Example blot"></div>
+<div class="bench">
+  <div class="panel">
+    <h4>The crop, the blot found in it, and the strips read</h4>
+    <canvas id="exImg"></canvas>
+    <div class="legend"><span><i style="border-color:var(--accent)"></i>blot frame found</span><span><b style="background:var(--accent);opacity:.35;border-radius:0"></b>strip read (middle half of each lane)</span></div>
+    <p id="exCaption" class="muted" style="font-size:.85rem;margin:.3rem 0 0"></p>
+  </div>
+  <div class="panel">
+    <div class="traces">
+      <div><h4>Darkness down each lane, before</h4><svg id="exRaw" role="img" aria-label="Raw darkness profiles with background floor"></svg></div>
+      <div><h4>After the floor is removed</h4><svg id="exSub" role="img" aria-label="Background-subtracted profiles with bands marked"></svg></div>
+    </div>
+    <div class="legend"><span><i style="border-color:var(--wt)"></i>WT lane</span><span><i style="border-color:var(--ko)"></i>KO / KD lane</span><span><i class="dash" style="border-color:var(--floor)"></i>background floor</span><span><b style="background:var(--accent)"></b>band read as lost</span><span><b style="background:var(--muted)"></b>band that stays</span></div>
+  </div>
+</div>
+
+<ol class="steps read">
+  <li><div><h3>Find the blot</h3><p>The program looks for rectangles drawn as dark frame lines: pixels darker than 120 on a 0–255 grey scale, in straight runs. A frame needs two matching vertical sides and a top or bottom edge between them. A pink panel (Ponceau) is skipped, because its red channel is well above its green. Of what is left, it takes the largest frame starting in the top 60% of the crop. Nothing outside that frame is read, so the ladder and the labels play no part.</p></div></li>
+  <li><div><h3>Split it into lanes</h3><p>The frame is cut into equal-width lanes. It tries 2, 3, 4 and 6 lanes and keeps the count where lane centres are darkest compared with the gaps between them. Only the middle half of each lane is read, which keeps smudges at the lane edges out. <strong>Only two-lane blots are rated</strong>, and the left lane is taken to be WT. With more lanes the program would need to be told which lane is which.</p></div></li>
+  <li><div><h3>Read darkness down each lane</h3><p>For every pixel row, darkness is <code>255 − brightness</code>: 0 is white, 255 is black. The row's value is the <em>median</em> across the strip, so one speck does not count. The result is the left chart: one line per lane, top of the blot at the top.</p></div></li>
+  <li><div><h3>Take away the background floor</h3><p>Smear and uneven background raise the whole line. The floor (dashed) is the lowest value within a window of ±<span class="num">k</span> rows, smoothed, where <span class="num">k</span> is 8% of the blot height (at least 15 rows). It follows slow changes but cannot rise into a band narrower than the window. Subtracting it gives the right chart. A broad smear is partly removed with the floor, which is why smear has its own number below.</p></div></li>
+  <li><div><h3>Find the bands and compare the lanes</h3><p>A band is a peak in the WT line at least <span class="num" data-p="minh"></span> units high. For each one the program records its <strong>height</strong>, its <strong>prominence</strong> (how far it stands above the dip that separates it from any taller neighbour), and the <strong>KO value</strong>: the highest point of the KO line within 3 rows of the band. <strong>Ratio = KO ÷ WT.</strong> A ratio of 0.05 means 5% of the WT band is left in the KO.</p></div></li>
+  <li><div><h3>Apply the rules</h3><p>The ratios and heights go through your rules in order, each judgement replaced by a threshold. The numbers for this blot, and the path it took, are below.</p></div></li>
+</ol>
+
+<div class="two" style="margin-top:1rem">
+  <div class="panel" style="min-width:0"><h4>Bands in the WT lane</h4><div class="tbl"><table id="exBands"></table></div><p class="muted" style="font-size:.8rem">Rows are positions from the top of the blot frame (pixels). Shaded rows were read as lost. Heights are darkness units above the floor.</p></div>
+  <div class="panel"><h4>The rules, with this blot's path</h4><ul class="path" id="exPath"></ul><p id="exResult"></p></div>
+</div>
+</section>
+
+<section>
+<h2>Every number, defined</h2>
+<p class="read">The first group is what the rules use today. The second group is new: ways of putting a number on signal and noise, across the whole lane and near the target band. None of the second group is used by the rules yet.</p>
+<div class="tbl"><table id="defs"></table></div>
+</section>
+
+<section>
+<h2>Which numbers line up with your decisions</h2>
+<div class="read">
+<p>Each strip shows one number for every blot, split by your decision. The score beside it answers one question: <strong>take one blot you called supportive (either kind) and one you called Not supportive, at random. How often does this number put them in the right order?</strong> 0.50 is a coin toss; 1.00 is always. The second score asks the same of Supportive against Supportive, but not selective.</p>
+<div class="legend"><span><b style="background:var(--m)"></b>Supportive</span><span><b style="background:var(--o)"></b>Supportive, but not selective</span><span><b style="background:var(--n)"></b>Not supportive</span></div>
+</div>
+<div class="strip" id="strips"></div>
+
+<div class="read">
+<h3>What this shows</h3>
+<p><strong>The drowned test the rules use now hardly varies.</strong> It is the target band's prominence as a share of its own height. After the floor is removed, almost every band stands fully clear of its neighbours, so the value sits near 1.00 whichever way you rated the blot. A band can be weak beside much stronger bands and still score 1.00, which is the ACE GTX100923 case.</p>
+<p><strong>Shares of signal do better.</strong> The target band's share of all the signal in the WT lane separates supportive from Not supportive best of any single number here. The share of the lane that disappears in the KO comes next. Both put a number on what you described: the target is weak relative to everything else in the lane.</p>
+<p><strong>No one number is enough on its own.</strong> Adding any of them to the current rules as an extra "drowned" cut moves agreement by one blot at most (139 → 140 exact). The groups overlap: plenty of blots you rated "Supportive, but not selective" have a small target share too. The chart below shows that overlap with two numbers at once.</p>
+</div>
+
+<div class="panel" style="margin-top:1rem">
+  <h4>Two numbers at once: the target's share of the lane against the target compared with the strongest band that stays</h4>
+  <div class="legend"><span><b style="background:var(--m)"></b>Supportive</span><span><b style="background:var(--o)"></b>Supportive, but not selective</span><span><b style="background:var(--n)"></b>Not supportive</span><span class="muted">Hover for the antibody; click to open it in the explorer.</span></div>
+  <div style="overflow-x:auto"><svg id="scatter" role="img" aria-label="Scatter plot of target share of lane against target relative to strongest kept band"></svg></div>
+  <p class="muted" style="font-size:.82rem;margin:.2rem 0 0">Up means the target is stronger than any band that stays; blots where nothing clear stays are drawn on the top line. Right means the target holds more of the lane's signal. Blots with no band read as lost are left out (11).</p>
+</div>
+</section>
+
+<section>
+<h2>Explorer: any of the 195 blots</h2>
+<div class="ctrl">
+  <label for="fOwner">Your decision</label>
+  <select id="fOwner"><option value="">any</option><option value="M">Supportive</option><option value="O">Supportive, but not selective</option><option value="N">Not supportive</option></select>
+  <label for="fDis"><input type="checkbox" id="fDis"> only where the measurement disagrees</label>
+  <select id="fBlot" aria-label="Blot"></select>
+</div>
+<div class="bench">
+  <div class="panel"><canvas id="xImg"></canvas><p id="xCaption" class="muted" style="font-size:.85rem;margin:.4rem 0 0"></p></div>
+  <div class="panel">
+    <div class="traces"><div><h4>Before</h4><svg id="xRaw"></svg></div><div><h4>After the floor</h4><svg id="xSub"></svg></div></div>
+    <div class="two" style="margin-top:.6rem">
+      <div><h4>The rules</h4><ul class="path" id="xPath"></ul></div>
+      <div><h4>Signal and noise</h4><dl class="kv" id="xKv"></dl></div>
+    </div>
+    <div class="tbl"><table id="xBands"></table></div>
+  </div>
+</div>
+</section>
+
+<section class="read">
+<h2>Truncations, and what they mean for IF</h2>
+<p>Your rule: a band that drops to a smaller size in the KO is lost, because the knockout makes a truncated protein. The prototype looks for this as a band that is reduced in the KO with a band below it that appears only in the KO, within 16% of the blot height.</p>
+<p>It flags <strong><span id="nShift"></span> of the 195</strong> blots, and you rated every one "Supportive, but not selective". The test is crude, so these are candidates to check by eye, not findings: <span id="shiftList"></span>.</p>
+<div class="callout"><p><strong>Your note, 3 Oct:</strong> where a knockout makes a truncated protein, the antibody may still find it in the knockout cells. Immunofluorescence on those cells would then look non-specific because of the knockout line, not the antibody. So for an antibody whose western blot shows a truncation, a Not supportive IF result should not be shown.</p></div>
+<p>Nothing on the site records a truncation today; it lives only in the blot image. Building this needs a stored mark per antibody, set by a person (the measurement can suggest it), and the gene page, the API, the extension and the MCP then hiding or annotating that antibody's IF result. It is recorded in the roadmap, Workstream H.</p>
+</section>
+
+<section class="read">
+<h2>What the numbers cannot see</h2>
+<ul>
+  <li><strong>Which lane is which.</strong> WT is assumed to be the left lane, and lanes are assumed to be equal widths across the frame.</li>
+  <li><strong>Molecular weight.</strong> The ladder is outside the frame and is not read, so "directly beside" is measured in pixels: within 8% of the blot height.</li>
+  <li><strong>Exposure and contrast.</strong> Every figure was exposed and saved differently, so a height of 200 on one blot is not a height of 200 on another. Ratios within one blot compare fairly; raw heights across blots do not. Saturated (pure black) bands flatten at the top, which understates the strongest bands.</li>
+  <li><strong>Height, not amount.</strong> A band is read at its peak, not by the area under it. A fat band and a thin band of the same peak darkness count the same.</li>
+  <li><strong>Knockdown.</strong> Whether a blot is a knockdown comes from a person's flag, not from the lane labels.</li>
+</ul>
+<h2>Decisions for you</h2>
+<ol class="decide">
+  <li>Should the drowned test (rule 2) use the target's <strong>share of the lane's signal</strong> instead of its prominence? If so, the cut-off has to come from blots you rate fresh, not these 195, or it is fitted to the answers.</li>
+  <li>Should "faint" (rule 5) stay relative to the target band (now: below <span class="num" data-p="faint"></span> of its height), or become relative to the whole lane?</li>
+  <li>Is the shift test worth tightening into a suggestion people confirm, so the IF rule has something to read?</li>
+</ol>
+</section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+const D=JSON.parse(document.getElementById('data').textContent);
+const P=D.params, B=D.blots, byId={}; B.forEach(b=>byId[b.id]=b);
+const WORD={M:'Supportive',O:'Supportive, but not selective',N:'Not supportive','?':'Not rated'};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=(v,d=2)=>v==null?'—':(typeof v==='number'?(Math.abs(v)>=100?v.toFixed(0):v.toFixed(d)):v);
+document.querySelectorAll('[data-p]').forEach(e=>{const k=e.dataset.p;e.textContent=k==='faint'?Math.round(P[k]*100)+'%':P[k]});
+const pill=c=>`<span class="pill ${c==='?'?'Q':c}">${WORD[c]}</span>`;
+const tip=document.getElementById('tip');
+function showTip(e,html){tip.innerHTML=html;tip.hidden=false;const x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY+14)+'px'}
+function hideTip(){tip.hidden=true}
+
+/* ---- image ---- */
+function drawImg(cv,b){
+  const im=new Image();im.onload=()=>{cv.width=b.iw;cv.height=b.ih;const c=cv.getContext('2d');c.drawImage(im,0,0);
+    const s=b.s,[x0,y0,x1,y1]=b.box;const W=(x1-x0)/2;
+    c.fillStyle=css('--accent');c.globalAlpha=.28;
+    for(let i=0;i<2;i++){c.fillRect((x0+W*i+W*.25)*s,y0*s,W*.5*s,(y1-y0)*s)}
+    c.globalAlpha=1;c.strokeStyle=css('--accent');c.lineWidth=2;c.strokeRect(x0*s,y0*s,(x1-x0)*s,(y1-y0)*s)};
+  im.src=b.img;
+}
+/* ---- traces (vertical: row down, darkness across) ---- */
+function traces(svg,b,mode){
+  const H=b.pr[0].length,w=170,h=300,pl=28,pr=8,pt=8,pb=22;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.width='100%';svg.style.maxWidth='340px';svg.style.height='auto';
+  const series=mode==='raw'?[b.raw[0],b.raw[1]]:[b.pr[0],b.pr[1]];
+  let mx=1;series.forEach(s=>s.forEach(v=>{if(v>mx)mx=v}));mx=Math.ceil(mx/50)*50;
+  const X=v=>pl+(w-pl-pr)*v/mx, Y=r=>pt+(h-pt-pb)*r/(H-1);
+  let g='';
+  for(let t=0;t<=mx;t+=mx>150?100:50){g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${h-pb}" stroke="${css('--grid')}"/><text x="${X(t)}" y="${h-8}" text-anchor="middle">${t}</text>`}
+  g+=`<text x="2" y="${pt+8}">top</text><text x="2" y="${h-pb}">foot</text>`;
+  const path=(arr,col,dash)=>`<polyline fill="none" stroke="${col}" stroke-width="${dash?1.2:1.6}" ${dash?'stroke-dasharray="3 3"':''} points="${arr.map((v,i)=>X(v).toFixed(1)+','+Y(i).toFixed(1)).join(' ')}"/>`;
+  if(mode==='raw'){g+=path(b.bg[0],css('--floor'),1)}
+  g+=path(series[0],css('--wt'))+path(series[1],css('--ko'));
+  if(mode==='sub'){
+    const lost=new Set(lostBands(b).map(x=>x.y));
+    b.bands.filter(x=>x.wt>=P.minh).forEach(x=>{const col=lost.has(x.y)?css('--accent'):css('--muted');
+      g+=`<circle cx="${X(x.wt)}" cy="${Y(x.y)}" r="4" fill="${col}" stroke="${css('--panel')}" stroke-width="1.5"><title>row ${x.y}: WT ${x.wt.toFixed(0)}, KO ${x.ko.toFixed(0)}, ratio ${x.ratio.toFixed(2)}</title></circle>`});
+  }
+  svg.innerHTML=g;
+}
+/* ---- the rules, mirrored from measure.py classify, returning the path ---- */
+function lostBands(b){
+  const Bd=b.bands.filter(x=>x.wt>=P.minh);const H=b.pr[0].length;
+  const lost=Bd.filter(x=>x.ratio<=P.lost);
+  Bd.forEach(x=>{if(!lost.includes(x)&&x.ratio<=P.kept&&b.ko_only.some(k=>k.y-x.y>0&&k.y-x.y<=P.adj_px*H*2))lost.push(x)});
+  return lost;
+}
+function rulePath(b){
+  const Bd=b.bands.filter(x=>x.wt>=P.minh),H=b.pr[0].length,steps=[];
+  const st=(q,ans,hit)=>steps.push({q,ans,hit});
+  if(!Bd.length){st('Any band in WT?','no band reaches '+P.minh+' units',1);return{steps,code:'N',rule:'a'}}
+  let lost=lostBands(b);
+  const partial=Bd.filter(x=>P.lost<x.ratio&&x.ratio<=P.kept&&!lost.includes(x));
+  if(!lost.length){
+    if(partial.length&&!b.kd){st(`1. Band lost (ratio ≤ ${P.lost})?`,'no; only reduced (ratio '+partial.map(x=>x.ratio.toFixed(2)).join(', ')+')',0);st(`4. Partial reduction`,'ambiguous → Not supportive (d)',1);return{steps,code:'N',rule:'d'}}
+    if(!partial.length){st(`1. Band lost (ratio ≤ ${P.lost})?`,'no → Not supportive (a)',1);return{steps,code:'N',rule:'a'}}
+    lost=partial;
+  }
+  const T=lost.reduce((a,x)=>x.wt>a.wt?x:a);
+  st(`1. Band lost (ratio ≤ ${P.lost})?`,`yes: target at row ${T.y}, ratio ${T.ratio.toFixed(2)}`+(b.shifted.includes(T.y)?' (shifted)':''),0);
+  const pf=T.prom/T.wt;
+  if(T.prom<P.drown_prom*T.wt){st(`2. Picked out? prominence ≥ ${P.drown_prom} × height`,`no: ${pf.toFixed(2)} → Not supportive (b)`,1);return{steps,code:'N',rule:'b'}}
+  st(`2. Picked out? prominence ≥ ${P.drown_prom} × height`,`yes: ${pf.toFixed(2)}`,0);
+  const kept=Bd.filter(x=>!lost.includes(x));
+  const adj=kept.filter(x=>Math.abs(x.y-T.y)<=P.adj_px*H&&x.wt>=P.adj_ratio*T.wt);
+  if(adj.length){st(`3. Stronger band (≥ ${P.adj_ratio}×) within ${Math.round(P.adj_px*H)} rows?`,`yes: row ${adj[0].y} → Not supportive (c)`,1);return{steps,code:'N',rule:'c'}}
+  st(`3. Stronger band (≥ ${P.adj_ratio}×) within ${Math.round(P.adj_px*H)} rows?`,'no',0);
+  const clear=kept.filter(x=>x.wt>=P.faint*T.wt),resid=!b.kd&&T.ratio>P.resid;
+  st(`5. Clear bands stay (≥ ${Math.round(P.faint*100)}% of target)?`,clear.length?`${clear.length}`:'none',0);
+  st(`5. KO residual above ${Math.round(P.resid*100)}%?`,b.kd?'knockdown: ignored':(resid?`yes, ${Math.round(T.ratio*100)}%`:`no, ${Math.round(T.ratio*100)}%`),0);
+  if(clear.length){steps[steps.length-2].hit=1;return{steps,code:'O',rule:'O'}}
+  if(resid){steps[steps.length-1].hit=1;return{steps,code:'O',rule:'O'}}
+  steps[steps.length-2].hit=1;steps[steps.length-1].hit=1;return{steps,code:'M',rule:'M'};
+}
+function renderPath(ul,b){const r=rulePath(b);ul.innerHTML=r.steps.map(s=>`<li class="${s.hit?'hit':''}"><span class="mk">${s.hit?'→':'·'}</span><span>${esc(s.q)} <span class="muted">${esc(s.ans)}</span></span></li>`).join('');return r}
+function bandTable(t,b){
+  const lost=new Set(lostBands(b).map(x=>x.y));
+  t.innerHTML='<thead><tr><th>Row</th><th>WT height</th><th>Prominence</th><th>KO value</th><th>Ratio</th></tr></thead><tbody>'+
+   b.bands.filter(x=>x.wt>=P.minh).map(x=>`<tr class="${lost.has(x.y)?'lost':''}"><td class="n">${x.y}</td><td class="n">${x.wt.toFixed(0)}</td><td class="n">${x.prom.toFixed(0)}</td><td class="n">${x.ko.toFixed(0)}</td><td class="n">${x.ratio.toFixed(2)}</td></tr>`).join('')+'</tbody>';
+}
+function caption(b){return `${esc(b.gene)} ${esc(b.cat)} (${esc(b.sup)})${b.kd?' · knockdown':''} · you: ${WORD[b.owner]} · measured: ${WORD[b.measured]}`}
+
+/* ---- worked example ---- */
+const EX=[[4420,'ACE PA5-86568'],[1856,'ACSL5 H00051703-M01'],[549,'ACE GTX100923'],[1882,'ACSL5 NBP1-59645']].filter(e=>byId[e[0]]);
+const chips=document.getElementById('exChips');
+function showEx(id){const b=byId[id];chips.querySelectorAll('button').forEach(c=>c.setAttribute('aria-pressed',c.dataset.id==id));
+  drawImg(document.getElementById('exImg'),b);document.getElementById('exCaption').innerHTML=caption(b);
+  traces(document.getElementById('exRaw'),b,'raw');traces(document.getElementById('exSub'),b,'sub');
+  bandTable(document.getElementById('exBands'),b);const r=renderPath(document.getElementById('exPath'),b);
+  document.getElementById('exResult').innerHTML=`Measured: ${pill(r.code)} · You: ${pill(b.owner)}`;}
+EX.forEach(([id,label])=>{const c=document.createElement('button');c.className='chip';c.dataset.id=id;c.textContent=label+' · '+{M:'you: Supportive',O:'you: not selective',N:'you: Not supportive'}[byId[id].owner];c.onclick=()=>showEx(id);chips.appendChild(c)});
+if(EX.length)showEx(EX[0][0]);
+
+/* ---- definitions ---- */
+const METRICS=[
+ {k:'T_ratio',name:'Target left in the KO',how:'KO value ÷ WT height at the target band (the strongest band read as lost).',unit:'ratio',use:`lost if ≤ ${P.lost}; partial up to ${P.kept}; a KO residual counts above ${P.resid}`,cur:1,lowGood:1},
+ {k:'T_prom_frac',name:'Target stands out (the drowned test now)',how:'The target band’s prominence ÷ its height. 1.00 means nothing taller runs into it.',unit:'0–1',use:`drowned (rule 2) if below ${P.drown_prom}`,cur:1},
+ {k:'T_vs_max_kept',name:'Target compared with the strongest band that stays',how:'Target height ÷ the height of the strongest band not lost. Above 1 the target is the strongest.',unit:'ratio (log scale)',use:`rule 3 asks this of bands within ${Math.round(P.adj_px*100)}% of the blot height (stronger if ≥ ${P.adj_ratio}×)`,cur:1,log:1},
+ {k:'n_kept_clear',name:'Clear bands that stay',how:`Bands not lost that are at least ${Math.round(P.faint*100)}% of the target’s height.`,unit:'count',use:'rule 5: any → not selective',cur:1,lowGood:1},
+ {k:'T_area_share',name:'Target’s share of the WT lane',how:'Signal (after the floor) within ±3% of the blot height around the target ÷ all signal in the WT lane.',unit:'0–1',use:'not used yet'},
+ {k:'lane_lost_share',name:'Share of the WT lane lost in the KO',how:'Sum over every row of (WT − KO, where positive) ÷ all signal in the WT lane.',unit:'0–1',use:'not used yet'},
+ {k:'local_lost_share',name:'Share lost near the target',how:'The same, but only within ±10% of the blot height around the target.',unit:'0–1',use:'not used yet'},
+ {k:'local_T_share',name:'Target’s share of its neighbourhood',how:'Target window signal ÷ all WT signal within ±10% of the blot height.',unit:'0–1',use:'not used yet'},
+ {k:'T_over_bg',name:'Target above its floor',how:'Target height ÷ the background floor under it, before subtraction.',unit:'ratio',use:'not used yet',log:1},
+ {k:'bg_level',name:'Smear under the WT lane',how:'Average height of the background floor in the WT lane: how dark the lane is between bands.',unit:'darkness 0–255',use:'not used yet',lowGood:1},
+ {k:'nbands',name:'Bands in the WT lane',how:`Peaks at least ${P.minh} units high.`,unit:'count',use:'not used yet',lowGood:1},
+];
+document.getElementById('defs').innerHTML='<thead><tr><th>Number</th><th>How it is calculated</th><th>Units</th><th>Used by the rules</th></tr></thead><tbody>'+
+ METRICS.map(m=>`<tr><td><strong>${esc(m.name)}</strong></td><td>${esc(m.how)}</td><td>${esc(m.unit)}</td><td>${esc(m.use)}</td></tr>`).join('')+'</tbody>';
+
+/* ---- strips ---- */
+function auc(pos,neg){if(!pos.length||!neg.length)return null;let s=0;pos.forEach(p=>neg.forEach(n=>{s+=p>n?1:p===n?.5:0}));return s/(pos.length*neg.length)}
+const val=(b,m)=>{let v=b.mt[m.k];if(v==null)return null;if(m.k==='T_vs_max_kept'&&v>=99)v=null;return v};
+const valPlot=(b,m)=>{let v=b.mt[m.k];if(v==null)return null;if(m.k==='T_vs_max_kept'&&v>=99)return 'top';return v};
+const strips=document.getElementById('strips');
+METRICS.forEach(m=>{
+  const g={M:[],O:[],N:[]};B.forEach(b=>{let v=b.mt[m.k];if(v==null)return;if(m.k==='T_vs_max_kept'&&v>=99)v=1e3;g[b.owner].push(v)});
+  let a1=auc(g.M.concat(g.O),g.N),a2=auc(g.M,g.O);if(m.lowGood){a1=1-a1;a2=1-a2}
+  const p=document.createElement('div');p.className='panel';
+  p.innerHTML=`<div class="hd"><h4>${esc(m.name)}${m.cur?' <span class="muted" style="font-weight:400">· used now</span>':''}</h4><span class="score">supportive vs not ${a1.toFixed(2)} · Supportive vs not selective ${a2.toFixed(2)}</span></div><div style="overflow-x:auto"><svg data-k="${m.k}"></svg></div>`;
+  strips.appendChild(p);drawStrip(p.querySelector('svg'),m);
+});
+function drawStrip(svg,m){
+  const w=780,rowH=26,pl=200,pr=40,pt=6,h=pt+rowH*3+22;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.width='100%';svg.style.minWidth='520px';svg.style.height='auto';
+  const vals=[];B.forEach(b=>{const v=valPlot(b,m);if(v!=null&&v!=='top')vals.push(v)});
+  let lo=Math.min(...vals),hi=Math.max(...vals);if(m.log){lo=Math.max(lo,0.05)}
+  const hasTop=m.k==='T_vs_max_kept';
+  const tf=v=>m.log?Math.log10(Math.max(v,lo)):v;const L=tf(lo),Hh=tf(hi);
+  const X=v=>v==='top'?w-pr+18:pl+(w-pl-pr)*(tf(v)-L)/((Hh-L)||1);
+  let g='';const ticks=m.log?[0.1,0.3,1,3,10,30,100].filter(t=>t>=lo&&t<=hi):niceTicks(lo,hi);
+  ticks.forEach(t=>{g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${pt+rowH*3}" stroke="${css('--grid')}"/><text x="${X(t)}" y="${h-6}" text-anchor="middle">${+t.toFixed(2)}</text>`});
+  if(hasTop)g+=`<text x="${w-pr+18}" y="${h-6}" text-anchor="middle">none</text>`;
+  ['M','O','N'].forEach((c,i)=>{const cy=pt+rowH*i+rowH/2;g+=`<text x="${pl-10}" y="${cy+3}" text-anchor="end" style="fill:${css('--ink2')};font-family:var(--font-body);font-size:11px">${WORD[c]}</text>`;
+    let j=0;B.filter(b=>b.owner===c).forEach(b=>{const v=valPlot(b,m);if(v==null)return;const jit=((b.id*9301+49297)%233280)/233280-.5;
+      g+=`<circle data-id="${b.id}" cx="${X(v).toFixed(1)}" cy="${(cy+jit*rowH*.6).toFixed(1)}" r="3.6" fill="${css('--'+c.toLowerCase())}" fill-opacity=".8" stroke="${css('--panel')}" stroke-width="1"/>`})});
+  svg.innerHTML=g;wireDots(svg,b=>`${esc(b.gene)} ${esc(b.cat)}<br>${esc(m.name)}: <span class="num">${fmt(b.mt[m.k]>=99&&m.k==='T_vs_max_kept'?null:b.mt[m.k])}</span><br>You: ${WORD[b.owner]}`);
+}
+function niceTicks(lo,hi){const span=hi-lo||1,step=Math.pow(10,Math.floor(Math.log10(span/4)));const s=[1,2,5,10].map(x=>x*step).find(x=>span/x<=6);const out=[];for(let t=Math.ceil(lo/s)*s;t<=hi+1e-9;t+=s)out.push(+t.toFixed(6));return out}
+function wireDots(svg,html){svg.querySelectorAll('circle[data-id]').forEach(c=>{const b=byId[c.dataset.id];c.style.cursor='pointer';
+  c.addEventListener('mousemove',e=>showTip(e,html(b)));c.addEventListener('mouseleave',hideTip);c.addEventListener('click',()=>{hideTip();openX(b.id,true)})})}
+
+/* ---- scatter ---- */
+function drawScatter(){const svg=document.getElementById('scatter');const w=760,h=380,pl=84,pr=20,pt=24,pb=44;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.width='100%';svg.style.minWidth='520px';svg.style.height='auto';
+  const pts=B.filter(b=>b.mt.T_area_share!=null);const yLo=0.1,yHi=40;
+  const X=v=>pl+(w-pl-pr)*Math.min(v,0.9)/0.9, Y=v=>v>=99?pt-8:pt+(h-pt-pb)*(1-(Math.log10(Math.min(Math.max(v,yLo),yHi))-Math.log10(yLo))/(Math.log10(yHi)-Math.log10(yLo)));
+  let g='';[0,.2,.4,.6,.8].forEach(t=>g+=`<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${h-pb}" stroke="${css('--grid')}"/><text x="${X(t)}" y="${h-pb+16}" text-anchor="middle">${t}</text>`);
+  [0.1,0.3,1,3,10,30].forEach(t=>g+=`<line x1="${pl}" x2="${w-pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="${css('--grid')}"/><text x="${pl-8}" y="${Y(t)+3}" text-anchor="end">${t}</text>`);
+  g+=`<line x1="${pl}" x2="${w-pr}" y1="${Y(1)}" y2="${Y(1)}" stroke="${css('--muted')}" stroke-dasharray="4 3"/><text x="${w-pr}" y="${Y(1)-5}" text-anchor="end">target as strong as the strongest band that stays</text>`;
+  g+=`<text x="${pl-8}" y="${pt-5}" text-anchor="end">none stays</text>`;
+  g+=`<text x="${(pl+w-pr)/2}" y="${h-8}" text-anchor="middle">target's share of all signal in the WT lane</text>`;
+  g+=`<text transform="translate(14 ${(pt+h-pb)/2}) rotate(-90)" text-anchor="middle">target ÷ strongest band that stays (log)</text>`;
+  pts.forEach(b=>{const v=b.mt.T_vs_max_kept;const jx=v>=99?(((b.id*7919)%97)/97-.5)*6:0;g+=`<circle data-id="${b.id}" cx="${(X(b.mt.T_area_share)+jx).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="4.2" fill="${css('--'+b.owner.toLowerCase())}" fill-opacity=".85" stroke="${css('--panel')}" stroke-width="1.2"/>`});
+  svg.innerHTML=g;wireDots(svg,b=>`${esc(b.gene)} ${esc(b.cat)}<br>share of lane <span class="num">${fmt(b.mt.T_area_share)}</span> · vs strongest kept <span class="num">${b.mt.T_vs_max_kept>=99?'none stays':fmt(b.mt.T_vs_max_kept)}</span><br>You: ${WORD[b.owner]} · measured: ${WORD[b.measured]}`);
+}
+drawScatter();
+
+/* ---- explorer ---- */
+const fO=document.getElementById('fOwner'),fD=document.getElementById('fDis'),fB=document.getElementById('fBlot');
+function fillList(keep){const list=B.filter(b=>(!fO.value||b.owner===fO.value)&&(!fD.checked||b.owner!==b.measured)).sort((a,b)=>a.gene.localeCompare(b.gene)||a.cat.localeCompare(b.cat));
+  fB.innerHTML=list.map(b=>`<option value="${b.id}">${esc(b.gene)} ${esc(b.cat)} · you ${b.owner} · measured ${b.measured}</option>`).join('')||'<option value="">no blots match</option>';
+  if(keep&&list.some(b=>b.id==keep))fB.value=keep;if(fB.value)openX(+fB.value)}
+function openX(id,scroll){const b=byId[id];if(!b)return;if(fB.value!=id){fO.value='';fD.checked=false;fillList();fB.value=id}
+  drawImg(document.getElementById('xImg'),b);document.getElementById('xCaption').innerHTML=caption(b);
+  traces(document.getElementById('xRaw'),b,'raw');traces(document.getElementById('xSub'),b,'sub');
+  renderPath(document.getElementById('xPath'),b);bandTable(document.getElementById('xBands'),b);
+  document.getElementById('xKv').innerHTML=METRICS.map(m=>`<dt>${esc(m.name)}</dt><dd>${m.k==='T_vs_max_kept'&&b.mt[m.k]>=99?'none stays':fmt(b.mt[m.k])}</dd>`).join('');
+  if(scroll)document.getElementById('fBlot').scrollIntoView({behavior:'smooth',block:'start'});}
+fO.onchange=()=>fillList(+fB.value);fD.onchange=()=>fillList(+fB.value);fB.onchange=()=>openX(+fB.value);
+fillList(549);
+
+/* ---- truncations ---- */
+const sh=B.filter(b=>b.shifted.length);document.getElementById('nShift').textContent=sh.length;
+document.getElementById('shiftList').innerHTML=sh.map(b=>`<a href="#" data-id="${b.id}">${esc(b.gene)} ${esc(b.cat)}</a>`).join(', ');
+document.querySelectorAll('#shiftList a').forEach(a=>a.onclick=e=>{e.preventDefault();openX(+a.dataset.id,true)});
+
+/* redraw colours on theme change */
+function redrawAll(){const ex=chips.querySelector('[aria-pressed="true"]');if(ex)showEx(+ex.dataset.id);strips.querySelectorAll('svg[data-k]').forEach(svg=>drawStrip(svg,METRICS.find(m=>m.k===svg.dataset.k)));drawScatter();if(fB.value)openX(+fB.value)}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll);
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+window.__rulePath=rulePath;
+})();
+</script>

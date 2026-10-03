@@ -181,3 +181,79 @@ class LessonRevision(models.Model):
 
     def __str__(self):
         return f"{self.lesson} — {self.saved_at:%d %b %Y %H:%M} by {self.saved_by or 'unknown'}"
+
+
+# ── Western blot calibration study ───────────────────────────────────────
+#
+# Outside raters grade a fixed set of blots (synthetic and anonymised real)
+# against the written criteria, so we can measure whether people apply them
+# the same way and refine them. No Django account: a rater gives a name and an
+# institutional email at /academy/calibrate/ and is remembered in the session.
+# The items themselves are a committed manifest (`academy/calibration.py`),
+# not a table, so the expected answers never travel to a browser.
+
+
+class CalibrationRater(models.Model):
+    EXPERIENCE = [
+        ('none', 'I have not run or interpreted western blots'),
+        ('some', 'Occasionally: fewer than about 20 blots'),
+        ('regular', 'Regularly: western blot is part of my work'),
+        ('expert', 'Expert: I troubleshoot, train others or review blots'),
+    ]
+    ROLE = [
+        ('student', 'Student'),
+        ('postdoc', 'Postdoctoral researcher'),
+        ('pi', 'Group leader / PI'),
+        ('staff', 'Technician or staff scientist'),
+        ('industry', 'Industry scientist'),
+        ('other', 'Other'),
+    ]
+    name = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    domain = models.CharField(max_length=200, db_index=True)
+    organisation = models.CharField(max_length=200, blank=True)
+    role = models.CharField(max_length=20, choices=ROLE)
+    wb_experience = models.CharField(max_length=20, choices=EXPERIENCE)
+    wb_years = models.PositiveSmallIntegerField(null=True, blank=True)
+    ko_experience = models.BooleanField(
+        default=False,
+        help_text='Has interpreted knockout-controlled western blots before')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.name} <{self.email}>'
+
+
+class CalibrationFeedback(models.Model):
+    """What a rater says about the criteria, before or after rating."""
+    STAGE = [('before', 'After reading the criteria'),
+             ('after', 'After rating the blots')]
+    rater = models.ForeignKey(CalibrationRater, related_name='feedback',
+                              on_delete=models.CASCADE)
+    stage = models.CharField(max_length=10, choices=STAGE)
+    clarity = models.PositiveSmallIntegerField(null=True, blank=True)
+    comments = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class CalibrationRating(models.Model):
+    ANSWER = [
+        ('main', 'Detects the target as the main signal'),
+        ('other', 'Detects the target, with strong or numerous other bands'),
+        ('none', 'No clear target-specific signal'),
+        ('unsure', 'Unsure'),
+    ]
+    rater = models.ForeignKey(CalibrationRater, related_name='ratings',
+                              on_delete=models.CASCADE)
+    item_id = models.CharField(max_length=16, db_index=True)
+    answer = models.CharField(max_length=10, choices=ANSWER)
+    comment = models.CharField(max_length=500, blank=True)
+    seconds = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=['rater', 'item_id'], name='one_rating_per_rater_item')]

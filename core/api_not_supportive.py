@@ -178,6 +178,7 @@ def not_supportive(request):
         'include_limited': _include_limited(request),
         'note': NS.LIST_NOTE,
         'scope_note': NS.SCOPE_NOTE,
+        'application_notes': dict(NS.R.INTERIM_NOTES),
         # Read off the rows below, never counted separately.
         'manifest': NS.summary(rows, would_add=_would_add(request, rows)),
         # Keyed by UPPER-CASE gene, one entry per application that has a

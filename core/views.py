@@ -50,6 +50,7 @@ from .legacy_gene_ids import LEGACY_GENE_NAMES
 # The three-valued recommendation reader, the scope caveat and the licence —
 # one definition, shared with the API, the extension index and the MCP server.
 from . import recommendations as R
+from .context_processors import emphasised_for
 from . import target_confusions
 
 
@@ -1074,8 +1075,8 @@ def antibody_table(request, gene_name):
         # for the columns drawn only: "results are on HAP1 cell pellets" on a
         # gene with no IHC column names an application the page does not show.
         # Overrides the context processor's list of every application.
-        "application_facts": [R.APPLICATION_FACT[app] for app in columns
-                              if app in R.APPLICATION_FACT],
+        "application_facts": [emphasised_for(app, R.APPLICATION_FACT[app])
+                              for app in columns if app in R.APPLICATION_FACT],
         # The columns drawn, with their example cell (the "Example" row).
         "columns": [{"app": app, "label": _COLUMN_LABEL[app],
                      "example_image": _EXAMPLE_IMAGE.get(app, ''),
@@ -2057,6 +2058,11 @@ def embed_antibody_card(request):
         'report_link': report_link,
         'licence_name': R.LICENCE_NAME,
         'licence_url': R.LICENCE_URL,
+        # Temporary notices for the applications this card shows only.
+        # Overrides the context processor's list of every notice.
+        'interim_notes': [emphasised_for(c['label'], R.INTERIM_NOTES[c['label']])
+                          for c in experiment_cards
+                          if c['label'] in R.INTERIM_NOTES],
         'error': None,
     })
 

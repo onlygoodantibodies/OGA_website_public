@@ -1,0 +1,64 @@
+{% extends 'academy/calibrate/_base.html' %}
+{% load static %}
+{% block title %}Calibration results{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block style %}
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+.stat b { display: block; font-family: var(--mono); font-size: 1.5rem; }
+.stat span { color: var(--muted); font-size: .85rem; }
+.thumb { height: 64px; width: auto; background: #fff; border: 1px solid var(--rule); }
+.yes { color: var(--ok); font-weight: 600; } .no { color: var(--warn); font-weight: 600; }
+.bars { display: grid; gap: 4px; }
+.bar-row { display: grid; grid-template-columns: 56px 1fr 72px; gap: 8px; align-items: center; font-size: .85rem; }
+.bar-track { height: 10px; background: var(--rule); border-radius: 5px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); }
+{% endblock %}
+{% block content %}
+<h1>Western blot calibration: results</h1>
+<p class="lead"><a href="{% url 'academy:calibrate_results_csv' %}">Download every rating (CSV)</a> · rater link: <span class="num">/academy/calibrate/</span></p>
+
+<div class="stats">
+  <div class="stat"><b>{{ raters|length }}</b><span>raters</span></div>
+  <div class="stat"><b>{{ n_ratings }}</b><span>ratings</span></div>
+  <div class="stat"><b>{% if s.kappa_all is not None %}{{ s.kappa_all|floatformat:2 }}{% else %}—{% endif %}</b><span>Fleiss' kappa, all blots</span></div>
+  <div class="stat"><b>{% if s.kappa_synthetic is not None %}{{ s.kappa_synthetic|floatformat:2 }}{% else %}—{% endif %}</b><span>kappa, synthetic</span></div>
+  <div class="stat"><b>{% if s.kappa_real is not None %}{{ s.kappa_real|floatformat:2 }}{% else %}—{% endif %}</b><span>kappa, real</span></div>
+</div>
+<p class="hint">Kappa counts the three results only; "Unsure" is left out. Roughly, 0.6 is substantial agreement and 0.8 near-perfect. A dash means fewer than two raters on any blot so far.</p>
+
+<h2>Raters by experience</h2>
+<div class="scroll"><table>
+  <thead><tr><th>Experience</th><th>Raters</th><th>Kappa within group</th></tr></thead>
+  <tbody>{% for label, n in by_exp %}<tr><td>{{ label }}</td><td class="num">{{ n }}</td><td class="num">{% for l, k in kappa_by_exp %}{% if l == label %}{% if k is not None %}{{ k|floatformat:2 }}{% else %}—{% endif %}{% endif %}{% endfor %}</td></tr>{% endfor %}</tbody>
+</table></div>
+
+<h2>Where raters put the line</h2>
+<p class="hint">Synthetic blots with off-target bands, by the strength of the strongest off-target band relative to the target. The bar is the share answering "main signal". The criteria change answer somewhere along this axis.</p>
+{% if s.curve %}<div class="bars">{% for p in s.curve %}<div class="bar-row"><span class="num">{{ p.ratio }}</span><div class="bar-track"><div class="bar-fill" style="width: {% widthratio p.main_share 1 100 %}%"></div></div><span class="num">{% widthratio p.main_share 1 100 %}% of {{ p.n }}</span></div>{% endfor %}</div>{% else %}<p>No ratings yet.</p>{% endif %}
+
+<h2>Every blot</h2>
+<div class="scroll"><table>
+  <thead><tr><th>Blot</th><th>Kind</th><th>Expected</th><th>Main</th><th>Other</th><th>None</th><th>Unsure</th><th>Majority</th><th>Matches</th></tr></thead>
+  <tbody>{% for r in s.rows %}<tr>
+    <td><a href="{% static 'academy/calibration/items/'|add:r.id|add:'.png' %}" target="_blank" rel="noopener"><img class="thumb" src="{% static 'academy/calibration/items/'|add:r.id|add:'.png' %}" alt="Blot {{ r.id }}"></a><br><span class="num hint">{{ r.id }}</span></td>
+    <td>{{ r.kind }}{% if r.params.recipe %}<br><span class="hint">{{ r.params.recipe }}</span>{% elif r.params.gene %}<br><span class="hint">{{ r.params.gene }} {{ r.params.catalogue }}</span>{% endif %}</td>
+    <td>{{ r.expected }}{% if r.params.max_ratio %}<br><span class="hint num">ratio {{ r.params.max_ratio }}</span>{% endif %}</td>
+    <td class="num">{{ r.votes.main }}</td><td class="num">{{ r.votes.other }}</td><td class="num">{{ r.votes.none }}</td><td class="num">{{ r.votes.unsure }}</td>
+    <td>{{ r.majority|default:"—" }}{% if r.majority_share %} <span class="hint num">{% widthratio r.majority_share 1 100 %}%</span>{% endif %}</td>
+    <td>{% if r.matches_expected is True %}<span class="yes">yes</span>{% elif r.matches_expected is False %}<span class="no">no</span>{% else %}—{% endif %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+
+<h2>Comments on the criteria</h2>
+{% if feedback %}<div class="scroll"><table>
+  <thead><tr><th>When</th><th>Rater</th><th>Clarity</th><th>Comments</th></tr></thead>
+  <tbody>{% for f in feedback %}<tr><td>{{ f.get_stage_display }}<br><span class="hint">{{ f.created_at|date:"j M Y" }}</span></td><td>{{ f.rater.name }}<br><span class="hint">{{ f.rater.get_wb_experience_display }}</span></td><td class="num">{{ f.clarity|default:"—" }}</td><td>{{ f.comments|linebreaksbr }}</td></tr>{% endfor %}</tbody>
+</table></div>{% else %}<p>No comments yet.</p>{% endif %}
+
+<h2>Raters</h2>
+<div class="scroll"><table>
+  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Experience</th><th>Years</th><th>KO before</th><th>Rated</th></tr></thead>
+  <tbody>{% for r in raters %}<tr><td>{{ r.name }}</td><td>{{ r.email }}</td><td>{{ r.get_role_display }}</td><td>{{ r.get_wb_experience_display }}</td><td class="num">{{ r.wb_years|default:"—" }}</td><td>{{ r.ko_experience|yesno:"yes,no" }}</td><td class="num">{{ r.ratings.count }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

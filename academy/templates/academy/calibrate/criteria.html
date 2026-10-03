@@ -1,0 +1,26 @@
+{% extends 'academy/calibrate/_base.html' %}
+{% block title %}Western blot criteria{% endblock %}
+{% block style %}.rules { padding-left: 1.2em; margin: 16px 0 0; } .rules li { margin-bottom: 6px; }
+.scale { display: flex; gap: 8px; flex-wrap: wrap; } .scale label { font-weight: 400; border: 1px solid var(--rule-strong); border-radius: 6px; padding: 6px 12px; }{% endblock %}
+{% block content %}
+<h1>The criteria</h1>
+<p class="lead">Two questions, asked of each blot, give one of three results.</p>
+<div class="card">{% include 'academy/calibrate/_criteria.html' %}</div>
+
+<h2>What do you think of them?</h2>
+<p>Optional, and you can comment again at the end.</p>
+<form method="post" class="card">
+  {% csrf_token %}
+  <div class="field">
+    <span>How clear are the criteria? <span class="hint">1 unclear, 5 very clear</span></span>
+    <div class="scale">{% for n in "12345" %}<label><input type="radio" name="clarity" value="{{ n }}"> {{ n }}</label>{% endfor %}</div>
+  </div>
+  <div class="field">
+    <label for="comments">What would you change, add or remove?</label>
+    <textarea id="comments" name="comments"></textarea>
+  </div>
+  <div class="row">
+    <button class="btn" type="submit">{% if done %}Carry on rating ({{ done }} of {{ total }} done){% else %}Start rating {{ total }} blots{% endif %}</button>
+  </div>
+</form>
+{% endblock %}

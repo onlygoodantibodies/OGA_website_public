@@ -183,6 +183,27 @@ RULES: list[tuple[str, str, str]] = [
      "records beside them -- session and result-row ids, the dilution each "
      "session row holds, 335 report-versus-bench disagreements with triage "
      "notes, and internal SharePoint filenames. No test reads it."),
+    ("pipeline/data/antibody_site_updates_2026_10_03.csv", SHIP,
+     "The 3 Oct supplier survey: discontinuation and link fixes quoted from "
+     "public supplier pages and already applied to the live site; same kind "
+     "of file as the availability passes above. No names."),
+    ("pipeline/data/wb_judgements_2026_10_03.json", DROP,
+     "Re-ratings of named commercial products, reviewed but not yet decided "
+     "or applied; they go public through the site when applied, not before."),
+    ("academy/data/calibration_items.json", DROP,
+     "The western blot calibration study's answer key (expected results, and "
+     "which published blot each item is); published while the study runs, it "
+     "would let raters look the answers up. The item images ship: raters see them."),
+    ("bin/wb_rating/data/figures.json", DROP,
+     "A working snapshot of every live WB judgement with internal review "
+     "flags; the published results are served by the site and the API."),
+    ("bin/wb_rating/data/owner_decisions.json", DROP,
+     "The owner's re-ratings of named products, not yet applied, and it "
+     "names a reviewer."),
+    ("bin/wb_rating/data/rule_proposals.json", DROP,
+     "Machine-proposed re-ratings of named products, not applied."),
+    ("bin/wb_rating/data/params.json", SHIP,
+     "The prototype's fitted thresholds: eight numbers, nothing about any product."),
     ("academy/content/module3/module.json", SHIP,
      "Academy Module 3's text, sections and quiz -- the public course, served "
      "on the site."),

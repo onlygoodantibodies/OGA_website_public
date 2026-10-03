@@ -599,6 +599,7 @@ def _envelope(consumer, rows, version, total_images, matched, returned_all,
             'supplier_filter': consumer.supplier_filter or None,
             'includes_recommendations': True,
             'recommendation_scope': R.SCOPE_NOTE,
+            'application_notes': dict(R.INTERIM_NOTES),
             # What ?gene= asked for, echoed. `complete` below is true for this
             # narrowing, which is exactly the shape that could have a client
             # delete its whole mirror — see `narrowed_by_request` in the sync

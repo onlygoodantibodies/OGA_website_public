@@ -341,6 +341,30 @@ class WhatTheScreenSaysTests(_Fixture):
         # Drawn as context, never as a control: this page does not write it.
         self.assertIn("recommended", row)
 
+    def test_each_card_carries_its_own_genes_predicted_weight(self):
+        """A blot is judged against the target's size, so the card carries it
+        — and a gene with no weight on file says so rather than borrowing
+        another's."""
+        from decimal import Decimal
+        self.target.theoretical_mass_kda = Decimal("37.8")
+        self.target.uniprot_id = "P07858"
+        self.target.save(using=DB)
+        self._antibody("ab1")
+        row = self.client.get(CARDS, {"gene": "TRPA1"}).json()["antibodies"][0]
+        self.assertEqual(row["predicted_kda"], 37.8)
+        self.assertEqual(row["uniprot_id"], "P07858")
+
+        other = Target.objects.using(DB).create(gene_name="STMN2")
+        Antibody.objects.using(DB).create(
+            catalogue_number="ab2", target=other, company=self.company,
+            site=self.site)
+        PublicationImage.objects.using(DB).create(
+            antibody=Antibody.objects.using(DB).get(catalogue_number="ab2"),
+            application_type="WB",
+            image=SimpleUploadedFile("ab2.png", b"not-a-png"))
+        row = self.client.get(CARDS, {"gene": "STMN2"}).json()["antibodies"][0]
+        self.assertIsNone(row["predicted_kda"])
+
     def test_the_picker_is_ordered_by_what_is_left_to_do(self):
         """154 genes have published WB figures. Alphabetical makes somebody find
         the work by hand."""

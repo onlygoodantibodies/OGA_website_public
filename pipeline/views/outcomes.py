@@ -253,6 +253,23 @@ def _public(ab, axes, application, curated):
     return {"public_sentence": d["sentence"], "public_tone": d["tone"]}
 
 
+def _predicted_size(target):
+    """The target's predicted molecular weight, for reading a blot against.
+
+    UniProt's figure for the full-length sequence (``theoretical_mass_kda``),
+    with the accession so the card can link to the entry's processing section:
+    a protein that is cleaved, glycosylated or secreted runs somewhere else —
+    cathepsin B is 38 kDa as a precursor and about 31 and 25 kDa mature — and a
+    reviewer needs both to call a band the right size. Blank stays blank; the
+    card says no weight is on file rather than leaving the row out.
+    """
+    if target is None:
+        return {"predicted_kda": None, "uniprot_id": None}
+    mass = target.theoretical_mass_kda
+    return {"predicted_kda": float(mass) if mass is not None else None,
+            "uniprot_id": target.uniprot_id or None}
+
+
 def _card(ab, axes, img, application, gene, curated=True, **extra):
     """One antibody's card."""
     return dict({
@@ -262,6 +279,7 @@ def _card(ab, axes, img, application, gene, curated=True, **extra):
         "rrid": ab.rrid or None,
         "supplier": _supplier_name(ab),
         "clonality": clonality_svc.label(ab),
+        **_predicted_size(ab.target),
         "image_url": img.image.url if (img and img.image) else None,
         # A control, not context. Both halves of the answer are set from the
         # screen that has the figure on it: the judgement and the
@@ -376,7 +394,7 @@ def outcome_antibodies(request):
     }
     antibodies = (
         Antibody.objects.using(DB)
-        .select_related("company")
+        .select_related("company", "target")
         .filter(pk__in=list(by_ab))
     )
 

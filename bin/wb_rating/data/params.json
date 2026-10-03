@@ -1,0 +1,10 @@
+{
+ "lost": 0.5,
+ "kept": 0.9,
+ "drown_prom": 0.35,
+ "adj_px": 0.08,
+ "adj_ratio": 1.2,
+ "faint": 0.35,
+ "resid": 0.1,
+ "minh": 20
+}

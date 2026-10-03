@@ -762,7 +762,7 @@ that could disagree.
     {% endcomment %}
     <p>Every antibody here is characterised independently of its manufacturer, in applications including ones the datasheet may not recommend.</p>
     <p>{% include 'core/_recommendation_caveat.html' %}</p>
-    {% if application_facts %}<p>{% for fact in application_facts %}{{ fact }} {% endfor %}</p>{% endif %}
+    {% for fact in application_facts %}<p>{{ fact }}</p>{% endfor %}
   </div>
 
   {% comment %}

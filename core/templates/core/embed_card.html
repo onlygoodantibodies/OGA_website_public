@@ -152,6 +152,7 @@
        where a reader may act on a recommendation without ever seeing a page of
        ours — the caveat has to travel with it. Same quiet treatment as the
        licence line: present and legible, not what the card is for. */
+    .embed-interim { color: #5c4400; background: #fff8e1; padding: 5px 16px; }
     .embed-scope {
       padding: 5px 16px 0;
       background: #f8faff;
@@ -249,6 +250,7 @@
     a reader judges the antibody on, and a card carrying four images and no
     recommendation is still a card somebody reads as performance.
     {% endcomment %}
+    {% for note in interim_notes %}<div class="embed-scope embed-interim">{{ note }}</div>{% endfor %}
     <div class="embed-scope">{% include 'core/_recommendation_caveat.html' %}</div>
 
     {% comment %}

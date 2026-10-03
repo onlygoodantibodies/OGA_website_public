@@ -1,7 +1,7 @@
 # academy/urls.py
 
 from django.urls import path
-from . import views
+from . import calibration_views, views
 from allauth.account.views import LoginView
 from .views import (
     AcademyLogoutView,
@@ -13,6 +13,13 @@ from .views import (
 app_name = "academy"
 
 urlpatterns = [
+    # Western blot calibration study (academy/calibration_views.py)
+    path('calibrate/', calibration_views.start, name='calibrate'),
+    path('calibrate/criteria/', calibration_views.criteria, name='calibrate_criteria'),
+    path('calibrate/rate/', calibration_views.rate, name='calibrate_rate'),
+    path('calibrate/done/', calibration_views.done, name='calibrate_done'),
+    path('calibrate/results/', calibration_views.results, name='calibrate_results'),
+    path('calibrate/results.csv', calibration_views.results_csv, name='calibrate_results_csv'),
     # Home & Lessons
     path('', views.home, name='academy_home'),
     path('lesson/<int:lesson_id>/', views.lesson_detail, name='lesson_detail'),

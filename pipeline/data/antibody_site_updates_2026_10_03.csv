@@ -1,0 +1,293 @@
+id,catalogue_number,company,gene,change,out_of_market_now,set_out_of_market,current_supplier_url,set_supplier_url,clear_supplier_url,link_reason,evidence,evidence_type,screenshot,note,checked
+117,A11172,ABclonal,PRKN,mark discontinued,FALSE,TRUE,,,,,Catalog Number: A11172 Discontinued,on_page_statement,screenshots/discontinued/abclonal/117_A11172.jpg,,2–3 Oct 2026
+415,P1G12,DSHB,CD44,mark discontinued + remove link,FALSE,TRUE,https://dshb.biology.uiowa.edu/P1G12,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",catalogue search for P1G12 returned 0 results,catalogue_search_miss,screenshots/discontinued/dshb/415_P1G12.jpg,,2–3 Oct 2026
+517,GTX84570,GeneTex,EPHX2,mark discontinued,FALSE,TRUE,,,,,EPXH2 antibody [1A6] (GTX84570) has been discontinued.,on_page_statement,screenshots/discontinued/genetex/517_GTX84570.jpg,,2–3 Oct 2026
+518,GTX84569,GeneTex,EPHX2,mark discontinued,FALSE,TRUE,,,,,EPXH2 antibody [1H5] (GTX84569) has been discontinued.,on_page_statement,screenshots/discontinued/genetex/518_GTX84569.jpg,,2–3 Oct 2026
+607,GTX84884,GeneTex,ANXA11,mark discontinued,FALSE,TRUE,,,,,Annexin XI antibody [1C6] (GTX84884) has been discontinued.,on_page_statement,screenshots/discontinued/genetex/607_GTX84884.jpg,,2–3 Oct 2026
+682,A12440,ABclonal,GRN,mark discontinued,FALSE,TRUE,,,,,Catalog Number: A12440 Discontinued,on_page_statement,screenshots/discontinued/abclonal/682_A12440.jpg,,2–3 Oct 2026
+699,GTX84860,GeneTex,ARHGDIA,mark discontinued,FALSE,TRUE,,,,,Rho GDI alpha antibody [1A7] (GTX84860) has been discontinued.,on_page_statement,screenshots/discontinued/genetex/699_GTX84860.jpg,,2–3 Oct 2026
+1460,NBP2-46234,Bio-Techne,TSC1,mark discontinued,FALSE,TRUE,,,,,Discontinued Product NBP2-46234 has been discontinued.,on_page_statement,screenshots/discontinued/biotechne/1460_NBP2-46234.jpg,,2–3 Oct 2026
+2030,A21906,ABclonal,NLRP3,mark discontinued,FALSE,TRUE,,,,,Catalog Number: A21906 Discontinued,on_page_statement,screenshots/discontinued/abclonal/2030_A21906.jpg,,2–3 Oct 2026
+2031,A22011,ABclonal,NR4A2,mark discontinued + add link,FALSE,TRUE,,https://abclonal.com/catalog-antibodies/NR4A2RabbitpAb/A22011,,,Catalog Number: A22011 Discontinued,on_page_statement,screenshots/discontinued/abclonal/2031_A22011.jpg,,2–3 Oct 2026
+2516,MAB6216,Bio-Techne,TICAM1,mark discontinued,FALSE,TRUE,,,,,Discontinued Product MAB6216 has been discontinued.,on_page_statement,screenshots/discontinued/biotechne/2516_MAB6216.jpg,,2–3 Oct 2026
+2638,A0010,ABclonal,PARP1,mark discontinued + add link,FALSE,TRUE,,https://abclonal.com/catalog-antibodies/PARP1RabbitpAb/A0010,,,Catalog Number: A0010 Discontinued,on_page_statement,screenshots/discontinued/abclonal/2638_A0010.jpg,,2–3 Oct 2026
+2923,A26037PM,ABclonal,TP53,mark discontinued + add link,FALSE,TRUE,,https://abclonal.com/catalog-antibodies/KOValidatedp53RabbitPolymAb/A26037PM,,,Catalog Number: A26037PM Discontinued,on_page_statement,screenshots/discontinued/abclonal/2923_A26037PM.jpg,,2–3 Oct 2026
+3022,ab254710,Abcam,BDH2,mark discontinued + add link,FALSE,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/bdh2-antibody-ab254710,,,Anti-BDH2 antibody (ab254710) is unavailable. This product is discontinued.,on_page_statement,screenshots/discontinued/abcam/3022_ab254710.jpg,,2–3 Oct 2026
+4560,100 000m,Synaptic Systems,NR4A2,mark discontinued,FALSE,TRUE,,,,,catalogue search for 100 000m returned 0 results,catalogue_search_miss,screenshots/discontinued/sysy/4560_100_000m.jpg,catalogue number looks like a placeholder; SySy search finds nothing,2–3 Oct 2026
+4561,100 000p,Synaptic Systems,NR4A2,mark discontinued,FALSE,TRUE,,,,,catalogue search for 100 000p returned 0 results,catalogue_search_miss,screenshots/discontinued/sysy/4561_100_000p.jpg,catalogue number looks like a placeholder; SySy search finds nothing,2–3 Oct 2026
+508,ARP76105_P050,Aviva Systems Biology,ECE1,unmark discontinued + replace link,TRUE,FALSE,https://www.avivasysbio.com/ece1-antibody-c-terminal-region-biotin-arp76105-p050-biotin.html,https://www.avivasysbio.com/ece1-antibody-c-terminal-region-arp76105-p050.html,,stored link: conjugate,Availability: Domestic: within 1-2 days delivery | International: 1-2 days; 25ul + $99.00; Add to Cart,buy_panel_seen,,was flagged because the stored link pointed at a discontinued conjugate; the plain antibody is on sale,2–3 Oct 2026
+1656,66926-1-Ig,Proteintech,GPNMB,unmark discontinued,TRUE,FALSE,,,,,live buy panel on the product page,buy_panel_seen,,Proteintech still sells 66926-1-Ig (it is the replacement other withdrawn numbers redirect to),2–3 Oct 2026
+1906,ARP59447_P050,Aviva Systems Biology,SYT1,unmark discontinued + replace link,TRUE,FALSE,https://www.avivasysbio.com/syt1-antibody-middle-region-fitc-arp59447-p050-fitc.html,https://www.avivasysbio.com/syt1-antibody-middle-region-arp59447-p050.html,,stored link: conjugate,Availability: Domestic: within 1-2 days delivery | International: 1-2 days; 25UL + $99.00; Add to Cart,buy_panel_seen,,was flagged because the stored link pointed at a discontinued conjugate; the plain antibody is on sale,2–3 Oct 2026
+1925,ARP76053_P050,Aviva Systems Biology,CSNK1A1,unmark discontinued + replace link,TRUE,FALSE,https://www.avivasysbio.com/csnk1a1-antibody-c-terminal-region-biotin-arp76053-p050-biotin.html,https://www.avivasysbio.com/csnk1a1-antibody-c-terminal-region-arp76053-p050.html,,stored link: conjugate,Availability: Domestic: within 1-2 days delivery | International: 1-2 days; 25UL + $99.00; Add to Cart,buy_panel_seen,,was flagged because the stored link pointed at a discontinued conjugate; the plain antibody is on sale,2–3 Oct 2026
+127,GTX114079,GeneTex,GSN,remove link,TRUE,,https://www.genetex.com/Product/Detail/Gelsolin-antibody/GTX114079,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+179,NBP2-67502,Bio-Techne,RAB5A,remove link,TRUE,,https://www.novusbio.com/products/rab5a-antibody-st47-03_nbp2-67502,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+382,NBP2-52536,Bio-Techne,PLCG2,remove link,TRUE,,https://www.novusbio.com/products/plc-gamma-2-antibody-2d9e8_nbp2-52536,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+385,GTX111293,GeneTex,PLCG2,remove link,TRUE,,https://www.genetex.com/Product/Detail/PLCG2-antibody/GTX111293,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+392,NBP2-67452,Bio-Techne,PLEC,remove link,TRUE,,https://www.novusbio.com/products/plectin-antibody-sy29-04_nbp2-67452,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+404,LF-MA0073,Thermo Fisher Scientific,PRDX1,remove link,FALSE,,https://www.thermofisher.com/us/en/home/technical-resources/research-tools/image-gallery/image-gallery-detail.119650.html,,TRUE,stored link is an image-gallery page; no product page found,,,,remove the link only; NOT marked discontinued (no supplier statement),2–3 Oct 2026
+454,NBP2-67360,Bio-Techne,MAPK1,remove link,TRUE,,https://www.novusbio.com/products/erk2-antibody-sz25-01_nbp2-67360,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+458,16443-1-AP,Proteintech,MAPK1,remove link,TRUE,,https://www.ptglab.com/products/ERK2-Antibody-16443-1-AP.htm,,TRUE,stored link now opens a different product (51068-1-AP); no page for this catalogue number,,,,,2–3 Oct 2026
+541,GTX101810,GeneTex,FUS,remove link,TRUE,,https://www.genetex.com/Product/Detail/FUS-antibody/GTX101810,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+565,60160-1-Ig,Proteintech,FUS,remove link,TRUE,,https://www.ptglab.com/products/FUS-Antibody-60160-1-Ig.htm,,TRUE,stored link now opens a different product (68262-1-Ig); no page for this catalogue number,,,,,2–3 Oct 2026
+648,20338-1-AP,Proteintech,GPNMB,remove link,TRUE,,https://www.ptglab.com/products/GPNMB-Antibody-20338-1-AP.htm,,TRUE,stored link now opens a different product (66926-1-Ig); no page for this catalogue number,,,,,2–3 Oct 2026
+764,NBP2-67202,Bio-Techne,CAPN2,remove link,TRUE,,https://www.novusbio.com/products/calpain-2-antibody-ja43-41_nbp2-67202,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+810,NBP2-67490,Bio-Techne,CSF1,remove link,TRUE,,https://www.novusbio.com/products/m-csf-antibody-su0413_nbp2-67490,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+953,GTX108439,GeneTex,MDK,remove link,TRUE,,https://www.genetex.com/Product/Detail/Midkine-antibody/GTX108439,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+959,NBP2-66948,Bio-Techne,MDK,remove link,TRUE,,https://www.novusbio.com/products/midkine-antibody-jf096-5_nbp2-66948,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1050,MAB5240,Bio-Techne,TYROBP,remove link,TRUE,,https://www.novusbio.com/products/dap12-antibody-406288_mab5240,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1080,GTX102371,GeneTex,SFRP1,remove link,TRUE,,https://www.genetex.com/Product/Detail/SFRP1-antibody/GTX102371,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1133,NBP2-23490,Bio-Techne,SQSTM1,remove link,TRUE,,https://www.novusbio.com/products/p62-sqstm1-antibody-5h7e2_nbp2-23490,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1188,NBP2-75710,Bio-Techne,VPS35,remove link,TRUE,,https://www.novusbio.com/products/vps35-antibody-jb33-82_nbp2-75710,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1231,11337-1-AP,Proteintech,SLC29A1,remove link,TRUE,,https://www.ptglab.com/products/ENT1-Antibody-11337-1-AP.htm,,TRUE,stored link now opens a different product (29862-1-AP); no page for this catalogue number,,,,,2–3 Oct 2026
+1232,NBP2-41313,Bio-Techne,SLC29A1,remove link,TRUE,,https://www.novusbio.com/products/ent1-antibody_nbp2-41313,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1275,55274-1-AP,Proteintech,SQSTM1,remove link,TRUE,,https://www.ptglab.com/products/SQSTM1-Antibody-55274-1-AP.htm,,TRUE,stored link now opens a different product (18420-1-AP); no page for this catalogue number,,,,,2–3 Oct 2026
+1300,NBP2-67795,Bio-Techne,STAT5B,remove link,TRUE,,https://www.novusbio.com/products/stat5b-antibody-sd08-08_nbp2-67795,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1441,NBP3-13791,Bio-Techne,TIA1,remove link,TRUE,,https://www.novusbio.com/products/tia1-antibody-tia1-1352r_nbp3-13791,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1475,GTX130510,GeneTex,TSC2,remove link,TRUE,,https://www.genetex.com/Product/Detail/Tuberin-TSC2-antibody/GTX130510,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1740,MW4-S,DSHB,HTT,remove link,TRUE,,https://dshb.biology.uiowa.edu/MW4,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1767,GTX103277,GeneTex,GPNMB,remove link,TRUE,,https://www.genetex.com/Product/Detail/GPNMB-antibody/GTX103277,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1777,GTX106401,GeneTex,PPP2R5D,remove link,TRUE,,https://www.genetex.com/Product/Detail/PPP2R5D-antibody/GTX106401,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+1866,GTX133213,GeneTex,NTN1,remove link,TRUE,,https://www.genetex.com/Product,,TRUE,"GeneTex has no page for this number (""currently not offered"")",,,,,2–3 Oct 2026
+1955,ABCD_AG854,ABCD Antibodies,HTT,remove link,FALSE,,https://abcd-antibodies.com/products/anti-huntingtin-antibody,,TRUE,ABCD shop page and its search result link both 404,,,,remove the link only; NOT marked discontinued (no supplier statement),2–3 Oct 2026
+1957,ABCD_AI748,ABCD Antibodies,TGM2,remove link,FALSE,,https://abcd-antibodies.com/products/anti-tgm2-antibody,,TRUE,ABCD shop page and its search result link both 404,,,,remove the link only; NOT marked discontinued (no supplier statement),2–3 Oct 2026
+2605,GTX103761,GeneTex,KIF5A,remove link,FALSE,,https://www.genetex.com/Product/Detail/KIF5A-antibody/GTX103761,,TRUE,"this GeneTex number now shows a different product (RP105, not KIF5A)",,,,remove the link only; NOT marked discontinued (no supplier statement),2–3 Oct 2026
+2621,ARP48284_T100,Aviva Systems Biology,MDH1,remove link,TRUE,,https://www.avivasysbio.com/mdh1-antibody-middle-region-arp48284-t100.html,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+3479,AFFN-FUS-5A9,DSHB,FUS,remove link,TRUE,,https://dshb.biology.uiowa.edu/AFFN-FUS-5A9,,TRUE,"stored link returns ""page not found""; supplier search finds no page for this number",,,,,2–3 Oct 2026
+4441,AC-PFN1-4,Structural Genomics Consortium,PFN1,remove link,FALSE,,https://www.eubopen.org/antibodies,,TRUE,stored link is a generic EUbOPEN page; no product page found,,,,remove the link only; NOT marked discontinued (no supplier statement),2–3 Oct 2026
+71,ab88960,Abcam,CTSH,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/cathepsin-h-antibody-af14d7-ab88960,https://www.abcam.com/en-us/products/unavailable/cathepsin-h-antibody-af14d7-ab88960,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+301,ab238311,Abcam,SPAST,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/spastin-antibody-rm346-ab238311,https://www.abcam.com/en-us/products/unavailable/spastin-antibody-rm346-ab238311,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+393,H00005339-M03,Abnova,PLEC,replace link,FALSE,,https://www.abnova.com/en-global/product/detail/H00005341-M03,https://www.abnova.com/en-global/product/detail/H00005339-M03,,stored link: points at,,,,,2–3 Oct 2026
+560,NBP2-52874,Bio-Techne,FUS,replace link,FALSE,,https://www.novusbio.com/search,https://www.rndsystems.com/products/fus-antibody-cl0190_nbp2-52874,,stored link: search page,,,,,2–3 Oct 2026
+566,11570-1-AP,Proteintech,FUS,replace link,FALSE,,http://ptglab.com/products/FUS-Antibody-11570-1-AP.htm,https://www.ptglab.com/products/FUS-Antibody-11570-1-AP.htm,,stored link: conjugate,,,,,2–3 Oct 2026
+602,ARP36586_T100,Aviva Systems Biology,ANXA11,replace link,TRUE,,https://www.avivasysbio.com/anxa11-antibody-c-terminal-region-biotin-arp36586-t100-biotin.html,https://www.avivasysbio.com/anxa11-antibody-c-terminal-region-arp36586-t100.html,,stored link: conjugate,,,,,2–3 Oct 2026
+661,ARP34012_P050,Aviva Systems Biology,APP,replace link,FALSE,,https://www.avivasysbio.com/app-antibody-middle-region-biotin-arp34012-p050-biotin.html,https://www.avivasysbio.com/app-antibody-middle-region-arp34012-p050.html,,stored link: conjugate,,,,,2–3 Oct 2026
+786,MAB7509,Bio-Techne,CHMP2B,replace link,FALSE,,https://www.bio-techne.com/cn/p/antibodies/human-chmp2b-antibody-791521_mab7509,https://www.rndsystems.com/products/human-chmp2b-antibody-791521_mab7509,,stored link: China site,,,,,2–3 Oct 2026
+807,ab233387,Abcam,CSF1,replace link,TRUE,,https://www.citeab.com/antibodies/6145197-ab233387-anti-m-csf-antibody-epr20948,https://www.abcam.com/en-us/products/primary-antibodies/m-csf-antibody-epr20948-ab233387,,stored link: CiteAb page,,,,,2–3 Oct 2026
+828,ARP44330_P050,Aviva Systems Biology,CSF1,replace link,FALSE,,https://www.avivasysbio.com/csf1-antibody-middle-region-biotin-arp44330-p050-biotin.html,https://www.avivasysbio.com/csf1-antibody-middle-region-arp44330-p050.html,,stored link: conjugate,,,,,2–3 Oct 2026
+830,ARP44329_P050,Aviva Systems Biology,CSF1,replace link,FALSE,,https://www.avivasysbio.com/csf1-antibody-n-terminal-region-biotin-arp44329-p050-biotin.html,https://www.avivasysbio.com/csf1-antibody-n-terminal-region-arp44329-p050.html,,stored link: conjugate,,,,,2–3 Oct 2026
+976,sc-59656,Santa Cruz Biotechnology,PRDX1,replace link,FALSE,,https://datasheets.scbt.com/sc-59656.pdf,https://www.scbt.com/p/prx-i-antibody-2a4,,stored link: datasheet,,,,,2–3 Oct 2026
+978,66820-1-Ig,Proteintech,PRDX1,replace link,FALSE,,https://www.ptglab.com/results,https://www.ptglab.com/products/PRDX1-Antibody-66820-1-Ig.htm,,stored link: not a product page,,,,,2–3 Oct 2026
+979,14060-1-AP,Proteintech,PRKN,replace link,FALSE,,https://www.ptglab.com/products/PARK2-Parkin-Antibody-14060-1-AP.htm,https://www.ptglab.com/products/PARK2-Antibody-14060-1-AP.htm,,stored link: returned HTTP 404,,,,,2–3 Oct 2026
+980,ab15954,Abcam,PRKN,replace link,TRUE,,https://www.abcam.com/parkin-antibody-ab15954-references.html,https://www.abcam.com/en-us/products/unavailable/parkin-antibody-ab15954,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+1072,AF1384,Bio-Techne,SFRP1,replace link,FALSE,,https://www.bio-techne.com/p/antibodies/human-sfrp-1-antibody-af1384/AF1384,https://www.rndsystems.com/products/human-sfrp-1-antibody_af1384,,stored link: malformed,,,,,2–3 Oct 2026
+1076,ab84003,Abcam,SFRP1,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/sfrp1-antibody-ab84003,https://www.abcam.com/en-us/products/unavailable/sfrp1-antibody-ab84003,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+1166,A13368,ABclonal,VCP,replace link,TRUE,,https://static.abclonal.com/datasheet/A13368.pdf,https://abclonal.com/catalog-antibodies/VCPRabbitpAb/A13368,,stored link: datasheet,,,,,2–3 Oct 2026
+1176,ab74140,Abcam,VGF,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/vgf-antibody-ab74140,https://www.abcam.com/en-us/products/unavailable/vgf-antibody-ab74140,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+1218,PA5-96958,Thermo Fisher Scientific,SLC25A11,replace link,FALSE,,https://www.thermofisher.com/search/results,https://www.thermofisher.com/antibody/product/SLC25A11-Antibody-Polyclonal/PA5-96958,,stored link: not a product page,,,,,2–3 Oct 2026
+1267,ab79390,Abcam,SOD1,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/superoxide-dismutase-1-antibody-epr1726-ab79390,https://www.abcam.com/en-us/products/unavailable/superoxide-dismutase-1-antibody-epr1726-ab79390,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+1268,ab252426,Abcam,SOD1,replace link,TRUE,,https://www.abcam.com/en-us/products/primary-antibodies/sod1-antibody-epr23549-163-ab252426,https://www.abcam.com/en-us/products/unavailable/superoxide-dismutase-1-antibody-epr23549-163-ab252426,,stored link: stored link returns 404,,,,,2–3 Oct 2026
+1305,ARP39001_P050,Aviva Systems Biology,STAT5B,replace link,FALSE,,https://www.avivasysbio.com/stat5b-antibody-n-terminal-region-arp39001-t100.html,https://www.avivasysbio.com/stat5b-antibody-c-terminal-region-arp39001-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+1306,ARP33379_P050,Aviva Systems Biology,STAT5B,replace link,FALSE,,https://www.avivasysbio.com/stat5b-antibody-internal-region-arp33379-p050.html,https://www.avivasysbio.com/stat5b-antibody-n-terminal-region-arp33379-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+1453,A20165,ABclonal,TMEM106B,replace link,TRUE,,https://static.abclonal.com/datasheet/A20165.pdf,https://abclonal.com/catalog-antibodies/TMEM106BRabbitpAb/A20165,,stored link: datasheet,,,,,2–3 Oct 2026
+1474,GTX00917,GeneTex,TSC2,replace link,FALSE,,https://www.genetex.com/Product/Detail/Tuberin-TSC2-antibody/GTX00917,https://www.genetex.com/Product/Detail/TSC2-antibody-GT1147/GTX00917,,stored link: returned 404,,,,,2–3 Oct 2026
+1476,GTX130511,GeneTex,TSC2,replace link,FALSE,,https://www.genetex.com/Product/Detail/Tuberin-TSC2-antibody/GTX130511,https://www.genetex.com/Product/Detail/TSC2-antibody/GTX130511,,stored link: returned 404,,,,,2–3 Oct 2026
+1477,GTX81899,GeneTex,TSC2,replace link,FALSE,,https://www.genetex.com/Product/Detail/Tuberin-TSC2-antibody/GTX81899,https://www.genetex.com/Product/Detail/TSC2-antibody/GTX81899,,stored link: returned 404,,,,,2–3 Oct 2026
+1742,MW6-S,DSHB,HTT,replace link,FALSE,,https://dshb.biology.uiowa.edu/S46,https://dshb.biology.uiowa.edu/MW6,,stored link: WRONG RECORDED,,,,,2–3 Oct 2026
+1882,NBP1-59645,Bio-Techne,ACSL5,replace link,FALSE,,https://www.bio-techne.com/cn/p/antibodies/acsl5-antibody_nbp1-59645,https://www.rndsystems.com/products/acsl5-antibody_nbp1-59645,,stored link: China site,,,,,2–3 Oct 2026
+2336,H00004199-M03,Abnova,ME1,replace link,FALSE,,https://www.abnova.com/en-global/product/detail/H00004199-P01,https://www.abnova.com/en-global/product/detail/H00004199-M03,,stored link: points at,,,,,2–3 Oct 2026
+2337,H00004199-M01,Abnova,ME1,replace link,FALSE,,https://www.abnova.com/en-global/product/detail/H00004199-P01,https://www.abnova.com/en-global/product/detail/H00004199-M01,,stored link: points at,,,,,2–3 Oct 2026
+2372,MABN2266,MilliporeSigma,ARID1B,replace link,FALSE,,"https://www.emdmillipore.com/US/en/product/Anti-ARID1B-Antibody-clone-3D9.1,MM_NF-MABN2266",https://www.sigmaaldrich.com/GB/en/product/mm/mabn2266,,stored link: generic Advanced Search,,,,,2–3 Oct 2026
+2443,A19020,ABclonal,CD44,replace link,FALSE,,https://abclonal.com/search,https://abclonal.com/catalog-antibodies/KOValidatedCD44RabbitmAb/A19020,,stored link: search page,,,,,2–3 Oct 2026
+2597,GTX637387,GeneTex,TREM2,replace link,FALSE,,https://www.genetex.com/Product/Detail/GTX637387,https://www.genetex.com/Product/Detail/TREM2-antibody-HL1739/GTX637387,,stored link: returned 404,,,,,2–3 Oct 2026
+2653,MAB17291R,Bio-Techne,TREM2,replace link,FALSE,,https://www.rndsystems.com/products/mab17291r,https://www.rndsystems.com/products/human-mouse-trem2-antibody-237920r_mab17291r,,stored link: returns HTTP 404,,,,,2–3 Oct 2026
+2654,MAB11618,Bio-Techne,TREM2,replace link,FALSE,,https://www.rndsystems.com/products/mab11618,https://www.rndsystems.com/products/human-trem2-antibody-2958e_mab11618,,stored link: returns HTTP 404,,,,,2–3 Oct 2026
+2797,ARP38745_T100,Aviva Systems Biology,NFE2L2,replace link,FALSE,,https://www.avivasysbio.com/nrf2-antibody-c-terminal-region-arp38745-t100.html,https://www.avivasysbio.com/nfe2l2-antibody-c-terminal-region-arp38745-t100.html,,stored link: returned 404,,,,,2–3 Oct 2026
+2798,ARP38744_P050,Aviva Systems Biology,NFE2L2,replace link,FALSE,,https://www.avivasysbio.com/nrf2-antibody-middle-region-arp38744-p050.html,https://www.avivasysbio.com/nfe2l2-antibody-arp38744-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+2821,68723-1-Ig,Proteintech,TREM2,replace link,FALSE,,https://www.ptglab.com/products/68723-1-Ig.htm,https://www.ptglab.com/products/TREM2-Antibody-68723-1-Ig.htm,,stored link: returned HTTP 404,,,,,2–3 Oct 2026
+2822,83438-6-RR,Proteintech,TREM2,replace link,FALSE,,https://www.ptglab.com/products/83438-6-RR.htm,https://www.ptglab.com/products/TREM2-Antibody-83438-6-RR.htm,,stored link: returned HTTP 404,,,,,2–3 Oct 2026
+2954,GTX103322,GeneTex,NFE2L2,replace link,FALSE,,https://www.genetex.com/Product/Detail/NRF2-antibody/GTX103322,https://www.genetex.com/Product/Detail/NRF2-antibody-N2C2-Internal/GTX103322,,stored link: returned 404,,,,,2–3 Oct 2026
+2976,ZRB1493,MilliporeSigma,NFE2L2,replace link,FALSE,,https://www.sigmaaldrich.com/US/en/product/mm/zrb1493,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb1493,,stored link: returns 404,,,,,2–3 Oct 2026
+2983,ARP59669_P050,Aviva Systems Biology,ARHGEF2,replace link,FALSE,,https://www.avivasysbio.com/arhgef2-antibody-c-terminal-region-hrp-arp59669-p050-hrp.html,https://www.avivasysbio.com/arhgef2-antibody-c-terminal-region-arp59669-p050.html,,stored link: conjugate,,,,,2–3 Oct 2026
+3115,abx422618,Abbexa,USP30,replace link,FALSE,,https://www.abbexa.com/usp30-antibody,https://www.abbexa.com/ubiquitin-carboxyl-terminal-hydrolase-30-usp30-antibody,,stored link: DIFFERENT product,,,,,2–3 Oct 2026
+3116,abx422626,Abbexa,CTHRC1,replace link,FALSE,,https://www.abbexa.com/cthrc1-antibody,https://www.abbexa.com/collagen-triple-helix-repeat-containing-protein-1-cthrc1-antibody-3,,stored link: DIFFERENT product,,,,,2–3 Oct 2026
+3517,ARP45593_P050,Aviva Systems Biology,NR3C1,replace link,FALSE,,https://www.avivasysbio.com/nr3c1-antibody-c-terminal-region-arp45593-p050.html,https://www.avivasysbio.com/nr3c1-antibody-n-terminal-region-arp45593-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+3522,P100765_P050,Aviva Systems Biology,NR3C1,replace link,FALSE,,https://www.avivasysbio.com/nr3c1-antibody-internal-region-p100765-p050.html,https://www.avivasysbio.com/nr3c1-antibody-n-terminal-region-p100765-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+3525,ARP59239_P050,Aviva Systems Biology,SERPINA1,replace link,FALSE,,https://www.avivasysbio.com/serpina1-antibody-c-terminal-region-hrp-arp59239-p050-hrp.html,https://www.avivasysbio.com/serpina1-antibody-c-terminal-region-arp59239-p050.html,,stored link: conjugate,,,,,2–3 Oct 2026
+3541,GTX636420,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody-HL1149/GTX636420,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody-HL1149/GTX636420,,stored link: returned 404,,,,,2–3 Oct 2026
+3542,GTX636422,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody-HL1151/GTX636422,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody-HL1151/GTX636422,,stored link: returned 404,,,,,2–3 Oct 2026
+3543,GTX101120,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody/GTX101120,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody/GTX101120,,stored link: returned 404,,,,,2–3 Oct 2026
+3544,GTX113208,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody/GTX113208,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody/GTX113208,,stored link: returned 404,,,,,2–3 Oct 2026
+3545,GTX634705,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody-GT1073/GTX634705,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody-GT1073/GTX634705,,stored link: returned 404,,,,,2–3 Oct 2026
+3546,GTX634647,GeneTex,NR3C1,replace link,FALSE,,https://www.genetex.com/Product/Detail/NR3C1-GR-antibody-GT248/GTX634647,https://www.genetex.com/Product/Detail/Glucocorticoid-Receptor-antibody-GT248/GTX634647,,stored link: returned 404,,,,,2–3 Oct 2026
+3551,82619-4-RR,Proteintech,NR3C1,replace link,FALSE,,https://www.ptglab.com/products/NR3C1-Recombinant-antibody-82619-1-RR.htm,https://www.ptglab.com/products/Glucocorticoid-Receptor-Antibody-82619-4-RR.htm,,stored link: returned HTTP 404,,,,,2–3 Oct 2026
+3657,GTX129909,GeneTex,TGFBR2,replace link,FALSE,,https://www.genetex.com/Product/Detail/TGFBR2-antibody/GTX129909,https://www.genetex.com/Product/Detail/TGF-beta-Receptor-2-antibody/GTX129909,,stored link: returned 404,,,,,2–3 Oct 2026
+3678,130-115-067,Miltenyi,TGFBR2,replace link,FALSE,,https://www.miltenyibiotec.com/en-us/products/tgf-beta-rii-antibody-anti-human-rea903-130-115-067.html,https://www.miltenyibiotec.com/GB-en/products/tgf-b-rii-antibody-anti-human-reafinity-rea903.html,,stored link: not-found,,,,,2–3 Oct 2026
+3756,ARP54635_P050,Aviva Systems Biology,GNAQ,replace link,FALSE,,https://www.avivasysbio.com/gnaq-antibody-middle-region-arp54635-p050.html,https://www.avivasysbio.com/gnaq-antibody-n-terminal-region-arp54635-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+3839,ARP49413-P050,Aviva Systems Biology,TREM2,replace link,FALSE,,https://www.avivasysbio.com/arp49413-p050,https://www.avivasysbio.com/trem2-antibody-middle-region-arp49413-p050.html,,stored link: returned 404,,,,,2–3 Oct 2026
+4406,GTX637386,GeneTex,TREM2,replace link,FALSE,,https://www.genetex.com/Product/Detail/GTX637386,https://www.genetex.com/Product/Detail/TREM2-antibody-HL1738/GTX637386,,stored link: returned 404,,,,,2–3 Oct 2026
+72,ab185935,Abcam,CTSH,add link,TRUE,,,https://www.abcam.com/en-us/products/primary-antibodies/cathepsin-h-antibody-ab185935,,,,,,,2–3 Oct 2026
+73,MA5-17253,Thermo Fisher Scientific,CTSH,add link,TRUE,,,https://www.thermofisher.com/antibody/product/Cathepsin-H-Antibody-clone-AF14D7-Monoclonal/MA5-17253,,,,,,,2–3 Oct 2026
+74,GTX33065,GeneTex,CTSH,add link,TRUE,,,https://www.genetex.com/Product/Detail/Cathepsin-H-antibody/GTX33065,,,,,,,2–3 Oct 2026
+164,PA5-54271,Thermo Fisher Scientific,NEK1,add link,FALSE,,,https://www.thermofisher.com/antibody/product/NEK1-Antibody-Polyclonal/PA5-54271,,,,,,,2–3 Oct 2026
+255,MA5-42451,Thermo Fisher Scientific,MAPT,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Tau-Antibody-clone-SD205-09-Recombinant-Monoclonal/MA5-42451,,,,,,,2–3 Oct 2026
+256,MA5-41098,Thermo Fisher Scientific,MAPT,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Tau-Antibody-clone-SZ03-03-Recombinant-Monoclonal/MA5-41098,,,,,,,2–3 Oct 2026
+257,ZMS1111,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zms1111,,,,,,,2–3 Oct 2026
+258,MABN162,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/mm/mabn162,,,,,,,2–3 Oct 2026
+259,ZMS1065,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zms1065,,,,,,,2–3 Oct 2026
+260,MAB2241,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/mm/mab2241,,,,,,,2–3 Oct 2026
+261,ZMS3420,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zms3420,,,,,,,2–3 Oct 2026
+262,MAB3420,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/mm/mab3420,,,,,,,2–3 Oct 2026
+263,ZRB1092,MilliporeSigma,MAPT,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb1092,,,,,,,2–3 Oct 2026
+264,ab254256,Abcam,MAPT,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/tau-antibody-epr22524-95-ab254256,,,,,,,2–3 Oct 2026
+265,ab76128,Abcam,MAPT,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/tau-antibody-ep2456y-ab76128,,,,,,,2–3 Oct 2026
+266,ab254150,Abcam,MAPT,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/tau-antibody-pc1c6-ab254150,,,,,,,2–3 Oct 2026
+268,ab316121,Abcam,MAPT,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/tau-c-terminal-antibody-epr28785-33-ab316121,,,,,,,2–3 Oct 2026
+269,ab109392,Abcam,MAPT,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/tau-antibody-epr23962-ab109392,,,,,,,2–3 Oct 2026
+270,GTX639564,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody-HL2736/GTX639564,,,,,,,2–3 Oct 2026
+271,GTX639694,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody-HL2802/GTX639694,,,,,,,2–3 Oct 2026
+272,GTX640369,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody-HL2982/GTX640369,,,,,,,2–3 Oct 2026
+497,GTX01114,GeneTex,INPP5D,add link,TRUE,,,https://www.genetex.com/Product/Detail/SHIP1-antibody-SY11-08/GTX01114,,,,,,,2–3 Oct 2026
+534,PA5-67020,Thermo Fisher Scientific,FIG4,add link,TRUE,,,https://www.thermofisher.com/antibody/product/FIG4-Antibody-Polyclonal/PA5-67020,,,,,,,2–3 Oct 2026
+606,GTX114256,GeneTex,ANXA11,add link,TRUE,,,https://www.genetex.com/Product/Detail/Annexin-XI-antibody-C1C3/GTX114256,,,,,,,2–3 Oct 2026
+675,MA5-35653,Thermo Fisher Scientific,GRN,add link,TRUE,,,https://www.thermofisher.com/antibody/product/Granulins-Antibody-clone-ARC1151-Recombinant-Monoclonal/MA5-35653,,,,,,,2–3 Oct 2026
+678,ab205137,Abcam,GRN,add link,TRUE,,,https://www.abcam.com/en-us/products/primary-antibodies/granulin-antibody-rm0506-34u21-ab205137,,,,,,,2–3 Oct 2026
+718,GTX130331,GeneTex,ATXN2,add link,TRUE,,,https://www.genetex.com/Product/Detail/ATXN2-antibody/GTX130331,,,,,,,2–3 Oct 2026
+766,ab50811,Abcam,CCNF,add link,TRUE,,,https://www.abcam.com/en-us/products/primary-antibodies/cyclin-f-antibody-2123d1a-ab50811,,,,,,,2–3 Oct 2026
+990,A14054,ABclonal,PTN,add link,TRUE,,,https://abclonal.com/catalog-antibodies/PTNRabbitpAb/A14054,,,,,,,2–3 Oct 2026
+1220,ab155196,Abcam,SLC25A11,add link,TRUE,,,https://www.abcam.com/en-us/products/unavailable/slc25a11-antibody-ab155196,,,,,,,2–3 Oct 2026
+1238,ab119272,Abcam,SLC2A6,add link,TRUE,,,https://www.abcam.com/en-us/products/primary-antibodies/glut6-antibody-ab119272,,,,,,,2–3 Oct 2026
+1391,MA1-25568,Thermo Fisher Scientific,SYT1,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Synaptotagmin-1-Antibody-clone-ASV30-Monoclonal/MA1-25568,,,,,,,2–3 Oct 2026
+1488,GTX112653,GeneTex,TUBA4A,add link,TRUE,,,https://www.genetex.com/Product/Detail/alpha-Tubulin-4a-antibody/GTX112653,,,,,,,2–3 Oct 2026
+1791,13359,Cell Signaling Technology,CLCN3,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/clcn3-d8y5q-rabbit-monoclonal-antibody/13359,,,,,,,2–3 Oct 2026
+1877,AF2156,Bio-Techne,NR4A2,add link,FALSE,,,https://www.rndsystems.com/products/human-mouse-nurr1-ngfi-bbeta-nr4a2-antibody_af2156,,,,,,,2–3 Oct 2026
+1896,10975-2-AP,Proteintech,NR4A2,add link,FALSE,,,https://www.ptglab.com/products/NR4A2-Antibody-10975-2-AP.htm,,,,,,,2–3 Oct 2026
+1901,66878-1-Ig,Proteintech,NR4A2,add link,FALSE,,,https://www.ptglab.com/products/NR4A2-Antibody-66878-1-Ig.htm,,,,,,,2–3 Oct 2026
+1904,ARP32730_P050,Aviva Systems Biology,NR4A2,add link,FALSE,,,https://www.avivasysbio.com/nr4a2-antibody-c-terminal-region-arp32730-p050.html,,,,,,,2–3 Oct 2026
+1905,ARP38754_P050,Aviva Systems Biology,NR4A2,add link,FALSE,,,https://www.avivasysbio.com/nr4a2-antibody-middle-region-arp38754-p050.html,,,,,,,2–3 Oct 2026
+2057,ab122666,Abcam,RAB12,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/rab12-antibody-ab122666,,,,,,,2–3 Oct 2026
+2058,NBP1-90976,Bio-Techne,RAB12,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/rab12-antibody_nbp1-90976,,,,,,,2–3 Oct 2026
+2075,18843-1-AP,Proteintech,RAB12,add link,FALSE,,,https://www.ptglab.com/products/RAB12-Antibody-18843-1-AP.htm,,,,,,,2–3 Oct 2026
+2079,68079-1-Ig,Proteintech,RAB12,add link,FALSE,,,https://www.ptglab.com/products/RAB12-Antibody-68079-1-Ig.htm,,,,,,,2–3 Oct 2026
+2140,ab316770,Abcam,RAB12,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/rab12-antibody-epr28814-81-ab316770,,,,,,,2–3 Oct 2026
+2373,ZRB1175,MilliporeSigma,TP53,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb1175,,,,,,,2–3 Oct 2026
+2374,ab179477,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-epr17343-ab179477,,,,,,,2–3 Oct 2026
+2375,ab16665,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-sp5-ab16665,,,,,,,2–3 Oct 2026
+2398,ab183704,Abcam,SLIT1,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/slit1-slit2-antibody-ep5796n-ab183704,,,,,,,2–3 Oct 2026
+2447,A26172,ABclonal,RAB12,add link,FALSE,,,https://abclonal.com/catalog-antibodies/KOValidatedRab12RabbitmAbMJFFA6E6/A26172,,,,,,,2–3 Oct 2026
+2459,PA5-100174,Thermo Fisher Scientific,RAB12,add link,FALSE,,,https://www.thermofisher.com/antibody/product/RAB12-Antibody-Polyclonal/PA5-100174,,,,,,,2–3 Oct 2026
+2460,PA5-98523,Thermo Fisher Scientific,RAB12,add link,FALSE,,,https://www.thermofisher.com/antibody/product/RAB12-Antibody-Polyclonal/PA5-98523,,,,,,,2–3 Oct 2026
+2475,ab315881,Abcam,CLCN3,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/clc3-antibody-epr26497-64-ab315881,,,,,,,2–3 Oct 2026
+2477,ab41917,Abcam,NR4A2,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/nurr1-antibody-n1404-ab41917,,,,,,,2–3 Oct 2026
+2515,PP-N1404-0C,Bio-Techne,NR4A2,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/human-nurr1-ngfi-b-beta-nr4a2-mab-protein-a-purified-n1404_pp-n1404-0c,,,,,,,2–3 Oct 2026
+2550,ab305355,Abcam,NR4A2,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/nurr1-antibody-epr24121-44-bsa-and-azide-free-detector-ab305355,,,,,,,2–3 Oct 2026
+2555,ab305354,Abcam,NR4A2,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/nurr1-antibody-epr24121-38-bsa-and-azide-free-capture-ab305354,,,,,,,2–3 Oct 2026
+2560,CPTC-PARP1-2,DSHB,PARP1,add link,FALSE,,,https://dshb.biology.uiowa.edu/CPTC-PARP1-2,,,,,,,2–3 Oct 2026
+2564,AFFN-PARP1-17B10,DSHB,PARP1,add link,FALSE,,,https://dshb.biology.uiowa.edu/AFFN-PARP1-17B10,,,,,,,2–3 Oct 2026
+2566,H00004929-M10,Abnova,NR4A2,add link,FALSE,,,https://www.abnova.com/en-global/product/detail/H00004929-M10,,,,,,,2–3 Oct 2026
+2567,H00004929-M08,Abnova,NR4A2,add link,FALSE,,,https://www.abnova.com/en-global/product/detail/H00004929-M08,,,,,,,2–3 Oct 2026
+2568,H00004929-M07,Abnova,NR4A2,add link,FALSE,,,https://www.abnova.com/en-global/product/detail/H00004929-M07,,,,,,,2–3 Oct 2026
+2569,H00004929-M02,Abnova,NR4A2,add link,FALSE,,,https://www.abnova.com/en-global/product/detail/H00004929-M02,,,,,,,2–3 Oct 2026
+2570,H00004929-M01,Abnova,NR4A2,add link,FALSE,,,https://www.abnova.com/en-global/product/detail/H00004929-M01,,,,,,,2–3 Oct 2026
+2585,GTX628836,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-GT6212/GTX628836,,,,,,,2–3 Oct 2026
+2586,GTX632388,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-GT982/GTX632388,,,,,,,2–3 Oct 2026
+2587,GTX636804,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-HL1364/GTX636804,,,,,,,2–3 Oct 2026
+2588,GTX636805,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-HL1365/GTX636805,,,,,,,2–3 Oct 2026
+2640,MA5-41125,Thermo Fisher Scientific,PARP1,add link,FALSE,,,https://www.thermofisher.com/antibody/product/PARP1-Antibody-clone-SU03-68-Recombinant-Monoclonal/MA5-41125,,,,,,,2–3 Oct 2026
+2641,9532,Cell Signaling Technology,PARP1,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/parp-46d11-rabbit-monoclonal-antibody/9532,,,,,,,2–3 Oct 2026
+2642,ab32378,Abcam,PARP1,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/parp1-antibody-y17-ab32378,,,,,,,2–3 Oct 2026
+2643,ab32138,Abcam,PARP1,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/parp1-antibody-e102-ab32138,,,,,,,2–3 Oct 2026
+2644,ab191217,Abcam,PARP1,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/parp1-antibody-epr18461-ab191217,,,,,,,2–3 Oct 2026
+2645,MAB8095,Bio-Techne,PARP1,add link,FALSE,,,https://www.rndsystems.com/products/human-parp-antibody-839120_mab8095,,,,,,,2–3 Oct 2026
+2647,ab32071,Abcam,PARP1,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/parp1-antibody-e78-ab32071,,,,,,,2–3 Oct 2026
+2649,NBP3-26439,Bio-Techne,PARP1,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/parp-antibody-8c7_nbp3-26439,,,,,,,2–3 Oct 2026
+2651,ARP74915_P050,Aviva Systems Biology,PARP1,add link,FALSE,,,https://www.avivasysbio.com/parp1-antibody-c-terminal-arp74915-p050.html,,,,,,,2–3 Oct 2026
+2754,MA5-34807,Thermo Fisher Scientific,OGA,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Mgea5-Antibody-clone-JG40-05-Recombinant-Monoclonal/MA5-34807,,,,,,,2–3 Oct 2026
+2755,MA5-49925,Thermo Fisher Scientific,OGA,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Mgea5-Antibody-clone-8D12-Recombinant-Monoclonal/MA5-49925,,,,,,,2–3 Oct 2026
+2756,MA5-52490,Thermo Fisher Scientific,OGA,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Mgea5-Antibody-clone-23GB2270-Recombinant-Monoclonal/MA5-52490,,,,,,,2–3 Oct 2026
+2757,A24124,ABclonal,OGA,add link,FALSE,,,https://abclonal.com/catalog-antibodies/KDValidatedMGEA5OGARabbitmAb/A24124,,,,,,,2–3 Oct 2026
+2758,60406,Cell Signaling Technology,OGA,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/mgea5-oga-e9c5u-rabbit-monoclonal-antibody/60406,,,,,,,2–3 Oct 2026
+2759,ab124807,Abcam,OGA,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/mgea5-oga-antibody-epr7154b-ab124807,,,,,,,2–3 Oct 2026
+2761,NBP2-76848,Bio-Techne,OGA,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/o-glcnacase-oga-mgea5-antibody-jg40-05_nbp2-76848,,,,,,,2–3 Oct 2026
+2762,NBP3-26142,Bio-Techne,OGA,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/o-glcnacase-oga-mgea5-antibody-8d12_nbp3-26142,,,,,,,2–3 Oct 2026
+2763,ZRB2337,MilliporeSigma,OGA,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb2337,,,,,,,2–3 Oct 2026
+2779,ZRB1545,MilliporeSigma,PARP1,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb1545,,,,,,,2–3 Oct 2026
+2780,ZRB1544,MilliporeSigma,PARP1,add link,FALSE,,,https://www.sigmaaldrich.com/GB/en/product/sigma/zrb1544,,,,,,,2–3 Oct 2026
+2823,66520-1-Ig,Proteintech,PARP1,add link,FALSE,,,https://www.ptglab.com/products/PARP1-Antibody-66520-1-Ig.htm,,,,,,,2–3 Oct 2026
+2852,13371-1-AP,Proteintech,PARP1,add link,FALSE,,,https://www.ptglab.com/products/PARP1-Antibody-13371-1-AP.htm,,,,,,,2–3 Oct 2026
+2854,14711-1-AP,Proteintech,OGA,add link,FALSE,,,https://www.ptglab.com/products/MGEA5-Antibody-14711-1-AP.htm,,,,,,,2–3 Oct 2026
+2921,10442-1-AP,Proteintech,TP53,add link,FALSE,,,https://www.ptglab.com/products/P53-Antibody-10442-1-AP.htm,,,,,,,2–3 Oct 2026
+2922,60283-2-Ig,Proteintech,TP53,add link,FALSE,,,https://www.ptglab.com/products/P53-Antibody-60283-2-Ig.htm,,,,,,,2–3 Oct 2026
+2924,2527,Cell Signaling Technology,TP53,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/p53-7f5-rabbit-monoclonal-antibody/2527,,,,,,,2–3 Oct 2026
+2925,30313,Cell Signaling Technology,TP53,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/p53-e9b5w-rabbit-monoclonal-antibody/30313,,,,,,,2–3 Oct 2026
+2926,MA5-56512,Thermo Fisher Scientific,TP53,add link,FALSE,,,https://www.thermofisher.com/antibody/product/p53-Antibody-clone-6B2-R-Recombinant-Monoclonal/MA5-56512,,,,,,,2–3 Oct 2026
+2927,MAB1355,Bio-Techne,TP53,add link,FALSE,,,https://www.rndsystems.com/products/human-mouse-rat-p53-antibody-184721_mab1355,,,,,,,2–3 Oct 2026
+2929,ab1101,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-do-1-chip-grade-ab1101,,,,,,,2–3 Oct 2026
+2931,ab32049,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-y5-ab32049,,,,,,,2–3 Oct 2026
+2934,ab154036,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-9d3de3-ab154036,,,,,,,2–3 Oct 2026
+2935,ab227655,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-sp161-ab227655,,,,,,,2–3 Oct 2026
+2937,ab308609,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-g59-12-ab308609,,,,,,,2–3 Oct 2026
+2938,ab32509,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-e47-ab32509,,,,,,,2–3 Oct 2026
+2940,ab32389,Abcam,TP53,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/p53-antibody-e26-ab32389,,,,,,,2–3 Oct 2026
+2941,GTX638291,GeneTex,TP53,add link,FALSE,,,https://www.genetex.com/Product/Detail/p53-antibody-HL2242/GTX638291,,,,,,,2–3 Oct 2026
+2942,GTX70214,GeneTex,TP53,add link,FALSE,,,https://www.genetex.com/Product/Detail/p53-antibody-DO1/GTX70214,,,,,,,2–3 Oct 2026
+2943,GTX70216,GeneTex,TP53,add link,FALSE,,,https://www.genetex.com/Product/Detail/p53-antibody-Pab1801/GTX70216,,,,,,,2–3 Oct 2026
+2944,GTX100629,GeneTex,TP53,add link,FALSE,,,https://www.genetex.com/Product/Detail/p53-antibody-N1-N-term/GTX100629,,,,,,,2–3 Oct 2026
+2945,ARP33453_P050,Aviva Systems Biology,TP53,add link,FALSE,,,https://www.avivasysbio.com/tp53-antibody-n-terminal-region-arp33453-p050.html,,,,,,,2–3 Oct 2026
+2946,AVARP02055_T100,Aviva Systems Biology,TP53,add link,FALSE,,,https://www.avivasysbio.com/tp53-antibody-c-terminal-region-avarp02055-t100.html,,,,,,,2–3 Oct 2026
+2947,ARP30310_P050,Aviva Systems Biology,TP53,add link,FALSE,,,https://www.avivasysbio.com/tp53-antibody-c-terminal-region-arp30310-p050.html,,,,,,,2–3 Oct 2026
+2950,ARP38526_T100,Aviva Systems Biology,CDK5,add link,FALSE,,,https://www.avivasysbio.com/cdk5-antibody-c-terminal-region-arp38526-t100.html,,,,,,,2–3 Oct 2026
+2956,GTX100573,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody/GTX100573,,,,,,,2–3 Oct 2026
+2957,GTX112864,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-N2C1-Internal/GTX112864,,,,,,,2–3 Oct 2026
+2958,GTX112839,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody-N1N2-N-term/GTX112839,,,,,,,2–3 Oct 2026
+2959,GTX132329,GeneTex,PARP1,add link,FALSE,,,https://www.genetex.com/Product/Detail/PARP-antibody/GTX132329,,,,,,,2–3 Oct 2026
+2985,GTX634809,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody-GT287/GTX634809,,,,,,,2–3 Oct 2026
+2986,GTX130462,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody/GTX130462,,,,,,,2–3 Oct 2026
+2987,GTX112981,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody/GTX112981,,,,,,,2–3 Oct 2026
+2988,GTX100866,GeneTex,MAPT,add link,FALSE,,,https://www.genetex.com/Product/Detail/Tau-antibody/GTX100866,,,,,,,2–3 Oct 2026
+2989,10274-1-AP,Proteintech,MAPT,add link,FALSE,,,https://www.ptglab.com/products/MAPT-Antibody-10274-1-AP.htm,,,,,,,2–3 Oct 2026
+2990,66499-1-Ig,Proteintech,MAPT,add link,FALSE,,,https://www.ptglab.com/products/TAU-Antibody-66499-1-Ig.htm,,,,,,,2–3 Oct 2026
+2991,A23490,ABclonal,MAPT,add link,FALSE,,,https://abclonal.com/catalog-antibodies/TauRabbitmAb/A23490,,,,,,,2–3 Oct 2026
+2992,MAB3494,Bio-Techne,MAPT,add link,FALSE,,,https://www.rndsystems.com/products/tau-antibody-376720_mab3494,,,,,,,2–3 Oct 2026
+3023,27207-1-AP,Proteintech,BDH2,add link,FALSE,,,https://www.ptglab.com/products/BDH2-Antibody-27207-1-AP.htm,,,,,,,2–3 Oct 2026
+3024,68279-1-Ig,Proteintech,BDH2,add link,FALSE,,,https://www.ptglab.com/products/BDH2-Antibody-68279-1-Ig.htm,,,,,,,2–3 Oct 2026
+3025,MA5-25142,Thermo Fisher Scientific,BDH2,add link,FALSE,,,https://www.thermofisher.com/antibody/product/BDH2-Antibody-clone-OTI2G1-Monoclonal/MA5-25142,,,,,,,2–3 Oct 2026
+3026,ARP57360_P050,Aviva Systems Biology,BDH2,add link,FALSE,,,https://www.avivasysbio.com/bdh2-antibody-middle-region-arp57360-p050.html,,,,,,,2–3 Oct 2026
+3042,MA5-38106,Thermo Fisher Scientific,TMEFF2,add link,FALSE,,,https://www.thermofisher.com/antibody/product/TMEFF2-Antibody-clone-6K5Q9-Recombinant-Monoclonal/MA5-38106,,,,,,,2–3 Oct 2026
+3043,MA5-25925,Thermo Fisher Scientific,TMEFF2,add link,FALSE,,,https://www.thermofisher.com/antibody/product/TMEFF2-Antibody-clone-OTI1E1-Monoclonal/MA5-25925,,,,,,,2–3 Oct 2026
+3044,11928-1-AP,Proteintech,TMEFF2,add link,FALSE,,,https://www.ptglab.com/products/TMEFF2-Antibody-11928-1-AP.htm,,,,,,,2–3 Oct 2026
+3045,sc-126,Santa Cruz Biotechnology,TP53,add link,FALSE,,,https://www.scbt.com/p/p53-antibody-do-1,,,,,,,2–3 Oct 2026
+3046,710080,Thermo Fisher Scientific,MAPT,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Tau-Antibody-clone-6HCLC-Recombinant-Superclonal/710080,,,,,,,2–3 Oct 2026
+3051,AHO0152,Thermo Fisher Scientific,TP53,add link,FALSE,,,https://www.thermofisher.com/antibody/product/p53-Antibody-clone-DO-1-Monoclonal/AHO0152,,,,,,,2–3 Oct 2026
+3058,abx128550,Abbexa,TP53,add link,FALSE,,,https://www.abbexa.com/tumor-protein-p53-tp53-antibody-14,,,,,,,2–3 Oct 2026
+3060,abx128600,Abbexa,MAPT,add link,FALSE,,,https://www.abbexa.com/microtubule-associated-protein-tau-antibody-2,,,,,,,2–3 Oct 2026
+3069,abx159710,Abbexa,TP53,add link,FALSE,,,https://www.abbexa.com/tp53-antibody-9,,,,,,,2–3 Oct 2026
+3074,abx402449,Abbexa,TMEFF2,add link,FALSE,,,https://www.abbexa.com/tomoregulin-2-tmeff2-antibody-1,,,,,,,2–3 Oct 2026
+3075,ARP30312_P050,Aviva Systems Biology,TP53,add link,FALSE,,,https://www.avivasysbio.com/tp53-antibody-n-terminal-region-arp30312-p050.html,,,,,,,2–3 Oct 2026
+3093,46687,Cell Signaling Technology,MAPT,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/tau-d1m9x-rabbit-monoclonal-antibody/46687,,,,,,,2–3 Oct 2026
+3094,43894,Cell Signaling Technology,MAPT,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/tau-d5d8n-rabbit-monoclonal-antibody/43894,,,,,,,2–3 Oct 2026
+3095,HPA015587,Atlas Antibodies,TMEFF2,add link,FALSE,,,https://www.atlasantibodies.com/products/primary-antibodies/triple-a-polyclonals/anti-tmeff2-antibody-hpa015587/,,,,,,,2–3 Oct 2026
+3107,abx422623,Abbexa,BDH2,add link,FALSE,,,https://www.abbexa.com/dehydrogenase-reductase-sdr-family-member-6-bdh2-antibody,,,,,,,2–3 Oct 2026
+3112,ab171428,Abcam,C9orf72,add link,TRUE,,,https://www.abcam.com/en-us/products/unavailable/c9orf72-antibody-c-terminal-ab171428,,,,,,,2–3 Oct 2026
+3130,MA5-33075,Thermo Fisher Scientific,PXN,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Paxillin-Antibody-clone-RM256-Recombinant-Monoclonal/MA5-33075,,,,,,,2–3 Oct 2026
+3131,ab32115,Abcam,PXN,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/paxillin-antibody-e228-ab32115,,,,,,,2–3 Oct 2026
+3132,ab32084,Abcam,PXN,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/paxillin-antibody-y113-ab32084,,,,,,,2–3 Oct 2026
+3134,10029-1-Ig,Proteintech,PXN,add link,FALSE,,,https://www.ptglab.com/products/PXN-Antibody-10029-1-Ig.htm,,,,,,,2–3 Oct 2026
+3136,MA5-32087,Thermo Fisher Scientific,PXN,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Paxillin-Antibody-clone-SY23-02-Recombinant-Monoclonal/MA5-32087,,,,,,,2–3 Oct 2026
+3137,AF4259,Bio-Techne,PXN,add link,FALSE,,,https://www.rndsystems.com/products/human-mouse-rat-paxillin-antibody_af4259,,,,,,,2–3 Oct 2026
+3138,MAB4259,Bio-Techne,PXN,add link,FALSE,,,https://www.rndsystems.com/products/human-paxillin-antibody-492918_mab4259,,,,,,,2–3 Oct 2026
+3139,MA5-53294,Thermo Fisher Scientific,PXN,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Paxillin-Antibody-clone-23GB2690-Recombinant-Monoclonal/MA5-53294,,,,,,,2–3 Oct 2026
+3140,NBP2-57097,Bio-Techne,PXN,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/paxillin-antibody_nbp2-57097,,,,,,,2–3 Oct 2026
+3141,NBP3-20046,Bio-Techne,PXN,add link,FALSE,,,https://www.bio-techne.com/p/antibodies/paxillin-antibody-s04-3c3_nbp3-20046,,,,,,,2–3 Oct 2026
+3142,50195,Cell Signaling Technology,PXN,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/paxillin-e6r6z-rabbit-monoclonal-antibody/50195,,,,,,,2–3 Oct 2026
+3143,12065,Cell Signaling Technology,PXN,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/paxillin-d9g12-rabbit-monoclonal-antibody/12065,,,,,,,2–3 Oct 2026
+3144,GTX642332,GeneTex,PXN,add link,FALSE,,,https://www.genetex.com/Product/Detail/Paxillin-antibody-HL4001/GTX642332,,,,,,,2–3 Oct 2026
+3146,GTX644830,GeneTex,PXN,add link,FALSE,,,https://www.genetex.com/Product/Detail/Paxillin-antibody-HL4818/GTX644830,,,,,,,2–3 Oct 2026
+3147,GTX644831,GeneTex,PXN,add link,FALSE,,,https://www.genetex.com/Product/Detail/Paxillin-antibody-HL4819/GTX644831,,,,,,,2–3 Oct 2026
+3148,GTX633769,GeneTex,PXN,add link,FALSE,,,https://www.genetex.com/Product/Detail/Paxillin-antibody-GT7612/GTX633769,,,,,,,2–3 Oct 2026
+3156,ABCD_AF795,ABCD Antibodies,PXN,add link,FALSE,,,https://web.expasy.org/abcd/ABCD_AF795,,,,,,,2–3 Oct 2026
+3157,ABCD_AF796,ABCD Antibodies,PXN,add link,FALSE,,,https://web.expasy.org/abcd/ABCD_AF796,,,,,,,2–3 Oct 2026
+3803,ab259770,Abcam,OGA,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/mgea5-oga-antibody-epr21929-223-bsa-and-azide-free-detector-ab259770,,,,,,,2–3 Oct 2026
+3804,ab259769,Abcam,OGA,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/mgea5-oga-antibody-epr21929-274-bsa-and-azide-free-capture-ab259769,,,,,,,2–3 Oct 2026
+3815,A27791,ABclonal,PARP1,add link,FALSE,,,https://abclonal.com/catalog-antibodies/PARP1RabbitmAb/A27791,,,,,,,2–3 Oct 2026
+3861,14-6667-82,Thermo Fisher Scientific,PARP1,add link,FALSE,,,https://www.thermofisher.com/antibody/product/PARP1-Antibody-clone-HC2R8-Monoclonal/14-6667-82,,,,,,,2–3 Oct 2026
+4436,ab121779,Abcam,C9orf72,add link,TRUE,,,https://www.abcam.com/en-us/products/unavailable/c9orf72-antibody-ab121779,,,,,,,2–3 Oct 2026
+4437,ab203627,Abcam,C9orf72,add link,TRUE,,,https://www.abcam.com/en-us/products/unavailable/c9orf72-antibody-ab203627,,,,,,,2–3 Oct 2026
+4438,ab227555,Abcam,C9orf72,add link,TRUE,,,https://www.abcam.com/en-us/products/unavailable/c9orf72-antibody-ab227555,,,,,,,2–3 Oct 2026
+4558,ab327018,Abcam,NR4A2,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/nurr1-antibody-epr26338-73-ab327018,,,,,,,2–3 Oct 2026
+4559,ab54366,Abcam,NR4A2,add link,FALSE,,,https://www.abcam.com/en-us/products/primary-antibodies/nurr1-antibody-447c2a-ab54366,,,,,,,2–3 Oct 2026
+4562,PA5-13416,Thermo Fisher Scientific,NR4A2,add link,FALSE,,,https://www.thermofisher.com/antibody/product/Nurr1-Antibody-Polyclonal/PA5-13416,,,,,,,2–3 Oct 2026
+4654,9546,Cell Signaling Technology,PARP1,add link,FALSE,,,https://www.cellsignal.com/products/primary-antibodies/cleaved-parp-asp214-19f4-mouse-monoclonal-antibody/9546,,,,,,,2–3 Oct 2026
+4657,314 008,Synaptic Systems,MAPT,add link,FALSE,,,https://sysy.com/product/314008,,,,,,,2–3 Oct 2026
+4658,314 308,Synaptic Systems,MAPT,add link,FALSE,,,https://sysy.com/product/314308,,,,,,,2–3 Oct 2026
+4659,05267102001,Roche,TP53,add link,FALSE,,,https://diagnostics.roche.com/us/en/products/lab/p53-bp53-11-rtd000682.html,,,,,,,2–3 Oct 2026
+4660,05278074001,Roche,TP53,add link,FALSE,,,https://diagnostics.roche.com/us/en/products/lab/p53-do-7-ivd-confirm-rtd000798.html,,,,,,,2–3 Oct 2026

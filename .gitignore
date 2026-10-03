@@ -88,3 +88,6 @@ access_csvs/
 # Europe PMC annotation files and the Europe PMC answers they were built from
 # (core/europepmc_annotations.py). Regenerated per run; uploaded, never committed.
 europepmc_annotations/
+
+# outputs of bin/wb_rating/kit.py when run inside the repo
+bin/wb_rating/work/

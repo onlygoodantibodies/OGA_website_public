@@ -1387,6 +1387,16 @@ until something actually changes.
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
 
+### 2.7.0 — 3 October 2026
+
+**Added: `application_notes`** on the envelope of `/antibodies/`, `/genes/`,
+`/gene-detail/` and `/not-supportive/`, and in the manifest's `scope`: an
+object of temporary notices keyed by application, beside
+`recommendation_scope`. One is in force: *the criteria for support in
+western blot are being re-evaluated; look at the blot before relying on a
+western blot result.* Show it beside western blot results. No verdict value
+has changed; the object is empty when no notice is in force.
+
 ### 2.6.0 — 2 October 2026
 
 **Added: `oga_methods_text`** on every `/pipeline-data/` figure: the *Copy

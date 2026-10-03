@@ -1,0 +1,68 @@
+{% extends 'academy/calibrate/_base.html' %}
+{% load static %}
+{% block title %}Rate blot {{ number }} of {{ total }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block style %}
+.progress { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.track { flex: 1; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); }
+.bench { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .bench { grid-template-columns: 1fr; } }
+.blot { background: #ffffff; border: 1px solid var(--rule); border-radius: 10px; padding: 14px; text-align: center; }
+.blot img { max-height: 72vh; width: auto; max-width: 100%; }
+.choices { display: grid; gap: 10px; margin: 0 0 16px; padding: 0; border: 0; }
+.choice { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; background: var(--surface);
+          border: 1.5px solid var(--rule-strong); border-radius: 10px; padding: 12px 14px; cursor: pointer; font-weight: 500; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice input { width: 18px; height: 18px; accent-color: var(--accent); }
+.key { font-family: var(--mono); font-size: .8rem; color: var(--muted); border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+.choice.unsure { font-weight: 400; color: var(--muted); }
+details { margin-top: 20px; } summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+.rules { padding-left: 1.2em; font-size: .92rem; }
+{% endblock %}
+{% block content %}
+<div class="progress"><span class="num">{{ number }} / {{ total }}</span><div class="track" aria-hidden="true"><div class="fill" style="width: {{ percent }}%"></div></div></div>
+{% if error %}<p class="banner" role="alert">{{ error }}</p>{% endif %}
+<div class="bench">
+  <div class="blot"><img src="{% static image %}" alt="Western blot {{ number }}: wild-type and knockout lanes"></div>
+  <form method="post" id="rate-form">
+    {% csrf_token %}
+    <input type="hidden" name="item_id" value="{{ item_id }}">
+    <input type="hidden" name="seconds" id="seconds" value="">
+    <fieldset class="choices">
+      <legend class="hint">Which result does this blot give?</legend>
+      {% for value, label in answers %}
+      <label class="choice{% if value == 'unsure' %} unsure{% endif %}"><input type="radio" name="answer" value="{{ value }}" id="answer-{{ value }}" required><span>{{ label }}<span class="key">{{ forloop.counter }}</span></span></label>
+      {% endfor %}
+    </fieldset>
+    <div class="field">
+      <label for="comment">Comment on this blot <span class="hint">optional</span></label>
+      <input type="text" id="comment" name="comment" maxlength="500">
+    </div>
+    <div class="row">
+      <button class="btn" type="submit" id="save">Save and next</button>
+      <a class="btn quiet" href="{% url 'academy:calibrate_done' %}">Stop for now</a>
+    </div>
+    <details>
+      <summary>Show the criteria</summary>
+      {% include 'academy/calibrate/_criteria.html' %}
+    </details>
+  </form>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function () {
+  var started = Date.now();
+  var form = document.getElementById('rate-form');
+  form.addEventListener('submit', function () {
+    document.getElementById('seconds').value = Math.round((Date.now() - started) / 1000);
+  });
+  var keys = {'1': 'main', '2': 'other', '3': 'none', '4': 'unsure'};
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+    if (keys[e.key]) { document.getElementById('answer-' + keys[e.key]).checked = true; }
+  });
+})();
+</script>
+{% endblock %}

@@ -167,6 +167,9 @@ def paragraphs(digest, review, with_screenshot):
         "week. If someone else at your company should get these, or you "
         "would rather not, just reply to this email.")))
     out.append(('small', SD.R.SCOPE_NOTE))
+    # Temporary notices (`recommendations.INTERIM_NOTES`) — a manufacturer's
+    # results are where a western blot verdict reaches them.
+    out.extend(('small', note) for note in SD.R.INTERIM_NOTES.values())
     return out
 
 

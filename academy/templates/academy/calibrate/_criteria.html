@@ -1,0 +1,18 @@
+{% include 'academy/calibrate/_decision_tree.svg' %}
+<div class="scroll">
+<table>
+  <thead><tr><th>Result</th><th>Band lost, or much weaker, in KO?</th><th>Stands out with KO covered?</th></tr></thead>
+  <tbody>
+    <tr><td>Detects the target as the main signal</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Detects the target, with strong or numerous other bands</td><td>Yes</td><td>No</td></tr>
+    <tr><td>No clear target-specific signal</td><td>No</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+<ul class="rules">
+  <li>Any size counts; the predicted weight plays no part.</li>
+  <li>A band also lost in the KO never counts against.</li>
+  <li>A band that stays in the KO at the target's position counts as an off-target band.</li>
+  <li>A lost band beside a strong one: a visible gap means strong or numerous other bands; merged bands mean no clear target-specific signal.</li>
+  <li>The dye front at the foot of the lanes is ignored.</li>
+</ul>

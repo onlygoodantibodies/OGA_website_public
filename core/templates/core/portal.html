@@ -41,6 +41,8 @@
     .login-card input { width: 100%; margin-bottom: 1rem; padding: 12px; font-size: 0.9rem; }
     .login-card button { width: 100%; padding: 12px; font-size: 0.95rem; }
     .error-msg { color: var(--red); font-size: 0.82rem; margin-top: 0.8rem; min-height: 1.2em; }
+    .interim-notes { background: #fff8e1; border-bottom: 1px solid #f0d58a; color: #5c4400; font-size: 0.85rem; padding: 8px 24px; }
+    .interim-notes p { margin: 0; }
     #portal-header { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 100; }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .header-brand { font-weight: 700; font-size: 1.1rem; }
@@ -334,6 +336,7 @@
       <button class="btn-ghost btn-sm" onclick="disconnect()">Sign out</button>
     </div>
   </header>
+  {% if interim_notes %}<div class="interim-notes" role="note">{% for note in interim_notes %}<p>{{ note }}</p>{% endfor %}</div>{% endif %}
   {% comment %}
     Named for what you do on each tab, in the order a manufacturer uses them:
     comparing your products with everybody else's on one gene is why most of

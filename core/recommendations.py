@@ -344,7 +344,37 @@ CONDITIONS_QUALIFIER = 'under the consensus protocols'
 #: *every* tested cell, which is what "says which" means. So the gene page draws
 #: this constant alone (``context_processors.application_facts``) and the
 #: extension page goes on drawing the whole sentence.
+#: A notice that is true for now and will be removed, per application — the
+#: one reader for it, so every surface says the same sentence and taking it
+#: down is one line.
+#:
+#: Owner, 3 Oct 2026: a manufacturer challenged a western blot verdict
+#: (MilliporeSigma, ZRB1635 on CTSB) and the published blots showed the
+#: same pattern graded two ways, so the western blot criteria are being
+#: formalised and the backlog regraded. Until that lands every surface that
+#: shows a western blot result says so, rather than changing verdicts one
+#: complaint at a time. **Interim**: delete the entry when the agreed
+#: criteria ship.
+#:
+#: Published as `application_notes` on the API envelope (2.7.0), folded into
+#: ``APPLICATION_FACT`` below for the gene page and the extension, appended
+#: to the MCP's per-antibody summary, and drawn on the portal, the embed card
+#: and the manufacturers' email.
+INTERIM_NOTES = {
+    'WB': ('The criteria for support in western blot are being '
+           're-evaluated. Look at the blot before relying on a western blot '
+           'result.'),
+}
+
+#: The words of each notice the website sets in bold (owner, 3 Oct 2026):
+#: the news in the sentence, so it survives a skim. A fragment of the notice,
+#: never a copy — `tests_recommendation_caveat` holds it to a substring, since
+#: a reworded notice would otherwise quietly lose its bold. HTML surfaces only:
+#: the extension prints the notice as plain text.
+INTERIM_EMPHASIS = {'WB': 'are being re-evaluated'}
+
 APPLICATION_FACT = {
+    'WB': INTERIM_NOTES['WB'],
     'ICC-IF': ('Immunofluorescence results are fixation and permeabilisation '
                'dependent.'),
     # Drawn only on a gene page that draws an IHC column (`core/views.py`

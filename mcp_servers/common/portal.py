@@ -347,6 +347,12 @@ def _factual_summary(ab, assessment, dois):
                  for a in _APPS if assessment[a].get("qualifier")]
     if qualified:
         parts.append("With qualifications: " + "; ".join(qualified) + ".")
+    # Interim notices (`core/recommendations.py::INTERIM_NOTES`), only for an
+    # application this antibody was tested in: the sentence a model quotes is
+    # where a reader meets the result, so the notice has to be in it.
+    from core.recommendations import INTERIM_NOTES
+    parts.extend(INTERIM_NOTES[a] for a in _APPS
+                 if a in INTERIM_NOTES and assessment[a].get("tested"))
     if dois:
         # "knockout controls", "knockdown controls" or both — read off the
         # figures rather than assumed, since a model quotes this sentence.

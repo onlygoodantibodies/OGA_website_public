@@ -42,6 +42,13 @@ def _emphasised(note, fragment):
     return format_html('{}<strong>{}</strong>{}', before, found, after)
 
 
+def emphasised_for(app, text):
+    """``text`` (a sentence about ``app``) with that application's interim
+    notice phrase in bold, escaped — or just escaped when it has none."""
+    fragment = R.INTERIM_EMPHASIS.get(app, '')
+    return _emphasised(text, fragment) if fragment else escape(text)
+
+
 def recommendation_scope(request):
     """What an OGA recommendation does and does not cover, plus the protocols."""
     return {
@@ -61,15 +68,21 @@ def recommendation_scope(request):
         # application ("Immunofluorescence results are ..."), so nothing is lost
         # by dropping the key, and a second application gaining one needs no
         # template change anywhere.
-        'application_scope_notes': list(R.APPLICATION_SCOPE.values()),
+        'application_scope_notes': [emphasised_for(app, note) for app, note
+                                    in R.APPLICATION_SCOPE.items()],
         # The half of those sentences that is a fact about the application
         # rather than a pointer at the gene page — for the gene page itself,
         # which is what the other half points at. `APPLICATION_FACT`'s own
         # comment says why the two are separable; an application with nothing
         # specific to say is absent from it, so this list is usually one
         # sentence long and is sometimes empty.
-        'application_facts': [R.APPLICATION_FACT[app] for app in R.APPLICATIONS
+        'application_facts': [emphasised_for(app, R.APPLICATION_FACT[app])
+                              for app in R.APPLICATIONS
                               if app in R.APPLICATION_FACT],
+        # Temporary notices (`R.INTERIM_NOTES`), for the surfaces that draw them
+        # as a banner rather than under a column: the portal and the embed card.
+        'interim_notes': [emphasised_for(app, note)
+                          for app, note in R.INTERIM_NOTES.items()],
     }
 
 

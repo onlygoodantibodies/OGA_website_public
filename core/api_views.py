@@ -68,7 +68,7 @@ from pipeline.services import clonality as clonality_svc
 from pipeline.services import methods_text
 
 from . import recommendations as R
-from .recommendations import (SCOPE_NOTE, curated_gene_ids,
+from .recommendations import (INTERIM_NOTES, SCOPE_NOTE, curated_gene_ids,
                               recommendations_for, capability_axes,
                               describe_all as _describe_all,
                               verdict as _verdict)
@@ -793,6 +793,8 @@ def antibodies_feed(request):
         # rather than on each row, for the reason `SCOPE_NOTE`'s own docstring
         # gives — a caveat on every row is a caveat nobody reads.
         'recommendation_scope': SCOPE_NOTE,
+        # Interim per-application notices (2.7.0), from the one reader.
+        'application_notes': dict(INTERIM_NOTES),
         'antibodies': results,
     }
     if not complete:
@@ -963,6 +965,8 @@ def genes_feed(request):
         'since': since.isoformat() if since else None,
         'mode': 'incremental' if since else 'full',
         'recommendation_scope': SCOPE_NOTE,
+        # Interim per-application notices (2.7.0), from the one reader.
+        'application_notes': dict(INTERIM_NOTES),
         'genes': results,
     }), consumer)
 
@@ -1061,6 +1065,8 @@ def gene_detail(request):
         'consumer_suppliers': consumer_suppliers,
         'supplier_summary': supplier_summary,
         'recommendation_scope': SCOPE_NOTE,
+        # Interim per-application notices (2.7.0), from the one reader.
+        'application_notes': dict(INTERIM_NOTES),
         'antibodies': results,
     })
 

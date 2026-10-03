@@ -1124,6 +1124,16 @@ class TheApiSaysWhatChangedTests(APIFeedTestCase):
         self.assertEqual(self.client.get(reverse('api:api_index')).json()['api_version'],
                          CURRENT)
 
+    def test_the_western_blot_notice_travels_with_the_results(self):
+        """2.7.0: the interim notice is on the envelope, and is the same
+        sentence the extension draws under its WB tab."""
+        from core import recommendations as R
+        note = R.INTERIM_NOTES['WB']
+        resp = self._feed()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['application_notes'], {'WB': note})
+        self.assertIn(note, R.APPLICATION_SCOPE['WB'])
+
     def test_the_changelog_answers_what_is_newer_than_a_version(self):
         from core.api_changelog import CURRENT
         url = reverse('api:api_changelog')
@@ -1131,7 +1141,7 @@ class TheApiSaysWhatChangedTests(APIFeedTestCase):
         self.assertEqual(whole['releases'][0]['version'], CURRENT)
         newer = self.client.get(url, {'since': '2.2.0'}).json()
         self.assertEqual([r['version'] for r in newer['releases']],
-                         ['2.6.0', '2.5.0', '2.4.0', '2.3.0'])
+                         ['2.7.0', '2.6.0', '2.5.0', '2.4.0', '2.3.0'])
         self.assertTrue(self.client.get(url, {'since': CURRENT}).json()['up_to_date'])
         self.assertEqual(self.client.get(url, {'since': 'latest'}).status_code, 400)
         # A version from the future is a typo, not "up to date" (field test,

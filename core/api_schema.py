@@ -137,6 +137,22 @@ def _rate_limit_headers():
     }
 
 
+def _application_notes():
+    """Interim notices per application, on the envelope beside
+    ``recommendation_scope`` (2.7.0). ``recommendations.INTERIM_NOTES`` is the
+    one reader; an application with nothing to say is absent, and the object is
+    empty when no notice is in force."""
+    return {
+        'type': 'object',
+        'additionalProperties': {'type': 'string'},
+        'example': dict(R.INTERIM_NOTES),
+        'description': (
+            'Temporary notices keyed by application (WB, IP, ICC-IF, FC, '
+            'IHC). Show the sentence beside that application\'s results. '
+            'Empty when no notice is in force.'),
+    }
+
+
 def _recommendation_scope():
     """The envelope field saying what the recommendations beside it cover.
 
@@ -473,6 +489,7 @@ def _schemas():
                         'supplier_filter': {'type': ['string', 'null']},
                         'includes_recommendations': {'type': 'boolean'},
                         'recommendation_scope': {'type': 'string'},
+                        'application_notes': _application_notes(),
                         'requested_genes': {
                             'type': ['array', 'null'],
                             'items': {'type': 'string'},
@@ -763,6 +780,7 @@ def _paths():
                                 'preview': {'type': 'boolean'},
                                 'since': {'type': ['string', 'null']},
                                 'recommendation_scope': _recommendation_scope(),
+                                'application_notes': _application_notes(),
                                 'antibodies': {
                                     'type': 'array',
                                     'items': {'$ref':
@@ -802,6 +820,7 @@ def _paths():
                                          'enum': ['full', 'incremental']},
                                 'since': {'type': ['string', 'null']},
                                 'recommendation_scope': _recommendation_scope(),
+                                'application_notes': _application_notes(),
                                 'genes': {'type': 'array', 'items': {
                                     'type': 'object',
                                     'properties': {
@@ -859,6 +878,7 @@ def _paths():
                                             'recommended': {'type': 'integer'},
                                         }}},
                                 'recommendation_scope': _recommendation_scope(),
+                                'application_notes': _application_notes(),
                                 'antibodies': {
                                     'type': 'array',
                                     'items': {'$ref':
