@@ -62,6 +62,9 @@ html{scroll-behavior:smooth}
 .ins-champ-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#e8f1fa;flex-shrink:0}
 .ins-tile-badge{display:inline-block;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:4px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:auto;align-self:flex-start}
 .ins-tile-badge-l3{background:#dcfce7;color:#166534}
+.ins-tile-note{font-size:.82rem;font-weight:600;color:#166534;line-height:1.45;margin:0 0 12px}
+.ins-adopted{margin-top:20px;padding:14px 18px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;border-radius:8px;font-size:.92rem;color:#333;line-height:1.6}
+.ins-adopted strong{color:#166534}
 
 /* Commitments ladder */
 .ins-ladder{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px}
@@ -192,7 +195,7 @@ html{scroll-behavior:smooth}
   <div class="ins-section-inner">
     <div class="ins-label">What Institutions Can Do</div>
     <div class="ins-title">Three Commitments</div>
-    <div class="ins-desc">Our Delphi study of 32 international experts rated three institutional actions as both effective and feasible. Institutions were the only group where every recommendation reached full consensus with no concerns about feasibility. The three commitments below are those recommendations, and they build on each other.</div>
+    <div class="ins-desc">Our Delphi study of 32 international experts (<a href="https://doi.org/10.1371/journal.pbio.3003981" target="_blank" rel="noopener">Blades et al., <em>PLOS Biology</em> 2026</a>) rated three institutional actions as both effective and feasible. Institutions were the only group where every recommendation reached full consensus with no concerns about feasibility. The three commitments below are those recommendations, and they build on each other.</div>
 
     <div class="ins-ladder">
       <div class="ins-ladder-step">
@@ -211,6 +214,7 @@ html{scroll-behavior:smooth}
         <p>Put the expectation into your research integrity policies, training frameworks, and doctoral handbooks, using the text below. This is what makes good practice outlast any one person.</p>
       </div>
     </div>
+    <div class="ins-adopted"><strong>Already happening:</strong> the University of Leicester has made antibody validation training mandatory for its bioscience postgraduate researchers.</div>
   </div>
 </section>
 
@@ -219,7 +223,7 @@ html{scroll-behavior:smooth}
   <div class="ins-section-inner">
     <div class="ins-label">The Network</div>
     <div class="ins-title">Institutions Hosting an Antibody Champion</div>
-    <div class="ins-desc">These UK institutions host a 2026 NC3Rs &amp; OGA Antibody Champion: an early-career researcher trained to help colleagues make better antibody choices. Click a pin for details. We will highlight institutions that take on workshops or adopt the policy text as they join.</div>
+    <div class="ins-desc">These 14 UK institutions host a 2026 NC3Rs &amp; OGA Antibody Champion: an early-career researcher trained to help colleagues make better antibody choices. Click a pin for details. We will highlight institutions that take on workshops or adopt the policy text as they join.</div>
 
     <div class="ins-map-wrap"><div id="ins-map"></div></div>
     <div class="ins-map-note"><strong>Most workshops run online</strong>, so location is not a barrier. If your institution is not on the map, <a href="mailto:keb43@leicester.ac.uk">ask us about workshop access</a> and Katherine Blades will connect you to a Champion.</div>
@@ -339,7 +343,7 @@ html{scroll-behavior:smooth}
 
 I would like to suggest a small addition to our doctoral training programme. Any student using antibody-based methods completes a short piece of e-learning, and ideally attends a practical workshop before choosing their antibodies.
 
-Over 50% of commercial antibodies fail independent testing. A recent analysis of 785 publications using poorly performing antibodies found that only 15.8% presented any validation evidence. Those studies used more than 8,000 animal samples and 4,400 human tissue samples with no evidence the antibodies worked.
+Over 50% of commercial antibodies fail independent testing. A recent analysis of 785 publications using poorly performing antibodies, published in PLOS Biology in 2026, found that only 15.8% presented any validation evidence. Those studies used more than 8,000 animal samples and 4,400 human tissue samples with no evidence the antibodies worked. The University of Leicester has since made antibody validation training mandatory for its bioscience postgraduate researchers.
 
 The Only Good Antibodies community provides two free resources for this:
 
@@ -347,7 +351,7 @@ The Only Good Antibodies community provides two free resources for this:
 
 • <strong>Antibody Champions workshops</strong> — a 90-minute online session where researchers bring their own targets and work through antibody selection live. We could nominate one of our PhD students as an Antibody Champion, give an existing staff member time to run sessions, or ask OGA to arrange a session for us.
 
-A Delphi study of 32 international experts rated institutional training in antibody validation as a top priority for improving reproducibility. Institutions were the only group where every recommendation reached full consensus.
+A Delphi study of 32 international experts, also published in PLOS Biology, rated institutional training in antibody validation as a top priority for improving reproducibility. Institutions were the only group where every recommendation reached full consensus.
 
 Could we have a short conversation about how this would fit our existing training? I am happy to share the materials.
 
@@ -368,7 +372,7 @@ Best wishes,
 
 There is a piece of free policy text that would strengthen <span class="ins-placeholder">[INSTITUTION]</span>'s research integrity framework in an area under growing external scrutiny: antibody validation.
 
-An analysis of 785 publications using poorly performing antibodies found that only 15.8% presented any validation evidence. Those studies used more than 8,000 animal samples and 4,400 human tissue samples with no evidence the antibodies worked. A Delphi study of 32 international experts then rated all three institutional recommendations as both effective and feasible, with full consensus. Institutions were the only group where that happened.
+An analysis of 785 publications using poorly performing antibodies found that only 15.8% presented any validation evidence. Those studies used more than 8,000 animal samples and 4,400 human tissue samples with no evidence the antibodies worked. A Delphi study of 32 international experts then rated all three institutional recommendations as both effective and feasible, with full consensus. Institutions were the only group where that happened. Both studies were published in PLOS Biology in 2026.
 
 The Only Good Antibodies community has written policy text to fit frameworks aligned with the Concordat to Support Research Integrity and the UKRIO Code of Practice. It adds no new review process. It sets expectations we can already meet with existing training and free tools, in the same way we set expectations around statistical rigour, data management, and the use of AI.
 
@@ -395,7 +399,7 @@ Best wishes,
         <div class="ins-email-subject">Subject: Free, evidence-based reproducibility training for our researchers</div>
         <div class="ins-email-body"><span class="ins-placeholder">[Dear TITLE NAME,]</span>
 
-There is a way to strengthen research quality across the School at almost no cost: free antibody validation training, built on an MRC-funded Delphi consensus study and aligned with what funders and publishers are starting to require.
+There is a way to strengthen research quality across the School at almost no cost: free antibody validation training, built on an MRC-funded Delphi consensus study published in PLOS Biology and aligned with what funders and publishers are starting to require.
 
 Over half of commercial antibodies fail independent testing. Researchers choose antibodies on lab tradition and supplier reputation rather than evidence, and only 15.8% of studies using poorly performing antibodies present any validation evidence. That costs us money, animal and human samples, and reputation.
 
@@ -475,6 +479,8 @@ Best wishes,
 // Level 1 = Hosts a Champion (default at launch).
 // Level 2 = Workshop access for all antibody users.
 // Level 3 = Adopted recommended policy text.
+// `note` (optional) = one line naming a step an institution has taken that
+// is not a rung of the ladder, drawn on its tile and in its map popup.
 // ─────────────────────────────────────────────────────────
 var INSTITUTIONS = [
   { name: "University of Plymouth", city: "Plymouth", region: "South West", lat: 50.3754, lng: -4.1427, level: 1,
@@ -504,7 +510,8 @@ var INSTITUTIONS = [
   { name: "University of Glasgow", city: "Glasgow", region: "Scotland", lat: 55.8720, lng: -4.2880, level: 1,
     champions: [{name:"Rosie Fellows", photo:"core/champions/Rosie_Headshot.jpg"}] },
   { name: "University of Leicester", city: "Leicester", region: "East Midlands", lat: 52.6219, lng: -1.1248, level: 1,
-    champions: [{name:"Siâny Vincent-Simpson", photo:"core/champions/Siany Vincent-Simpson.jpg"}] },
+    champions: [{name:"Siâny Vincent-Simpson", photo:"core/champions/Siany Vincent-Simpson.jpg"}],
+    note: "Antibody validation training is mandatory for its bioscience postgraduate researchers" },
   { name: "Lancaster University", city: "Lancaster", region: "North West", lat: 54.0100, lng: -2.7857, level: 1,
     champions: [{name:"Stefanie Menzies", photo:"core/champions/Stefanie Menzies.jpg"}] },
   { name: "University of Dundee", city: "Dundee", region: "Scotland", lat: 56.4586, lng: -2.9844, level: 1,
@@ -536,6 +543,7 @@ function levelBadge(level){
               '<div class="ins-tile-name">' + inst.name + '</div>' +
               '<div class="ins-tile-city">' + inst.city + ' · ' + inst.region + '</div>' +
               '<div class="ins-tile-champs">' + champsHtml + '</div>' +
+              (inst.note ? '<div class="ins-tile-note">' + inst.note + '</div>' : '') +
               levelBadge(inst.level) +
             '</div>';
   });
@@ -576,6 +584,7 @@ function levelBadge(level){
     var popup = '<b>' + inst.name + '</b><br>' +
                 '<span class="ins-pop-champs">Champion' + (inst.champions.length > 1 ? 's' : '') + ': ' + champNames + '</span><br>' +
                 '<span class="ins-pop-badge">' + badgeText + '</span><br>' +
+                (inst.note ? '<span class="ins-pop-champs">' + inst.note + '</span><br>' : '') +
                 '<a href="#tile-' + idx + '" style="color:#10428a;font-weight:600;text-decoration:none;margin-top:6px;display:inline-block;">View details ↓</a>';
     L.marker([inst.lat, inst.lng])
       .addTo(map)

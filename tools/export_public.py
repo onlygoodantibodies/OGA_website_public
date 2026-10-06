@@ -166,8 +166,6 @@ RULES: list[tuple[str, str, str]] = [
      "Europe PMC's own published annotation schema, vendored so the test reads it."),
     ("core/data/europepmc_ne_annotation_schema_github.json", SHIP,
      "The same schema as it stands in Europe PMC's public validator repository."),
-    ("core/data/europepmc_sentence_annotation_schema_github.json", SHIP,
-     "Europe PMC's sentence-based annotation schema, from the same public repository."),
     ("browser-extension/data/index.json", SHIP, "The published dataset the extension ships with."),
     ("browser-extension/data/aliases.json", SHIP, "Gene alias table, public."),
     ("browser-extension/manifest.json", SHIP, "Extension manifest."),

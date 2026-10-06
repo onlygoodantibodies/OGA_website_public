@@ -239,7 +239,7 @@ class AShortCatalogueNumberNeedsItsSentenceToSaySoTests(SimpleTestCase):
 class ValidationRefusesWhatThePlatformWouldTests(SimpleTestCase):
 
     def test_problems_are_named(self):
-        bad = {"src": "PPR", "id": "", "provider": "oga",
+        bad = {"src": "XYZ", "id": "", "provider": "oga",
                "anns": [{"position": "x", "exact": "", "prefix": "", "postfix": "",
                          "section": "Bibliography", "tags": [{"name": "", "uri": "/relative"}]}]}
         problems = E.validate_row(bad)
@@ -315,12 +315,19 @@ class TheOfficialSchemaIsMirroredTests(SimpleTestCase):
                 del row["anns"][0]["tags"][0][key]
                 self.assertTrue(any(key in p for p in E.validate_row(row)), (name, key))
 
-    def test_our_sources_are_on_the_schema_s_list_and_preprints_are_not(self):
+    def test_our_sources_are_the_schema_s_plus_ppr_by_europe_pmc_s_instruction(self):
+        # The one place this mirror is wider than the schema: the pattern was
+        # written before preprints, and Europe PMC told us to send them as
+        # src "PPR" (6 Oct 2026). If a schema file starts listing PPR, the
+        # exception can go; this test is what will say so.
         for name, schema in self.schemas.items():
             pattern = re.compile(schema["properties"]["src"]["pattern"])
-            for src in E.SOURCES:
+            for src in E.SCHEMA_SOURCES:
                 self.assertTrue(pattern.fullmatch(src), (name, src))
             self.assertIsNone(pattern.fullmatch("PPR"), name)
+        self.assertEqual(E.SOURCES, E.SCHEMA_SOURCES | {"PPR"})
+        row = E.row_for("PPR", "PPR383438", "oga", [dict(GOOD_ANN, section="Abstract")])
+        self.assertEqual(E.validate_row(row), [])
 
     def test_a_row_that_is_not_full_text_takes_only_title_and_abstract(self):
         # The submission page: full text (src=PMC) has sixteen sections; "for any
@@ -421,7 +428,8 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
             cache = E.Cache(tmp)
             rows, report = E.build(self._artefact(), INDEX, "oga", cache, search=search,
                                    fetch=fetch, sleep=lambda s: None,
-                                   preprint_search=lambda ids, e: {"PPR999": ""})
+                                   preprint_search=lambda ids, e: {
+                                       "PPR999": {"journal": "", "title": "T", "abstract": ""}})
             self.assertEqual([(r["src"], r["id"]) for r in rows], [("PMC", "PMC111"), ("MED", "222")])
             self.assertEqual(rows[1]["anns"][0]["exact"], "MAB7778")
             self.assertEqual(rows[1]["anns"][0]["section"], "Abstract")
@@ -434,7 +442,7 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
             self.assertEqual(report["where"]["open_access_not_printed"], ["333"])
             self.assertEqual(report["where"]["no_open_access_full_text"], ["222"])
             self.assertEqual(report["left_out"]["identifier_not_printed"], ["333"])
-            self.assertEqual(report["left_out"]["preprint_no_journal_version"], ["PPR999"])
+            self.assertEqual(report["left_out"]["preprint_not_printed"], ["PPR999"])
             self.assertEqual(report["left_out"]["no_public_record"], ["444"])
             self.assertEqual(report["left_out"]["not_in_europe_pmc"], ["555"])
             self.assertEqual(report["contextless_spans"], 1)
@@ -476,17 +484,35 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
                                                  "postfix": "", "section": "Methods",
                                                  "tags": [{"name": "n", "uri": "http://u"}]}])
         with tempfile.TemporaryDirectory() as tmp:
-            single = E.write_files([row] * 3, tmp, "one")
-            self.assertEqual([p.name for p in single], ["one.jsonl"])
-            self.assertEqual(len(single[0].read_text().splitlines()), 3)
-            self.assertEqual(json.loads(single[0].read_text().splitlines()[0])["id"], "PMC1")
+            # Even one small file goes in a bundle: .json inside .tar.gz.
+            one = E.write_files([row] * 3, tmp, "one")
+            self.assertEqual([p.name for p in one], ["one.part001.json", "one.bundle01.tar.gz"])
+            self.assertEqual(len(one[0].read_text().splitlines()), 3)
+            self.assertEqual(json.loads(one[0].read_text().splitlines()[0])["id"], "PMC1")
+            with tarfile.open(one[-1]) as tar:
+                self.assertEqual(tar.getnames(), ["one.part001.json"])
 
             many = E.write_files([row] * (E.MAX_ROWS_PER_FILE + 1), tmp, "many")
             names = [p.name for p in many]
-            self.assertEqual(names, ["many.part001.jsonl", "many.part002.jsonl", "many.tar.gz"])
+            self.assertEqual(names, ["many.part001.json", "many.part002.json",
+                                     "many.bundle01.tar.gz"])
             self.assertEqual(len(many[0].read_text().splitlines()), E.MAX_ROWS_PER_FILE)
             with tarfile.open(many[-1]) as tar:
                 self.assertEqual(sorted(tar.getnames()), names[:2])
+
+    def test_a_bundle_holds_at_most_ten_files(self):
+        row = E.row_for("MED", "1", "oga", [dict(GOOD_ANN, section="Abstract")])
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(E, "MAX_ROWS_PER_FILE", 1):
+            written = E.write_files([row] * 23, tmp, "big")
+            bundles = E.submission_files(written)
+            self.assertEqual([b.name for b in bundles],
+                             ["big.bundle01.tar.gz", "big.bundle02.tar.gz", "big.bundle03.tar.gz"])
+            sizes = []
+            for b in bundles:
+                with tarfile.open(b) as tar:
+                    sizes.append(len(tar.getnames()))
+            self.assertEqual(sizes, [10, 10, 3])
 
 
 def mock_urlopen_forbidden():
@@ -522,11 +548,12 @@ class _FakeStorage:
 
 class SubmissionIsExplicitAndReadBackTests(SimpleTestCase):
 
-    def test_the_one_file_is_the_archive_when_there_is_one(self):
-        parts = [Path("a.part001.jsonl"), Path("a.part002.jsonl"), Path("a.tar.gz")]
-        self.assertEqual(E.submission_file(parts), Path("a.tar.gz"))
-        self.assertEqual(E.submission_file([Path("a.jsonl")]), Path("a.jsonl"))
-        self.assertIsNone(E.submission_file([]))
+    def test_what_is_sent_is_the_bundles(self):
+        written = [Path("a.part001.json"), Path("a.part002.json"),
+                   Path("a.bundle01.tar.gz"), Path("a.bundle02.tar.gz")]
+        self.assertEqual(E.submission_files(written),
+                         [Path("a.bundle01.tar.gz"), Path("a.bundle02.tar.gz")])
+        self.assertEqual(E.submission_files([]), [])
 
     def test_no_credentials_is_a_refusal_naming_both_variables(self):
         with self.assertRaises(E.SubmissionRefused) as caught:
@@ -634,20 +661,28 @@ class SubmissionIsExplicitAndReadBackTests(SimpleTestCase):
         self.assertIn("Result_x.jsonl.txt", "\n".join(lines))
 
 
-class PreprintsAreAnnotatedThroughTheirJournalArticleTests(SimpleTestCase):
-    """A preprint's own id is not on the platform's source list, so a preprint
-    reaches Europe PMC through the article it became -- and only where that
-    article prints the identifier."""
+def _preprint(journal="", title="T", abstract=""):
+    return {"journal": journal, "title": title, "abstract": abstract}
 
-    def test_the_journal_version_is_read_off_the_preprint_record(self):
+
+class PreprintsAreAnnotatedOnTheirOwnRecordAndThroughTheirJournalArticleTests(SimpleTestCase):
+    """Europe PMC takes a preprint as src "PPR" with its PPR id (6 Oct 2026),
+    so a preprint is annotated on its own title and abstract; and through the
+    journal article it became, whose reagents it joins. Either way only where
+    the identifier is printed."""
+
+    def test_the_preprint_record_is_read_for_its_journal_version_and_its_text(self):
         payload = {"resultList": {"result": [
-            {"id": "PPR1", "commentCorrectionList": {"commentCorrection": [
-                {"source": "MED", "id": "35491809", "type": "Preprint of"}]}},
+            {"id": "PPR1", "title": "A title", "abstractText": "An abstract.",
+             "commentCorrectionList": {"commentCorrection": [
+                 {"source": "MED", "id": "35491809", "type": "Preprint of"}]}},
             {"id": "PPR2", "commentCorrectionList": {"commentCorrection": [
                 {"source": "MED", "id": "999", "type": "Comment in"}]}},
             {"id": "PPR3"}]}}
-        self.assertEqual(E.journal_versions_from(payload),
-                         {"PPR1": "35491809", "PPR2": "", "PPR3": ""})
+        self.assertEqual(E.preprints_from(payload), {
+            "PPR1": _preprint("35491809", "A title", "An abstract."),
+            "PPR2": _preprint("", "", ""),
+            "PPR3": _preprint("", "", "")})
 
     def _artefact(self):
         return {"rrids": ["AB_10679421", "AB_2881555"], "tokens": [],
@@ -656,7 +691,7 @@ class PreprintsAreAnnotatedThroughTheirJournalArticleTests(SimpleTestCase):
                 "papers": ["0:1", "1:1", "0:1", "0:1"],
                 "by_pmid": {"111": 0, "PPR1": 1, "PPR2": 2, "PPR3": 3}}
 
-    def test_reagents_join_the_journal_article_and_a_new_one_is_added(self):
+    def _build(self, preprints):
         text = ("<article><body><p>Blots used MAB7778 (Bio-Techne) and "
                 "66140-1-Ig (Proteintech) at 1:1000.</p></body></article>")
 
@@ -665,18 +700,49 @@ class PreprintsAreAnnotatedThroughTheirJournalArticleTests(SimpleTestCase):
                     for p in pmids}
 
         with tempfile.TemporaryDirectory() as tmp:
-            rows, report = E.build(
-                self._artefact(), INDEX, "oga", E.Cache(tmp), search=search,
-                fetch=lambda p, e: text, sleep=lambda s: None,
-                preprint_search=lambda ids, e: {"PPR1": "111", "PPR2": "777", "PPR3": ""})
-            # PPR4 is not in the snapshot; a preprint Europe PMC does not return
-            # is a different fact from one that never became an article.
+            return E.build(self._artefact(), INDEX, "oga", E.Cache(tmp), search=search,
+                           fetch=lambda p, e: text, sleep=lambda s: None,
+                           preprint_search=lambda ids, e: preprints)
+
+    def test_reagents_join_the_journal_article_and_a_new_one_is_added(self):
+        rows, report = self._build({"PPR1": _preprint("111"), "PPR2": _preprint("777"),
+                                    "PPR3": _preprint("")})
         exact = {r["id"]: sorted(a["exact"] for a in r["anns"]) for r in rows}
         # 111 gains the preprint's antibody; 777 is the preprint's alone.
         self.assertEqual(exact, {"PMC111": ["66140-1-Ig", "MAB7778"], "PMC777": ["MAB7778"]})
         self.assertEqual(report["preprints"]["journal_version_added"], ["777"])
         self.assertEqual(report["preprints"]["journal_version_already_in_snapshot"], ["111"])
-        self.assertEqual(report["left_out"]["preprint_no_journal_version"], ["PPR3"])
+        self.assertEqual(report["left_out"]["preprint_not_printed"], ["PPR3"])
+
+    def test_a_preprint_that_prints_the_identifier_gets_its_own_row(self):
+        rows, report = self._build({
+            "PPR1": _preprint("111"),
+            "PPR2": _preprint("", abstract="Western blots with MAB7778 from Bio-Techne."),
+            "PPR3": _preprint("", title="A study", abstract="No reagent named.")})
+        own = [r for r in rows if r["src"] == "PPR"]
+        self.assertEqual([(r["id"], [a["exact"] for a in r["anns"]]) for r in own],
+                         [("PPR2", ["MAB7778"])])
+        self.assertEqual(own[0]["anns"][0]["section"], "Abstract")
+        self.assertEqual(E.validate_row(own[0], provider="oga"), [])
+        self.assertEqual(report["preprints"]["own_record"], ["PPR2"])
+        self.assertEqual(report["left_out"]["preprint_not_printed"], ["PPR3"])
+
+    def test_a_preprint_cached_in_the_old_shape_is_asked_again(self):
+        asked = []
+
+        def preprint_search(ids, email):
+            asked.extend(ids)
+            return {i: _preprint("") for i in ids}
+
+        artefact = {"rrids": ["AB_10679421"], "tokens": [], "papers": ["0:1"],
+                    "by_pmid": {"PPR5": 0}}
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = E.Cache(tmp)
+            cache.preprints["PPR5"] = ""   # the 29 Sep cache held a bare journal id
+            cache.save_preprints()
+            E.build(artefact, INDEX, "oga", E.Cache(tmp), search=lambda p, e: {},
+                    fetch=_no_network, sleep=lambda s: None, preprint_search=preprint_search)
+        self.assertEqual(asked, ["PPR5"])
 
     def test_a_preprint_europe_pmc_does_not_hold_is_listed_apart(self):
         artefact = {"rrids": ["AB_10679421"], "tokens": [], "papers": ["0:1", "0:1"],
@@ -684,81 +750,18 @@ class PreprintsAreAnnotatedThroughTheirJournalArticleTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             _, report = E.build(artefact, INDEX, "oga", E.Cache(tmp), search=lambda p, e: {},
                                 fetch=_no_network, sleep=lambda s: None,
-                                preprint_search=lambda ids, e: {"PPR5": ""})
-        self.assertEqual(report["left_out"]["preprint_no_journal_version"], ["PPR5"])
+                                preprint_search=lambda ids, e: {"PPR5": _preprint("")})
+        self.assertEqual(report["left_out"]["preprint_not_printed"], ["PPR5"])
         self.assertEqual(report["left_out"]["preprint_not_in_europe_pmc"], ["PPR6"])
 
 
-class AbstractOnlyPapersGetOneLinkOnTheTitleTests(SimpleTestCase):
-    """The owner's rule (29 Sep 2026): full text gets named-entity annotations;
-    a paper held as title and abstract only gets one link on its title naming
-    its antibodies -- in its own file, because the validator checks one kind of
-    annotation per file, and not sent until Europe PMC agree."""
+class TheTextAroundASpanIsTheRecordsTextTests(SimpleTestCase):
+    """Europe PMC: exact, with its prefix and postfix, must match the text of
+    the record (6 Oct 2026). Inline markup is formatting, not a word break."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        path = Path(E.__file__).parent / "data" / "europepmc_sentence_annotation_schema_github.json"
-        cls.schema = json.loads(path.read_text())
-
-    def _build(self, sentences):
-        artefact = {"rrids": ["AB_10679421", "AB_2881555"], "tokens": [],
-                    "papers": ["0:1,1:1", "0:1"], "by_pmid": {"111": 0, "222": 1}}
-
-        def search(pmids, email):
-            return {
-                "111": {"pmcid": "", "open_access": False,
-                        "title": "TDP-43 in <i>C9orf72</i> models",
-                        "abstract": "Blots used MAB7778 from Bio-Techne."},
-                "222": {"pmcid": "PMC222", "open_access": True, "title": "Two", "abstract": ""},
-            }
-
-        with tempfile.TemporaryDirectory() as tmp:
-            return E.build(artefact, INDEX, "oga", E.Cache(tmp), search=search,
-                           fetch=lambda p, e: JATS, sleep=lambda s: None,
-                           preprint_search=_no_network, sentence_rows=sentences)
-
-    def test_abstract_only_gets_one_title_link_naming_every_antibody(self):
-        sentences = []
-        rows, report = self._build(sentences)
-        self.assertEqual(len(sentences), 1)
-        row = sentences[0]
-        self.assertEqual((row["src"], row["id"]), ("MED", "111"))
-        self.assertEqual(len(row["anns"]), 1)
-        ann = row["anns"][0]
-        self.assertEqual((ann["exact"], ann["section"]), ("TDP-43 in C9orf72 models", "Title"))
-        self.assertEqual([t["name"] for t in ann["tags"]],
-                         ["Bio-Techne Cat# MAB7778, RRID:AB_10679421",
-                          "Proteintech Cat# 66140-1-Ig, RRID:AB_2881555"])
-        # The abstract printed MAB7778, and still no named-entity row: one route.
-        self.assertEqual([(r["src"], r["id"]) for r in rows], [("PMC", "PMC222")])
-        self.assertEqual(report["where"]["abstract_route"], ["111"])
-        self.assertEqual(E.validate_sentence_row(row, provider="oga"), [])
-
-    def test_without_the_flag_nothing_changes(self):
-        rows, report = self._build(None)
-        self.assertEqual(sorted((r["src"], r["id"]) for r in rows),
-                         [("MED", "111"), ("PMC", "PMC222")])
-        self.assertIsNone(report["abstract_route_rows"])
-
-    def test_the_sentence_rules_are_read_from_the_schema(self):
-        good = E.row_for("MED", "1", "oga", [{"exact": "A title", "section": "Title",
-                                              "type": E.ANNOTATION_TYPE,
-                                              "tags": [{"name": "n", "uri": "https://x"}]}])
-        self.assertEqual(E.validate_sentence_row(good, provider="oga"), [])
-        self.assertEqual(set(self.schema["required"]), set(E.SUBMISSION_KEYS))
-        items = self.schema["properties"]["anns"]["items"]
-        for key in items["required"]:
-            row = json.loads(json.dumps(good))
-            del row["anns"][0][key]
-            self.assertTrue(any(key in p for p in E.validate_sentence_row(row)), key)
-        for key in items["properties"]["tags"]["items"]["required"]:
-            row = json.loads(json.dumps(good))
-            del row["anns"][0]["tags"][0][key]
-            self.assertTrue(any(key in p for p in E.validate_sentence_row(row)), key)
-        for key in ("position", "prefix", "postfix"):
-            self.assertNotIn(key, items["properties"])
-            row = json.loads(json.dumps(good))
-            row["anns"][0][key] = "1.1"
-            self.assertTrue(any(key in p for p in E.validate_sentence_row(row)), key)
-        self.assertTrue(E.validate_sentence_row(good, provider="OGA"))
+    def test_inline_markup_leaves_no_space_and_block_markup_does(self):
+        record = {"title": "Ca<sup>2+</sup> and <i>TARDBP</i> in <b>HAP1</b> cells",
+                  "abstract": "<h4>Methods</h4>Blots used MAB7778.<p>Next.</p>"}
+        self.assertEqual(E.abstract_blocks(record), [
+            ("Title", "Ca2+ and TARDBP in HAP1 cells"),
+            ("Abstract", "Methods Blots used MAB7778. Next.")])

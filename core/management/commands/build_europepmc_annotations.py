@@ -29,7 +29,6 @@ class Command(BaseCommand):
                             default=europepmc_annotations.DELAY_SECONDS)
         parser.add_argument("--apply", action="store_true")
         parser.add_argument("--submit", action="store_true")
-        parser.add_argument("--abstract-route", action="store_true")
         parser.add_argument("--submit-file", default=None)
         parser.add_argument("--results", nargs="?", const="", default=None)
 
@@ -38,7 +37,7 @@ class Command(BaseCommand):
         for flag in ("artefact", "index", "provider", "email", "cache", "out"):
             if options.get(flag):
                 argv += [f"--{flag}", str(options[flag])]
-        for flag in ("check", "apply", "submit", "abstract_route"):
+        for flag in ("check", "apply", "submit"):
             if options.get(flag):
                 argv.append("--" + flag.replace("_", "-"))
         if options.get("submit_file"):

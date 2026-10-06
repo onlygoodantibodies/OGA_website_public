@@ -4,7 +4,7 @@
 > `core/templates/core/validation_framework.html`
 > (onlygoodantibodies.co.uk/tools/validation-framework/). Built on a Delphi
 > consensus study with 32 international experts (Blades, Biddle, Froud et al.,
-> 2026) and compatible with the IWGAV five-pillar vocabulary (Uhlén et al., 2016).
+> 2026, *PLOS Biology* 24(10): e3003981) and compatible with the IWGAV five-pillar vocabulary (Uhlén et al., 2016).
 > Keep this in sync with that template — see `README.md` → "drift".
 
 > ### 🧭 How to teach this — a beat plan (tutor only; do NOT read aloud)

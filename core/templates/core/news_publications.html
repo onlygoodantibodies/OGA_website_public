@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>News &amp; Publications — Only Good Antibodies</title>
-    <meta name="description" content="Latest news, peer-reviewed publications, preprints, and open resources from the Only Good Antibodies community.">
+    <meta name="description" content="Latest news, peer-reviewed publications and open resources from the Only Good Antibodies community.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -313,6 +313,7 @@
 .badge-mabs     { background: #ede9fe; color: #5b21b6; }
 .badge-scirep   { background: #fef3c7; color: #92400e; }
 .badge-report   { background: #e0f2fe; color: #0c4a6e; }
+.badge-plos     { background: #e0f2f1; color: #0f5e57; }
 .badge-preprint { background: #fee2e2; color: #b91c1c; }
 .badge-resource { background: #f0fdf4; color: #166534; }
 .pub-card h3 {
@@ -449,7 +450,7 @@
     <div class="np-hero-inner">
         <div class="np-hero-label">Latest Updates &amp; Research</div>
         <h1>News &amp; Publications</h1>
-        <p>Updates from the OGA community, peer-reviewed research, preprints, and open resources.</p>
+        <p>Updates from the OGA community, peer-reviewed research, and open resources.</p>
     </div>
 </section>
 
@@ -462,7 +463,6 @@
         <span class="np-jump-label">Jump to</span>
         <a href="#news" class="np-jump-link active">News</a>
         <a href="#peer-reviewed" class="np-jump-link">Peer-Reviewed</a>
-        <a href="#preprints" class="np-jump-link">Preprints</a>
         <a href="#open-resources" class="np-jump-link">Open Resources</a>
     </div>
 </div>
@@ -480,6 +480,38 @@
         </div>
 
         <div class="np-news-feed">
+
+            <!-- PLOS Biology publication — 6 Oct 2026 -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-new">New Research</span>
+                        <span class="nc-date">6 October 2026</span>
+                    </div>
+                    <h2>Our two linked studies are published in <em>PLOS Biology</em></h2>
+                    <p>The two studies behind our <a href="{% url 'roadmap' %}">Roadmap</a>, first released as preprints in March 2026, have been peer reviewed and published open access in <strong>PLOS Biology</strong>.</p>
+                    <p><strong>The problem.</strong> We looked at papers that used antibodies which had failed independent, knockout-controlled testing. Of the 760 where validation status could be determined, only 120 (15.8%) presented any validation evidence, although 72% of the researchers we surveyed said they use at least one recommended validation method. The other 640 papers used at least 8,064 animal samples and 4,424 human tissue samples, which we describe as samples at risk of waste. Scaled to the commercial antibody market, the clearest cases (antibodies since withdrawn from sale, so the work cannot be reproduced) give a lower-bound estimate of 4–7 million animal samples and 6–11 million human tissue samples worldwide.</p>
+                    <p><strong>The solutions.</strong> A Delphi panel of 32 international experts (researchers, publishers, funders, antibody manufacturers and institutional leaders) agreed 15 actions that are both effective and feasible by 2030. They include training in institutions, dedicated validation budgets in grant applications, and publisher reporting requirements. A further 15 were judged effective but of uncertain feasibility.</p>
+                    <p><strong>Since completing this work</strong>, Antibody Champions have been embedded in 14 UK research institutions, and the University of Leicester has made antibody validation training mandatory for its bioscience postgraduate researchers. We are working with two national funders, the NC3Rs and Cancer Research UK, on putting the recommendations into practice, and we have built free tools that publishers can use to check the antibodies in what they publish.</p>
+
+                    <p><strong>Papers</strong></p>
+                    <ul>
+                        <li>Biddle M, Cooper J, Blades K, Ruddy D, Krockow EM, Virk H (2026) <a href="https://doi.org/10.1371/journal.pbio.3003984" target="_blank" rel="noopener">Inadequate antibody validation places substantial numbers of animal and human tissue samples at risk of waste</a>. <em>PLOS Biology</em> 24(10): e3003984.</li>
+                        <li>Blades K, Biddle M, Froud R, Krockow EM, Virk H (2026) <a href="https://doi.org/10.1371/journal.pbio.3003981" target="_blank" rel="noopener">Actionable solutions to address antibody validation failures</a>. <em>PLOS Biology</em> 24(10): e3003981.</li>
+                    </ul>
+
+                    <p><strong>Coverage</strong></p>
+                    <ul>
+                        <li><a href="https://www.eurekalert.org/news-releases/1145655" target="_blank" rel="noopener">PLOS press release (EurekAlert!)</a></li>
+                        <li><a href="https://medicalxpress.com/news/2026-10-poor-antibody-validation-millions-biological.html" target="_blank" rel="noopener">Medical Xpress</a></li>
+                        <li><a href="https://www.the-scientist.com/antibody-stakeholders-agree-on-15-actions-that-can-address-reagent-issues-75100" target="_blank" rel="noopener">The Scientist</a></li>
+                    </ul>
+
+                    <a href="{% url 'roadmap' %}" class="nc-link">Read the Roadmap →</a>
+                    <a href="{% url 'roadmap_institutions' %}" class="nc-link-ghost">For institutions →</a>
+                    <a href="{% url 'extension' %}" class="nc-link-ghost">Tools for publishers and reviewers →</a>
+                </div>
+            </article>
 
             <!-- Image integrity coverage — 25 Aug 2026 -->
             <article class="nc">
@@ -538,6 +570,7 @@
                     <p>We have released two linked preprints examining the antibody validation problem, together with an evidence-based strategy to address it.</p>
                     <p>The first study quantifies the ethical and scientific costs of poor antibody validation using rigorous knockout-control data, focus groups, a national survey, and systematic analysis of 785 publications. The second presents 15 consensus recommendations from a Delphi process involving 32 international experts across five stakeholder groups — institutions, funders, publishers, manufacturers, and researchers.</p>
                     <p>Together they form a practical roadmap for change. We have produced tailored action plan documents for each stakeholder group, and tools on this site to support implementation.</p>
+                    <p>Both papers have since been peer reviewed and were published in <em>PLOS Biology</em> on 6 October 2026 (see above).</p>
                     <a href="{% url 'roadmap' %}" class="nc-link">Read the Roadmap →</a>
                 </div>
             </article>
@@ -639,6 +672,30 @@
         </div>
 
         <div class="pub-grid">
+
+            <!-- PLOS Biology 2026 — sample waste (was the March 2026 preprint) -->
+            <div class="pub-card">
+                <span class="pub-badge badge-plos">PLOS Biology · 2026</span>
+                <h3>Inadequate antibody validation places substantial numbers of animal and human tissue samples at risk of waste <span class="pub-new-tag">New</span></h3>
+                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Cooper J, Blades K, Ruddy D, Krockow EM, Virk H</p>
+                <p class="pub-meta"><strong>Citation:</strong> PLOS Biology 2026;24(10):e3003984</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.1371/journal.pbio.3003984" class="pub-link" target="_blank">Read Article →</a>
+                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
+                </div>
+            </div>
+
+            <!-- PLOS Biology 2026 — Delphi consensus (was the March 2026 preprint) -->
+            <div class="pub-card">
+                <span class="pub-badge badge-plos">PLOS Biology · 2026</span>
+                <h3>Actionable solutions to address antibody validation failures <span class="pub-new-tag">New</span></h3>
+                <p class="pub-meta"><strong>Authors:</strong> Blades K, Biddle M, Froud R, Krockow EM, Virk H</p>
+                <p class="pub-meta"><strong>Citation:</strong> PLOS Biology 2026;24(10):e3003981</p>
+                <div class="pub-card-footer">
+                    <a href="https://doi.org/10.1371/journal.pbio.3003981" class="pub-link" target="_blank">Read Article →</a>
+                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
+                </div>
+            </div>
 
             <!-- ALS toolbox 2026 -->
             <div class="pub-card">
@@ -830,51 +887,9 @@
 
 
 <!-- ═══════════════════════════════════════
-     PREPRINTS
-     ═══════════════════════════════════════ -->
-<section class="np-section np-bg-light" id="preprints">
-    <div class="np-section-inner">
-        <div class="np-section-header">
-            <div class="np-section-label">Under Review</div>
-            <div class="np-section-title">Preprints</div>
-            <div class="np-section-desc">Preprints are not yet peer-reviewed. They represent work in progress and should be interpreted accordingly.</div>
-        </div>
-
-        <div class="pub-grid">
-
-            <!-- Drivers & ethical impacts — Paper 1 -->
-            <div class="pub-card preprint-featured">
-                <span class="pub-badge badge-preprint">Preprint · 2026</span>
-                <h3>Drivers and ethical impacts of insufficient validation of antibodies in research <span class="pub-new-tag">New</span></h3>
-                <p class="pub-meta"><strong>Authors:</strong> Biddle M, Cooper J, Blades G, et al.</p>
-                <p class="pub-meta">Mixed-methods study quantifying the ethical costs of poor antibody validation.</p>
-                <div class="pub-card-footer">
-                    <a href="https://doi.org/10.64898/2026.02.19.706766" class="pub-link" target="_blank">Read Preprint →</a>
-                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
-                </div>
-            </div>
-
-            <!-- Delphi consensus — Paper 2 -->
-            <div class="pub-card preprint-featured">
-                <span class="pub-badge badge-preprint">Preprint · 2026</span>
-                <h3>Addressing antibody validation failures: a multi-stakeholder Delphi consensus study on actionable solutions <span class="pub-new-tag">New</span></h3>
-                <p class="pub-meta"><strong>Authors:</strong> Blades G, Biddle M, Froud R, et al.</p>
-                <p class="pub-meta">15 consensus recommendations from 32 international experts across 5 stakeholder groups.</p>
-                <div class="pub-card-footer">
-                    <a href="https://doi.org/10.64898/2026.03.04.709541" class="pub-link" target="_blank">Read Preprint →</a>
-                    <a href="{% url 'roadmap' %}" class="pub-link-ghost">See Roadmap →</a>
-                </div>
-            </div>
-
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════════════════════════════
      OPEN RESOURCES
      ═══════════════════════════════════════ -->
-<section class="np-section np-bg-white" id="open-resources">
+<section class="np-section np-bg-light" id="open-resources">
     <div class="np-section-inner">
         <div class="np-section-header">
             <div class="np-section-label">Open Access</div>
