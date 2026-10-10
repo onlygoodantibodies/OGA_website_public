@@ -311,15 +311,32 @@ else:
 #
 # OGA_website/academy_db.py carries the guard that keeps the fallback above from
 # becoming a silently-invented empty database once the disk is gone.
+#
+# Each thread keeps its connection for up to a minute rather than opening one
+# per request. Both live databases are Render's basic-256mb plan, which is 0.1
+# of a CPU, and a new connection — a forked backend, a TLS handshake, the
+# password check, cold catalog caches — cost more of it than the queries: a
+# gene page is 27 ms of server CPU on a fresh connection and 11 ms on a reused
+# one (measured against PostgreSQL 16 at live scale, 8 Oct 2026). At 0.1 CPU
+# that is the difference between ~2.5 gene pages a second and ~6, and a crawler
+# walking them at 2.5 a second is what took the health check down on 3 and
+# 8 Oct. The health check is Django's ping before reusing a connection, so one
+# the database dropped (a restart, maintenance) is replaced, not used. Four
+# gunicorn threads means at most four held per database; a management command
+# or the MCP connector, which never finish a request, are unaffected.
+DB_CONNECTION_REUSE = {'conn_max_age': 60, 'conn_health_checks': True}
+
 DATABASES = {
     'default': {},
     'academy_db': dj_database_url.config(
         env='ACADEMY_DATABASE_URL',
         default=f'sqlite:///{ACADEMY_DB_PATH}',
+        **DB_CONNECTION_REUSE,
     ),
     'pipeline_db': dj_database_url.config(
         env='PIPELINE_DATABASE_URL',
         default=f'sqlite:///{BASE_DIR / "db_pipeline.sqlite3"}',
+        **DB_CONNECTION_REUSE,
     ),
 }
 

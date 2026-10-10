@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
     {% load static %}
+    {% load humanize %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>For Institutions — Only Good Antibodies Community</title>
     <meta name="description" content="For universities and research institutions: three practical actions to support good antibody practice — Academy e-learning, workshop access for researchers, and ready-to-adopt policy text.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
     <!-- Leaflet for the institutions map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -21,7 +22,7 @@
 .ins-hero::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,.15) 0%,transparent 70%);border-radius:50%}
 .ins-hero-inner{max-width:820px;margin:0 auto;position:relative;z-index:1}
 .ins-hero-label{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 18px;border-radius:100px;font-size:.85rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px;color:rgba(255,255,255,.9)}
-.ins-hero h1{font-family:'Open Sans',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
+.ins-hero h1{font-family:'Roboto',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
 .ins-hero p{font-size:1.1rem;line-height:1.7;color:rgba(255,255,255,.85);max-width:720px;margin:0 auto}
 .ins-hero h1,.ins-hero p,.ins-hero span{color:#fff!important}
 
@@ -35,7 +36,7 @@ html{scroll-behavior:smooth}
 .ins-section{padding:64px 24px;scroll-margin-top:24px}
 .ins-section-inner{max-width:1000px;margin:0 auto}
 .ins-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:8px}
-.ins-title{font-family:'Open Sans',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
+.ins-title{font-family:'Roboto',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
 .ins-desc{color:#444;font-size:1rem;line-height:1.7;margin-bottom:28px;max-width:780px}
 .ins-bg-light{background:#f5f8ff}
 .ins-bg-white{background:#fff}
@@ -46,7 +47,7 @@ html{scroll-behavior:smooth}
 #ins-map{width:100%;height:100%}
 .ins-map-note{font-size:.86rem;color:#555;line-height:1.6;margin-bottom:28px;padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px}
 .ins-map-note strong{color:#10428a}
-.leaflet-popup-content{font-family:'Open Sans',sans-serif;font-size:.88rem;line-height:1.5;margin:10px 12px}
+.leaflet-popup-content{font-family:'Roboto',sans-serif;font-size:.88rem;line-height:1.5;margin:10px 12px}
 .leaflet-popup-content b{color:#10428a;font-size:.95rem}
 .leaflet-popup-content .ins-pop-champs{color:#555;margin-top:4px}
 .leaflet-popup-content .ins-pop-badge{display:inline-block;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
@@ -55,7 +56,7 @@ html{scroll-behavior:smooth}
 .ins-tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
 .ins-tile{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:22px 20px;transition:box-shadow .3s,transform .2s;display:flex;flex-direction:column}
 .ins-tile:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
-.ins-tile-name{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#10428a;margin-bottom:4px;line-height:1.3}
+.ins-tile-name{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:#10428a;margin-bottom:4px;line-height:1.3}
 .ins-tile-city{font-size:.78rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
 .ins-tile-champs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .ins-champ-chip{display:inline-flex;align-items:center;gap:6px;background:#f0f4f9;padding:4px 10px 4px 4px;border-radius:100px;font-size:.8rem;color:#333}
@@ -70,7 +71,7 @@ html{scroll-behavior:smooth}
 .ins-ladder{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px}
 .ins-ladder-step{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #4a8ec9;border-radius:10px;padding:22px 20px;position:relative}
 .ins-ladder-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#10428a;color:#fff;border-radius:50%;font-weight:800;font-size:.88rem;margin-bottom:12px}
-.ins-ladder-step h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ins-ladder-step h3{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
 .ins-ladder-step p{font-size:.88rem;color:#555;line-height:1.6;margin:0}
 
 /* Toolkit */
@@ -82,7 +83,7 @@ html{scroll-behavior:smooth}
 .ins-icon-workshop{background:#dcfce7}
 .ins-icon-policy{background:#fef3c7}
 .ins-icon-pack{background:#ede9fe}
-.ins-toolkit-card h3{font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ins-toolkit-card h3{font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
 .ins-toolkit-card>p{font-size:.9rem;color:#555;line-height:1.6;margin-bottom:16px}
 .ins-toolkit-card .ins-meta{font-size:.82rem;color:#6b7280;margin-bottom:16px;line-height:1.5}
 .ins-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:#10428a;color:#fff;text-decoration:none;border-radius:8px;font-size:.88rem;font-weight:600;transition:background .2s;border:none;cursor:pointer}
@@ -102,7 +103,7 @@ html{scroll-behavior:smooth}
 /* Accordions (shared for outreach + policy text) */
 .ins-accordion{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff}
 .ins-bg-light .ins-accordion{background:#fff}
-.ins-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Open Sans',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
+.ins-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Roboto',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
 .ins-accordion-trigger:hover{background:#f5f8ff}
 .ins-accordion-arrow{font-size:.75rem;color:#86bef0;transition:transform .3s;flex-shrink:0;margin-left:12px}
 .ins-accordion.open .ins-accordion-arrow{transform:rotate(180deg)}
@@ -120,14 +121,14 @@ html{scroll-behavior:smooth}
 .ins-copy-btn.copied{background:#dcfce7;color:#166534;border-color:#86efac}
 
 /* Outreach email templates */
-.ins-email-subject{font-weight:700;color:#10428a;font-size:.9rem;margin-bottom:12px;padding:8px 12px;background:#f0f4f9;border-radius:6px;font-family:'Open Sans',sans-serif}
+.ins-email-subject{font-weight:700;color:#10428a;font-size:.9rem;margin-bottom:12px;padding:8px 12px;background:#f0f4f9;border-radius:6px;font-family:'Roboto',sans-serif}
 .ins-email-body{font-size:.88rem;color:#333;line-height:1.7;white-space:pre-wrap}
 .ins-placeholder{color:#b91c1c;font-weight:600}
 
 /* Contacts */
 .ins-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .ins-contact-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
-.ins-contact-card h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
+.ins-contact-card h3{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
 .ins-contact-card p{font-size:.88rem;color:#555;line-height:1.55;margin-bottom:4px}
 .ins-contact-card a{color:#10428a;text-decoration:none;font-weight:600}
 .ins-contact-card a:hover{text-decoration:underline}
@@ -223,7 +224,7 @@ html{scroll-behavior:smooth}
   <div class="ins-section-inner">
     <div class="ins-label">The Network</div>
     <div class="ins-title">Institutions Hosting an Antibody Champion</div>
-    <div class="ins-desc">These 14 UK institutions host a 2026 NC3Rs &amp; OGA Antibody Champion: an early-career researcher trained to help colleagues make better antibody choices. Click a pin for details. We will highlight institutions that take on workshops or adopt the policy text as they join.</div>
+    <div class="ins-desc">These {{ champion_institution_count }} UK institutions host a 2026 NC3Rs &amp; OGA Antibody Champion: an early-career researcher trained to help colleagues make better antibody choices. Click a pin for details. We will highlight institutions that take on workshops or adopt the policy text as they join.</div>
 
     <div class="ins-map-wrap"><div id="ins-map"></div></div>
     <div class="ins-map-note"><strong>Most workshops run online</strong>, so location is not a barrier. If your institution is not on the map, <a href="mailto:keb43@leicester.ac.uk">ask us about workshop access</a> and Katherine Blades will connect you to a Champion.</div>
@@ -245,7 +246,7 @@ html{scroll-behavior:smooth}
         <div class="ins-toolkit-icon ins-icon-learn">📚</div>
         <h3>Academy E-Learning Requirement</h3>
         <p>Free, self-paced modules on antibody selection, the five pillars of validation, using the OGA database, and reading real validation data. Each module takes 10–15 minutes and ends with a quiz and a certificate. Certificates carry a <strong>QR code and verification link</strong>, so you can check one is genuine.</p>
-        <div class="ins-meta">Wording for your handbook: <em>"Students and researchers whose work uses antibody-based methods must complete OGA Academy Modules 1–4 before commencing experimental work. Certificates of completion should be retained for training records."</em></div>
+        <div class="ins-meta">Wording for your handbook: <em>"Students and researchers whose work uses antibody-based methods must complete OGA Academy Modules 1–{{ academy_module_count }} before commencing experimental work. Certificates of completion should be retained for training records."</em></div>
         <div class="ins-btn-row"><a href="{% url 'academy:academy_home' %}" class="ins-btn">Go to the Academy ↗</a></div>
       </div>
 
@@ -347,7 +348,7 @@ Over 50% of commercial antibodies fail independent testing. A recent analysis of
 
 The Only Good Antibodies community provides two free resources for this:
 
-• <strong>OGA Academy</strong> — four self-paced e-learning modules, about 45 minutes in total, with quizzes and certificates. We could make this a required part of DTP induction.
+• <strong>OGA Academy</strong> — {{ academy_module_count|apnumber }} self-paced e-learning modules, about 45 minutes in total, with quizzes and certificates. We could make this a required part of DTP induction.
 
 • <strong>Antibody Champions workshops</strong> — a 90-minute online session where researchers bring their own targets and work through antibody selection live. We could nominate one of our PhD students as an Antibody Champion, give an existing staff member time to run sessions, or ask OGA to arrange a session for us.
 
@@ -405,7 +406,7 @@ Over half of commercial antibodies fail independent testing. Researchers choose 
 
 The Only Good Antibodies community provides three free resources:
 
-1. <strong>OGA Academy</strong> — four self-paced e-learning modules on antibody selection and validation. We could add this to induction or PGR training at no cost.
+1. <strong>OGA Academy</strong> — {{ academy_module_count|apnumber }} self-paced e-learning modules on antibody selection and validation. We could add this to induction or PGR training at no cost.
 
 2. <strong>Antibody Champions workshops</strong> — a 90-minute hands-on session where researchers bring their own antibody selection problems. We could nominate a local Champion, give existing staff time to deliver, or ask OGA to arrange a session for us.
 
@@ -472,53 +473,11 @@ Best wishes,
 
 {% include 'core/footer.html' %}
 
+{{ institutions|json_script:"ins-institutions" }}
 <script>
-// ─────────────────────────────────────────────────────────
-// Institutional data — 14 unique institutions (deduped from 16 Champions)
-// Edit `level` values (1/2/3) as institutions progress up the commitments ladder.
-// Level 1 = Hosts a Champion (default at launch).
-// Level 2 = Workshop access for all antibody users.
-// Level 3 = Adopted recommended policy text.
-// `note` (optional) = one line naming a step an institution has taken that
-// is not a rung of the ladder, drawn on its tile and in its map popup.
-// ─────────────────────────────────────────────────────────
-var INSTITUTIONS = [
-  { name: "University of Plymouth", city: "Plymouth", region: "South West", lat: 50.3754, lng: -4.1427, level: 1,
-    champions: [{name:"Abigail Parsons", photo:"core/champions/abigail parsons photo.jpg"}] },
-  { name: "University of Nottingham", city: "Nottingham", region: "East Midlands", lat: 52.9382, lng: -1.1965, level: 1,
-    champions: [
-      {name:"Avika Srivastava", photo:"core/champions/Avika Srivastava.jpeg"},
-      {name:"Lorna Milne", photo:"core/champions/Lorna Milne.jpg"}
-    ] },
-  { name: "Imperial College London", city: "London", region: "London", lat: 51.4988, lng: -0.1749, level: 1,
-    champions: [{name:"Ben Moss", photo:"core/champions/Ben_Moss.jpg"}] },
-  { name: "University College London", city: "London", region: "London", lat: 51.5246, lng: -0.1340, level: 1,
-    champions: [{name:"Charlie Arber", photo:"core/champions/Charlie Arber.jpg"}] },
-  { name: "Queen Mary University of London", city: "London", region: "London", lat: 51.5246, lng: -0.0406, level: 1,
-    champions: [
-      {name:"Christina Gkantsinikoudi", photo:"core/champions/Christina Gkantsinikoudi_Headshot.JPG"},
-      {name:"Lovely Monney", photo:"core/champions/Lovely Monney.jpeg"}
-    ] },
-  { name: "Manchester Metropolitan University", city: "Manchester", region: "North West", lat: 53.4708, lng: -2.2399, level: 1,
-    champions: [{name:"Ella Turner", photo:"core/champions/ella turner.jpeg"}] },
-  { name: "University of Manchester", city: "Manchester", region: "North West", lat: 53.4668, lng: -2.2339, level: 1,
-    champions: [{name:"Jeyapriya Thimukonda Jegadeesan", photo:"core/champions/Jeyapriya Thimukonda Jegadeesan.jpg"}] },
-  { name: "Royal Veterinary College", city: "London", region: "London", lat: 51.5260, lng: -0.1404, level: 1,
-    champions: [{name:"Neil Marr", photo:"core/champions/NeilMarr.png"}] },
-  { name: "University of Strathclyde", city: "Glasgow", region: "Scotland", lat: 55.8617, lng: -4.2422, level: 1,
-    champions: [{name:"Ridvan Kucuk", photo:"core/champions/Ridvan photo.jpg"}] },
-  { name: "University of Glasgow", city: "Glasgow", region: "Scotland", lat: 55.8720, lng: -4.2880, level: 1,
-    champions: [{name:"Rosie Fellows", photo:"core/champions/Rosie_Headshot.jpg"}] },
-  { name: "University of Leicester", city: "Leicester", region: "East Midlands", lat: 52.6219, lng: -1.1248, level: 1,
-    champions: [{name:"Siâny Vincent-Simpson", photo:"core/champions/Siany Vincent-Simpson.jpg"}],
-    note: "Antibody validation training is mandatory for its bioscience postgraduate researchers" },
-  { name: "Lancaster University", city: "Lancaster", region: "North West", lat: 54.0100, lng: -2.7857, level: 1,
-    champions: [{name:"Stefanie Menzies", photo:"core/champions/Stefanie Menzies.jpg"}] },
-  { name: "University of Dundee", city: "Dundee", region: "Scotland", lat: 56.4586, lng: -2.9844, level: 1,
-    champions: [{name:"Sukriti Maity", photo:"core/champions/Sukriti Maity.jpeg"}] },
-  { name: "Waltham Petcare Science Institute", city: "Melton Mowbray", region: "East Midlands", lat: 52.7644, lng: -0.8856, level: 1,
-    champions: [{name:"Wiktoria Tomalik", photo:"core/champions/Wiktoria Tomalik.jpeg"}] }
-];
+// The institutions and their Champions come from core/champions.py, the same
+// list the Champions page draws — `level` and `note` are explained there.
+var INSTITUTIONS = JSON.parse(document.getElementById('ins-institutions').textContent);
 
 var STATIC_ROOT = "{% static '' %}";
 

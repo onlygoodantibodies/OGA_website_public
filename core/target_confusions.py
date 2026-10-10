@@ -367,6 +367,19 @@ def public_totals():
     }
 
 
+def counts_by_list():
+    """Each list's tallies as the extension page quotes them, keyed by its id
+    with ``_`` for ``-`` so a template can name it: ``paper_counts`` plus
+    ``codes``, the product codes on the list. The page typed "317 of 406",
+    "Seventeen", "Seventy-two", "187" and "eight antibodies" beside cards that
+    read the same tallies from here, so a corrected list would have changed the
+    card and left the page."""
+    return {
+        n["id"].replace("-", "_"): {**paper_counts(n), "codes": len(n["antibodies"])}
+        for n in load()
+    }
+
+
 def problems():
     """Rows and files ``load()`` could not use, as sentences.
 

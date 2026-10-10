@@ -3,7 +3,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1024, initial-scale=0.4, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% comment %}
+  `device-width`, like every other public page (10 Oct 2026). This page alone
+  asked a phone for a 1024px desktop page shrunk to 0.4 with zoom switched off,
+  and both mobile browsers answer that by enlarging the text of every wide
+  paragraph to keep it readable — Firefox's font inflation, Chrome's text
+  autosizing — so the caveats rendered at ~2.5× while the filters and the nav
+  stayed tiny, on the page most readers arrive at. The card restacks itself on
+  a narrow screen instead (the `max-width: 768px` block at the end of the
+  styles below).
+  {% endcomment %}
   {% comment %}
   `published_total`, not `antibody_count`: everything below is about the rows
   currently drawn, and says so with the "N hidden" line under the count. These
@@ -12,6 +22,7 @@
   {% endcomment %}
   <title>{{ gene_name }} antibody characterisation — {{ control_phrase|lower }} results for {{ published_total }} antibodies | Only Good Antibodies</title>
   <meta name="description" content="{{ control_phrase }} characterisation data for {{ published_total }} {{ gene_name }}{% if aliases %} (also known as {{ aliases }}){% endif %} antibodies tested across {{ published_apps }}. Free to access via Only Good Antibodies (OGA).">
+  {% include 'core/_fonts.html' %}
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
   {% comment %}
@@ -26,7 +37,7 @@
 /* --- Global accents --- */
 body {
   background-color: #f7f9fc;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
 
@@ -42,12 +53,16 @@ body {
 }
 
 /* Reuse terms under the banner actions — quiet, and next to the DOI it names. */
+/* White, and its links too: the site-wide `p` and `a` colours are grey and
+   blue, which on the banner's blue drew this line invisibly — unnoticed while
+   the banner's fixed height clipped it anyway. */
 .oga-licence {
   margin: 0.6rem 0 0;
   font-size: 0.85rem;
+  color: #ffffff;
   opacity: 0.85;
 }
-.oga-licence a { text-decoration: underline; }
+.oga-licence a { color: #ffffff; text-decoration: underline; }
 
 /* Cell line callout box */
 .cellline-note {
@@ -457,7 +472,7 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
 /* --- ?ab= focus ---
@@ -476,7 +491,7 @@ body {
   background: #e8f0fb;
   border: 1px solid #b9d0ee;
   border-radius: 10px;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.9rem;
   color: #10428a;
 }
@@ -523,6 +538,64 @@ body {
 #antibody-table .antibody-details { width: auto; min-width: 0; padding-right: 12px; }
 #antibody-table .experiment-box { margin: 0 auto; max-width: 280px; height: auto; aspect-ratio: 1 / 1; }
 #antibody-table .experiment-caveat { max-width: 250px; text-align: center; }
+
+/* A phone (10 Oct 2026). A card is a row of 270px + 300px per application,
+   which no phone holds, so below the site's 768px breakpoint it restacks: the
+   antibody's details across the top, its figures two to a row beneath, each
+   headed by its own application (`data-label`, since the heading row is hidden)
+   — and tapping a figure still opens it full screen. The Example card stops
+   being sticky here: pinned to the top of a phone it would cover most of the
+   screen. */
+@media (max-width: 768px) {
+  /* styles.css right-aligns `.banner-center` on a phone, for a banner that
+     had a second column; this one has none. */
+  .antibody-banner .banner-center { flex: 1 1 auto; align-items: center; margin: 0; text-align: center; }
+  .antibody-banner .banner-center .f1000-link { font-size: 1rem; }
+  .cellline-note, .scope-notice { margin-left: 12px; margin-right: 12px; }
+  /* Two filters to a row. styles.css stacks them one to a row at full width,
+     and its `width: 100%` plus a side margin is a page wider than the phone. */
+  .filter-container { width: auto; margin: 1.5rem 12px; padding: 1rem; }
+  .filter-form {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 0.8rem;
+    align-items: end;
+  }
+  .filter-group { width: auto; min-width: 0; }
+  .clear-filters { padding: 0.55rem 0; }
+  #antibody-table { padding: 0 12px; margin-top: 16px; }
+  #antibody-table .row-box { width: 100%; margin: 12px 0; padding: 16px; }
+  #antibody-table .ideal-antibody-row { position: static; padding: 15px; }
+  #antibody-table .row-box > table,
+  #antibody-table .row-box > table > tbody { display: block; width: 100%; }
+  #antibody-table .row-box > table > thead { display: none; }
+  #antibody-table .row-box > table > tbody > tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0 12px;
+  }
+  #antibody-table .row-box > table > tbody > tr > td { display: block; padding: 0; }
+  #antibody-table .antibody-details { grid-column: 1 / -1; padding: 0 0 10px; }
+  #antibody-table .antibody-details p { max-width: none; }
+  #antibody-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin: 6px 0;
+    text-align: center;
+    font-weight: bold;
+    color: var(--main-blue);
+  }
+  #antibody-table .experiment-box { max-width: none; }
+  #antibody-table .experiment-caveat {
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    margin: 8px 0 12px;
+    font-size: 0.75rem;
+  }
+  .experiment-control { max-width: none; }
+}
 </style>
 
 <body class="antibody-table-page">
@@ -804,7 +877,7 @@ that could disagree.
                                     <p>An example of a high-performing antibody.</p>
                                 </td>
                                 {% for col in columns %}
-                                <td><div class="experiment-box">{% if col.example_image %}<img src="{% static col.example_image %}" alt="{{ col.app }} Image">{% else %}<p class="experiment-example-text">{{ col.example_text }}</p>{% endif %}</div></td>
+                                <td data-label="{{ col.label }}"><div class="experiment-box">{% if col.example_image %}<img src="{% static col.example_image %}" alt="{{ col.app }} Image">{% else %}<p class="experiment-example-text">{{ col.example_text }}</p>{% endif %}</div></td>
                                 {% endfor %}
                             </tr>
                         </tbody>
@@ -887,7 +960,7 @@ that could disagree.
                             the columns this gene has figures in, IHC included, so a gene nobody ran
                             by flow has no column of "no data" down the page.{% endcomment %}
                             {% for cell in antibody.cells %}
-                            <td>
+                            <td data-label="{{ cell.label }}">
                                 <div class="experiment-box {{ cell.state }}{% if cell.tab %} has-caveat{% endif %}" data-app="{{ cell.filter_key }}">
                                     {% if cell.image %}
                                         <img src="{{ cell.image }}" alt="{{ cell.alt }}" class="zoomable">

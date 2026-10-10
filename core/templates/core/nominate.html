@@ -12,7 +12,7 @@
     <title>{% if form.gene %}Nominate {{ form.gene }}{% else %}Nominate a gene{% endif %} - Only Good Antibodies</title>
     <meta name="description" content="Ask the Only Good Antibodies consortium to characterise a human gene we have not covered yet.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
 <style>
 .nom-hero {

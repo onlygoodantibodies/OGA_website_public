@@ -35,8 +35,9 @@ not — those go through ``build.py`` and ``save.py --replaces``.
 Refuses, before writing anything: a catalogue the page finds no single
 antibody for on that gene, and an antibody with no published figure in that
 application (that is an addition, not a replacement — use the cropper).
-Nothing here can publish: releasing is the review queue's, and the account
-running it cannot release.
+Nothing here presses Release: releasing is the review queue's. The account
+could (a superuser, by the owner's decision of 8 Oct 2026), so that is a rule
+of this script, not a permission.
 """
 import argparse
 import sys

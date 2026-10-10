@@ -6,6 +6,7 @@
     <title>Data Portal &amp; API — Only Good Antibodies</title>
     <meta name="description" content="How antibody manufacturers, registries and data partners access OGA's knockout-controlled characterisation data — through the browser portal or the API.">
     {% load static %}
+    {% include 'core/_fonts.html' %}
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
     {% comment %}
       Every rule here is prefixed `da-` and scoped to this page's own elements.
@@ -297,7 +298,7 @@ wget -i urls.txt -P images/</code></div>
            stuck in a loop.</p>
     </section>
 
-    <section class="card edu-content da-section">
+    <section class="card edu-content da-section" id="licence">
         <h2>Licence and citation</h2>
         <p>The data is published under
            <a href="{{ licence_url }}" target="_blank" rel="noopener license">Creative

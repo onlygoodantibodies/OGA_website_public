@@ -1,0 +1,23 @@
+{% comment %}
+The copyright line, drawn by every footer on the site: the site footer
+(core/footer.html) and the three bare ones on the 404 page, the account area
+and the Academy sign-up page. It was four hand-typed copies until Oct 2026.
+
+It said "All Rights Reserved", while the gene page a few centimetres above it
+said "Free to reuse under CC BY 4.0" — the same question answered both ways
+on one screen. The copyright stays; a CC licence is granted *by* the copyright
+holder, so the two do not conflict. What changed is that the line now says
+what is granted, and how far the grant reaches:
+
+- the antibody data and figures are CC BY 4.0 (publish/LICENSE-DATA), and the
+  link lands on the data access page's "Licence and citation" section, which
+  says how to attribute;
+- the code is Apache 2.0, in the public repository;
+- nothing else is claimed. The site's prose, the Academy modules, logos and
+  photographs are not covered by either licence, so the line names what is
+  open rather than calling the whole site open.
+
+Not copyleft, and not marked 🄯: CC BY has no share-alike condition and
+Apache 2.0 has none either, by decision (API.md §3b).
+{% endcomment %}
+<p class="footer-licence">&copy; {% now "Y" %} Only Good Antibodies Community · Antibody data and figures <a href="{% url 'data_access' %}#licence" rel="license">CC BY 4.0</a> · Code <a href="https://github.com/onlygoodantibodies/OGA_website_public" target="_blank" rel="noopener">Apache 2.0</a></p>

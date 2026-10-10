@@ -317,3 +317,29 @@ def headline_counts():
         "antibody_count": published_antibodies().count(),
         "experiment_count": published_figures().count(),
     }
+
+
+def published_suppliers():
+    """The suppliers whose antibodies have a published figure, one name each.
+
+    Spelled as the gene page prints a supplier (``display_name``, falling back
+    to ``name``), and counted once per ``Company.canonical_key`` of that
+    spelling, so two rows that print the same supplier are one supplier. About
+    said "antibodies from 14 manufacturers" in three places while 24 suppliers
+    had published antibodies (7 Oct 2026). "Supplier", not "manufacturer":
+    the set includes non-profit sources such as DSHB, the Institute for
+    Protein Innovation and Addgene.
+    """
+    from pipeline.models import Company
+
+    has_published = published_antibodies().filter(company_id=OuterRef("pk"))
+    names = {}
+    for display_name, name in (Company.objects.filter(Exists(has_published))
+                               .values_list("display_name", "name")):
+        shown = display_name or name
+        names.setdefault(Company.canonical_key(shown), shown)
+    return sorted(names.values(), key=str.lower)
+
+
+def supplier_count():
+    return len(published_suppliers())

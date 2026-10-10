@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
     {% load static %}
+    {% load humanize %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Antibody Champions — Only Good Antibodies Community</title>
     <meta name="description" content="Meet the 2026 NC3Rs and OGA Antibody Champions. Toolkit with video, e-learning, workshop materials, outreach templates, and validation resources to help researchers make better antibody choices.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 .ch-hero{background:linear-gradient(160deg,#0d2b5e 0%,#10428a 40%,#4a8ec9 100%);color:#fff;padding:72px 24px 56px;text-align:center;position:relative;overflow:hidden}
 .ch-hero::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,.15) 0%,transparent 70%);border-radius:50%}
 .ch-hero-inner{max-width:800px;margin:0 auto;position:relative;z-index:1}
 .ch-hero-label{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 18px;border-radius:100px;font-size:.85rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px;color:rgba(255,255,255,.9)}
-.ch-hero h1{font-family:'Open Sans',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
+.ch-hero h1{font-family:'Roboto',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
 .ch-hero p{font-size:1.1rem;line-height:1.7;color:rgba(255,255,255,.85);max-width:700px;margin:0 auto}
 .ch-contents{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px}
 .ch-contents-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -26,7 +27,7 @@ html{scroll-behavior:smooth}
 .ch-section{padding:64px 24px;scroll-margin-top:24px}
 .ch-section-inner{max-width:1000px;margin:0 auto}
 .ch-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:8px}
-.ch-title{font-family:'Open Sans',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
+.ch-title{font-family:'Roboto',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
 .ch-desc{color:#444;font-size:1rem;line-height:1.7;margin-bottom:28px;max-width:750px}
 .ch-bg-light{background:#f5f8ff}
 .ch-bg-white{background:#fff}
@@ -37,7 +38,7 @@ html{scroll-behavior:smooth}
 .ch-person-card:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
 .ch-person-photo{width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid #e8f1fa;margin-bottom:14px;background:#f0f4f9}
 .ch-person-photo-placeholder{width:110px;height:110px;border-radius:50%;object-fit:contain;border:3px solid #e8f1fa;margin-bottom:14px;background:#f0f4f9;padding:22px}
-.ch-person-name{font-family:'Open Sans',sans-serif;font-size:1.05rem;font-weight:700;color:#10428a;margin-bottom:4px;line-height:1.3}
+.ch-person-name{font-family:'Roboto',sans-serif;font-size:1.05rem;font-weight:700;color:#10428a;margin-bottom:4px;line-height:1.3}
 .ch-person-institution{font-size:.82rem;font-weight:600;color:#4a8ec9;margin-bottom:10px;line-height:1.4}
 .ch-person-bio{font-size:.85rem;color:#555;line-height:1.6;flex-grow:1}
 .ch-video-wrap{position:relative;width:100%;padding-bottom:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12)}
@@ -47,7 +48,7 @@ html{scroll-behavior:smooth}
 .ch-toolkit-card:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-2px)}
 .ch-toolkit-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:16px;flex-shrink:0}
 .ch-icon-learn{background:#e8f1fa}.ch-icon-workshop{background:#dcfce7}.ch-icon-outreach{background:#fef3c7}.ch-icon-faq{background:#ede9fe}
-.ch-toolkit-card h3{font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ch-toolkit-card h3{font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
 .ch-toolkit-card>p{font-size:.9rem;color:#555;line-height:1.6;margin-bottom:16px;flex-grow:1}
 .ch-toolkit-card .ch-meta{font-size:.82rem;color:#6b7280;margin-bottom:16px;line-height:1.5}
 .ch-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:#10428a;color:#fff;text-decoration:none;border-radius:8px;font-size:.88rem;font-weight:600;transition:background .2s;border:none;cursor:pointer}
@@ -57,7 +58,7 @@ html{scroll-behavior:smooth}
 .ch-btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto}
 .ch-accordion{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff}
 .ch-bg-light .ch-accordion{background:#fff}
-.ch-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Open Sans',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
+.ch-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Roboto',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
 .ch-accordion-trigger:hover{background:#f5f8ff}
 .ch-accordion-arrow{font-size:.75rem;color:#86bef0;transition:transform .3s;flex-shrink:0;margin-left:12px}
 .ch-accordion.open .ch-accordion-arrow{transform:rotate(180deg)}
@@ -65,12 +66,12 @@ html{scroll-behavior:smooth}
 .ch-accordion-body-inner{padding:0 20px 20px;font-size:.9rem;color:#444;line-height:1.7}
 .ch-accordion-body-inner p{margin-bottom:12px}
 .ch-accordion-body-inner p:last-child{margin-bottom:0}
-.ch-email-subject{font-weight:700;color:#10428a;font-size:.9rem;margin-bottom:12px;padding:8px 12px;background:#f0f4f9;border-radius:6px;font-family:'Open Sans',sans-serif}
+.ch-email-subject{font-weight:700;color:#10428a;font-size:.9rem;margin-bottom:12px;padding:8px 12px;background:#f0f4f9;border-radius:6px;font-family:'Roboto',sans-serif}
 .ch-email-body{font-size:.88rem;color:#333;line-height:1.7;white-space:pre-wrap}
 .ch-placeholder{color:#b91c1c;font-weight:600}
 .ch-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .ch-contact-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
-.ch-contact-card h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
+.ch-contact-card h3{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
 .ch-contact-card p{font-size:.88rem;color:#555;line-height:1.55;margin-bottom:4px}
 .ch-contact-card a{color:#10428a;text-decoration:none;font-weight:600}
 .ch-contact-card a:hover{text-decoration:underline}
@@ -119,122 +120,21 @@ html{scroll-behavior:smooth}
   <div class="ch-section-inner">
     <div class="ch-label">The Network</div>
     <div class="ch-title">People &amp; Places</div>
-    <div class="ch-desc">The 2026 Antibody Champions &mdash; 16 researchers in 14 UK research institutions, trained to help their institutions make better antibody choices.</div>
+    <div class="ch-desc">The 2026 Antibody Champions &mdash; {{ champion_count }} researchers in {{ champion_institution_count }} UK research institutions, trained to help their institutions make better antibody choices.</div>
  
     <div class="ch-people-grid">
- 
+      {% comment %}
+        Drawn from core/champions.py, which the institutions page's map reads
+        too — add a Champion there, not here.
+      {% endcomment %}
+      {% for champion in champions %}
       <div class="ch-person-card">
-        <img src="{% static 'core/champions/abigail parsons photo.jpg' %}" alt="Abigail Parsons" class="ch-person-photo">
-        <div class="ch-person-name">Abigail Parsons</div>
-        <div class="ch-person-institution">University of Plymouth</div>
-        <div class="ch-person-bio">Postdoctoral Research Fellow developing novel non-invasive treatments for aggressive brain cancer, using Drosophila models and patient-derived stem cells.</div>
+        <img src="{% static champion.photo %}" alt="{{ champion.name }}" class="ch-person-photo">
+        <div class="ch-person-name">{{ champion.name }}</div>
+        <div class="ch-person-institution">{{ champion.institution }}</div>
+        <div class="ch-person-bio">{{ champion.bio }}</div>
       </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Avika Srivastava.jpeg' %}" alt="Avika Srivastava" class="ch-person-photo">
-        <div class="ch-person-name">Avika Srivastava</div>
-        <div class="ch-person-institution">University of Nottingham</div>
-        <div class="ch-person-bio">PhD candidate using glycosaminoglycans as biomarkers in the ageing and cancer matrix, with a background in neurobiology from Canada.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Ben_Moss.jpg' %}" alt="Ben Moss" class="ch-person-photo">
-        <div class="ch-person-name">Ben Moss</div>
-        <div class="ch-person-institution">Imperial College London</div>
-        <div class="ch-person-bio">BHF&ndash;NC3Rs funded PhD student exploring how amyloid aggregates affect vascular smooth muscle cells, applying non-animal antibody development methods to discover potential protein inhibitors.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Charlie Arber.jpg' %}" alt="Charlie Arber" class="ch-person-photo">
-        <div class="ch-person-name">Charlie Arber</div>
-        <div class="ch-person-institution">University College London</div>
-        <div class="ch-person-bio">Stem cell biologist working with patient-derived models of dementia, using antibodies to detect and measure the earliest changes that might underlie the disease.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Christina Gkantsinikoudi_Headshot.JPG' %}" alt="Christina Gkantsinikoudi" class="ch-person-photo">
-        <div class="ch-person-name">Christina Gkantsinikoudi</div>
-        <div class="ch-person-institution">Queen Mary University of London</div>
-        <div class="ch-person-bio">Postdoctoral research associate exploring immune responses in cardiovascular disease through flow cytometry and immunofluorescence imaging, with a strong interest in antibody validation and reproducible research.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/ella turner.jpeg' %}" alt="Ella Turner" class="ch-person-photo">
-        <div class="ch-person-name">Ella Turner</div>
-        <div class="ch-person-institution">Manchester Metropolitan University</div>
-        <div class="ch-person-bio">Life sciences PhD student researching maternal and fetal health, developing a model to study changes in blood flow seen in pre-eclamptic pregnancies and how these affect blood clotting and endothelial activation.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Jeyapriya Thimukonda Jegadeesan.jpg' %}" alt="Jeyapriya Thimukonda Jegadeesan" class="ch-person-photo">
-        <div class="ch-person-name">Jeyapriya Thimukonda Jegadeesan</div>
-        <div class="ch-person-institution">University of Manchester</div>
-        <div class="ch-person-bio">BBSRC DTP student working on regenerative medicine for nerve applications, following the 3Rs principles.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Lorna Milne.jpg' %}" alt="Lorna Milne" class="ch-person-photo">
-        <div class="ch-person-name">Lorna Milne</div>
-        <div class="ch-person-institution">University of Nottingham</div>
-        <div class="ch-person-bio">Postdoctoral researcher improving analytical and imaging technologies in glycobiology, enabling multi-modal imaging and multi-omic analysis of the kidney.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Lovely Monney.jpeg' %}" alt="Lovely Monney" class="ch-person-photo">
-        <div class="ch-person-name">Lovely Monney</div>
-        <div class="ch-person-institution">Queen Mary University of London</div>
-        <div class="ch-person-bio">PhD researcher in the Centre for Predictive in vitro Models, studying how inflammation and mechanical stimuli regulate primary cilia in kidney epithelial cells, with relevance to polycystic kidney disease.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/NeilMarr.png' %}" alt="Neil Marr" class="ch-person-photo">
-        <div class="ch-person-name">Neil Marr</div>
-        <div class="ch-person-institution">Royal Veterinary College</div>
-        <div class="ch-person-bio">Researcher focused on skeletal tissue biology across species, with extensive experience validating antibodies that are both target-specific and conserved across species for musculoskeletal research.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Ridvan photo.jpg' %}" alt="Ridvan Kucuk" class="ch-person-photo">
-        <div class="ch-person-name">Ridvan Kucuk</div>
-        <div class="ch-person-institution">University of Strathclyde</div>
-        <div class="ch-person-bio">NC3Rs-funded PhD student developing a human stroke-on-a-chip model using iPSCs and microfluidic technology to reduce animal use in stroke research.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Rosie_Headshot.jpg' %}" alt="Rosie Fellows" class="ch-person-photo">
-        <div class="ch-person-name">Rosie Fellows</div>
-        <div class="ch-person-institution">University of Glasgow</div>
-        <div class="ch-person-bio">PhD student in parasitology with previous research on the complement system, where antibody optimisation was a central part of the work.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Siany Vincent-Simpson.jpg' %}" alt="Siâny Vincent-Simpson" class="ch-person-photo">
-        <div class="ch-person-name">Si&acirc;ny Vincent-Simpson</div>
-        <div class="ch-person-institution">University of Leicester</div>
-        <div class="ch-person-bio">MRC AIM DTP PhD student with a background in immunology and biomedical science. A qualified teacher passionate about science communication, optimising research, and everything antibodies-related.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Stefanie Menzies.jpg' %}" alt="Stefanie Menzies" class="ch-person-photo">
-        <div class="ch-person-name">Stefanie Menzies</div>
-        <div class="ch-person-institution">Lancaster University</div>
-        <div class="ch-person-bio">Lecturer in Molecular Cell Biology leading research on antibody discovery, snake venom biology, and translational approaches to diagnostics and therapeutics, with prior research roles at the Liverpool School of Tropical Medicine.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Sukriti Maity.jpeg' %}" alt="Sukriti Maity" class="ch-person-photo">
-        <div class="ch-person-name">Sukriti Maity</div>
-        <div class="ch-person-institution">University of Dundee</div>
-        <div class="ch-person-bio">Graduate student at the MRC Protein Phosphorylation and Ubiquitylation Unit, studying proteins through structural and biochemical approaches, with a keen interest in antibody validation pipelines.</div>
-      </div>
- 
-      <div class="ch-person-card">
-        <img src="{% static 'core/champions/Wiktoria Tomalik.jpeg' %}" alt="Wiktoria Tomalik" class="ch-person-photo">
-        <div class="ch-person-name">Wiktoria Tomalik</div>
-        <div class="ch-person-institution">Waltham Petcare Science Institute</div>
-        <div class="ch-person-bio">Bioscience laboratory scientist with an MSc in Immunology &amp; Immunotherapy and a BSc in Biotechnology from the University of Nottingham, bringing a passion for innovative research to advance understanding of pet health.</div>
-      </div>
- 
+      {% endfor %}
     </div>
   </div>
 </section>
@@ -261,7 +161,7 @@ html{scroll-behavior:smooth}
       <div class="ch-toolkit-card">
         <div class="ch-toolkit-icon ch-icon-learn">📚</div>
         <h3>OGA Academy E-Learning</h3>
-        <p>Four free, self-paced modules covering antibody selection, the five pillars of validation, navigating the OGA database, and interpreting real validation data. Each is 10–15 minutes with a quiz.</p>
+        <p>{{ academy_module_count|apnumber|capfirst }} free, self-paced modules covering antibody selection, the five pillars of validation, navigating the OGA database, and interpreting real validation data. Each is 10–15 minutes with a quiz.</p>
         <div class="ch-meta">Not just theory — Module 4 uses real flow cytometry and Western blot data. Completion certificates (now with QR verification) are available for CPD or training records. The video makes the case for <em>why</em> this matters; the e-learning teaches the practical skills.</div>
         <div class="ch-btn-row"><a href="{% url 'academy:academy_home' %}" class="ch-btn">Go to the Academy ↗</a></div>
       </div>
@@ -319,7 +219,7 @@ Antibodies are a leading cause of replication failure in biomedical research. Po
 I can offer:
 
 • A 90-minute online workshop where participants bring their own antibody selection problems and we work through them live
-• A short training video and free e-learning modules (4 modules, ~45 minutes total, with quizzes and completion certificates available for CPD or training records)
+• A short training video and free e-learning modules ({{ academy_module_count }} modules, ~45 minutes total, with quizzes and completion certificates available for CPD or training records)
 
 Both are designed for researchers who use antibody-based techniques in any discipline. They work well as part of research methods training, induction programmes, or standalone CPD.
 
@@ -375,7 +275,7 @@ A recent Delphi consensus study with 32 international experts, published in PLOS
 As a Champion, I can offer free training to researchers at <span class="ch-placeholder">[INSTITUTION]</span>:
 
 • A 90-minute online workshop where participants work through real antibody selection decisions with expert support
-• A training video and four free e-learning modules with quizzes and completion certificates
+• A training video and {{ academy_module_count|apnumber }} free e-learning modules with quizzes and completion certificates
 • A condensed 20-minute seminar for broader awareness
 
 This training is funded by the NIHR–MRC Better Methods, Better Research programme and the NC3Rs, and aligns with the 3Rs, UKRI expectations for rigour, and emerging funder requirements for antibody validation plans in grant applications.

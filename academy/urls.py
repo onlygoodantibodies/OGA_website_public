@@ -2,8 +2,8 @@
 
 from django.urls import path
 from . import calibration_views, views
-from allauth.account.views import LoginView
 from .views import (
+    AcademyLoginView,
     AcademyLogoutView,
     ProfileUpdateView,
     CustomSignupView,
@@ -38,7 +38,7 @@ urlpatterns = [
 
     # Accounts
     path('signup/', CustomSignupView.as_view(), name='signup'),
-    path('login/', LoginView.as_view(template_name='academy/login.html'), name='login'),
+    path('login/', AcademyLoginView.as_view(), name='login'),
     path('logout/', AcademyLogoutView.as_view(), name='logout'),
     path('account/', views.account_view, name='account'),
     path("account/edit/", ProfileUpdateView.as_view(), name="edit_account"),

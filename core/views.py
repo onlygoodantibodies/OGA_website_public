@@ -38,7 +38,8 @@ from pipeline.public import (application_list,
                              control_kinds as public_control_kinds,
                              control_phrase, control_word,
                              headline_counts, public_targets,
-                             published_antibodies, gene_page_figures)
+                             published_antibodies, published_figures,
+                             gene_page_figures)
 # What a vial's clonality is, from the enum and `is_recombinant` together —
 # neither column answers it alone. See pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
@@ -51,6 +52,8 @@ from .legacy_gene_ids import LEGACY_GENE_NAMES
 # one definition, shared with the API, the extension index and the MCP server.
 from . import recommendations as R
 from .context_processors import emphasised_for
+from . import champions as champions_list
+from . import partners as partners_list
 from . import target_confusions
 
 
@@ -260,6 +263,10 @@ def _gene_page_cells(columns, experiments, states, tabs, captions, controls,
         image = experiments.get(key)
         cells.append({
             'app': app,
+            # The column heading, carried on the cell too: on a phone the card
+            # is restacked and the heading row hidden, so each figure says
+            # which application it is beside itself.
+            'label': _COLUMN_LABEL[app],
             'alt': f'{app} Image',
             'filter_key': _FILTER_APP.get(app, app.lower()),
             'image': image,
@@ -399,11 +406,31 @@ def root_icon(request, name):
         raise Http404(f"No root icon called {name!r}.")
 
 
+def _programme_figures():
+    """Totals the public pages quote about the programme rather than the data:
+    Champions, institutions and Academy modules, each counted from the list it
+    totals (``core/champions.py``, ``academy/modules.py``). Typed into five
+    pages, they had drifted apart — "5 modules" beside "four modules"."""
+    from academy.modules import module_count
+
+    return {**champions_list.figures(), 'academy_module_count': module_count()}
+
+
 def about(request):
     # The same reader the home page uses. This was a hand copy of the counting
     # expression, so the two hero numbers on About were a second implementation
-    # of the home page's headline — right until one of them was edited.
-    return render(request, 'core/about.html', get_live_stats())
+    # of the home page's headline — right until one of them was edited. The
+    # supplier and partner totals were typed ("14 manufacturers", "26+") and
+    # had drifted: 24 suppliers had published antibodies on 7 Oct 2026.
+    from pipeline.public import supplier_count
+
+    return render(request, 'core/about.html', {
+        **get_live_stats(),
+        **_programme_figures(),
+        'supplier_count': supplier_count(),
+        'partner_count': partners_list.partner_count(),
+        'ycharos_partner_count': partners_list.ycharos_partner_count(),
+    })
 
 
 def publications(request):
@@ -415,7 +442,10 @@ def news_publications(request):
 
 
 def partners(request):
-    return render(request, 'core/partners.html')
+    return render(request, 'core/partners.html', {
+        'sections': partners_list.sections(),
+        'legend': partners_list.legend(),
+    })
 
 
 def funder_page(request, slug):
@@ -625,11 +655,15 @@ def privacy_policy(request):
 
 
 def roadmap(request):
-    return render(request, 'core/roadmap.html', get_live_stats())
+    return render(request, 'core/roadmap.html',
+                  {**get_live_stats(), **_programme_figures()})
 
 
 def champions(request):
-    return render(request, 'core/champions.html')
+    return render(request, 'core/champions.html', {
+        'champions': champions_list.CHAMPIONS,
+        **_programme_figures(),
+    })
 
 
 def connect_your_ai(request):
@@ -638,7 +672,10 @@ def connect_your_ai(request):
 
 
 def roadmap_institutions(request):
-    return render(request, 'core/roadmap_institutions.html')
+    return render(request, 'core/roadmap_institutions.html', {
+        'institutions': champions_list.institutions_for_map(),
+        **_programme_figures(),
+    })
 
 
 def roadmap_funders(request):
@@ -1665,6 +1702,33 @@ def _extension_hero(shots):
     return hero, rest
 
 
+def _mixed_results(gene_name):
+    """How many of a gene's published antibodies are supportive in one
+    application and not in another — the extension page's example of why a
+    result is per application. It said "two thirds" of TDP-43's, which was 12
+    of 18 on 7 Oct 2026 and stops being true the first time one is re-judged.
+    Each result is ``recommendations.describe``'s, the one every surface asks.
+    """
+    antibodies = list(published_antibodies().filter(target__gene_name=gene_name))
+    if not antibodies:
+        return {'mixed': 0, 'published': 0}
+    ids = [ab.pk for ab in antibodies]
+    tested = {}
+    for ab_id, app in (published_figures().filter(antibody_id__in=ids)
+                       .values_list('antibody_id', 'application_type')):
+        tested.setdefault(ab_id, set()).add(app)
+    curated = antibodies[0].target_id in R.curated_gene_ids([antibodies[0].target_id])
+    axes = R.capability_axes(ids)
+    mixed = 0
+    for ab in antibodies:
+        found = {R.describe(ab, app, tested.get(ab.pk, set()), curated,
+                            axes.get((ab.pk, app)))['support']
+                 for app in R.APPLICATIONS}
+        if R.SUPPORTIVE in found and found & {R.LIMITED_SUPPORT, R.NOT_SUPPORTIVE}:
+            mixed += 1
+    return {'mixed': mixed, 'published': len(antibodies)}
+
+
 def _extension_page(request, is_public):
     """Install page for the browser extension.
 
@@ -1739,6 +1803,8 @@ def _extension_page(request, is_public):
         # and how many reviews are on file, and both moved the week they were
         # written. `public_totals` is the one reader.
         'confusion_totals': target_confusions.public_totals(),
+        'confusion_counts': target_confusions.counts_by_list(),
+        'tdp43': _mixed_results('TARDBP'),
         'consensus_protocol_url': CONSENSUS_PROTOCOL_URL,
         'confusion_shot': confusion_shot,
         'video': EXTENSION_VIDEO if EXTENSION_VIDEO.get('id') else None,

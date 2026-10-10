@@ -21,8 +21,9 @@ and shows **zero** rows is reported, not failed — an empty filter is a real
 answer, but it is worth a human look.
 
 The account comes from ``OGA_TEST_USERNAME`` / ``OGA_TEST_PASSWORD`` (the
-cloud environment's settings). It must be a field-test member, never a
-superuser. The password is never printed. Exit status is 0 only if every
+cloud environment's settings). It is a superuser by the owner's decision
+(8 Oct 2026), so this reads the pages as a superuser sees them, not as a
+bench member does. The password is never printed. Exit status is 0 only if every
 page passed, so this can gate something rather than be read hopefully.
 
 ``/pipeline/`` is never edge-cached (``cache_headers.NEVER_CACHED_PREFIXES``),

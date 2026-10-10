@@ -229,6 +229,10 @@ urlpatterns = [
     path('academy/<int:pk>/history/<int:rev>/', views.academy_module_version,
          name='academy_module_version'),
     path('impact/', views.impact_dashboard, name='impact'),
+    path('impact/api-usage.csv', views.impact_api_usage_csv,
+         name='impact_api_usage_csv'),
+    path('impact/mcp-usage.csv', views.impact_mcp_usage_csv,
+         name='impact_mcp_usage_csv'),
     # One organisation's API activity, reached by clicking its name on the
     # impact page. A detail page rather than a Browse destination, the same
     # shape as `target_detail`: arriving here means somebody picked a row.

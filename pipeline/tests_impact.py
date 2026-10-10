@@ -530,3 +530,68 @@ class InternalUsageIsExcludedButShownTests(TestCase):
         self.assertEqual(data['internal_calls'], 30)
         self.assertEqual(sum(r['calls'] for r in data['by_tool']), 2)
         self.assertEqual(data['series'][-1]['n'], 2)
+
+    def test_the_full_history_file_holds_every_row_and_says_whose(self):
+        """The download is the whole record, so it must not repeat the
+        headline's exclusion silently — and a keyless row must not be lost to
+        the join that names a caller. Every request the counter holds is in the
+        file: 5 + 90 + 7 + 3 + 40 = 145, with our 130 marked internal."""
+        import csv
+        import io
+
+        from pipeline.services import impact
+
+        text = impact.api_usage_csv()
+        self.assertTrue(text.startswith('﻿'), "Excel needs the BOM.")
+        rows = list(csv.DictReader(io.StringIO(text.lstrip('﻿'))))
+        self.assertEqual(sum(int(r['requests']) for r in rows), 145)
+        keyless = [r for r in rows if r['caller'] == impact.KEYLESS_CALLER]
+        self.assertEqual([(r['consumer_id'], r['requests']) for r in keyless],
+                         [('', '7')])
+        self.assertEqual(
+            sum(int(r['requests']) for r in rows if r['internal'] == 'yes'), 130)
+        self.assertEqual({r['what_they_did'] for r in rows
+                          if r['endpoint'] == 'antibodies_feed'},
+                         {'pulled the antibody feed'})
+
+    def test_the_full_history_file_is_superusers_only(self):
+        self.site = Site.objects.using(DB).create(name="Leicester",
+                                                  short_code="LEI")
+        url = reverse("pipeline:impact_api_usage_csv")
+        page = ImpactPageTests._user(self, "root", True).get(url)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('attachment;', page['Content-Disposition'])
+        self.assertNotEqual(
+            ImpactPageTests._user(self, "bench", False).get(url).status_code, 200,
+            "A non-superuser downloaded every partner's API usage.")
+
+    def test_the_mcp_history_file_holds_our_calls_marked(self):
+        """Both rows, 2 + 30, with our 30 marked — the file is the place the
+        headline's exclusion is visible, so it must not repeat it."""
+        import csv
+        import io
+
+        from core.models import McpUsageDay
+        from django.utils import timezone
+        from pipeline.services import impact
+
+        McpUsageDay.objects.create(date=timezone.localdate(), tool="list_targets",
+                                   client="", count=4)
+        text = impact.mcp_usage_csv()
+        self.assertTrue(text.startswith('﻿'), "Excel needs the BOM.")
+        rows = list(csv.DictReader(io.StringIO(text.lstrip('﻿'))))
+        self.assertEqual(sum(int(r['calls']) for r in rows), 36)
+        self.assertEqual(
+            sum(int(r['calls']) for r in rows if r['internal'] == 'yes'), 30)
+        self.assertIn(impact.UNNAMED_CLIENT, [r['client'] for r in rows])
+
+    def test_the_mcp_history_file_is_superusers_only(self):
+        self.site = Site.objects.using(DB).create(name="Leicester",
+                                                  short_code="LEI")
+        url = reverse("pipeline:impact_mcp_usage_csv")
+        page = ImpactPageTests._user(self, "root", True).get(url)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('oga_mcp_usage_by_day_', page['Content-Disposition'])
+        self.assertNotEqual(
+            ImpactPageTests._user(self, "bench", False).get(url).status_code, 200,
+            "A non-superuser downloaded the MCP usage history.")

@@ -1,10 +1,21 @@
 /* Root Variables */
 :root {
     --main-blue: #10428a;
-    --font-primary: 'Open Sans', sans-serif;
+    --font-primary: 'Roboto', sans-serif;
     --heading-color: var(--main-blue);
     --background-color: #f4f4f4;
     --section-padding: 60px; /* Consistent section padding */
+}
+
+/* The font itself is declared in fonts/roboto.css, linked by core/_fonts.html;
+   a page that names Roboto without that include falls back to sans-serif.
+
+   Bootstrap sets body's font from --bs-font-sans-serif on its own :root, and
+   the sign-in and password-reset pages link Bootstrap after this file, so its
+   system-font stack won the tie and drew everything outside p, li and the
+   headings in a second typeface. The doubled :root outranks it in either order. */
+:root:root {
+    --bs-font-sans-serif: var(--font-primary);
 }
 
 /* Horizontal overflow is clipped on `html` ALONE, deliberately.
@@ -38,6 +49,12 @@ h1, h2, h3, h4, h5, h6 {
     margin-top: 0;
     font-weight: bold;
     text-align: center;
+}
+
+/* A browser draws form controls in its own font unless told to inherit, so
+   every button on a page without Bootstrap (which does this itself) was Arial. */
+button, input, textarea {
+    font-family: inherit;
 }
 
 p, li {
@@ -205,7 +222,7 @@ nav ul li a:hover {
 .open-science p,
 .our-approach ul,
 .open-science ul {
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-primary);
     font-size: 1.2rem;
     line-height: 1.8;
     color: #333;
@@ -235,7 +252,7 @@ nav ul li a:hover {
 .introduction h2,
 .our-approach h2,
 .open-science h2 {
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-primary);
     color: var(--main-blue);
     font-size: 2.5rem;
     font-weight: 500;
@@ -799,6 +816,12 @@ nav ul li a:hover {
     color: white !important;
 }
 
+/* The licence links sit inside a sentence, so they need the underline the
+   rule above takes off every footer link, or they read as plain text. */
+.footer .footer-licence a {
+    text-decoration: underline;
+}
+
 html, body {
     height: 100%; 
     margin: 0; 
@@ -905,7 +928,7 @@ html, body {
     list-style-type: disc; 
     padding-left: 20px; 
     margin: 20px 0; 
-    font-family: 'Open Sans', sans-serif; 
+    font-family: var(--font-primary); 
     font-size: 1.2rem; 
     color: #333; 
 }
@@ -1912,19 +1935,19 @@ td {
 
 
 
-/* Prevent scaling for the antibody table page */
-.antibody-table-page {
-    min-width: 1024px; /* Set a minimum width for desktop layout */
-    overflow-x: auto; /* Allow horizontal scrolling if needed */
-}
-
+/* The gene page. It was held at a 1024px minimum width, to be shrunk onto a
+   phone whole; it lays itself out at the phone's width now (10 Oct 2026, see
+   the viewport comment in antibody_table.html). */
 .antibody-table-page * {
     box-sizing: border-box;
   }
   
-/* Adjust Banner */
+/* Adjust Banner. A minimum, not a height: the banner's `overflow: hidden`
+   cut off the licence line under the buttons at a fixed 150px, and on a phone
+   it would cut off the buttons once they wrap. */
 .antibody-banner {
-    height: 150px; /* Reduce banner height */
+    height: auto;
+    min-height: 150px;
 }
 
 .antibody-banner .banner-text h2 {
@@ -1933,24 +1956,7 @@ td {
 }
 
 
-@media (max-width: 768px) {
-    .antibody-table-page {
-        width: 1024px;  /* Fixed desktop-like width */
-        height: auto;
-        overflow-x: auto;  /* Allow horizontal scrolling */
-        margin: 0 auto;
-    }
-
-    .antibody-table-page .container,
-    .antibody-table-page .header,
-    .antibody-table-page .filter-sidebar,
-    .antibody-table-page .table-container,
-    .antibody-table-page .antibody-banner {
-        max-width: 1024px;  /* Ensure all sections stay in desktop width */
-    }
-}
 .antibody-banner {
-    height: 150px;
     width: 100%;       /* Ensure it stretches the full width of its parent */
     background-size: cover; /* Cover the entire space if you are using a background image */
     background-color: var(--main-blue); /* Add a background color if needed */
@@ -1974,13 +1980,6 @@ td {
 }
 
 @media (max-width: 768px) {
-    .antibody-table-page {
-        width: 100vw;       /* Use the full viewport width */
-        height: auto;
-        overflow-x: auto;
-        margin: 0 auto;
-    }
-
     .antibody-banner {
         width: 100vw;       /* Ensure the banner stretches across the full viewport width */
     }
@@ -2001,7 +2000,7 @@ td {
     background-color: #f9f9f9; /* Very light gray for a soft background */
     border-radius: 10px; /* Subtle rounded corners */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Very soft shadow for depth */
-    font-family: 'Open Sans', sans-serif; /* Consistent font styling */
+    font-family: var(--font-primary); /* Consistent font styling */
     animation: fadeIn 0.3s ease-out; /* Add a subtle fade-in effect */
 }
 
@@ -2190,7 +2189,7 @@ strong {
 
 /* General container for better layout */
 label {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-primary);
     font-size: 14px;
     font-weight: bold;
     color: #333;
@@ -2198,7 +2197,7 @@ label {
 }
 
 select {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-primary);
     font-size: 14px;
     padding: 8px 12px;
     border: 1px solid #ccc;
@@ -2216,7 +2215,7 @@ select:focus {
 }
 
 option {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-primary);
     font-size: 14px;
     color: #333;
 }
@@ -2287,7 +2286,7 @@ option {
     padding: 60px 20px;
     background-color: #fff; /* Cleaner white background */
     text-align: center;
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-primary);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
     border-radius: 10px; /* Slightly round the edges */
     margin: 40px auto; /* Add spacing around the form */
@@ -2328,7 +2327,7 @@ option {
     border: 1px solid #ccc;
     border-radius: 8px; /* Rounded inputs for a modern look */
     font-size: 1rem;
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-primary);
     transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth focus effect */
 }
 
@@ -2486,7 +2485,7 @@ option {
 
 /* Privacy & Cookie Policy Styling */
 .policy-page {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-primary);
     color: #333;
     background-color: #f8f8f8;
     margin: 0;

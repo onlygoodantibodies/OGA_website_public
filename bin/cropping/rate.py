@@ -9,7 +9,8 @@ RATINGS.json:
      "recommend": {"WB": ["ab32378", ...], "IP": [...], "ICC-IF": [...], "FC": [...]},
      "fc_background": {"ab32071": "Yes", "ab32138": "No"}}
 
-The review meeting keeps or changes all of it; the account cannot release.
+The review meeting keeps or changes all of it, and this never presses Release
+(the account could: it is a superuser by the owner's decision, 8 Oct 2026).
 Four refusals, each stopping the run before the press, not after:
   * an answer only where the card's note says "nothing recorded yet";
   * never on a card not staged by this account, or one already public;

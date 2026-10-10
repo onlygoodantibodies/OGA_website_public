@@ -8,7 +8,7 @@
     <meta name="description" content="A quick record of your antibody validation: what the antibody was, what you used it for, which controls you ran, and why. A lightweight companion to the Validation Planner.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -20,7 +20,7 @@
 }
 .vrec-hero-inner { max-width: 760px; margin: 0 auto; }
 .vrec-hero-label { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; opacity: .9; color: #fff !important; }
-.vrec-hero h1 { font-family: 'Open Sans', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
+.vrec-hero h1 { font-family: 'Roboto', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
 .vrec-hero p { font-size: 1rem; line-height: 1.6; opacity: .96; margin: 0; color: #fff !important; }
 .vrec-hero a { color: #fff !important; text-decoration: underline; }
 
@@ -37,7 +37,7 @@
   box-shadow: 0 1px 3px rgba(20,40,80,.05); padding: 22px 22px 8px; margin-bottom: 22px;
 }
 .vrec-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.vrec-card-num { font-family: 'Open Sans', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
+.vrec-card-num { font-family: 'Roboto', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
 .vrec-remove { background: none; border: none; color: #b91c1c; font-size: .82rem; cursor: pointer; font-weight: 600; }
 .vrec-remove:hover { text-decoration: underline; }
 
@@ -76,7 +76,7 @@
 
 .vrec-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .vrec-btn {
-  font-family: 'Open Sans', sans-serif; font-weight: 700; font-size: .92rem; border: none;
+  font-family: 'Roboto', sans-serif; font-weight: 700; font-size: .92rem; border: none;
   border-radius: 9px; padding: 11px 20px; cursor: pointer;
 }
 .vrec-btn-primary { background: #10428a; color: #fff; }

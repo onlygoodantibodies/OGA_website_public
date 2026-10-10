@@ -8,7 +8,7 @@
     <meta name="description" content="Tools and resources for planning, documenting, and improving antibody validation. Free, open, and built on consensus recommendations.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -32,7 +32,7 @@
   letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
 }
 .th-hero h1 {
-  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
   line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
 }
 .th-hero p {
@@ -67,7 +67,7 @@
 }
 
 .th-card h2 {
-  font-family: 'Open Sans', sans-serif; font-size: 1.1rem; font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: 1.1rem; font-weight: 800;
   color: #10428a; margin-bottom: 10px; line-height: 1.3;
 }
 
@@ -129,7 +129,7 @@
   padding: 20px 24px; margin-bottom: 48px;
 }
 .th-downloads-title {
-  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 0.92rem; font-weight: 700;
   color: #10428a; margin-bottom: 10px;
 }
 .th-downloads-list {

@@ -246,3 +246,67 @@ class TheQualifiedNegativeIsDrawnAsACaptionTests(StaticLiveServerTestCase):
         for cls, captioned in boxes:
             if cls.strip() == "experiment-box":
                 self.assertFalse(captioned, "an untested cell needs no caption")
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT and CHROME,
+                     "needs playwright and the bundled Chromium")
+class TheGenePageFitsAPhoneTests(StaticLiveServerTestCase):
+    """The page asked a phone for a 1024px layout shrunk to 0.4 (until 10 Oct
+    2026), and Firefox and Chrome both answer that by enlarging the text of
+    every wide paragraph — the caveats drew at ~2.5× beside a tiny nav. Nothing
+    fails when it comes back: the page renders 200 and is merely unreadable.
+
+    `is_mobile` is what makes Chromium honour the viewport tag (and autosize
+    text), so without it this measures a desktop window that happens to be
+    narrow."""
+    databases = {DB, "academy_db"}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from playwright.sync_api import sync_playwright
+        cls._pw = sync_playwright().start()
+        cls.browser = cls._pw.chromium.launch(
+            executable_path=CHROME, args=["--no-sandbox"])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls._pw.stop()
+        super().tearDownClass()
+
+    def setUp(self):
+        site = Site.objects.using(DB).create(name="Leicester", short_code="LEI")
+        company = Company.objects.using(DB).create(name="GeneTex")
+        target = Target.objects.using(DB).create(gene_name="ARID2")
+        ab = Antibody.objects.using(DB).create(
+            catalogue_number="GTX111", rrid="AB_1", target=target,
+            company=company, site=site, wb_recommended=True)
+        for app in ("WB", "IP"):
+            PublicationImage.objects.using(DB).create(
+                antibody=ab, application_type=app,
+                image=SimpleUploadedFile(
+                    f"{app}.png",
+                    TheQualifiedNegativeIsDrawnAsACaptionTests._png(),
+                    content_type="image/png"))
+        self.context = self.browser.new_context(
+            viewport={"width": 390, "height": 844}, is_mobile=True,
+            has_touch=True)
+        self.page = self.context.new_page()
+
+    def tearDown(self):
+        self.context.close()
+
+    def test_the_page_is_the_phones_width_and_each_figure_names_its_application(self):
+        self.page.goto(f"{self.live_server_url}/antibodies/ARID2/")
+        self.page.wait_for_selector(".row-box[data-antibody-id]", timeout=20000)
+        widths = self.page.evaluate(
+            "() => [document.documentElement.scrollWidth, window.innerWidth]")
+        self.assertLessEqual(widths[0], 390,
+                             f"the page is wider than the phone: {widths}")
+        # The heading row is hidden on a phone, so the label has to come from
+        # the cell itself.
+        labels = self.page.eval_on_selector_all(
+            ".row-box[data-antibody-id] td[data-label]",
+            "tds => tds.map(td => getComputedStyle(td, '::before').content)")
+        self.assertEqual(labels, ['"WB"', '"IP"'])

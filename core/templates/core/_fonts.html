@@ -1,0 +1,6 @@
+{% load static %}{% comment %}
+The site's typeface, Roboto, served from our own static files (core/static/core/fonts/roboto.css says why).
+Include it in a page's <head>. The preload starts the Latin file before the stylesheet has been read;
+`crossorigin` is required on a font preload even from the same origin, or the browser fetches it twice.
+{% endcomment %}<link rel="preload" href="{% static 'core/fonts/roboto-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{% static 'core/fonts/roboto.css' %}">

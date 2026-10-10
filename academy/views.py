@@ -22,6 +22,7 @@ from .models import (
 )
 
 from .forms                               import ProfileUpdateForm
+from .modules                             import module_count, published_lessons
 
 User = get_user_model()
 # views.py
@@ -56,10 +57,8 @@ def home(request):
     # A module still being written is kept off the list (``is_published``);
     # its editors reach it from the pipeline's editor instead.
     lessons = list(
-        Lesson.objects
-        .filter(is_published=True)
+        published_lessons()
         .annotate(section_total=Count('sections', distinct=True))
-        .order_by('order')
     )
     lesson_ids = [lesson.id for lesson in lessons]
 
@@ -601,3 +600,13 @@ def mark_section_viewed(request):
         'total': total,
         'progress': round((viewed/total)*100,1),
     })
+
+class AcademyLoginView(AllAuthLoginView):
+    """The Academy's sign-in page, which is also its public landing page: it
+    says how many modules there are, so it counts them (``academy/modules.py``)."""
+    template_name = 'academy/login.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['academy_module_count'] = module_count()
+        return context

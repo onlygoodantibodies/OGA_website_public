@@ -198,6 +198,90 @@ def api_usage():
     }
 
 
+def _csv_text(columns, rows):
+    """A header and rows as CSV text, with a BOM.
+
+    UTF-8 with a BOM for the reason `core/not_supportive.py::to_csv` gives: the
+    first thing anybody does with one of these files is open it in Excel.
+    """
+    import csv
+    import io
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator='\n')
+    writer.writerow(columns)
+    writer.writerows(rows)
+    return '\ufeff' + buffer.getvalue()
+
+
+#: The columns of the API's full-history download, in order. ``what_they_did``
+#: is the same plain English the consumer page prints (`consumer_activity.
+#: activity_label`), so the file and the page cannot describe one endpoint two
+#: ways.
+API_USAGE_CSV_COLUMNS = ('date', 'caller', 'consumer_id', 'consumer_type',
+                         'internal', 'endpoint', 'what_they_did', 'requests')
+
+#: What the file writes where a request carried no usable key.
+KEYLESS_CALLER = 'no key'
+
+
+def api_usage_csv():
+    """Every row the API counter has ever written, as CSV text.
+
+    **This is the whole record, and it is a daily one.** ``ApiUsageDay`` keeps
+    one row per caller per endpoint per day and never a row per request (its
+    docstring says why), so the file is the finest grain that exists anywhere:
+    there are no times of day, and a keyless row names no caller. Internal keys
+    are **included and flagged** rather than left out as the headline does — a
+    file somebody filters is the place to see the exclusion, not repeat it.
+    """
+    from core.models import ApiUsageDay
+    from pipeline.services.consumer_activity import activity_label
+
+    rows = (ApiUsageDay.objects
+            .values_list('date', 'consumer_id', 'consumer__name',
+                         'consumer__consumer_type', 'consumer__is_internal',
+                         'endpoint', 'count')
+            .order_by('date', 'consumer__name', 'consumer_id', 'endpoint'))
+    return _csv_text(API_USAGE_CSV_COLUMNS, (
+        [day.isoformat(),
+         name if consumer_id else KEYLESS_CALLER,
+         consumer_id or '',
+         kind or '',
+         'yes' if internal else 'no',
+         endpoint,
+         activity_label(endpoint),
+         count]
+        for day, consumer_id, name, kind, internal, endpoint, count in rows))
+
+
+#: The columns of the MCP connector's full-history download, in order.
+MCP_USAGE_CSV_COLUMNS = ('date', 'tool', 'client', 'internal', 'calls')
+
+#: What the file writes where the connecting app did not name itself — the
+#: same words the page's "Which client" table prints.
+UNNAMED_CLIENT = 'did not say'
+
+
+def mcp_usage_csv():
+    """Every row the MCP counter has ever written, as CSV text.
+
+    The same bargain as `api_usage_csv`: one row per tool per client per day,
+    which is all ``McpUsageDay`` keeps, so there are no times of day and no
+    people — a client is the software, never who was using it. Our own calls
+    are included and marked, as the API's internal keys are.
+    """
+    from core.models import McpUsageDay
+
+    rows = (McpUsageDay.objects
+            .values_list('date', 'tool', 'client', 'internal', 'count')
+            .order_by('date', 'tool', 'client', 'internal'))
+    return _csv_text(MCP_USAGE_CSV_COLUMNS, (
+        [day.isoformat(), tool, client or UNNAMED_CLIENT,
+         'yes' if internal else 'no', count]
+        for day, tool, client, internal, count in rows))
+
+
 def portal_sessions():
     """Who signed in to the supplier portal with their key, and when.
 

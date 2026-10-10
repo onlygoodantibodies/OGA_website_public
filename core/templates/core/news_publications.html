@@ -8,7 +8,7 @@
     <meta name="description" content="Latest news, peer-reviewed publications and open resources from the Only Good Antibodies community.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -53,7 +53,7 @@
   color: rgba(255,255,255,0.9);
 }
 .np-hero h1 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: clamp(1.8rem, 4vw, 2.6rem);
   font-weight: 800;
   line-height: 1.2;
@@ -132,7 +132,7 @@
   margin-bottom: 8px;
 }
 .np-section-title {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.6rem;
   font-weight: 800;
   color: #10428a;
@@ -197,7 +197,7 @@
   font-weight: 500;
 }
 .nc-body h2 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.15rem;
   font-weight: 700;
   color: #10428a;
@@ -317,7 +317,7 @@
 .badge-preprint { background: #fee2e2; color: #b91c1c; }
 .badge-resource { background: #f0fdf4; color: #166534; }
 .pub-card h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.02rem;
   font-weight: 700;
   color: #10428a;
@@ -405,7 +405,7 @@
   transform: translateY(-2px);
 }
 .resource-card h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.02rem;
   font-weight: 700;
   color: #10428a;
@@ -416,6 +416,25 @@
   color: #555;
   line-height: 1.6;
   margin-bottom: 16px;
+}
+
+.resource-card-wide { grid-column: 1 / -1; }
+.resource-links { list-style: none; padding: 0; margin: 0; }
+.resource-links li { margin-bottom: 14px; }
+.resource-links li:last-child { margin-bottom: 0; }
+.resource-links a {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #10428a;
+  text-decoration: none;
+}
+.resource-links a:hover { text-decoration: underline; }
+.resource-links span {
+  display: block;
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.6;
+  margin-top: 2px;
 }
 
 /* ── RESPONSIVE ── */
@@ -481,6 +500,19 @@
 
         <div class="np-news-feed">
 
+            <!-- Cancer Research Horizons validation guidance — 1 Oct 2026 -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-report">Policy &amp; Impact</span>
+                        <span class="nc-date">1 October 2026</span>
+                    </div>
+                    <h2>Cancer Research Horizons puts antibody validation guidance in place, drawing on OGA resources</h2>
+                    <p>Cancer Research UK has published an article by Dr Rebecca Harris, Group Leader in the Therapeutic Innovation team at Cancer Research Horizons, its drug discovery arm. It describes how the team used resources freely available from Only Good Antibodies to put clear antibody validation guidance in place for its Therapeutic Innovation teams. The article encourages all researchers to build antibody validation into their research plans and budgets, and to use independent sources such as the OGA antibody database when choosing antibodies.</p>
+                    <a href="https://news.cancerresearchuk.org/2026/10/01/research-integrity-why-robust-antibody-validation-is-vital-for-drug-discovery/" class="nc-link" target="_blank" rel="noopener">Read the article →</a>
+                </div>
+            </article>
+
             <!-- PLOS Biology publication — 6 Oct 2026 -->
             <article class="nc">
                 <div class="nc-body">
@@ -498,13 +530,21 @@
                     <ul>
                         <li>Biddle M, Cooper J, Blades K, Ruddy D, Krockow EM, Virk H (2026) <a href="https://doi.org/10.1371/journal.pbio.3003984" target="_blank" rel="noopener">Inadequate antibody validation places substantial numbers of animal and human tissue samples at risk of waste</a>. <em>PLOS Biology</em> 24(10): e3003984.</li>
                         <li>Blades K, Biddle M, Froud R, Krockow EM, Virk H (2026) <a href="https://doi.org/10.1371/journal.pbio.3003981" target="_blank" rel="noopener">Actionable solutions to address antibody validation failures</a>. <em>PLOS Biology</em> 24(10): e3003981.</li>
+                        <li><em>PLOS Biology</em> also published a Primer on the two studies: Duchêne J (2026) <a href="https://doi.org/10.1371/journal.pbio.3004001" target="_blank" rel="noopener">Better antibodies, better science</a>. <em>PLOS Biology</em> 24(10): e3004001.</li>
                     </ul>
 
+                    {% comment %}Coverage links pieces where someone independent chose to write
+                    about or act on the work, plus the two announcements: PLOS's press
+                    release, linked once at EurekAlert!, and the University of Leicester's
+                    own news story. Never the sites that reposted the release (Medical
+                    Xpress, News-Medical, Mirage News and the rest) or AI rewrites of it.{% endcomment %}
                     <p><strong>Coverage</strong></p>
                     <ul>
-                        <li><a href="https://www.eurekalert.org/news-releases/1145655" target="_blank" rel="noopener">PLOS press release (EurekAlert!)</a></li>
-                        <li><a href="https://medicalxpress.com/news/2026-10-poor-antibody-validation-millions-biological.html" target="_blank" rel="noopener">Medical Xpress</a></li>
+                        <li><a href="https://doi.org/10.1371/journal.pbio.3004001" target="_blank" rel="noopener">PLOS Biology Primer: Better antibodies, better science</a></li>
                         <li><a href="https://www.the-scientist.com/antibody-stakeholders-agree-on-15-actions-that-can-address-reagent-issues-75100" target="_blank" rel="noopener">The Scientist</a></li>
+                        <li><a href="https://www.biocompare.com/Life-Science-News/628628-Experts-Reach-Consensus-on-Fixing-a-Decades-Old-Antibody-Problem/" target="_blank" rel="noopener">Biocompare</a></li>
+                        <li><a href="https://www.eurekalert.org/news-releases/1145655" target="_blank" rel="noopener">PLOS press release (EurekAlert!)</a></li>
+                        <li><a href="https://le.ac.uk/news/2026/october/only-good-antibodies-leicester-improvements" target="_blank" rel="noopener">University of Leicester news</a></li>
                     </ul>
 
                     <a href="{% url 'roadmap' %}" class="nc-link">Read the Roadmap →</a>
@@ -523,7 +563,7 @@
                     <h2>OGA and YCharOS offer constructive solutions to antibody and image integrity problems</h2>
                     <p>Image integrity concerns across the catalogues of 15 antibody vendors were raised on 25 August 2026 by Reese Richardson (Northwestern University), and covered the same day by <em>Nature</em>, <em>Science</em>, <em>C&amp;EN</em> and <em>The Scientist</em>. Experts from across OGA and YCharOS were interviewed and quoted in that coverage.</p>
                     <p>In some of the coverage, a cross analysis of the reagents associated with potentially manipulated images with our data is presented. The characterisation data referred to is generated by the <strong>YCharOS</strong> consortium, through academic characterisation laboratories at McGill University, the University of British Columbia, the University of Ottawa, Cornell University and the University of Leicester. OGA provides the data infrastructure and dissemination. This analysis was carried out independently by Richardson, not by us.</p>
-                    <p>It was reported as 43 of the 52 antibodies we have assessed failing at least one application. We would clarify that antibody performance is assay-, protocol- and sample-dependent. Failing an application is entirely expected: it is the normal outcome of characterisation, not a marker of a defective product, and it is precisely why antibodies need validating for your specific experimental context.</p>
+                    <p>It was reported as 43 of the 52 antibodies in the dataset failing at least one application. We would clarify that antibody performance is assay-, protocol- and sample-dependent. Failing an application is entirely expected: it is the normal outcome of characterisation, not a marker of a defective product, and it is precisely why antibodies need validating for your specific experimental context.</p>
                     <p>Whilst it is important that these potential image manipulations are properly investigated, the clearer lesson is this: trusted, independent, third-party data is a very valuable way of informing your purchasing decisions, and your interpretation of how antibodies have been used in the literature. That is what OGA and YCharOS exist to provide.</p>
 
                     <p><strong>Coverage</strong></p>
@@ -532,6 +572,8 @@
                         <li><a href="https://www.science.org/content/article/fraudulent-images-are-rife-antibody-sellers-websites-researcher-says" target="_blank" rel="noopener">Science</a></li>
                         <li><a href="https://cen.acs.org/biological-chemistry/biochemistry/report-suggests-antibody-image-manipulation/104/web/2026/08" target="_blank" rel="noopener">Chemical &amp; Engineering News</a></li>
                         <li><a href="https://www.the-scientist.com/misleading-antibody-validation-images-controversy-expands-to-15-vendors-74915" target="_blank" rel="noopener">The Scientist</a></li>
+                        <li><a href="https://www.science.org/content/blog-post/crappy-antibodies-made-superficially-more-appealing" target="_blank" rel="noopener">Science: In the Pipeline (Derek Lowe, 1 September 2026)</a></li>
+                        <li><a href="https://www.bioprocessintl.com/downstream-processing/over-15-companies-implicated-in-commercial-antibody-image-manipulation-scandal" target="_blank" rel="noopener">BioProcess International</a></li>
                     </ul>
 
                     <p><strong>Primary source</strong></p>
@@ -804,7 +846,7 @@
             <div class="pub-card">
                 <span class="pub-badge badge-elife">eLife · 2024</span>
                 <h3>Science Forum: Antibody characterization is critical to enhance reproducibility in biomedical research</h3>
-                <p class="pub-meta"><strong>Authors:</strong> Khan RA, Virk H, Laflamme C, et al.</p>
+                <p class="pub-meta"><strong>Authors:</strong> Kahn RA, Virk H, Laflamme C, et al.</p>
                 <div class="pub-card-footer">
                     <a href="https://doi.org/10.7554/eLife.100211" class="pub-link" target="_blank">Read Article →</a>
                 </div>
@@ -918,6 +960,22 @@
                 <div class="pub-card-footer">
                     <a href="https://zenodo.org/communities/ycharos/" class="pub-link" target="_blank">Browse Datasets →</a>
                 </div>
+            </div>
+
+            <!-- Independent guides that point to OGA -->
+            <div class="resource-card resource-card-wide">
+                <span class="pub-badge badge-resource">Guides</span>
+                <h3>Independent guides that point to OGA</h3>
+                <ul class="resource-links">
+                    <li>
+                        <a href="https://blog.cellsignal.com/antibody-validation-through-ycharos" target="_blank" rel="noopener">Cell Signaling Technology: Setting the Standard →</a>
+                        <span>A manufacturer's account of how it uses YCharOS data, and its advice to customers to check that data when choosing antibodies</span>
+                    </li>
+                    <li>
+                        <a href="https://bitesizebio.com/91526/buying-antibodies/" target="_blank" rel="noopener">Bitesize Bio: Five checks to run before buying antibodies →</a>
+                        <span>A buying guide that recommends checking OGA and YCharOS data before you buy</span>
+                    </li>
+                </ul>
             </div>
 
         </div>

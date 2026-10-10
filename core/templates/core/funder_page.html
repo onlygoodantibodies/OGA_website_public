@@ -8,7 +8,7 @@
     <meta name="description" content="{{ count }} genes with antibodies independently characterised by YCharOS under {{ page.name }} funding, assessed with {{ controls }}, from Only Good Antibodies.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -26,7 +26,7 @@
   letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20px; color: rgba(255,255,255,0.9);
 }
 .fp-hero h1 {
-  font-family: 'Open Sans', sans-serif; font-size: clamp(1.7rem, 4.5vw, 2.6rem); font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: clamp(1.7rem, 4.5vw, 2.6rem); font-weight: 800;
   line-height: 1.2; margin: 0 0 16px; letter-spacing: -0.5px; color: #fff !important;
 }
 .fp-hero p { font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.88); max-width: 680px; margin: 0 auto; }

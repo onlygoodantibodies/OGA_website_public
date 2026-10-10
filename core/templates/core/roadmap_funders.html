@@ -8,14 +8,14 @@
     <meta name="description" content="For research funders: four practical, staged interventions across the grant lifecycle that require antibody validation without unrealistic applicant burden — ready-to-adopt language and the tools to support it.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 .fun-hero{background:linear-gradient(160deg,#0d2b5e 0%,#10428a 40%,#4a8ec9 100%);color:#fff;padding:72px 24px 56px;text-align:center;position:relative;overflow:hidden}
 .fun-hero::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,.15) 0%,transparent 70%);border-radius:50%}
 .fun-hero-inner{max-width:820px;margin:0 auto;position:relative;z-index:1}
 .fun-hero-label{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 18px;border-radius:100px;font-size:.85rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px;color:rgba(255,255,255,.9)}
-.fun-hero h1{font-family:'Open Sans',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
+.fun-hero h1{font-family:'Roboto',sans-serif;font-size:clamp(2rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:20px;letter-spacing:-.5px;color:#fff!important}
 .fun-hero p{font-size:1.1rem;line-height:1.7;color:rgba(255,255,255,.85);max-width:720px;margin:0 auto}
 .fun-hero h1,.fun-hero p,.fun-hero span{color:#fff!important}
 
@@ -29,7 +29,7 @@ html{scroll-behavior:smooth}
 .fun-section{padding:64px 24px;scroll-margin-top:24px}
 .fun-section-inner{max-width:1000px;margin:0 auto}
 .fun-label{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4a8ec9;margin-bottom:8px}
-.fun-title{font-family:'Open Sans',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
+.fun-title{font-family:'Roboto',sans-serif;font-size:1.7rem;font-weight:800;color:#10428a;margin-bottom:14px;letter-spacing:-.3px}
 .fun-desc{color:#444;font-size:1rem;line-height:1.7;margin-bottom:28px;max-width:780px}
 .fun-bg-light{background:#f5f8ff}
 .fun-bg-white{background:#fff}
@@ -42,7 +42,7 @@ html{scroll-behavior:smooth}
 .fun-stage:last-child{margin-bottom:0}
 .fun-stage-num{position:absolute;left:-42px;top:18px;width:34px;height:34px;background:#10428a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;border:3px solid #fff;box-shadow:0 0 0 1px #e2e8f0}
 .fun-stage-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.fun-stage-head h3{font-family:'Open Sans',sans-serif;font-size:1.08rem;font-weight:700;margin:0;line-height:1.3}
+.fun-stage-head h3{font-family:'Roboto',sans-serif;font-size:1.08rem;font-weight:700;margin:0;line-height:1.3}
 .fun-stage-refs{font-size:.72rem;font-weight:700;color:#10428a;background:#e8f1fa;padding:2px 8px;border-radius:4px;letter-spacing:.5px}
 .fun-stage-effort{font-size:.74rem;color:#6b7280;font-style:italic}
 .fun-stage-body{font-size:.92rem;color:#444;line-height:1.65}
@@ -61,7 +61,7 @@ html{scroll-behavior:smooth}
 .fun-icon-tools{background:#e8f1fa}
 .fun-icon-standards{background:#fef3c7}
 .fun-icon-guide{background:#ede9fe}
-.fun-toolkit-card h3{font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
+.fun-toolkit-card h3{font-family:'Roboto',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;line-height:1.3}
 .fun-toolkit-card>p{font-size:.9rem;color:#555;line-height:1.6;margin-bottom:16px}
 .fun-toolkit-card .fun-meta{font-size:.82rem;color:#6b7280;margin-bottom:16px;line-height:1.5}
 .fun-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:#10428a;color:#fff;text-decoration:none;border-radius:8px;font-size:.88rem;font-weight:600;transition:background .2s;border:none;cursor:pointer}
@@ -72,7 +72,7 @@ html{scroll-behavior:smooth}
 
 /* Budgeting table inline */
 .fun-budget-table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px;margin-bottom:14px}
-.fun-budget-table th{background:#f0f4f9;color:#10428a;font-family:'Open Sans',sans-serif;font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+.fun-budget-table th{background:#f0f4f9;color:#10428a;font-family:'Roboto',sans-serif;font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
 .fun-budget-table td{padding:8px 10px;border-bottom:1px solid #f0f4f9;color:#333;line-height:1.45;vertical-align:top}
 .fun-budget-table tr:last-child td{border-bottom:none}
 .fun-budget-total{background:#fef3c7;padding:10px 14px;border-radius:8px;font-size:.86rem;color:#713f12;line-height:1.6;margin-bottom:14px}
@@ -89,7 +89,7 @@ html{scroll-behavior:smooth}
 /* Accordions (shared for language blocks) */
 .fun-accordion{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff}
 .fun-bg-light .fun-accordion{background:#fff}
-.fun-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Open Sans',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
+.fun-accordion-trigger{width:100%;background:none;border:none;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Roboto',sans-serif;font-size:.95rem;font-weight:700;color:#10428a;text-align:left;transition:background .2s}
 .fun-accordion-trigger:hover{background:#f5f8ff}
 .fun-accordion-arrow{font-size:.75rem;color:#86bef0;transition:transform .3s;flex-shrink:0;margin-left:12px}
 .fun-accordion.open .fun-accordion-arrow{transform:rotate(180deg)}
@@ -109,7 +109,7 @@ html{scroll-behavior:smooth}
 /* Contacts */
 .fun-contact-grid{display:grid;grid-template-columns:1fr;gap:16px;max-width:600px}
 .fun-contact-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
-.fun-contact-card h3{font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
+.fun-contact-card h3{font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px}
 .fun-contact-card p{font-size:.88rem;color:#555;line-height:1.55;margin-bottom:4px}
 .fun-contact-card a{color:#10428a;text-decoration:none;font-weight:600}
 .fun-contact-card a:hover{text-decoration:underline}

@@ -8,7 +8,7 @@
     <meta name="description" content="Plan proportionate antibody validation for your research. For each antibody: what it's for, which controls you'll run, and why. A structured tool from the OGA community.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -17,7 +17,7 @@
 .vpl-hero { background: linear-gradient(160deg, #0d2b5e 0%, #10428a 45%, #4a8ec9 100%); color: #fff; padding: 64px 24px 48px; text-align: center; }
 .vpl-hero-inner { max-width: 780px; margin: 0 auto; }
 .vpl-hero-label { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; opacity: .9; color: #fff !important; }
-.vpl-hero h1 { font-family: 'Open Sans', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
+.vpl-hero h1 { font-family: 'Roboto', sans-serif; font-size: 2.1rem; font-weight: 800; margin: 10px 0 12px; color: #fff !important; }
 .vpl-hero p { font-size: 1rem; line-height: 1.6; opacity: .96; margin: 0; color: #fff !important; }
 .vpl-hero a { color: #fff !important; text-decoration: underline; }
 
@@ -37,7 +37,7 @@
 
 .vpl-card { background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; box-shadow: 0 1px 3px rgba(20,40,80,.05); padding: 22px 22px 10px; margin-bottom: 22px; }
 .vpl-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.vpl-card-num { font-family: 'Open Sans', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
+.vpl-card-num { font-family: 'Roboto', sans-serif; font-weight: 800; color: #10428a; font-size: 1.05rem; }
 .vpl-remove { background: none; border: none; color: #b91c1c; font-size: .82rem; cursor: pointer; font-weight: 600; }
 .vpl-remove:hover { text-decoration: underline; }
 
@@ -78,7 +78,7 @@
 .vpl-ptm-controls.show { display: block; }
 
 .vpl-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; align-items: center; }
-.vpl-btn { font-family: 'Open Sans', sans-serif; font-weight: 700; font-size: .92rem; border: none; border-radius: 9px; padding: 11px 20px; cursor: pointer; }
+.vpl-btn { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: .92rem; border: none; border-radius: 9px; padding: 11px 20px; cursor: pointer; }
 .vpl-btn-primary { background: #10428a; color: #fff; }
 .vpl-btn-primary:hover { background: #0d356e; }
 .vpl-btn-outline { background: #fff; color: #10428a; border: 1.5px solid #9cc0e8; }

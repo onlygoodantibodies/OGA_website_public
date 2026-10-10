@@ -116,6 +116,28 @@ class FooterNamesEveryNavDestinationTests(TestCase):
             "core/templates/core/footer.html:\n" + "\n".join(missing),
         )
 
+    def test_every_footer_says_the_data_is_reusable_and_where_the_terms_are(self):
+        """The copyright line said "All Rights Reserved" under a gene page
+        saying "Free to reuse under CC BY 4.0". Asked of the rendered pages,
+        because each of the four footers is a different template, and the link
+        is followed to its anchor, since a #licence nothing carries lands on
+        the top of the page and looks like it worked."""
+        pages = {
+            "site footer": self.client.get(reverse("about")),
+            "404": self.client.get("/no-such-page-at-all/"),
+            "account area": self.client.get(reverse("account_login")),
+            "Academy sign-up": self.client.get(reverse("academy:signup")),
+        }
+        href = reverse("data_access") + "#licence"
+        for name, response in pages.items():
+            with self.subTest(name):
+                body = response.content.decode().lower()
+                self.assertNotIn("all rights reserved", body)
+                self.assertIn(f'href="{href}"', body)
+                self.assertIn("cc by 4.0", body)
+        target = self.client.get(reverse("data_access")).content.decode()
+        self.assertIn('id="licence"', target)
+
     def test_the_rendered_footer_puts_the_networks_under_follow_us(self):
         """The team review's actual ask, on a real page rather than in source."""
         body = self.client.get(reverse("about")).content.decode()

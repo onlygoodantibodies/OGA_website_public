@@ -8,7 +8,7 @@
     <title>Roadmap - Only Good Antibodies Community</title>
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -107,7 +107,7 @@
   color: rgba(255,255,255,0.9);
 }
 .roadmap-hero h1 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: clamp(2rem, 5vw, 2.8rem);
   font-weight: 800;
   line-height: 1.2;
@@ -135,7 +135,7 @@
   width: 180px;
 }
 .hero-stat-number {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.75rem;
   font-weight: 800;
   color: #fff !important;
@@ -166,7 +166,7 @@
   margin-bottom: 8px;
 }
 .rm-title {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.7rem;
   font-weight: 800;
   color: #10428a;
@@ -218,7 +218,7 @@
   border: 1px solid #e2e8f0;
 }
 .problem-card-number {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.9rem;
   font-weight: 700;
   color: #b91c1c;
@@ -312,7 +312,7 @@
   margin-bottom: 3px;
 }
 .narrative-step h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.15rem;
   font-weight: 700;
   color: #10428a;
@@ -367,7 +367,7 @@
 .badge-problem { background: #fee2e2; color: #b91c1c; }
 .badge-strategy { background: #dcfce7; color: #15803d; }
 .paper-card h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: #10428a;
@@ -459,7 +459,7 @@
 .sh-pub .stakeholder-icon { background: #ede9fe; }
 .sh-mfg .stakeholder-icon { background: #fef3c7; }
 .stakeholder-card h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: #10428a;
@@ -567,7 +567,7 @@
   text-align: left;
 }
 .cta-card h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: #10428a;
@@ -600,7 +600,7 @@
   margin: 0 auto;
 }
 .panel-strip h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: #10428a;
@@ -810,7 +810,7 @@
         <div class="narrative-dot"></div>
         <div class="narrative-step-label">Now</div>
         <h3>We're building the tools and convening the stakeholders</h3>
-        <p>The OGA database, Academy, and Antibody Champions programme provide practical infrastructure to support implementation. Antibody Champions are now embedded in <strong>14 UK research institutions</strong>, and the <strong>University of Leicester</strong> has made antibody validation training mandatory for its bioscience postgraduate researchers. We are working with two national funders, the <strong>NC3Rs</strong> and <strong>Cancer Research UK</strong>, on putting the recommendations into practice, and we're bringing stakeholders together — most recently at the <strong>UKRN Annual Conference in July 2026</strong> — to turn recommendations into coordinated action.</p>
+        <p>The OGA database, Academy, and Antibody Champions programme provide practical infrastructure to support implementation. Antibody Champions are now embedded in <strong>{{ champion_institution_count }} UK research institutions</strong>, and the <strong>University of Leicester</strong> has made antibody validation training mandatory for its bioscience postgraduate researchers. We are working with two national funders, the <strong>NC3Rs</strong> and <strong>Cancer Research UK</strong>, on putting the recommendations into practice, and we're bringing stakeholders together — most recently at the <strong>UKRN Annual Conference in July 2026</strong> — to turn recommendations into coordinated action.</p>
       </div>
     </div>
   </div>
@@ -955,7 +955,7 @@
       <div class="tool-card">
         <h3>🎓 OGA Academy</h3>
         <p>E-learning on antibody selection, validation strategies, using the databases, and reading the data. Free, self-paced, with quizzes and a certificate you can verify by QR code.</p>
-        <div class="tool-stat"><strong>5 modules</strong> · quizzes &amp; verifiable certificates</div>
+        <div class="tool-stat"><strong>{{ academy_module_count }} modules</strong> · quizzes &amp; verifiable certificates</div>
         {% if user.is_authenticated %}
           <a href="{% url 'academy:academy_home' %}" class="tool-link">Continue learning →</a>
         {% else %}
@@ -966,7 +966,7 @@
       <div class="tool-card">
         <h3>🏅 Antibody Champions</h3>
         <p>A joint OGA and NC3Rs programme. Early career researchers change antibody validation practice at their own institutions, over 12 months, with training and mentorship.</p>
-        <div class="tool-stat">Champions in <strong>14 UK research institutions</strong></div>
+        <div class="tool-stat">Champions in <strong>{{ champion_institution_count }} UK research institutions</strong></div>
         <a href="https://nc3rs.org.uk/news/antibody-champions-deliver-widespread-3rs-impact" class="tool-link" target="_blank">Learn more at NC3Rs →</a>
       </div>
 

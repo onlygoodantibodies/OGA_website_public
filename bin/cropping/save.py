@@ -21,7 +21,9 @@ on Replace a figure with ``replace.py``, which needs no session.
 It then counts the gene's cards staged by this account on the review queue
 instead of trusting a receipt's wording (the first run waited five minutes
 for a phrase the page did not print, with the save already done).
-Nothing here can publish: the field-test account cannot release.
+Nothing here presses Release. The field-test account could — it is a
+superuser by the owner's decision (8 Oct 2026) — so that is a rule of this
+script, not a permission.
 """
 import argparse
 import os

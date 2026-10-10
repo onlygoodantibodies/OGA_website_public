@@ -6,7 +6,7 @@
     {% load static %}
     <title>Only Good Antibodies — Free Antibody Characterisation Database</title>
     <meta name="description" content="A free, searchable database of knockout-controlled antibody characterisation data covering {{ gene_count }} genes and {{ antibody_count }} antibodies. Includes a free e-learning Academy.">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Lora:wght@700&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
 
@@ -41,7 +41,7 @@
         z-index: 1;
     }
     .oga-intro h1 {
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Roboto', sans-serif;
         font-size: clamp(2rem, 5vw, 2.8rem);
         font-weight: 800;
         line-height: 1.2;
@@ -96,7 +96,7 @@
         margin: 0.5rem auto 1rem;
         padding: 0 1rem;
         text-align: center;
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Roboto', sans-serif;
         font-size: 0.88rem;
         line-height: 1.5;
         color: #4a6180;
@@ -115,7 +115,7 @@
         margin: 2rem auto 0;
         padding: 0 1rem;
         text-align: center;
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Roboto', sans-serif;
         font-size: 1.45rem;
         font-weight: 700;
         color: #10428a;
@@ -125,7 +125,7 @@
         margin: 0.35rem auto 0;
         padding: 0 1rem;
         text-align: center;
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Roboto', sans-serif;
         font-size: 0.88rem;
         line-height: 1.5;
         color: #4a6180;
@@ -157,7 +157,7 @@
         padding: 0.7rem 1.1rem;
         border: 2px solid #d6e1f2;
         border-radius: 50px;
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Roboto', sans-serif;
         font-size: 0.95rem;
         color: #10428a;
         background: #fff;

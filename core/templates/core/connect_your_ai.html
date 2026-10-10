@@ -9,7 +9,7 @@
   <meta name="description" content="Connect the Only Good Antibodies database to Claude, ChatGPT, or any MCP-capable assistant so it can read a manuscript or preprint and flag which antibodies are independently knockout-controlled — with per-application results — and which specificity controls the paper shows for them. An early prototype.">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  {% include 'core/_fonts.html' %}
   <style>
     .ait-wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
     .ait-hero { background: linear-gradient(160deg,#0d2b5e 0%,#10428a 45%,#4a8ec9 100%);

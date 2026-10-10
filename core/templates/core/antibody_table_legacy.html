@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=1024, initial-scale=0.4, maximum-scale=1, user-scalable=no">
   <title>{{ gene.name }} antibody characterisation — knockout-controlled results for {{ antibody_data|length }} antibodies | Only Good Antibodies</title>
   <meta name="description" content="Knockout-controlled characterisation data for {{ antibody_data|length }} {{ gene.name }}{% if gene.aliases %} (also known as {{ gene.aliases }}){% endif %} antibodies tested across WB, IP, ICC-IF and FC. Free to access via Only Good Antibodies (OGA).">
+  {% include 'core/_fonts.html' %}
   <link rel="stylesheet" href="{% static 'core/styles.css' %}">
   <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
 </head>
@@ -14,7 +15,7 @@
 /* --- Global accents --- */
 body {
   background-color: #f7f9fc;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
 

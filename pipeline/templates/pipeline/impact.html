@@ -1,4 +1,5 @@
 {% extends "pipeline/base.html" %}
+{% load static %}
 {% block title %}Impact — what the site has recorded{% endblock %}
 
 {% block content %}
@@ -127,6 +128,15 @@
       that had stopped.</span>
       {% endif %}
     </p>
+    <div class="text-sm text-gray-600 mb-4">
+      <a href="{% url 'pipeline:impact_api_usage_csv' %}" data-receipt="api-usage-receipt"
+         class="text-ycharos-600 hover:underline font-medium">Download the full history
+        (CSV)</a>
+      — one row per day, per caller, per endpoint, for every request the counter has
+      recorded, keyed and keyless, internal keys included and marked. That is the finest
+      detail kept anywhere: there are no times of day, and a keyless row names no caller.
+      <p id="api-usage-receipt" role="status" class="text-xs mt-1"></p>
+    </div>
     <div class="grid lg:grid-cols-2 gap-6">
       <div>
         <h3 class="text-sm font-bold text-gray-800 mb-2">Most-used endpoints</h3>
@@ -267,6 +277,15 @@
       made before {{ mcp.first_seen|date:"j M Y"|default:"reporting was switched on" }}.
       The counter starts when it starts; it cannot see backwards.</span>
     </p>
+    <div class="text-sm text-gray-600 mt-3">
+      <a href="{% url 'pipeline:impact_mcp_usage_csv' %}" data-receipt="mcp-usage-receipt"
+         class="text-ycharos-600 hover:underline font-medium">Download the full history
+        (CSV)</a>
+      — one row per day, per tool, per client, for every call the counter has recorded,
+      our own calls included and marked. That is the finest detail kept anywhere: there
+      are no times of day and no people.
+      <p id="mcp-usage-receipt" role="status" class="text-xs mt-1"></p>
+    </div>
   </section>
   {% endif %}
 
@@ -625,4 +644,8 @@
   </p>
 
 </div>
+{% comment %}board.js for its download receipt only: a plain link writes the file
+and the page does not move, which reads as a click that did nothing.{% endcomment %}
+<script src="{% static 'pipeline/board.js' %}"></script>
+<script>OGABoard.downloadReceipts();</script>
 {% endblock %}

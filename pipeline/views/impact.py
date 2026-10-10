@@ -14,8 +14,9 @@ needs none of it to do bench work. If the team ever does need it for grant
 writing, `pipeline_member_required` is the one-word change, and the page draws
 no personal data either way.
 """
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from pipeline.decorators import pipeline_superuser_required
 from pipeline.services import consumer_activity, impact
@@ -24,6 +25,31 @@ from pipeline.services import consumer_activity, impact
 @pipeline_superuser_required
 def impact_dashboard(request):
     return render(request, 'pipeline/impact.html', impact.everything())
+
+
+def _csv_download(text, name):
+    response = HttpResponse(text, content_type='text/csv; charset=utf-8')
+    stamp = timezone.localdate().isoformat()
+    response['Content-Disposition'] = (
+        f'attachment; filename="{name}_{stamp}.csv"')
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@pipeline_superuser_required
+def impact_api_usage_csv(request):
+    """Every day, caller and endpoint the API counter has recorded, as a file.
+
+    Superuser-only for the page's own reason: it names every partner holding a
+    key and how hard each one pulls.
+    """
+    return _csv_download(impact.api_usage_csv(), 'oga_api_usage_by_day')
+
+
+@pipeline_superuser_required
+def impact_mcp_usage_csv(request):
+    """Every day, tool and client the MCP counter has recorded, as a file."""
+    return _csv_download(impact.mcp_usage_csv(), 'oga_mcp_usage_by_day')
 
 
 @pipeline_superuser_required

@@ -7,7 +7,7 @@
     <title>Partners - Only Good Antibodies Community</title>
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -51,7 +51,7 @@
   color: rgba(255,255,255,0.9);
 }
 .partners-hero h1 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: clamp(1.8rem, 4vw, 2.6rem);
   font-weight: 800;
   line-height: 1.2;
@@ -150,7 +150,7 @@
   text-align: center;
 }
 .partner-section-title {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 1.4rem;
   font-weight: 800;
   color: #10428a;
@@ -303,12 +303,9 @@
     <div class="contribution-legend-inner">
         <div class="legend-intro">How our partners contribute</div>
         <div class="legend-items">
-            <div class="legend-item"><span class="badge badge-reagents">Reagents</span> Supplied antibodies to the Leicester YCharOS lab</div>
-            <div class="legend-item"><span class="badge badge-delphi">Delphi</span> Expert participation in the consensus study</div>
-            <div class="legend-item"><span class="badge badge-funding">Funding</span> Grants, studentships, or co-investment</div>
-            <div class="legend-item"><span class="badge badge-champions">Champions</span> Supports the Antibody Champions scheme</div>
-            <div class="legend-item"><span class="badge badge-data">Data</span> Helps disseminate antibody characterisation data</div>
-            <div class="legend-item"><span class="badge badge-host">Host</span> Hosts the OGA platform and team</div>
+            {% for key, label, meaning in legend %}
+            <div class="legend-item"><span class="badge badge-{{ key }}">{{ label }}</span> {{ meaning }}</div>
+            {% endfor %}
         </div>
     </div>
 </section>
@@ -332,298 +329,34 @@
 </section>
 
 
-<!-- ═══════════════════════════════════════
-     INDUSTRY PARTNERS
-     ═══════════════════════════════════════ -->
-<section class="partner-section bg-white">
+{% comment %}
+  Every partner below is an entry in core/partners.py, which About counts —
+  add one there, not here.
+{% endcomment %}
+{% for section in sections %}
+<section class="partner-section {{ section.background }}">
     <div class="partner-section-inner">
-        <div class="partner-section-label">Industry</div>
-        <div class="partner-section-title">Industry Partners</div>
-        <div class="logo-grid three-col">
-
+        <div class="partner-section-label">{{ section.label }}</div>
+        <div class="partner-section-title">{{ section.title }}</div>
+        <div class="logo-grid{% if section.columns %} {{ section.columns }}{% endif %}">
+            {% for partner in section.partners %}
             <div class="logo-card">
-                <img src="{% static 'core/design10.png' %}" alt="Abcam">
+                <img src="{% static partner.logo %}" alt="{{ partner.name }}">
                 <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-funding">Funding</span>
-                    <span class="badge badge-champions">Champions</span>
+                    {% for key, label in partner.badges %}
+                    <span class="badge badge-{{ key }}">{{ label }}</span>
+                    {% endfor %}
                 </div>
-                <a href="https://www.abcam.com" target="_blank" rel="noopener">Visit →</a>
+                <a href="{{ partner.url }}" target="_blank" rel="noopener">Visit →</a>
+                {% for text, url in partner.pages %}
+                <a href="{{ url }}">{{ text }}</a>
+                {% endfor %}
             </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/Miltenyi.webp' %}" alt="Miltenyi Biotec">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-champions">Champions</span>
-                </div>
-                <a href="https://www.miltenyibiotec.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design8.png' %}" alt="AstraZeneca">
-                <div class="partner-badges">
-                    <span class="badge badge-champions">Champions</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.astrazeneca.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design9.png' %}" alt="GeneTex">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.genetex.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design13.png' %}" alt="Cell Signaling Technology">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-champions">Champions</span>
-                </div>
-                <a href="https://www.cellsignal.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/proteintech.jpg' %}" alt="Proteintech">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.ptglab.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design12.png' %}" alt="DSHB">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://dshb.biology.uiowa.edu" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design144.png' %}" alt="Addgene">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.addgene.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design11.png' %}" alt="Institute for Protein Innovation">
-                <div class="partner-badges">
-                    <span class="badge badge-reagents">Reagents</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://proteininnovation.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design15.png' %}" alt="Antibody Society">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.antibodysociety.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
+            {% endfor %}
         </div>
     </div>
 </section>
-
-
-<!-- ═══════════════════════════════════════
-     RESEARCH FUNDING AGENCIES
-     ═══════════════════════════════════════ -->
-<section class="partner-section bg-light">
-    <div class="partner-section-inner">
-        <div class="partner-section-label">Funders</div>
-        <div class="partner-section-title">Research Funding Agencies</div>
-        <div class="logo-grid three-col">
-
-            <div class="logo-card">
-                <img src="{% static 'core/design16.png' %}" alt="NC3Rs">
-                <div class="partner-badges">
-                    <span class="badge badge-funding">Funding</span>
-                    <span class="badge badge-champions">Champions</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://nc3rs.org.uk" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design17.png' %}" alt="Michael J. Fox Foundation">
-                <div class="partner-badges">
-                    <span class="badge badge-funding">Funding</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.michaeljfox.org" target="_blank" rel="noopener">Visit →</a>
-                <a href="{% url 'funder_page' 'mjff' %}">Genes characterised →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design19.png' %}" alt="MND Association">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.mndassociation.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════════════════════════════
-     PUBLISHERS AND JOURNALS
-     ═══════════════════════════════════════ -->
-<section class="partner-section bg-white">
-    <div class="partner-section-inner">
-        <div class="partner-section-label">Publishing</div>
-        <div class="partner-section-title">Publishers and Journals</div>
-        <div class="logo-grid">
-
-            <div class="logo-card">
-                <img src="{% static 'core/design20.png' %}" alt="F1000Research">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-data">Data</span>
-                </div>
-                <a href="https://f1000research.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/logo22.png' %}" alt="eLife">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://elifesciences.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design222.png' %}" alt="Nature Protocols">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.nature.com/nprot" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design23.png' %}" alt="The Company of Biologists">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.biologists.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design24.png' %}" alt="Wiley">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.wiley.com/en-gb" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════════════════════════════
-     RESEARCH INSTITUTIONS
-     ═══════════════════════════════════════ -->
-<section class="partner-section bg-light">
-    <div class="partner-section-inner">
-        <div class="partner-section-label">Institutions</div>
-        <div class="partner-section-title">Research Institutions and End Users</div>
-        <div class="logo-grid three-col">
-
-            <div class="logo-card">
-                <img src="{% static 'core/design1.png' %}" alt="UK Reproducibility Network">
-                <div class="partner-badges">
-                    <span class="badge badge-champions">Champions</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.ukrn.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/sgc.png' %}" alt="Structural Genomics Consortium">
-                <div class="partner-badges">
-                    <span class="badge badge-funding">Funding</span>
-                    <span class="badge badge-delphi">Delphi</span>
-                </div>
-                <a href="https://www.thesgc.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design22.png' %}" alt="Leicester Institute for Precision Health">
-                <div class="partner-badges">
-                    <span class="badge badge-host">Host</span>
-                    <span class="badge badge-funding">Funding</span>
-                </div>
-                <a href="https://le.ac.uk/research/institutes/precision-health" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-        </div>
-    </div>
-</section>
-
-
-<!-- ═══════════════════════════════════════
-     REAGENTS DATABASE PROVIDERS
-     ═══════════════════════════════════════ -->
-<section class="partner-section bg-white">
-    <div class="partner-section-inner">
-        <div class="partner-section-label">Databases</div>
-        <div class="partner-section-title">Reagents Database Providers</div>
-        <div class="logo-grid">
-
-            <div class="logo-card">
-                <img src="{% static 'core/design3.png' %}" alt="RRID">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-data">Data</span>
-                </div>
-                <a href="https://www.rrids.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design4.png' %}" alt="Chemical Probes Portal">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-data">Data</span>
-                </div>
-                <a href="https://www.chemicalprobes.org" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design5.png' %}" alt="Biocompare">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-data">Data</span>
-                </div>
-                <a href="https://www.biocompare.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-            <div class="logo-card">
-                <img src="{% static 'core/design6.png' %}" alt="CiteAb">
-                <div class="partner-badges">
-                    <span class="badge badge-delphi">Delphi</span>
-                    <span class="badge badge-data">Data</span>
-                </div>
-                <a href="https://www.citeab.com" target="_blank" rel="noopener">Visit →</a>
-            </div>
-
-        </div>
-    </div>
-</section>
+{% endfor %}
 
 
 <!-- Footer -->

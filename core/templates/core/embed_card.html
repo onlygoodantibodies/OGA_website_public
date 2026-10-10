@@ -5,12 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% if antibody %}{{ antibody.name }} ({{ antibody.gene.name }}) — Only Good Antibodies{% else %}Antibody Card — Only Good Antibodies{% endif %}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  {% include 'core/_fonts.html' %}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Open Sans', sans-serif;
+      font-family: 'Roboto', sans-serif;
       background: transparent;
       color: #333;
       -webkit-font-smoothing: antialiased;

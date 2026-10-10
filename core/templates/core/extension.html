@@ -9,7 +9,7 @@
     {% if not is_public %}<meta name="robots" content="noindex, nofollow">{% endif %}
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -32,7 +32,7 @@
   letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 14px; color: rgba(255,255,255,0.9);
 }
 .bx-hero h1 {
-  font-family: 'Open Sans', sans-serif; font-size: clamp(1.7rem, 3.4vw, 2.35rem); font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: clamp(1.7rem, 3.4vw, 2.35rem); font-weight: 800;
   line-height: 1.18; margin-bottom: 14px; letter-spacing: -0.5px; color: #fff !important;
 }
 .bx-hero p {
@@ -69,7 +69,7 @@
 .bx-main { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
 .bx-block { margin-bottom: 44px; }
 .bx-block h2 {
-  font-family: 'Open Sans', sans-serif; font-size: 1.5rem; font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: 1.5rem; font-weight: 800;
   color: #0d2b5e; margin: 0 0 12px; letter-spacing: -0.3px;
 }
 .bx-block p { line-height: 1.7; margin: 0 0 12px; }
@@ -156,7 +156,7 @@
 .bx-steps { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 24px 28px; }
 .bx-steps h2 { margin-bottom: 10px; }
 .bx-steps h3 {
-  font-family: 'Open Sans', sans-serif; font-size: 1rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 1rem; font-weight: 700;
   color: #0d2b5e; margin: 22px 0 8px;
 }
 .bx-steps ol { margin: 0; padding-left: 22px; line-height: 1.7; }
@@ -738,8 +738,9 @@
       Results are given <strong>per application</strong>. An antibody that works on a
       Western blot may fail in immunofluorescence, so the extension reads the application
       from the surrounding text and colours the mention for <em>that</em> application.
-      Of the antibodies we have published against TDP-43, two thirds are supportive in
-      one application and not in another.
+      {% if tdp43.mixed %}Of the {{ tdp43.published }} antibodies we have published
+      against TDP-43, {{ tdp43.mixed }} {{ tdp43.mixed|pluralize:"is,are" }} supportive in one application and not
+      in another.{% endif %}
     </p>
 
     <table class="bx-key">
@@ -842,9 +843,9 @@
       protein 2/3 complex &mdash; and Abcam's own datasheet states there is no
       observed cross-reactivity with <strong>p16-INK4a</strong>, the CDKN2A tumour
       suppressor that &ldquo;p16&rdquo; almost always means in a senescence paper.
-      A published review found <strong>317 of 406</strong> papers citing that code
+      A published review found <strong>{{ confusion_counts.p16_ink4a.mistaken }} of {{ confusion_counts.p16_ink4a.papers }}</strong> papers citing that code
       had used it as a p16-INK4a antibody, in Nature, Nature Medicine, Cancer Cell
-      and eLife among others. The same has happened to eight antibodies against
+      and eLife among others. The same has happened to {{ confusion_counts.beta_galactosidase.codes|apnumber }} antibodies against
       the <em>E. coli</em> LacZ &beta;-galactosidase, used as markers of
       senescence-associated &beta;-galactosidase, which is the mammalian GLB1
       enzyme.
@@ -864,7 +865,7 @@
     {% endcomment %}
     <p>
       <strong>Whether an unlisted paper is marked at all depends on the
-      list.</strong> Where a product is mostly misused — 317 of the 406 for
+      list.</strong> Where a product is mostly misused — {{ confusion_counts.p16_ink4a.mistaken }} of the {{ confusion_counts.p16_ink4a.papers }} for
       <code>ab51243</code> — naming the code is enough, and the card says the
       paper <em>may</em> have used it wrongly, with the tally behind it. Where it
       is not, the list marks only the papers the review actually names:
@@ -885,9 +886,9 @@
         </p>
         <p>
           <strong>A paper the review read and found correct gets no mark at
-          all.</strong> Seventeen of the 406 used <code>ab51243</code> properly,
+          all.</strong> Of the {{ confusion_counts.p16_ink4a.papers }}, {{ confusion_counts.p16_ink4a.as_declared|apnumber }} used <code>ab51243</code> properly,
           for ARPC5, and a red mark on one of those would be an accusation against
-          a paper somebody had already checked. Seventy-two could not be reached
+          a paper somebody had already checked. A further {{ confusion_counts.p16_ink4a.not_checked|apnumber }} could not be reached
           behind a paywall, and those say the use could not be established rather
           than borrowing the majority's answer.
         </p>
@@ -977,7 +978,7 @@
       Confusion!</a> &mdash; all three by Sholto David. The last of those is
       <strong>PERK</strong>, the endoplasmic reticulum kinase, against
       <strong>p-ERK</strong>, phosphorylated ERK1/2: unrelated proteins whose
-      abbreviations differ by one hyphen, and 187 papers used a PERK antibody to
+      abbreviations differ by one hyphen, and {{ confusion_counts.perk_for_p_erk.mistaken }} papers used a PERK antibody to
       blot or stain for p-ERK. If you know of another naming collision of this
       kind, <a href="{% url 'contact' %}">tell us</a> &mdash; adding one is a data
       change rather than a new release.
@@ -1065,7 +1066,7 @@
       what it can reach, and its identifier.
     </p>
 
-    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+    <h3 style="font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
       A note you can send them</h3>
     <div class="bx-note">
       <p>I'd like to install a browser extension called <em>Only Good Antibodies —
@@ -1085,7 +1086,7 @@
       https://onlygoodantibodies.co.uk/extension/.</p>
     </div>
 
-    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+    <h3 style="font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
       What IT will ask for</h3>
     <table class="bx-key">
       <tbody>
@@ -1134,7 +1135,7 @@
       </tbody>
     </table>
 
-    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+    <h3 style="font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
       The policy settings</h3>
     <p>
       For an administrator who already manages browsers. <strong>Allowing</strong> lets
@@ -1158,7 +1159,7 @@
       not listed on addons.mozilla.org.
     </p>
 
-    <h3 style="font-family:'Open Sans',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
+    <h3 style="font-family:'Roboto',sans-serif;font-size:1rem;font-weight:700;color:#0d2b5e;margin:22px 0 8px;">
       If the answer is no</h3>
     <p>
       Nothing here is only in the extension. Every verdict it shows is on the gene pages of

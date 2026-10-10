@@ -15,8 +15,9 @@ core/static/core/oga_search.js, shared with the homepage box — two boxes that
 answer differently give a reader no way to tell which one is broken.
 
 The suggestion list is moved to <body> and positioned with fixed coordinates,
-because .antibody-table-page sets overflow on small screens and would clip a
-normally-positioned dropdown. Class names are deliberately unlike the
+because the gene page once set overflow on <body> on small screens, which clips
+a normally-positioned dropdown; fixed coordinates survive any ancestor's
+overflow. Class names are deliberately unlike the
 homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
 {% endcomment %}
 <div class="oga-subnav">
@@ -72,7 +73,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
 }
 .oga-subnav-back {
   color: #10428a;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
@@ -94,7 +95,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
 .oga-genesearch-label {
   display: block;
   margin-bottom: 0.2rem;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -110,7 +111,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
   padding: 0.45rem 1rem;
   border: 1px solid #d6e1f2;
   border-radius: 50px;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.9rem;
   color: #10428a;
   background: #f9fbff;
@@ -137,7 +138,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
 }
 .oga-genesearch-list .oga-genesearch-item {
   padding: 0.5rem 1rem;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.9rem;
   color: #10428a;
   cursor: pointer;
@@ -157,7 +158,7 @@ homepage's (.search-bar / #oga-dropdown) so the two mounts can never collide.
 }
 .oga-genesearch-list .oga-genesearch-empty {
   padding: 0.5rem 1rem;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.85rem;
   color: #7a96bc;
   cursor: default;

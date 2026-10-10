@@ -8,7 +8,7 @@
     <meta name="description" content="Practical guidance for planning proportionate antibody validation. Built on consensus principles for researchers, supervisors, reviewers, and funders.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    {% include 'core/_fonts.html' %}
 
 <style>
 /* ══════════════════════════════════════
@@ -32,7 +32,7 @@
   letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px; color: rgba(255,255,255,0.9);
 }
 .fw-hero h1 {
-  font-family: 'Open Sans', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800;
   line-height: 1.2; margin-bottom: 20px; letter-spacing: -0.5px; color: #fff !important;
 }
 .fw-hero p {
@@ -41,7 +41,7 @@
 .fw-hero-actions { margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .fw-hero-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; border-radius: 50px;
-  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 0.92rem; font-weight: 700;
   text-decoration: none; transition: all 0.2s;
 }
 .fw-hero-btn.primary { background: #fff; color: #10428a; }
@@ -79,7 +79,7 @@
 }
 .fw-stat:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(16,66,138,0.08); }
 .fw-stat-number {
-  font-family: 'Open Sans', sans-serif; font-size: 1.8rem; font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: 1.8rem; font-weight: 800;
   color: #10428a; line-height: 1; margin-bottom: 6px;
 }
 .fw-stat-label { font-size: 0.78rem; color: #666; line-height: 1.4; }
@@ -104,7 +104,7 @@
   width: 100%; text-align: left; cursor: pointer;
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   padding: 22px 52px 22px 24px; position: relative;
-  font-family: 'Open Sans', sans-serif; transition: all 0.2s;
+  font-family: 'Roboto', sans-serif; transition: all 0.2s;
 }
 .fw-accordion-trigger:hover { border-color: #b8cce8; box-shadow: 0 2px 8px rgba(16,66,138,0.06); }
 .fw-accordion.open .fw-accordion-trigger {
@@ -142,7 +142,7 @@
 }
 .fw-accordion-content p:last-child { margin-bottom: 0; }
 .fw-accordion-content h3 {
-  font-family: 'Open Sans', sans-serif; font-size: 0.98rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 0.98rem; font-weight: 700;
   color: #10428a; margin: 28px 0 10px; line-height: 1.3;
 }
 .fw-accordion-content h3:first-child { margin-top: 0; }
@@ -195,7 +195,7 @@
   justify-content: center; margin: 0 auto 12px; font-size: 1.4rem;
 }
 .fw-cat-card h4 {
-  font-family: 'Open Sans', sans-serif; font-size: 0.88rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 0.88rem; font-weight: 700;
   color: #10428a; margin-bottom: 8px; line-height: 1.3;
 }
 .fw-cat-card p { font-size: 0.82rem; color: #666; line-height: 1.5; margin: 0; }
@@ -225,14 +225,14 @@
   border-radius: 16px; padding: 48px 32px; text-align: center; margin-top: 48px; color: #fff;
 }
 .fw-cta h2 {
-  font-family: 'Open Sans', sans-serif; font-size: 1.5rem; font-weight: 800;
+  font-family: 'Roboto', sans-serif; font-size: 1.5rem; font-weight: 800;
   color: #fff; margin-bottom: 12px;
 }
 .fw-cta p { font-size: 0.95rem; color: rgba(255,255,255,0.8); line-height: 1.7; max-width: 560px; margin: 0 auto 28px; }
 .fw-cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .fw-cta-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; border-radius: 50px;
-  font-family: 'Open Sans', sans-serif; font-size: 0.92rem; font-weight: 700;
+  font-family: 'Roboto', sans-serif; font-size: 0.92rem; font-weight: 700;
   text-decoration: none; transition: all 0.2s;
 }
 .fw-cta-btn.primary { background: #fff; color: #10428a; }
@@ -251,7 +251,7 @@
   .fw-main { padding: 0 !important; max-width: 100% !important; }
 }
 .fw-print-header { display: none; text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #10428a; }
-.fw-print-header h1 { font-family: 'Open Sans', sans-serif; font-size: 1.3rem; font-weight: 800; color: #10428a; margin: 0 0 4px; }
+.fw-print-header h1 { font-family: 'Roboto', sans-serif; font-size: 1.3rem; font-weight: 800; color: #10428a; margin: 0 0 4px; }
 .fw-print-header p { font-size: 0.85rem; color: #888; margin: 0; }
 
 /* ── Responsive ── */

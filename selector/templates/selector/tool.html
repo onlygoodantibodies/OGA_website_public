@@ -8,7 +8,7 @@
 <meta name="description" content="A free step-by-step tool from Only Good Antibodies that helps you choose an antibody and the knockout-controlled validation that proves it for your target and application. An early prototype.">
 <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
 <link rel="stylesheet" href="{% static 'core/styles.css' %}">
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+{% include 'core/_fonts.html' %}
 <style>
   :root{
     --brand:#10428a; --brand-d:#0d2b5e; --brand-l:#e8f1fa;
@@ -18,7 +18,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{font-family:'Open Sans',sans-serif;
+  body{font-family:'Roboto',sans-serif;
     color:var(--ink);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
   a{color:var(--brand-d)}
   .wrap{max-width:780px;margin:0 auto;padding:20px 18px 80px}
