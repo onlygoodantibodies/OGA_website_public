@@ -731,7 +731,8 @@
     <section class="gene-list">
         <h2 id="genes-available">Browse every gene in the database</h2>
         <p class="gene-list-areas">Or by funder:
-            <a href="{% url 'funder_page' 'mjff' %}">Michael J. Fox Foundation</a></p>
+            <a href="{% url 'funder_page' 'mjff' %}">Michael J. Fox Foundation</a> ·
+            <a href="{% url 'funder_page' 'als-rap' %}">ALS-RAP (MND Association, ALS Association and ALS Canada)</a></p>
         <div class="gene-list-container">
             {% for gene in genes %}
             <div class="gene-box" data-name="{{ gene.name }}" data-aliases="{{ gene.aliases|default:'' }}">

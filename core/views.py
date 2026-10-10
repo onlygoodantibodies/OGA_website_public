@@ -468,6 +468,7 @@ def funder_page(request, slug):
         'in_progress': in_progress,
         'in_progress_count': len(in_progress),
         'antibody_total': sum(r.antibodies for r in rows),
+        'application_key': funders.application_key(rows),
         'controls': control_noun(funders.control_kinds_for(page)),
     })
 

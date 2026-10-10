@@ -1,17 +1,19 @@
-"""The MJFF page lists the public genes MJFF paid for, and nothing else.
+"""A funder page lists the public genes its funders paid for, and nothing else.
 
 The funder is not a column — `core/funders.py` maps label names onto it — so
 what these pin is the half that can go silently wrong: a gene tagged only on
 its nomination dropped (that was 9 of 25 on live data), an unpublished target
 leaking onto a public page, the count on the page disagreeing with the rows
-under it, and the logo drawn with no alt text.
+under it, and the logo drawn with no alt text. ALS-RAP adds the published gene list, which
+must not widen to the agency label, and a funder with no logo file drawn as its
+name rather than as nothing.
 """
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.html import escape
 
 from core import funders
-from core.funders import MJFF, rows_for
+from core.funders import ALS_RAP, MJFF, rows_for
 from pipeline.models import (Antibody, Company, GrantingAgency, Project,
                              PublicationImage, Target, TargetNomination)
 
@@ -160,12 +162,23 @@ class MjffPageTests(TestCase):
     def test_the_page_carries_the_mjff_logo_with_alt_text(self):
         html = self.client.get(self.url).content.decode()
         self.assertIn("supporters/mjff", html)
-        self.assertIn(f'alt="{escape(MJFF.logo_alt)}"', html)
+        self.assertIn(f'alt="{escape(MJFF.funders[0].name)}"', html)
 
     def test_the_page_names_itself_and_does_not_say_validated(self):
         html = self.client.get(self.url).content.decode()
         self.assertIn("<title>MJFF-funded genes — Only Good Antibodies</title>", html)
         self.assertNotIn("knockout-validated", html)
+
+    def test_the_key_names_the_codes_the_table_draws_and_no_others(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("<strong>WB</strong> western blot", html)
+        self.assertIn("<strong>ICC-IF</strong> immunofluorescence", html)
+        self.assertNotIn("<strong>FC</strong>", html)  # no FC figure here
+
+    def test_the_page_sends_a_reader_somewhere(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn(reverse("selector:tool"), html)
+        self.assertIn(f'{reverse("nominate_gene")}?from=funder-mjff', html)
 
     def test_an_unknown_funder_is_a_404(self):
         resp = self.client.get(reverse("funder_page", kwargs={"slug": "wellcome"}))
@@ -189,3 +202,88 @@ class MjffPageTests(TestCase):
     def test_the_sitemap_offers_it(self):
         xml = self.client.get("/sitemap.xml").content.decode()
         self.assertIn(self.url, xml)
+
+
+class AlsRapPageTests(TestCase):
+    """The ALS-RAP page is the paper's 33 genes, not the ``ALS-RAP`` label,
+    which is on 13 more (GRN and SPAST among them, both public)."""
+    databases = {"pipeline_db", "academy_db"}
+
+    @classmethod
+    def setUpTestData(cls):
+        company = Company.objects.create(name="Proteintech")
+        als_rap = GrantingAgency.objects.create(name="ALS-RAP")
+
+        def published(target, catalogue, *apps):
+            ab = Antibody.objects.create(
+                target=target, company=company, catalogue_number=catalogue)
+            for app in apps:
+                PublicationImage.objects.create(
+                    antibody=ab, application_type=app,
+                    image=f"pubs/{catalogue}_{app}.png")
+
+        # On the paper's list, with no label at all.
+        published(Target.objects.create(
+            protein_name="Superoxide dismutase", gene_name="SOD1"),
+            "10269-1-AP", "WB", "FC")
+        # On the list, spelled as stored.
+        published(Target.objects.create(
+            protein_name="C9orf72", gene_name="C9orf72"), "22637-1-AP", "IP")
+        # Labelled ALS-RAP and public, but not one of the paper's genes.
+        published(Target.objects.create(
+            protein_name="Progranulin", gene_name="GRN",
+            granting_agency=als_rap), "18410-1-AP", "WB")
+
+    def setUp(self):
+        self.url = reverse("funder_page", kwargs={"slug": "als-rap"})
+
+    def test_membership_is_the_papers_gene_list_and_not_the_label(self):
+        self.assertEqual(len(ALS_RAP.genes), 33)
+        self.assertEqual([r.gene for r in rows_for(ALS_RAP)], ["C9orf72", "SOD1"])
+
+    def test_the_page_names_itself_and_counts_what_it_lists(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn("<title>ALS-RAP genes — Only Good Antibodies</title>", html)
+        self.assertIn("2 genes", html)
+        self.assertNotIn(
+            reverse("antibody_table", kwargs={"gene_name": "GRN"}), html)
+
+    def test_three_funders_each_a_link_with_its_logo_named(self):
+        html = self.client.get(self.url).content.decode()
+        for funder in ALS_RAP.funders:
+            self.assertIn(f'href="{funder.url}"', html)
+            self.assertIn(f'alt="{funder.name}"', html)
+        self.assertIn('alt="ALS Canada" class="fp-logo-tile"', html)
+        self.assertNotIn('class="fp-logo-name"', html)
+
+    def test_a_funder_with_no_logo_file_is_drawn_as_its_name(self):
+        from dataclasses import replace
+        from unittest import mock
+
+        bare = replace(ALS_RAP, funders=(funders.Funder(
+            name="ALS Association", url="https://www.als.org"),))
+        with mock.patch.dict(funders.PAGES, {"als-rap": bare}):
+            html = self.client.get(self.url).content.decode()
+        self.assertIn('<span class="fp-logo-name">ALS Association</span>', html)
+
+    def test_the_paper_is_linked_and_its_count_is_said_to_be_its_own(self):
+        html = self.client.get(self.url).content.decode()
+        doi = "https://doi.org/10.7554/eLife.111349.2"
+        self.assertEqual(html.count(f'href="{doi}"'), 3)  # hero, logo, DOI
+        self.assertIn(f">{doi}</a>", html)  # printed whole, not "read more"
+        self.assertIn('alt="eLife"', html)
+        self.assertIn("The paper reports 303 antibodies", html)
+        self.assertIn("need not match the paper", html)
+        self.assertNotIn("knockout-validated", html)
+
+    def test_the_key_follows_the_table(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("<strong>FC</strong> flow cytometry", html)
+        self.assertNotIn("<strong>ICC-IF</strong>", html)
+
+    def test_the_home_page_and_partners_page_link_to_it(self):
+        for name in ("home", "partners"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn(self.url, html, f"{name} does not link to the page")

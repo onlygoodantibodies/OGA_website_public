@@ -4,8 +4,8 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page.short }}-funded genes — Only Good Antibodies</title>
-    <meta name="description" content="{{ count }} genes with antibodies independently characterised by YCharOS under {{ page.name }} funding, assessed with {{ controls }}, from Only Good Antibodies.">
+    <title>{{ page.page_title }} — Only Good Antibodies</title>
+    <meta name="description" content="{{ count }} genes with antibodies independently characterised by YCharOS in work funded by {{ page.funded_by }}, assessed with {{ controls }}, from Only Good Antibodies.">
     <link rel="icon" type="image/x-icon" href="{% static 'core/up-logo.ico' %}">
     <link rel="stylesheet" href="{% static 'core/styles.css' %}">
     {% include 'core/_fonts.html' %}
@@ -34,15 +34,63 @@
 
 /* ── Logo band ── */
 /* White ground for the same reason as the home page's supporters strip: the
-   MJFF file carries its own opaque white background. */
+   MJFF and MND Association files carry their own opaque white background. */
 .fp-logo {
-  background: #fff; border-bottom: 1px solid #e3eaf5; padding: 28px 24px; text-align: center;
+  background: #fff; border-bottom: 1px solid #e3eaf5; padding: 28px 16px; text-align: center;
 }
 .fp-logo-label {
   color: #10428a; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.6px;
   text-transform: uppercase; margin: 0 0 14px;
 }
+.fp-logos {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px 40px;
+}
+.fp-logos a { display: inline-block; text-decoration: none; }
 .fp-logo img { max-height: 90px; max-width: 280px; width: auto; height: auto; display: inline-block; }
+/* A logo drawn in white sits on its owner's own colour (ALS Canada). */
+.fp-logo img.fp-logo-tile { max-height: 72px; padding: 9px 14px; border-radius: 10px; }
+/* A funder whose logo file is not here yet: its name, never a borrowed mark. */
+.fp-logo-name {
+  display: inline-flex; align-items: center; min-height: 72px; padding: 0 22px;
+  border: 1px solid #d5e0f0; border-radius: 10px; color: #10428a;
+  font-size: 1.15rem; font-weight: 700;
+}
+
+/* ── The paper ── */
+/* The DOI is the thing to copy into a newsletter or a citation, so it is
+   printed whole, large, and is the link — never a bare "read more". */
+.fp-hero-doi {
+  display: inline-block; margin-top: 22px; padding: 10px 20px; border-radius: 100px;
+  background: #fff; color: #10428a !important; font-weight: 700; text-decoration: none;
+  line-height: 1.4; max-width: 100%; overflow-wrap: anywhere;
+}
+.fp-hero-doi:hover { text-decoration: underline; }
+.fp-hero-doi span { font-weight: 500; }
+
+.fp-paper {
+  display: flex; align-items: center; gap: 24px;
+  border: 1px solid #d5e0f0; border-left: 4px solid #10428a; border-radius: 8px;
+  background: #fff; padding: 22px 24px; margin: 0 0 40px;
+}
+.fp-paper-logo { flex: 0 0 auto; }
+.fp-paper-logo img { width: 150px; height: auto; display: block; }
+.fp-paper-body { flex: 1 1 auto; min-width: 0; }
+.fp-paper-label {
+  color: #4a5568; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; margin: 0 0 6px;
+}
+.fp-paper h2 { font-size: 1.3rem; line-height: 1.35; margin: 0 0 6px; text-align: left; }
+.fp-paper p { margin: 0 0 10px; line-height: 1.6; color: #2d3748; }
+.fp-paper p:last-child { margin-bottom: 0; }
+.fp-paper-doi {
+  display: inline-block; font-size: 1.1rem; font-weight: 700; color: #10428a;
+  overflow-wrap: anywhere;
+}
+.fp-paper .fp-paper-note { color: #4a5568; font-size: 0.92rem; }
+@media (max-width: 640px) {
+  .fp-paper { flex-direction: column; align-items: flex-start; gap: 14px; padding: 18px; }
+  .fp-paper-logo img { width: 120px; }
+}
 
 /* ── Gene table ── */
 .fp-main { max-width: 1000px; margin: 0 auto; padding: 40px 16px 56px; }
@@ -78,6 +126,23 @@
 
 .fp-empty { padding: 24px; background: #f7f9fd; border-radius: 8px; color: #4a5568; }
 
+.fp-key { color: #4a5568; font-size: 0.9rem; line-height: 1.6; margin: 12px 0 0; }
+.fp-key strong { color: #10428a; }
+
+/* ── What to do next ── */
+.fp-next {
+  margin-top: 48px; padding: 24px; border-radius: 10px; background: #eef3fa;
+}
+.fp-next h2 { margin: 0 0 8px; }
+.fp-next p { color: #2d3748; line-height: 1.6; margin: 0 0 16px; }
+.fp-next-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.fp-next-links a {
+  display: inline-block; padding: 10px 18px; border-radius: 100px; font-weight: 700;
+  text-decoration: none; background: #10428a; color: #fff;
+}
+.fp-next-links a.fp-secondary { background: #fff; color: #10428a; border: 1px solid #10428a; }
+.fp-next-links a:hover { text-decoration: underline; }
+
 @media (max-width: 640px) {
   .fp-table th.fp-optional, .fp-table td.fp-optional { display: none; }
   .fp-table td { padding: 10px 8px; }
@@ -91,23 +156,53 @@
 
 <section class="fp-hero">
   <div class="fp-hero-inner">
-    <div class="fp-hero-label">Funder</div>
+    <div class="fp-hero-label">{{ page.label }}</div>
     <h1>{{ page.name }}</h1>
     <p>{{ page.intro }}</p>
     <p style="margin-top:14px"><span class="fp-count">{{ count }} gene{{ count|pluralize }}</span> with public results ·
       <span class="fp-count">{{ antibody_total }} antibod{{ antibody_total|pluralize:'y,ies' }}</span> characterised, assessed with {{ controls }}.{% if in_progress_count %}
       <span class="fp-count">{{ in_progress_count }} more</span> in progress.{% endif %}</p>
+    {% if page.paper %}
+    <a class="fp-hero-doi" href="{{ page.paper.url }}" target="_blank" rel="noopener">Read the paper in {{ page.paper.journal }} · <span>{{ page.paper.url }}</span></a>
+    {% endif %}
   </div>
 </section>
 
 <section class="fp-logo" aria-label="Funded by">
   <p class="fp-logo-label">Funded by</p>
-  <a href="{{ page.url }}" target="_blank" rel="noopener">
-    <img src="{% static page.logo %}" alt="{{ page.logo_alt }}">
-  </a>
+  <div class="fp-logos">
+    {% for funder in page.funders %}
+    <a href="{{ funder.url }}" target="_blank" rel="noopener">
+      {% if funder.logo %}
+      <img src="{% static funder.logo %}" alt="{{ funder.name }}"{% if funder.background %} class="fp-logo-tile" style="background:{{ funder.background }}"{% endif %}>
+      {% else %}
+      <span class="fp-logo-name">{{ funder.name }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
 </section>
 
 <main class="fp-main">
+  {% if page.paper %}
+  {% with paper=page.paper %}
+  <section class="fp-paper" aria-labelledby="fp-paper-heading">
+    {% if paper.journal_logo %}
+    <a class="fp-paper-logo" href="{{ paper.url }}" target="_blank" rel="noopener">
+      <img src="{% static paper.journal_logo %}" alt="{{ paper.journal }}">
+    </a>
+    {% endif %}
+    <div class="fp-paper-body">
+      <p class="fp-paper-label">The paper</p>
+      <h2 id="fp-paper-heading">{{ paper.title }}</h2>
+      <p>{{ paper.authors }} ({{ paper.year }}). <em>{{ paper.journal }}</em>.</p>
+      <p><a class="fp-paper-doi" href="{{ paper.url }}" target="_blank" rel="noopener">{{ paper.url }}</a></p>
+      <p class="fp-paper-note">The paper reports {{ paper.reported }}. The counts on this page are OGA's own: antibodies with a figure published here, so they need not match the paper's.</p>
+    </div>
+  </section>
+  {% endwith %}
+  {% endif %}
+
   <h2>Genes with public characterisation data</h2>
   <p class="fp-lede">One row per gene, each linking to its full page of results.</p>
 
@@ -136,6 +231,10 @@
       {% endfor %}
     </tbody>
   </table>
+  {% if application_key %}
+  <p class="fp-key">Applications with published results on the gene's page:
+    {% for code, label in application_key %}<strong>{{ code }}</strong> {{ label|lower }}{% if not forloop.last %} · {% endif %}{% endfor %}.</p>
+  {% endif %}
   {% else %}
   <p class="fp-empty">No gene on this list has public results yet. Every gene with a published figure appears here automatically.</p>
   {% endif %}
@@ -151,6 +250,16 @@
     </ul>
   </section>
   {% endif %}
+
+  <section class="fp-next" aria-labelledby="fp-next-heading">
+    <h2 id="fp-next-heading">Working on one of these genes?</h2>
+    <p>Open its page in the table above to see every antibody tested and the result in each application, with the figures behind it.
+      To choose an antibody and the controls for your own experiment, use the selection tool. Working on a gene we have not characterised? Nominate it.</p>
+    <div class="fp-next-links">
+      <a href="{% url 'selector:tool' %}">Choose an antibody and controls</a>
+      <a class="fp-secondary" href="{% url 'nominate_gene' %}?from=funder-{{ page.slug }}">Nominate a gene</a>
+    </div>
+  </section>
 
 </main>
 

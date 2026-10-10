@@ -82,7 +82,8 @@ SECTIONS = (
                 'https://www.michaeljfox.org', ('funding', 'delphi'),
                 pages=(('Genes characterised →', 'funder_page', ('mjff',)),)),
         Partner('MND Association', 'core/design19.png',
-                'https://www.mndassociation.org', ('delphi',)),
+                'https://www.mndassociation.org', ('delphi',),
+                pages=(('ALS genes characterised →', 'funder_page', ('als-rap',)),)),
     )),
     Section('Publishing', 'Publishers and Journals', 'bg-white', '', (
         Partner('F1000Research', 'core/design20.png',

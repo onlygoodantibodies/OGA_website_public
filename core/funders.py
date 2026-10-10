@@ -9,9 +9,17 @@ Canada`` is one Access value naming two funders, and the project names beside
 the agency ("PD Proteins", "Dark PD targets") are Carl's, with no column saying
 who paid. So a funder page is a curated entry in ``PAGES``: which labels mean
 the funder. Adding one is adding an entry once its labels have been confirmed
-with the person whose workbook the names came from. MJFF is the only page at
-this stage, by the owner's decision (19 Sep 2026); an NC3Rs page over
-Leicester's work was built and withdrawn the same day.
+with the person whose workbook the names came from. MJFF was the only page
+from 19 Sep 2026, by the owner's decision (an NC3Rs page over Leicester's work
+was built and withdrawn the same day); ALS-RAP joined it on 10 Oct 2026 for the
+eLife paper.
+
+**A programme whose gene set is published is a gene list, not a label.**
+ALS-RAP is the 33 genes Ayoubi et al. name in eLife, funded jointly by three
+charities. The ``ALS-RAP`` agency label is on those 33 in the Access export
+*and* on 13 more (GRN and SPAST among them, both public), so reading the label
+would put 35 genes under a paper that characterised 33. ``genes`` holds the
+paper's list, spelled as the targets are stored (``C9orf72``).
 
 Two rules, both inherited.
 
@@ -51,37 +59,123 @@ APPLICATION_LABEL = {"WB": "Western blot", "IP": "Immunoprecipitation",
 
 
 @dataclass(frozen=True)
+class Funder:
+    name: str                       # as the page names it; also the logo's alt text
+    url: str
+    logo: str = ""                  # a `core/static/...` path; blank draws the name
+    # A tile behind a logo drawn in white, which is how ALS Canada shows its
+    # own mark (white on its purple). Blank for an ordinary logo.
+    background: str = ""
+
+
+@dataclass(frozen=True)
+class Paper:
+    """The paper a programme's results were published in. The title is quoted as
+    published, and ``reported`` is the paper's own count — a different question
+    from the antibodies with figures on OGA, so the page says whose it is."""
+    authors: str
+    year: int
+    title: str
+    journal: str
+    doi: str                        # the version the page cites, as the owner gave it
+    reported: str
+    journal_logo: str = ""          # a `core/static/...` path
+
+    @property
+    def url(self) -> str:
+        return f"https://doi.org/{self.doi}"
+
+
+@dataclass(frozen=True)
 class FunderPage:
     slug: str
-    name: str                       # as the page names the funder
+    name: str                       # the page's heading
     short: str                      # "MJFF", for a link or a title
-    url: str
-    logo: str                       # a `core/static/...` path
-    logo_alt: str
     intro: str
+    funders: tuple[Funder, ...]
+    label: str = "Funder"           # the pill above the heading
+    title: str = ""                 # <title>; blank is "<short>-funded genes"
     agencies: tuple[str, ...] = ()  # `GrantingAgency.name` values that mean this funder
     projects: tuple[str, ...] = ()  # `Project.name` values that mean this funder
+    genes: tuple[str, ...] = ()     # a published gene set, matched by gene name
+    paper: Paper | None = None
+
+    @property
+    def page_title(self) -> str:
+        return self.title or f"{self.short}-funded genes"
+
+    @property
+    def funded_by(self) -> str:
+        """The funders' names as a phrase: "A", "A and B", "A, B and C"."""
+        names = [f.name for f in self.funders]
+        return names[0] if len(names) == 1 else (
+            f"{', '.join(names[:-1])} and {names[-1]}")
 
 
 MJFF = FunderPage(
     slug="mjff",
     name="The Michael J. Fox Foundation for Parkinson's Research",
     short="MJFF",
-    url="https://www.michaeljfox.org",
-    logo="core/supporters/mjff.png",
-    logo_alt="The Michael J. Fox Foundation for Parkinson's Research",
     intro=("Antibodies against proteins of interest to Parkinson's research, "
            "characterised by YCharOS to community consensus protocols under "
            "programmes funded by The Michael J. Fox Foundation."),
+    funders=(Funder(
+        name="The Michael J. Fox Foundation for Parkinson's Research",
+        url="https://www.michaeljfox.org",
+        logo="core/supporters/mjff.png"),),
     agencies=("MJFF", "MJFF/GBA1 Canada"),
 )
 
-PAGES: dict[str, FunderPage] = {p.slug: p for p in (MJFF,)}
+ALS_RAP = FunderPage(
+    slug="als-rap",
+    # "ALS-RAP" stays out of the heading and the intro: a heading breaks at the
+    # hyphen ("ALS-" / "RAP)"), so the short name rides in the label above it.
+    name="ALS Reproducible Antibody Platform",
+    short="ALS-RAP",
+    title="ALS-RAP genes",
+    label="ALS-RAP · Jointly funded",
+    intro=("Antibodies against proteins encoded by ALS risk genes, characterised "
+           "by YCharOS to community consensus protocols in a programme funded "
+           "jointly by the MND Association, the ALS Association and ALS Canada."),
+    funders=(
+        Funder(name="MND Association", url="https://www.mndassociation.org",
+               logo="core/supporters/mnd-association.png"),
+        # The wordmark the owner supplied (10 Oct 2026), with a viewBox added
+        # so it scales; als.org refuses a script and the copies online are
+        # third-party, so a replacement comes from the owner too.
+        Funder(name="ALS Association", url="https://www.als.org",
+               logo="core/supporters/als-association.svg"),
+        Funder(name="ALS Canada", url="https://als.ca",
+               logo="core/supporters/als-canada.png", background="#682076"),
+    ),
+    # The paper's Results, "Genetic prioritization", in its order.
+    genes=("ACSL5", "ALS2", "ANG", "ANXA11", "ATXN2", "C9orf72", "CAV1", "CCNF",
+           "CHCHD10", "CHMP2B", "FIG4", "FUS", "HNRNPA1", "HNRNPA2B1", "KIF5A",
+           "LGALS1", "MATR3", "NEK1", "OPTN", "PFN1", "SETX", "SIGMAR1", "SOD1",
+           "SPG11", "SQSTM1", "TAF15", "TARDBP", "TBK1", "TIA1", "TUBA4A",
+           "UBQLN2", "VAPB", "VCP"),
+    paper=Paper(
+        authors="Ayoubi R, MacDougall EJ, McDowell I, et al.",
+        year=2026,
+        title="A validated antibody toolbox for ALS research",
+        journal="eLife",
+        # Version 2, the revised Reviewed Preprint (9 Oct 2026), by the owner's
+        # choice. The all-versions DOI is 10.7554/eLife.111349; change this
+        # one when the version of record is out.
+        doi="10.7554/eLife.111349.2",
+        journal_logo="core/supporters/elife.png",
+        reported=("303 antibodies against 33 ALS-associated proteins, tested in "
+                  "western blot, immunoprecipitation and immunofluorescence"),
+    ),
+)
+
+PAGES: dict[str, FunderPage] = {p.slug: p for p in (MJFF, ALS_RAP)}
 
 
 def _funded_q(page: FunderPage) -> Q:
-    """A matching label on the ``Target`` row or on any of its nominations.
-    ``Exists`` rather than a join keeps it one row per target."""
+    """A matching label on the ``Target`` row or on any of its nominations, or
+    a gene on the page's published list. ``Exists`` rather than a join keeps it
+    one row per target."""
     from pipeline.models import TargetNomination
 
     labelled = (Q(project__name__in=page.projects)
@@ -90,15 +184,16 @@ def _funded_q(page: FunderPage) -> Q:
         target_id=OuterRef("pk")).filter(
         Q(project__name__in=page.projects)
         | Q(granting_agency__name__in=page.agencies))
-    return labelled | Q(Exists(nominated))
+    return labelled | Q(Exists(nominated)) | Q(gene_name__in=page.genes)
 
 
 def funder_targets(page: FunderPage):
     """The public genes on a funder's page — one row per target, by symbol.
 
     Membership is a matching label on the ``Target`` row or on any of its
-    nominations. ``Exists`` rather than a join on nominations keeps it one row
-    per target, so ``.count()`` and the drawn list cannot disagree.
+    nominations, or a gene on the page's list (``_funded_q``). ``Exists``
+    rather than a join on nominations keeps it one row per target, so
+    ``.count()`` and the drawn list cannot disagree.
     """
     return (public_targets()
             .filter(_funded_q(page))
@@ -167,6 +262,13 @@ def rows_for(page: FunderPage) -> list[Row]:
                           for a in APPLICATION_ORDER if a in apps],
         ))
     return rows
+
+
+def application_key(rows: list[Row]) -> list[tuple[str, str]]:
+    """``(code, label)`` for each application a row on the page draws, in the
+    page's order — the key under the table names only codes it uses."""
+    drawn = {code for r in rows for code, _ in r.applications}
+    return [(a, APPLICATION_LABEL[a]) for a in APPLICATION_ORDER if a in drawn]
 
 
 def control_kinds_for(page: FunderPage) -> set:

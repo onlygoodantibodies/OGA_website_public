@@ -7,7 +7,7 @@ urlpatterns = [
     path('about/', views.about, name='about'),  # About Us page
     path('partners/', views.partners, name='partners'),  # Partners page
     # Curated funder pages (`core/funders.py`): the public genes one funder's
-    # programmes paid for — /funders/mjff/ today.
+    # programmes paid for — /funders/mjff/ and /funders/als-rap/ today.
     path('funders/<slug:slug>/', views.funder_page, name='funder_page'),
     path('roadmap/', views.roadmap, name='roadmap'),
     path('roadmap/institutions/', views.roadmap_institutions, name='roadmap_institutions'),
