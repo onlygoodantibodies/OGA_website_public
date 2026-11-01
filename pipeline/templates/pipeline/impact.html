@@ -109,6 +109,33 @@
       {% include "pipeline/_usage_chart.html" with series=api.series busiest=api.busiest_day unit="requests" %}
     </div>
 
+    {% comment %}
+    The split that matters most for an impact case. The supplier portal is an
+    API client — a sign-in is three requests and every click another — so the
+    total above is mostly the portal, and "N organisations use the API" read off
+    it was N organisations using the portal (nine against one, 13 Oct 2026).
+    The three figures add up to the total; core/api_usage.py::route_of decides.
+    {% endcomment %}
+    <div class="rounded border border-ycharos-200 bg-ycharos-50 p-4 mb-4 text-sm text-gray-800">
+      Of the {{ api.total_requests }} request{{ api.total_requests|pluralize }},
+      <strong>{{ api.portal_requests }}</strong> came through
+      <a href="{% url 'portal' %}" class="text-ycharos-600 underline">the supplier portal</a>
+      and <strong>{{ api.direct_requests }}</strong> went straight to the API{% if api.unplaced_requests %};
+      <strong>{{ api.unplaced_requests }}</strong> cannot be placed either way{% endif %}.
+      <strong>{{ api.direct_organisations }}</strong>
+      organisation{{ api.direct_organisations|pluralize }} with a key
+      {{ api.direct_organisations|pluralize:"has,have" }} called the API directly —
+      that is the number to quote as organisations using the API.
+      <span class="block mt-1 text-gray-600">The portal is itself an API client: signing
+      in is three requests and every click another, so its use is counted here as well
+      as under <em>Portal sign-ins</em> below. Since 13 Oct 2026 the portal labels its
+      own requests. Older ones are placed by the day they fell on — a day the
+      organisation signed in is the portal's, a day with anything the portal cannot do
+      without signing in is direct — and the rest, a portal tab's clicks on a day with
+      no sign-in, could equally be a script, so they are counted apart. Keyless
+      requests are never the portal's: it always sends a key.</span>
+    </div>
+
     <p class="text-sm text-gray-600 mb-4">
       <strong>{{ api.organisations_active }}</strong> of
       <strong>{{ api.organisations }}</strong> active keys have ever called
@@ -116,7 +143,13 @@
       a partnership set up and not taken up — a different fact from a quiet month, and
       not one to fold into a total.
       <span class="block mt-1">Keyless callers are counted and deliberately never
-      identified, so the keyless figure is requests, not organisations.</span>
+      identified, so the keyless figure is requests, not organisations. Only
+      {% for name in api.served_without_key %}<span class="font-mono text-xs">{{ name }}</span>{% if not forloop.last %} and {% endif %}{% endfor %}
+      answer without a key; every other endpoint refuses one, and
+      <strong>{{ api.refused_without_key }}</strong> such
+      refusal{{ api.refused_without_key|pluralize }} {{ api.refused_without_key|pluralize:"is,are" }}
+      left out of every figure above. Nothing was returned to
+      {{ api.refused_without_key|pluralize:"it,them" }}.</span>
       {% if api.internal_keys %}
       <span class="block mt-1"><strong>{{ api.internal_keys }} internal
       key{{ api.internal_keys|pluralize }}</strong> — ours, for testing and demos —
@@ -154,6 +187,15 @@
       <div>
         <h3 class="text-sm font-bold text-gray-800 mb-2">Busiest organisations</h3>
         <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-500">
+              <th class="py-1 font-medium">Organisation</th>
+              <th class="py-1 font-medium text-right">All</th>
+              <th class="py-1 font-medium text-right">Portal</th>
+              <th class="py-1 font-medium text-right">Direct</th>
+              {% if api.unplaced_requests %}<th class="py-1 font-medium text-right">Can't tell</th>{% endif %}
+            </tr>
+          </thead>
           {% for row in api.by_consumer %}
             <tr class="border-b border-gray-100">
               <td class="py-1">
@@ -161,9 +203,12 @@
                    class="text-ycharos-600 hover:underline">{{ row.consumer__name }}</a>
                 <span class="text-xs text-gray-500">{{ row.consumer__consumer_type }}</span></td>
               <td class="py-1 text-right font-semibold">{{ row.requests }}</td>
+              <td class="py-1 text-right">{{ row.portal }}</td>
+              <td class="py-1 text-right">{{ row.direct }}</td>
+              {% if api.unplaced_requests %}<td class="py-1 text-right text-gray-500">{{ row.unplaced }}</td>{% endif %}
             </tr>
           {% empty %}
-            <tr><td class="py-1 text-gray-500 italic">No keyed requests recorded yet.</td></tr>
+            <tr><td colspan="4" class="py-1 text-gray-500 italic">No keyed requests recorded yet.</td></tr>
           {% endfor %}
         </table>
       </div>
@@ -440,7 +485,7 @@
           <th class="py-1 font-medium text-right">Connects</th>
           <th class="py-1 font-medium text-right">First</th>
           <th class="py-1 font-medium text-right">Last in</th>
-          <th class="py-1 font-medium text-right">Last API call</th>
+          <th class="py-1 font-medium text-right">Last direct call</th>
         </tr>
       </thead>
       <tbody>
@@ -454,7 +499,7 @@
             <td class="py-1 text-right">{{ row.connects }}</td>
             <td class="py-1 text-right text-gray-500">{{ row.first_seen|date:"j M Y" }}</td>
             <td class="py-1 text-right">{{ row.last_seen|date:"j M Y" }}</td>
-            <td class="py-1 text-right text-gray-500">{{ row.last_call|date:"j M Y" }}</td>
+            <td class="py-1 text-right text-gray-500">{{ row.last_call|date:"j M Y"|default:"never" }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="6" class="py-1 text-gray-500 italic">
@@ -474,10 +519,12 @@
       row per organisation per day so that its size is set by who holds a key rather
       than by how hard anyone pulls — which buys the dates and gives up the clock.
       There is no “signed in at 14:03” here.</span>
-      <span class="block mt-1"><strong>Last API call</strong> is any request, sign-in or
-      not. Far ahead of <em>last in</em> means a script that still syncs for an
+      <span class="block mt-1"><strong>Last direct call</strong> is the last day they
+      called the API without the portal — a script, or somebody calling it by hand.
+      Far ahead of <em>last in</em> means a script that still syncs for an
       organisation whose people have stopped opening the portal — which neither number
-      shows on its own.</span>
+      shows on its own. A sign-in is the portal's only: a script calling the same
+      endpoint is told apart and not counted here.</span>
       {% if portal.internal_connects %}
       <span class="block mt-1"><strong>{{ portal.internal_connects }} connect{{ portal.internal_connects|pluralize }}
       on internal keys</strong> — ours, testing the portal — {{ portal.internal_connects|pluralize:"is,are" }}
@@ -501,7 +548,7 @@
     <h2 class="text-lg font-bold text-gray-900 mb-1">The Academy</h2>
     <p class="text-sm text-gray-600 mb-3">Lessons <em>finished</em>, not started — a
       started lesson is engagement and a finished one is the claim.</p>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
       <div class="rounded border border-gray-200 bg-white p-4">
         <div class="text-2xl font-bold text-gray-900">{{ academy.certificates }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">certificates issued</div>
@@ -514,10 +561,6 @@
       <div class="rounded border border-gray-200 bg-white p-4">
         <div class="text-2xl font-bold text-gray-900">{{ academy.lessons_completed }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">lessons completed</div>
-      </div>
-      <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ academy.ai_messages }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">AI tutor messages</div>
       </div>
     </div>
     <p class="text-sm text-gray-600 mb-3">
@@ -533,47 +576,6 @@
         </tr>
       {% empty %}
         <tr><td class="py-1 text-gray-500 italic">No lessons completed yet.</td></tr>
-      {% endfor %}
-    </table>
-  </section>
-  {% endif %}
-
-  {# ── Workshop credentials ── #}
-  {% if credentials %}
-  <section class="mb-10">
-    <h2 class="text-lg font-bold text-gray-900 mb-1">Workshop credentials</h2>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ credentials.issued }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">issued</div>
-      </div>
-      <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ credentials.issued_recent }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">last {{ recent_days }} days</div>
-      </div>
-      <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ credentials.institutions }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">institutions (approx.)</div>
-      </div>
-      <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ credentials.claims_unverified }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">claims never verified</div>
-      </div>
-    </div>
-    <p class="text-sm text-gray-600 mb-3">
-      Institutions are counted by <strong>email domain</strong>, the only affiliation a
-      credential carries — so two people at one university on different domains count
-      twice, and a shared departmental address counts once. Quote it as approximate.
-    </p>
-    <h3 class="text-sm font-bold text-gray-800 mb-2">By kind</h3>
-    <table class="w-full text-sm">
-      {% for row in credentials.by_kind %}
-        <tr class="border-b border-gray-100">
-          <td class="py-1">{{ row.kind }}</td>
-          <td class="py-1 text-right font-semibold">{{ row.n }}</td>
-        </tr>
-      {% empty %}
-        <tr><td class="py-1 text-gray-500 italic">None issued yet.</td></tr>
       {% endfor %}
     </table>
   </section>

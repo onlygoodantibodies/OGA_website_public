@@ -578,10 +578,15 @@ function isNewAb(ab) {
 function countNew() { return S.antibodies.filter(isNewAb).length; }
 function refreshNewStat() { $('stat-new').textContent = countNew(); }
 
-async function apiGet(path) { const r = await fetch(API_BASE + path, { headers: { 'X-API-Key': S.key } }); const d = await r.json(); if (!r.ok) throw d; return d; }
-async function apiPut(path, body) { const r = await fetch(API_BASE + path, { method: 'PUT', headers: { 'X-API-Key': S.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok) throw d; return d; }
-async function apiPost(path, body) { const opts = { method: 'POST', headers: { 'X-API-Key': S.key } }; if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); } const r = await fetch(API_BASE + path, opts); const d = await r.json(); if (!r.ok) throw d; return d; }
-async function apiDelete(path) { const r = await fetch(API_BASE + path, { method: 'DELETE', headers: { 'X-API-Key': S.key } }); const d = await r.json(); if (!r.ok) throw d; return d; }
+/* Every request this page makes to /api/ is counted as API use, so it says it is
+   the portal (core/api_usage.py::from_portal) — otherwise a supplier clicking
+   about in here reads on the impact page as a supplier calling the API. Every
+   fetch that sends the key takes its headers from here, never its own literal. */
+function keyHeaders(extra) { return Object.assign({ 'X-API-Key': S.key, 'X-OGA-Client': 'portal' }, extra || {}); }
+async function apiGet(path) { const r = await fetch(API_BASE + path, { headers: keyHeaders() }); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiPut(path, body) { const r = await fetch(API_BASE + path, { method: 'PUT', headers: keyHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiPost(path, body) { const opts = { method: 'POST', headers: keyHeaders() }; if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); } const r = await fetch(API_BASE + path, opts); const d = await r.json(); if (!r.ok) throw d; return d; }
+async function apiDelete(path) { const r = await fetch(API_BASE + path, { method: 'DELETE', headers: keyHeaders() }); const d = await r.json(); if (!r.ok) throw d; return d; }
 /* Written out three times and now four. The reset needs the same string the
    fallbacks use, or "back to how they started" lands somewhere else. */
 const DEFAULT_FILENAME_PATTERN = '{gene}_{catalogue}_{application}';
@@ -1438,7 +1443,7 @@ async function downloadNotSupportive() {
     /* The same query the listing was fetched with — gene AND the Limited
        support tick — so the file is the set the manifest above counted. */
     const res = await fetch(API_BASE + '/v1/not-supportive/csv/' + nsQuery(),
-                            { headers: { 'X-API-Key': S.key } });
+                            { headers: keyHeaders() });
     if (!res.ok) {
       let detail = '';
       try { const d = await res.json(); detail = d.detail || d.error || ''; } catch (e) {}
@@ -1476,7 +1481,7 @@ async function loadPipelineThumbs() {
     if (!url) continue;
     img.removeAttribute('data-pipeline-src');
     try {
-      const res = await fetch(url, { headers: { 'X-API-Key': S.key } });
+      const res = await fetch(url, { headers: keyHeaders() });
       if (!res.ok) throw new Error(res.status);
       img.src = URL.createObjectURL(await res.blob());
     } catch (e) {

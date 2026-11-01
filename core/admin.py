@@ -55,8 +55,8 @@ class ApiUsageDayAdmin(admin.ModelAdmin):
     counter exists for: who is calling, which endpoints, how often, and how the
     keyless share of that moves.
     """
-    list_display = ('date', 'who', 'endpoint', 'count')
-    list_filter = ('date', 'endpoint', 'consumer')
+    list_display = ('date', 'who', 'endpoint', 'via_portal', 'count')
+    list_filter = ('date', 'endpoint', 'via_portal', 'consumer')
     search_fields = ('endpoint', 'consumer__name')
     date_hierarchy = 'date'
 

@@ -2,9 +2,16 @@
 
 Everything here was reachable only through Django admin, one model at a time,
 which means it existed and nobody could quote it. A grant application or a
-funder report wants "the API served N requests to M organisations, we issued K
-workshop credentials across J institutions" — and assembling that meant knowing
-which of four apps to open and holding the arithmetic in your head.
+funder report wants "the API served N requests to M organisations, K learners
+finished an Academy module" — and assembling that meant knowing which of four
+apps to open and holding the arithmetic in your head.
+
+**A section is drawn only for something the site still offers** (13 Oct 2026).
+Workshop credentials (``credentials``: none ever issued, and no page links to
+the claim form) and the Academy AI assistant's message count (the tutor is
+offline and the database search is linked from nowhere) were taken off. A
+figure for a feature nobody can reach reads as a feature that exists and is
+going quiet. Their rows are still in ``academy_db``; nothing was deleted.
 
 **What this cannot tell you, and says so on the page.** There is no page-view
 analytics anywhere in Django: visits, unique visitors and referrers live in
@@ -42,9 +49,8 @@ grant, so each one carries the noun it is counting and, where it can, the
 breakdown underneath — the Portfolio's rule about three correct answers to three
 different questions.
 
-**Nothing personal is drawn.** `credentials.Certificate` holds names and
-institutional emails and `SelectionRecord` holds both plus an affiliation; this
-module reads *counts* and email **domains**, never a person. That keeps the page
+**Nothing personal is drawn.** `SelectionRecord` holds names, institutional
+emails and an affiliation; this module reads *counts*, never a person. That keeps the page
 quotable in a report without deciding anybody else's privacy question.
 
 The cross-database part is free: the router sends everything except the pipeline
@@ -59,6 +65,8 @@ from django.db.models import Count, Max, Min, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
+from core import api_usage as _usage
+
 #: The window the "recently" figures use. A month is long enough that a quiet
 #: fortnight does not read as a dead service, and short enough to show a change.
 RECENT_DAYS = 30
@@ -69,11 +77,23 @@ RECENT_DAYS = 30
 #: organisation's connects. It is the URL **name**, because that is what
 #: `core/api_usage.py::endpoint_of` writes down.
 #:
-#: Spelled here and routed in `core/api_urls.py`, which is two places for one
-#: fact — so `tests_impact.py` resolves the endpoint and asserts they agree. A
-#: route renamed with this left behind would not raise: it would report zero
-#: sign-ins, for ever, which reads as nobody using the portal.
-PORTAL_CONNECT_ENDPOINT = 'api_status'
+#: Spelled in `core/api_usage.py`, which reads it to place old rows, and routed
+#: in `core/api_urls.py` — two places for one fact, so `tests_impact.py`
+#: resolves the endpoint and asserts they agree. A route renamed with this left
+#: behind would not raise: it would report zero sign-ins, for ever, which reads
+#: as nobody using the portal.
+PORTAL_CONNECT_ENDPOINT = _usage.PORTAL_CONNECT
+
+
+def route_split():
+    """Requests summed as ``portal``, ``direct`` and ``unplaced`` — one
+    aggregate, asked of `core/api_usage.py::route_of` so every figure on the
+    page that splits the two agrees with the others."""
+    return {
+        'portal': Sum('count', filter=Q(route=_usage.PORTAL)),
+        'direct': Sum('count', filter=Q(route=_usage.DIRECT)),
+        'unplaced': Sum('count', filter=Q(route=_usage.UNPLACED)),
+    }
 
 
 def _recent_cutoff():
@@ -118,9 +138,19 @@ def api_usage():
 
     The keyless split is the number worth watching now. Before 12 Aug 2026 a
     keyless request was a 401 being counted as "somebody knocking"; since the
-    read feeds opened it is somebody being served, and the same rows count both,
-    which is exactly why the counter was built before the door was opened.
+    read feeds opened it is somebody being served — **on those two feeds only**.
+    Every other endpoint still counts a keyless request and refuses it, so those
+    rows are left out of every figure here and counted apart
+    (`core/api_usage.py::refused_without_key_q`): until 13 Oct 2026 they were
+    in the "served" total, and the download described them as things done.
+
+    **Most of this is the supplier portal**, which is an API client: a sign-in
+    is three requests and every click another. So the total is split into what
+    the portal made, what went straight to the API, and old rows that cannot be
+    placed (`core/api_usage.py::route_of`), and "organisations using the API"
+    is ``direct_organisations`` — on 13 Oct 2026 that was one of nine.
     """
+    from core import api_usage as usage
     from core.models import APIConsumer, ApiUsageDay
 
     # Ours is not reach. Internal keys — our own testing, and the ones set up to
@@ -140,6 +170,10 @@ def api_usage():
     # pins the behaviour rather than the spelling.
     rows = everything.filter(Q(consumer__isnull=True)
                              | Q(consumer__is_internal=False))
+    # Refused is not reach either, and on the same terms as internal: out of
+    # every figure, and its size printed beside them.
+    refused = rows.filter(usage.refused_without_key_q())
+    rows = rows.exclude(usage.refused_without_key_q())
     recent = rows.filter(date__gte=_recent_cutoff().date())
 
     total = rows.aggregate(n=Sum('count'))['n'] or 0
@@ -160,11 +194,24 @@ def api_usage():
     # which grouped by name merged into a single row whose total belonged to
     # neither. The id is also what the row links to, and a name is only a way to
     # a page when the row carries the id it would link to.
+    #
+    # Split three ways, because the supplier portal is itself an API client
+    # and every click in it is counted here: "nine organisations use the API"
+    # was nine organisations using the portal, and one calling the API.
     by_consumer = list(
-        rows.filter(consumer__isnull=False)
+        _usage.with_route(rows.filter(consumer__isnull=False))
             .values('consumer_id', 'consumer__name', 'consumer__consumer_type')
-            .annotate(requests=Sum('count'))
+            .annotate(requests=Sum('count'), **route_split())
             .order_by('-requests')[:10])
+    for row in by_consumer:
+        for key in ('portal', 'direct', 'unplaced'):
+            row[key] = row[key] or 0
+
+    split = _usage.with_route(rows).aggregate(**route_split())
+    direct_organisations = (
+        _usage.with_route(rows.filter(consumer__isnull=False))
+        .filter(route=_usage.DIRECT)
+        .values('consumer_id').distinct().count())
 
     # The same rows read as a shape rather than a total. The page had four
     # all-time numbers and no way to see whether any of them was still moving,
@@ -180,6 +227,14 @@ def api_usage():
         'recent_requests': recent.aggregate(n=Sum('count'))['n'] or 0,
         'by_endpoint': by_endpoint,
         'by_consumer': by_consumer,
+        # The three add up to `total_requests`; keyless rows are in `direct`
+        # (a served feed) or `unplaced`, never `portal` before the label.
+        'portal_requests': split['portal'] or 0,
+        'direct_requests': split['direct'] or 0,
+        'unplaced_requests': split['unplaced'] or 0,
+        # Organisations with at least one request that went straight to the
+        # API — the number an impact case means by "use the API".
+        'direct_organisations': direct_organisations,
         'organisations': APIConsumer.objects.filter(
             is_active=True, is_internal=False).count(),
         'organisations_ever': APIConsumer.objects.filter(
@@ -188,6 +243,8 @@ def api_usage():
         # rather than take the headline on trust.
         'internal_requests': internal.aggregate(n=Sum('count'))['n'] or 0,
         'internal_keys': APIConsumer.objects.filter(is_internal=True).count(),
+        'refused_without_key': refused.aggregate(n=Sum('count'))['n'] or 0,
+        'served_without_key': usage.SERVED_WITHOUT_KEY,
         # A consumer with a key who has never called is a partnership that was
         # set up and not taken up, which is a different fact from a quiet month
         # and the one an impact case should not quietly fold in.
@@ -219,10 +276,27 @@ def _csv_text(columns, rows):
 #: activity_label`), so the file and the page cannot describe one endpoint two
 #: ways.
 API_USAGE_CSV_COLUMNS = ('date', 'caller', 'consumer_id', 'consumer_type',
-                         'internal', 'endpoint', 'what_they_did', 'requests')
+                         'internal', 'endpoint', 'what_they_did', 'route',
+                         'requests')
+
+#: ``route`` in the file. A row recorded before the portal labelled its
+#: requests is placed by the day it fell on, and says so, so a reader can tell
+#: what was counted from what was inferred (`core/api_usage.py::route_of`).
+ROUTE_WORDS = {
+    (_usage.PORTAL, True): 'portal',
+    (_usage.DIRECT, True): 'direct',
+    (_usage.PORTAL, False): 'portal (inferred from the day)',
+    (_usage.DIRECT, False): 'direct (inferred from the day)',
+    (_usage.UNPLACED, False): 'cannot tell',
+}
 
 #: What the file writes where a request carried no usable key.
 KEYLESS_CALLER = 'no key'
+
+#: ``what_they_did`` for a keyless row the endpoint refused. Not the endpoint's
+#: own label: "no key · fetched a pre-release figure" was read as pre-release
+#: figures leaving the building, when each of them was a 401 (13 Oct 2026).
+REFUSED_WITHOUT_KEY = 'was refused for sending no key — nothing was returned'
 
 
 def api_usage_csv():
@@ -234,15 +308,20 @@ def api_usage_csv():
     there are no times of day, and a keyless row names no caller. Internal keys
     are **included and flagged** rather than left out as the headline does — a
     file somebody filters is the place to see the exclusion, not repeat it.
+    Keyless rows the endpoint refused are included the same way, and say so in
+    ``what_they_did``. ``route`` says whether the supplier portal made the
+    requests, and where that was inferred rather than recorded.
     """
+    from core import api_usage as usage
     from core.models import ApiUsageDay
     from pipeline.services.consumer_activity import activity_label
 
-    rows = (ApiUsageDay.objects
+    rows = (usage.with_route(ApiUsageDay.objects.all())
             .values_list('date', 'consumer_id', 'consumer__name',
                          'consumer__consumer_type', 'consumer__is_internal',
-                         'endpoint', 'count')
-            .order_by('date', 'consumer__name', 'consumer_id', 'endpoint'))
+                         'endpoint', 'route', 'via_portal', 'count')
+            .order_by('date', 'consumer__name', 'consumer_id', 'endpoint',
+                      'via_portal'))
     return _csv_text(API_USAGE_CSV_COLUMNS, (
         [day.isoformat(),
          name if consumer_id else KEYLESS_CALLER,
@@ -250,9 +329,13 @@ def api_usage_csv():
          kind or '',
          'yes' if internal else 'no',
          endpoint,
-         activity_label(endpoint),
+         (REFUSED_WITHOUT_KEY
+          if usage.refused_without_key(consumer_id, endpoint, day)
+          else activity_label(endpoint)),
+         ROUTE_WORDS[(route, via_portal is not None)],
          count]
-        for day, consumer_id, name, kind, internal, endpoint, count in rows))
+        for (day, consumer_id, name, kind, internal, endpoint, route,
+             via_portal, count) in rows))
 
 
 #: The columns of the MCP connector's full-history download, in order.
@@ -311,10 +394,16 @@ def portal_sessions():
     to identify — so failed attempts are a total and never a name. That total is
     worth drawing anyway: it separates "nobody has tried" from "somebody is
     trying with a key that no longer works", which is a support question.
+
+    **Only a sign-in the portal made.** A script may call ``/v1/status/`` too
+    — it is the first ``curl`` example on the data-access page — and since the
+    portal labels its requests that call is told apart and left out here.
     """
     from core.models import ApiUsageDay
 
-    rows = ApiUsageDay.objects.filter(endpoint=PORTAL_CONNECT_ENDPOINT)
+    rows = (_usage.with_route(
+                ApiUsageDay.objects.filter(endpoint=PORTAL_CONNECT_ENDPOINT))
+            .exclude(route=_usage.DIRECT))
     internal = rows.filter(consumer__is_internal=True)
     keyed = rows.filter(consumer__isnull=False).exclude(
         consumer__is_internal=True)
@@ -329,16 +418,19 @@ def portal_sessions():
                        last_seen=Max('date'))
              .order_by('-days', '-connects')[:20])
 
-    # When each of them last called the API *at all*. One aggregate over the
-    # whole table, joined to the rows above by id in Python — a dict lookup per
-    # organisation, which is bounded by who holds a key and not by traffic.
-    # It is the column that says which kind of partner this is: a last_seen far
-    # behind last_call is somebody whose script still syncs and whose people
-    # stopped opening the portal, and that is not visible from either number
-    # alone.
+    # When each of them last called the API *directly* — not through the
+    # portal. One aggregate over the whole table, joined to the rows above by
+    # id in Python — a dict lookup per organisation, which is bounded by who
+    # holds a key and not by traffic. It is the column that says which kind of
+    # partner this is: a script that still syncs for an organisation whose
+    # people stopped opening the portal. Until 13 Oct 2026 it was the last
+    # request of any kind, which the portal's own clicks kept level with
+    # `last_seen` and a tab left open overnight pushed a day past it — reading
+    # as a script that did not exist.
     last_call = dict(
-        ApiUsageDay.objects.filter(consumer__isnull=False)
-        .exclude(consumer__is_internal=True)
+        _usage.with_route(ApiUsageDay.objects.filter(consumer__isnull=False)
+                          .exclude(consumer__is_internal=True))
+        .filter(route=_usage.DIRECT)
         .values_list('consumer_id')
         .annotate(last=Max('date'))
         .values_list('consumer_id', 'last'))
@@ -515,7 +607,7 @@ def academy():
     is the impact claim, and reporting the first as the second is the shape of
     every overstated number in this repo.
     """
-    from academy.models import AIChatUsage, Certificate, LessonProgress
+    from academy.models import Certificate, LessonProgress
 
     completed = LessonProgress.objects.filter(completed=True)
     return {
@@ -530,38 +622,6 @@ def academy():
             completed.values('lesson__title')
                      .annotate(finished=Count('id'))
                      .order_by('-finished')[:10]),
-        'ai_messages': AIChatUsage.objects.aggregate(
-            n=Sum('message_count'))['n'] or 0,
-    }
-
-
-def workshop_credentials():
-    """Credentials issued, and how many institutions they reached.
-
-    Institutions are counted by **email domain**, which is the only affiliation
-    a credential carries. It is an approximation and named as one on the page:
-    two people at one university with different domains count twice, and a
-    department that uses a shared address counts once.
-    """
-    from credentials.models import Certificate, PendingClaim
-
-    certs = Certificate.objects.all()
-    domains = (certs.exclude(institutional_email='')
-                    .values_list('institutional_email', flat=True))
-    institutions = {e.split('@')[-1].lower() for e in domains if '@' in e}
-
-    return {
-        'issued': certs.count(),
-        'issued_recent': certs.filter(issued_at__gte=_recent_cutoff()).count(),
-        'by_kind': list(certs.values('kind')
-                             .annotate(n=Count('id'))
-                             .order_by('-n')),
-        'institutions': len(institutions),
-        # Claims started and never verified: people who began and dropped out,
-        # which is a number worth seeing beside the successes rather than
-        # buried.
-        'claims_unverified': PendingClaim.objects.filter(
-            verified_at__isnull=True).count(),
     }
 
 
@@ -634,7 +694,6 @@ def everything():
         'mcp': mcp_server,
         'demand': gene_demand,
         'academy': academy,
-        'credentials': workshop_credentials,
         'selection': selection_tool,
         'dataset': dataset,
     }

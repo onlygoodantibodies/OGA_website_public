@@ -202,6 +202,13 @@ class ApiUsageDay(models.Model):
     split across rows nobody would think to sum. Two partial constraints instead
     — one for the identified rows, one for the keyless — so a race fails loudly
     and `core/api_usage.py` retries the increment.
+
+    **`via_portal` says whether the supplier portal made the request**, because
+    the portal is an API client: every click in it is a keyed request, so for
+    two months the impact page credited nine organisations with "API use" that
+    was 96% the portal (13 Oct 2026). Blank means *recorded before anybody
+    asked* — every row older than the column — never "not the portal";
+    `core/api_usage.py::route_of` reads those by the day they fell on.
     """
 
     consumer = models.ForeignKey(
@@ -217,21 +224,31 @@ class ApiUsageDay(models.Model):
         help_text="URL name, e.g. 'antibodies_feed'.",
     )
     count = models.PositiveIntegerField(default=0)
+    via_portal = models.BooleanField(
+        null=True, blank=True,
+        help_text="Yes: the supplier portal made these requests. No: something "
+                  "else did — a script, or somebody calling the API by hand. "
+                  "Blank: recorded before the counter could tell.",
+    )
 
     class Meta:
         verbose_name = "API usage (day)"
         verbose_name_plural = "API usage (days)"
         ordering = ['-date', 'endpoint']
+        # `via_portal` is in both keys, or a portal click and a script's call
+        # to one endpoint on one day land on one row and the flag becomes
+        # whichever arrived first. The blank rows were already unique without
+        # it, and nothing writes a blank any more.
         constraints = [
             models.UniqueConstraint(
-                fields=['consumer', 'date', 'endpoint'],
+                fields=['consumer', 'date', 'endpoint', 'via_portal'],
                 condition=models.Q(consumer__isnull=False),
-                name='one_usage_row_per_consumer_day_endpoint',
+                name='one_usage_row_per_consumer_day_endpoint_route',
             ),
             models.UniqueConstraint(
-                fields=['date', 'endpoint'],
+                fields=['date', 'endpoint', 'via_portal'],
                 condition=models.Q(consumer__isnull=True),
-                name='one_usage_row_per_keyless_day_endpoint',
+                name='one_usage_row_per_keyless_day_endpoint_route',
             ),
         ]
 

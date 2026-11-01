@@ -145,10 +145,12 @@ class SectionProgress(models.Model):
 
 
 class AIChatUsage(models.Model):
-    """Per-user, per-day message counter for the in-app AI assistant — the cost
-    guardrail. One row per (user, date); ``message_count`` is checked against
-    ``settings.ACADEMY_AI_DAILY_MESSAGE_CAP`` before each assistant turn. Purely
-    additive; it never touches certificates, users, or progress."""
+    """Per-user, per-day message counter for the in-app AI assistant, which was
+    retired on 14 Oct 2026 (the tutor had been offline and the database search
+    was linked from no page). Nothing writes here any more; the model stays so
+    the table and its history are kept rather than dropped by a migration.
+    One row per (user, date); it never touches certificates, users, or
+    progress."""
     user          = models.ForeignKey(User, on_delete=models.CASCADE)
     date          = models.DateField()
     message_count = models.PositiveIntegerField(default=0)

@@ -42,19 +42,33 @@
   </section>
 
   {# ── The counts ── #}
+  {% comment %}
+  "Through the portal" and "straight to the API" add up to "requests served"
+  with "cannot tell" — the portal is an API client, so every click in it is a
+  request, and a sign-in alone is three. Until 13 Oct 2026 this row printed
+  sign-ins as the portal's share and the rest read as a script.
+  {% endcomment %}
   <section class="mb-8">
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
       <div class="rounded border border-gray-200 bg-white p-4">
         <div class="text-2xl font-bold text-gray-900">{{ requests }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">requests served</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ through_portal }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">through the portal</div>
+      </div>
+      <div class="rounded border border-gray-200 bg-white p-4">
+        <div class="text-2xl font-bold text-gray-900">{{ direct }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">straight to the API</div>
       </div>
       <div class="rounded border border-gray-200 bg-white p-4">
         <div class="text-2xl font-bold text-gray-900">{{ days }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">days they called</div>
       </div>
       <div class="rounded border border-gray-200 bg-white p-4">
-        <div class="text-2xl font-bold text-gray-900">{{ portal_requests }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">portal connects</div>
+        <div class="text-2xl font-bold text-gray-900">{{ portal_connects }}</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">portal sign-ins</div>
       </div>
       <div class="rounded border border-gray-200 bg-white p-4">
         {% comment %}
@@ -68,6 +82,14 @@
         </div>
       </div>
     </div>
+    {% if unplaced %}
+    <p class="text-sm text-gray-600 mt-3">
+      <strong>{{ unplaced }} request{{ unplaced|pluralize }}</strong> cannot be placed
+      either way, so {{ unplaced|pluralize:"it is,they are" }} in neither box above:
+      recorded before the portal labelled its own requests, on a day with no sign-in,
+      for things a portal tab left open also does. A script would look the same.
+    </p>
+    {% endif %}
   </section>
 
   {# ── What they did ── #}
@@ -114,7 +136,8 @@
       {{ by_day|length }} of {{ days }}, so {{ days_more }} earlier
       {{ days_more|pluralize:"day,days" }}
       {{ days_more|pluralize:"is,are" }} not drawn{% endif %}. Bars are relative to
-      their own busiest day, not to anybody else's.
+      their own busiest day, not to anybody else's. Beside each, how the requests
+      came: through the portal, straight to the API, or cannot tell.
     </p>
     <table class="w-full text-sm">
       {% for row in by_day %}
@@ -132,6 +155,9 @@
             </div>
           </td>
           <td class="py-1 w-12 text-right font-semibold">{{ row.requests }}</td>
+          <td class="py-1 pl-3 text-xs text-gray-500 whitespace-nowrap">
+            {% for label, n in row.how %}{% if row.how|length > 1 %}{{ n }} {% endif %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}
+          </td>
         </tr>
       {% endfor %}
     </table>

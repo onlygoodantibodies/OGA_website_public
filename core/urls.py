@@ -62,8 +62,8 @@ urlpatterns = [
     path('tools/', views.tools_hub, name='tools_hub'),
     path('tools/connect-your-ai/', views.connect_your_ai, name='connect_your_ai'),
     # Renamed 22 Aug 2026. The page is the MCP connector — "connect your AI to
-    # the OGA database" — and never was the Academy's conversational tutor, which
-    # lives at academy:assistant. The old address is in Google's index, in the
+    # the OGA database" — and never was the Academy's conversational tutor
+    # (retired 14 Oct 2026). The old address is in Google's index, in the
     # shipped browser extension's handoff card, and in whatever anybody has
     # bookmarked, so it stays as a permanent redirect. It DELIBERATELY carries no
     # url name: with one name per page, no template can link to the old address.

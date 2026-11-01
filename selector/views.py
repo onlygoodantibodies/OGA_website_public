@@ -17,7 +17,9 @@ import logging
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.views.decorators.csrf import ensure_csrf_cookie
+from functools import wraps
+
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import PACK_VERSION, SelectionRecord
@@ -244,7 +246,34 @@ def _compliance_identity_problem(name, email, institution):
     return ""
 
 
-@require_POST
+def _json_post(view):
+    """A POST from this tool's own page, guarded by its content type rather
+    than by Django's CSRF cookie.
+
+    The tool page is held at Cloudflare's edge for seven days (the `public
+    html` Cache Rule), and Cloudflare strips `Set-Cookie` from what it stores —
+    so a visitor handed the cached copy never received `csrftoken`, and every
+    "Download my plan" was Django's 403 page, drawn on screen as `Unexpected
+    token '<'` (20 Oct 2026). The three other public forms were moved out of
+    the cache for the same reason on 30 Sep; this one stays cached, because
+    the page is the expensive half and only the save needs protecting.
+
+    `application/json` is not a content type another site's page can send
+    cross-origin without a CORS preflight, which nothing here answers — so
+    requiring it is the protection the cookie was giving, and it does not
+    depend on what the edge kept.
+    """
+    @wraps(view)
+    def guarded(request, *args, **kwargs):
+        if request.content_type != "application/json":
+            return JsonResponse(
+                {"error": "This address only accepts the selection tool's own "
+                          "save (JSON)."}, status=415)
+        return view(request, *args, **kwargs)
+    return csrf_exempt(require_POST(guarded))
+
+
+@_json_post
 def record_plan(request):
     """Persist a completed run and return a shareable code + PDF url."""
     if len(request.body) > MAX_JSON_BYTES:
@@ -297,7 +326,7 @@ def record_plan(request):
     })
 
 
-@require_POST
+@_json_post
 def attach_identity(request, code):
     """Optionally attach a name/email to an already-saved run."""
     rec = SelectionRecord.objects.filter(public_code=code).first()

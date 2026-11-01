@@ -1,5 +1,6 @@
 # academy/urls.py
 
+from django.shortcuts import redirect
 from django.urls import path
 from . import calibration_views, views
 from .views import (
@@ -32,9 +33,13 @@ urlpatterns = [
     path('certificate/verify/<uuid:code>/', views.certificate_verify,
          name='certificate_verify'),
 
-    # In-app AI assistant (behind the login) — hosted chat surfaces
-    path('assistant/<str:mode>/', views.assistant_page, name='assistant'),
-    path('assistant-api/', views.assistant_api, name='assistant_api'),
+    # The in-app AI assistant (tutor and database search) was retired on
+    # 14 Oct 2026: the tutor had been offline and the search was linked from no
+    # page. A bookmark goes to connecting your own AI, which is what the
+    # assistant itself offered once its daily limit ran out. No url name, so no
+    # template can link to the old address.
+    path('assistant/<str:mode>/',
+         lambda request, mode: redirect('connect_your_ai', permanent=True)),
 
     # Accounts
     path('signup/', CustomSignupView.as_view(), name='signup'),

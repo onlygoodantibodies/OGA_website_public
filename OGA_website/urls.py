@@ -47,8 +47,9 @@ urlpatterns = [
     path('', include('core.urls')), 
     path('certificate/<int:cert_id>/pdf/', academy_views.generate_pdf, name='generate_pdf'),  
     path('academy/', include('academy.urls', namespace='academy')),
-    # Workshop credential (self-contained, on credentials_db) — public claim/verify
-    path('workshop/', include('credentials.urls', namespace='credentials')),
+    # /workshop/ (claim and verify a workshop credential) was retired on 14 Oct
+    # 2026: none was ever issued, and only the retired AI tutor linked to it.
+    # The `credentials` app stays for its models and `institutional.py`.
     # Antibody & Controls Selection Support — PROTOTYPE. Now surfaced in the site
     # nav and the Tools hub; it replaces the old validation planner (which
     # redirects here). Still a prototype, labelled as such in the UI.

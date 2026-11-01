@@ -1,7 +1,7 @@
 """`/tools/ai-tutor/` was renamed to `/tools/connect-your-ai/` on 22 Aug 2026.
 
 The page is the MCP connector — "connect your AI to the OGA database" — and was
-never the Academy's conversational tutor at `academy:assistant`. Its own
+never the Academy's conversational tutor (retired 14 Oct 2026). Its own
 `<title>` and `<h1>` say so, and every link on the site called it *Connect your
 AI*: the address was the last place still carrying the wrong name.
 
@@ -39,3 +39,20 @@ class ConnectYourAiUrlRenameTests(SimpleTestCase):
     def test_the_old_url_has_no_name_so_nothing_can_link_to_it(self):
         with self.assertRaises(NoReverseMatch):
             reverse('ai_tutor')
+
+
+class TheRetiredAcademyAssistantTests(SimpleTestCase):
+    """The Academy's in-app AI assistant was retired on 14 Oct 2026. People who
+    used it bookmarked it, so its address sends them to connecting their own
+    AI — what the assistant itself offered once its daily limit ran out — and
+    carries no url name, so nothing on the site can link to it again."""
+
+    def test_both_old_addresses_go_to_connect_your_ai(self):
+        for mode in ('database', 'elearning'):
+            response = self.client.get(f'/academy/assistant/{mode}/')
+            self.assertEqual(response.status_code, 301, mode)
+            self.assertEqual(response['Location'], reverse('connect_your_ai'))
+
+    def test_it_has_no_name_to_link_to(self):
+        with self.assertRaises(NoReverseMatch):
+            reverse('academy:assistant', args=['database'])

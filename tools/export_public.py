@@ -172,7 +172,16 @@ RULES: list[tuple[str, str, str]] = [
     ("browser-extension/package.json", SHIP, "Defines `npm test`."),
     ("pipeline/data/antibody_availability_2026_08.csv", SHIP,
      "Supplier availability verdicts quoted from public supplier pages."),
-    ("pipeline/data/horizon_hap1_ko.csv", SHIP, "Horizon's public catalogue."),
+    ("pipeline/data/horizon_hap1_ko.csv", DROP,
+     "Horizon's HAP1 KO catalogue. Public at source, but a supplier's list is "
+     "theirs to publish, not ours (owner, 1 Nov 2026); shipped in the public "
+     "snapshots before that, so it stays in that repo's history. No test reads it."),
+    ("pipeline/data/abcam_ko_lines_2026_09_28.csv", DROP,
+     "Abcam's knockout lines complete or in progress, shared with OGA: 65 'In "
+     "development' and 487 'Unvalidated' lines and Abcam's internal notes and "
+     "references -- a supplier's unreleased pipeline, the same ground as "
+     "pre-release data (owner, 1 Nov 2026). The feasibility card says the list "
+     "could not be read without it; its one test skips in the public copy."),
     ("pipeline/data/antibody_availability_2026_08_30.csv", SHIP,
      "The 30 Aug recheck of supplier availability; same kind of file as the 11-12 Aug pass above."),
     ("pipeline/data/methods_record_2026_09_30.json", DROP,

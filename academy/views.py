@@ -50,9 +50,6 @@ def home(request):
     press, and the other two tools keep their place further down the page —
     unchanged, still current, just not competing for the top of it.
 
-    ``ai_configured`` / ``tutor_offline`` / ``offline_message`` used to be sent
-    to this template and read by none of it, left over from the retired AI
-    tutor. ``assistant_page`` computes its own; nothing else wanted these.
     """
     # A module still being written is kept off the list (``is_published``);
     # its editors reach it from the pipeline's editor instead.
@@ -344,104 +341,6 @@ def certificate_verify(request, code):
             .first())
     return render(request, "academy/certificate_verify.html",
                   {"cert": cert, "code": code})
-
-
-# ---------------------------------------------------------------------------
-# In-app AI assistant (behind the academy login) — the hosted chat surfaces
-# ---------------------------------------------------------------------------
-from django.utils import timezone
-from django.http import Http404, JsonResponse
-from django.views.decorators.http import require_POST
-from . import assistant
-from .models import AIChatUsage
-
-_ASSISTANT_META = {
-    "elearning": {
-        "title": "OGA AI e-learning tutor",
-        "blurb": "A conversational tutor that walks you through OGA's antibody-"
-                 "validation training and, when you're ready, points you to claim "
-                 "your certificate.",
-    },
-    "database": {
-        "title": "OGA AI database search",
-        "blurb": "Ask factual questions about OGA's independently tested, "
-                 "knockout-controlled antibody data.",
-    },
-}
-
-
-def _daily_cap():
-    return int(getattr(settings, "ACADEMY_AI_DAILY_MESSAGE_CAP", 40))
-
-
-def _check_and_increment_quota(user):
-    """Atomically bump today's message count. Returns (allowed, remaining)."""
-    from django.db.models import F
-    cap = _daily_cap()
-    today = timezone.now().date()
-    usage, _ = AIChatUsage.objects.get_or_create(user=user, date=today)
-    if usage.message_count >= cap:
-        return False, 0
-    AIChatUsage.objects.filter(pk=usage.pk).update(message_count=F("message_count") + 1)
-    usage.refresh_from_db()
-    return True, max(cap - usage.message_count, 0)
-
-
-@login_required
-def assistant_page(request, mode):
-    if mode not in assistant.MODES:
-        raise Http404("Unknown assistant mode")
-    meta = _ASSISTANT_META[mode]
-    tutor_offline = mode == "elearning" and assistant.tutor_offline()
-    return render(request, "academy/assistant_chat.html", {
-        "mode": mode,
-        "title": meta["title"],
-        "blurb": meta["blurb"],
-        "configured": assistant.is_configured(),
-        "daily_cap": _daily_cap(),
-        "tutor_offline": tutor_offline,
-        "offline_message": assistant.offline_message(),
-    })
-
-
-@login_required
-@require_POST
-def assistant_api(request):
-    try:
-        payload = json.loads(request.body or b"{}")
-    except (ValueError, TypeError):
-        return JsonResponse({"ok": False, "error": "bad_json",
-                             "reply": "Sorry — I couldn't read that."}, status=400)
-
-    mode = payload.get("mode")
-    messages = payload.get("messages") or []
-    if mode not in assistant.MODES:
-        return JsonResponse({"ok": False, "error": "bad_mode",
-                             "reply": "Unknown assistant mode."}, status=400)
-
-    if mode == "elearning" and assistant.tutor_offline():
-        return JsonResponse({"ok": False, "error": "tutor_offline",
-                             "reply": assistant.offline_message()}, status=200)
-
-    if not assistant.is_configured():
-        return JsonResponse({"ok": False, "error": "not_configured",
-                             "reply": "The AI assistant isn't switched on for this "
-                                      "site yet. Please check back soon."}, status=200)
-
-    allowed, remaining = _check_and_increment_quota(request.user)
-    if not allowed:
-        return JsonResponse({
-            "ok": False, "error": "limit", "remaining": 0,
-            "reply": ("You've reached today's message limit for the in-app "
-                      "assistant (a cost safeguard). You can keep going right now by "
-                      "connecting your own AI — Claude, ChatGPT, or similar — to the "
-                      "OGA database; see the “connect your AI to our database” option "
-                      "on the academy page. Your in-app limit resets tomorrow."),
-        }, status=200)
-
-    result = assistant.run_turn(mode, messages)
-    result["remaining"] = remaining
-    return JsonResponse(result, status=200)
 
 
 class CustomSignupView(AllauthSignupView):

@@ -9,7 +9,7 @@
     <h1 class="text-3xl font-bold text-gray-900">Feasibility Lookup</h1>
     <p class="mt-2 text-gray-600">
       Type a gene name for a go/no-go assessment. Checks UniProt, DepMap expression,
-      Horizon HAP1 KO availability, and proteomics data.
+      Horizon HAP1 KO availability, Abcam's knockout lines, and proteomics data.
     </p>
   </div>
 
@@ -323,6 +323,19 @@
           <span id="horizon-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
         </div>
         <div id="horizon-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Abcam KO lines Card (information only — not part of the verdict) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🧫</span> KO lines (Abcam)
+          </h3>
+          <span id="abcam-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="abcam-body" class="p-5">
           <div class="text-gray-400 text-sm">Waiting for search…</div>
         </div>
       </div>
@@ -859,7 +872,7 @@
     document.getElementById('results-container').classList.add('hidden');
 
     // Loading state on free cards
-    ['uniprot-body', 'depmap-body', 'horizon-body', 'proteomics-body', 'pipeline-body', 'registry-body'].forEach(id => {
+    ['uniprot-body', 'depmap-body', 'horizon-body', 'abcam-body', 'proteomics-body', 'pipeline-body', 'registry-body'].forEach(id => {
       document.getElementById(id).innerHTML =
         '<div class="flex items-center gap-2 text-gray-400"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Searching…</div>';
     });
@@ -889,6 +902,7 @@
     renderUniProt(data.uniprot);
     renderDepMap(data.depmap);
     renderHorizon(data.horizon_ko);
+    renderAbcam(data.abcam_ko);
     renderProteomics(data.proteomics);
     renderPipeline(data.pipeline_status, data.add_refusal);
   }
@@ -1132,6 +1146,65 @@
     if (clones.length > 12) html += `<p class="text-xs text-gray-400 mt-1">+ ${clones.length - 12} more clone(s)</p>`;
     html += '<p class="text-xs text-gray-400 mt-1">Source: Horizon Discovery HAP1 KO catalogue (cached locally)</p></div>';
     body.innerHTML = html;
+  }
+
+  function renderAbcam(data) {
+    const body = document.getElementById('abcam-body');
+    const status = document.getElementById('abcam-status');
+    if (!body || !status) return;
+    const src = `<p class="text-xs text-gray-400 mt-2">Source: Abcam knockout cell lines, complete or in progress (list dated ${escHtml(data?.source_date || '')}). Information only — not part of the verdict above. RNA is DepMap log₂(TPM+1) in the parental line; threshold ${escHtml(String(data?.threshold ?? 2.5))}. Protein is Sanger Cell Model Passports mass spectrometry (log₂ intensity), for context: it detects roughly the 5,000 most abundant proteins in a line, so “not detected” does not mean the protein is absent.</p>`;
+    if (!data || !data.found) {
+      status.textContent = data?.error ? 'Error' : 'None listed';
+      status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
+      body.innerHTML = (data?.error
+        ? `<p class="text-sm text-gray-500">${escHtml(data.error)}</p>`
+        : `<p class="text-sm text-gray-600">Abcam's list has no knockout line for this gene, verified or in progress.</p>`) + src;
+      return;
+    }
+    const lines = data.lines || [];
+    const count = data.count || lines.length;
+    const passed = data.pass_count || 0;
+    status.textContent = `${passed} of ${count} verified`;
+    status.className = passed > 0
+      ? 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700'
+      : 'text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700';
+
+    const statusPill = s => {
+      const cls = s === 'Pass' ? 'bg-green-100 text-green-700'
+        : s === 'Unvalidated' ? 'bg-amber-100 text-amber-700'
+        : 'bg-gray-100 text-gray-600';
+      const word = s === 'Pass' ? 'Verified (Pass)' : s;
+      return `<span class="px-1.5 py-0.5 rounded ${cls} whitespace-nowrap">${escHtml(word)}</span>`;
+    };
+    const rna = ln => {
+      if (!ln.in_depmap) return '<span class="text-gray-400">RNA: not in DepMap data</span>';
+      return ln.above_threshold
+        ? `<span class="text-green-700 font-medium">RNA ${ln.tpm} — expressed</span>`
+        : `<span class="text-red-600 font-medium">RNA ${ln.tpm} — below threshold</span>`;
+    };
+    const protein = ln => {
+      if (ln.protein === 'detected') return `<span class="text-green-700">Protein: detected (${ln.protein_intensity})</span>`;
+      if (ln.protein === 'not_detected') return '<span class="text-gray-600">Protein: not detected</span>';
+      if (ln.protein === 'not_measured') return '<span class="text-gray-400">Protein: line not measured</span>';
+      return '<span class="text-gray-400">Protein: could not be read</span>';
+    };
+    const expr = ln => `<div>${rna(ln)}</div><div>${protein(ln)}</div>`;
+    const ref = ln => ln.catalogue
+      ? `<span class="font-mono text-gray-800">${escHtml(ln.catalogue)}</span>`
+      : `<span class="text-gray-400">${escHtml(ln.note || 'none')}</span>`;
+
+    let html = `<p class="text-sm text-gray-700"><strong>${count}</strong> knockout line${count === 1 ? '' : 's'} on Abcam's list, <strong>${passed}</strong> verified.</p>`;
+    html += '<div class="overflow-x-auto mt-2"><table class="w-full text-xs"><thead><tr class="text-left text-gray-500 border-b border-gray-200">'
+      + '<th class="py-1 pr-2 font-medium">Parental line</th><th class="py-1 pr-2 font-medium">Status</th>'
+      + '<th class="py-1 pr-2 font-medium">Expression in parental</th><th class="py-1 font-medium">Catalogue</th>'
+      + '</tr></thead><tbody>';
+    lines.forEach(ln => {
+      html += `<tr class="border-b border-gray-100 align-top"><td class="py-1 pr-2"><div class="text-gray-800 whitespace-nowrap">${escHtml(ln.parental_line || '(not stated)')}</div><div class="text-gray-400">${escHtml(ln.line_name)}</div></td>`
+        + `<td class="py-1 pr-2">${statusPill(ln.status)}</td><td class="py-1 pr-2">${expr(ln)}</td>`
+        + `<td class="py-1 whitespace-nowrap">${ref(ln)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    body.innerHTML = html + src;
   }
 
   function renderProteomics(data) {

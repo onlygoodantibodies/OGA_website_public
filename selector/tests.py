@@ -171,6 +171,31 @@ class SelectorFlowTests(TestCase):
         self.assertEqual(pr.status_code, 200)
         self.assertTrue(pr.content.startswith(b"%PDF"))
 
+    def test_save_works_from_the_edge_cached_page(self):
+        """Cloudflare holds the tool page for seven days and strips its
+        `Set-Cookie`, so a real visitor posts with no `csrftoken` cookie. That
+        was every "Download my plan" refused with Django's 403 page (20 Oct
+        2026); the save must not depend on the cookie."""
+        c = Client(enforce_csrf_checks=True)
+        r = c.post(reverse("selector:record_plan"),
+                   data=json.dumps({"plan": {"target_gene": "X"}, "guidance": []}),
+                   content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        code = r.json()["code"]
+        r = c.post(reverse("selector:attach_identity", args=[code]),
+                   data=json.dumps({"name": "Harv"}), content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+
+    def test_a_cross_site_form_post_is_refused(self):
+        """What stands in for the cookie: another site's page can send a form
+        or `text/plain` without a preflight, never `application/json`."""
+        c = Client(enforce_csrf_checks=True)
+        body = json.dumps({"plan": {"target_gene": "X"}, "guidance": []})
+        for ctype in ("text/plain", "application/x-www-form-urlencoded"):
+            r = c.post(reverse("selector:record_plan"), data=body, content_type=ctype)
+            self.assertEqual(r.status_code, 415, ctype)
+        self.assertFalse(SelectionRecord.objects.exists())
+
     def test_record_rejects_garbage(self):
         r = self.c.post(reverse("selector:record_plan"),
                         data="not json", content_type="application/json")

@@ -70,12 +70,12 @@ class ConsumerActivityPageTests(TestCase):
         kwargs.setdefault("supplier_filter", "Bio-Techne")
         return APIConsumer.objects.create(name=name, **kwargs)
 
-    def _usage(self, consumer, endpoint, count, date=None):
+    def _usage(self, consumer, endpoint, count, date=None, via_portal=None):
         from core.models import ApiUsageDay
 
         return ApiUsageDay.objects.create(
             consumer=consumer, endpoint=endpoint, count=count,
-            date=date or timezone.localdate())
+            date=date or timezone.localdate(), via_portal=via_portal)
 
     # --- who may see it ------------------------------------------------
 
@@ -153,7 +153,8 @@ class ConsumerActivityPageTests(TestCase):
 
         data = consumer_activity.for_consumer(mine)
         self.assertEqual(data["requests"], 3)
-        self.assertEqual(data["portal_requests"], 3)
+        self.assertEqual(data["portal_connects"], 3)
+        self.assertEqual(data["through_portal"], 3)
 
     def test_a_keyless_row_is_nobodys(self):
         """`consumer=None` rows are the whole internet. Folded into a named
@@ -414,9 +415,60 @@ class ConsumerActivityPageTests(TestCase):
 
         consumer = self._consumer()
         self._usage(consumer, "api_status", 1)
-        self._usage(consumer, "antibodies_feed", 5)
+        # Another day: on the sign-in's own day the feed is the portal's.
+        self._usage(consumer, "antibodies_feed", 5,
+                    date=timezone.localdate() - timedelta(days=1))
         story = " ".join(consumer_activity.for_consumer(consumer)["story"])
         self.assertIn("1 of those requests", story)
+
+    # --- the portal is an API client ----------------------------------
+
+    def test_the_portals_own_clicks_are_not_read_as_a_script(self):
+        """The defect this split was written for: a sign-in is three requests
+        and every click another, and the page counted only the sign-in as the
+        portal — so Bio-Techne's 71 requests, every one of them the portal,
+        read "21 of those requests opened the portal, the rest did not"."""
+        from pipeline.services import consumer_activity
+
+        consumer = self._consumer()
+        for endpoint, n in (("api_status", 1), ("antibodies_feed", 1),
+                            ("reviewed_antibodies", 1), ("gene_detail", 12)):
+            self._usage(consumer, endpoint, n)
+        data = consumer_activity.for_consumer(consumer)
+        story = " ".join(data["story"])
+        self.assertIn("Everything they have done has been through the portal",
+                      story)
+        self.assertNotIn("straight to the API", story)
+        self.assertEqual((data["through_portal"], data["direct"],
+                          data["portal_connects"]), (15, 0, 1))
+
+    def test_a_script_beside_the_portal_is_named_as_one(self):
+        from pipeline.services import consumer_activity
+
+        consumer = self._consumer()
+        self._usage(consumer, "api_status", 1, via_portal=True)
+        self._usage(consumer, "gene_detail", 4, via_portal=True)
+        self._usage(consumer, "antibodies_feed", 2, via_portal=False)
+        data = consumer_activity.for_consumer(consumer)
+        story = " ".join(data["story"])
+        self.assertIn("5 of those requests came through the portal and 2 went "
+                      "straight to the API", story)
+        self.assertEqual(data["by_day"][0]["how"],
+                         [("portal", 5), ("direct", 2)])
+
+    def test_a_request_that_cannot_be_placed_says_so(self):
+        """Only what an open tab does, on a day with no sign-in: a tab left
+        open overnight and a script look the same, so neither is claimed."""
+        from pipeline.services import consumer_activity
+
+        consumer = self._consumer()
+        self._usage(consumer, "api_status", 1,
+                    date=timezone.localdate() - timedelta(days=2))
+        self._usage(consumer, "reviewed_antibodies", 1)
+        data = consumer_activity.for_consumer(consumer)
+        self.assertEqual((data["through_portal"], data["direct"],
+                          data["unplaced"]), (1, 0, 1))
+        self.assertIn("1 request cannot be placed", " ".join(data["story"]))
 
     def test_a_single_day_is_not_a_range(self):
         """"between 5 August 2026 and 5 August 2026" lands on the commonest

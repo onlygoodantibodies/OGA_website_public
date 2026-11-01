@@ -1,5 +1,10 @@
 """Self-contained OGA credentials — interactive-learning certificates.
 
+**Retired 14 Oct 2026.** The claim and verify pages under ``/workshop/`` are
+gone: none of these was ever issued, and only the retired AI tutor linked to
+the claim form. The models stay so the tables are kept rather than dropped by a
+migration; nothing on the site writes or reads them now.
+
 Decoupled from the academy models and from ``auth_user``: everything is stored
 **by value** (recipient name, institutional email, gene, RRID, plan, module) with
 no ForeignKeys to any other app. Routes to ``academy_db`` (the Render persistent
@@ -69,10 +74,6 @@ class Certificate(models.Model):
     @property
     def recipient_display(self):
         return self.recipient_name or "Recipient"
-
-    def get_verify_url(self):
-        from django.urls import reverse
-        return reverse("credentials:verify", args=[self.verification_code])
 
     def __str__(self):
         return f"{self.recipient_name} – {self.display_title}"

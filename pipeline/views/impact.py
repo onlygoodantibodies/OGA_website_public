@@ -4,13 +4,13 @@ The numbers were all in Django admin, one model at a time across four apps, so
 they existed and could not be quoted. `services/impact.py` does the arithmetic;
 this hands it to a template.
 
-**Superuser-only**, and that is a decision rather than caution by default. Two
-of the five sections are commercially sensitive in the way `/gene-detail/` is —
-which organisations hold API keys and how hard they are pulling is a picture of
-who OGA's partners are and how engaged each one is — and the other three
-aggregate people who are not pipeline members at all: academy learners,
-workshop attendees, scientists who built a validation plan. A bench member
-needs none of it to do bench work. If the team ever does need it for grant
+**Superuser-only**, and that is a decision rather than caution by default. The
+API and portal sections are commercially sensitive in the way `/gene-detail/`
+is — which organisations hold API keys and how hard they are pulling is a
+picture of who OGA's partners are and how engaged each one is — and others
+aggregate people who are not pipeline members at all: academy learners and
+scientists who built a validation plan. A bench member needs none of it to do
+bench work. If the team ever does need it for grant
 writing, `pipeline_member_required` is the one-word change, and the page draws
 no personal data either way.
 """

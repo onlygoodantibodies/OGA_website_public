@@ -38,7 +38,7 @@ from pipeline.models import (
     Site,
     Target,
     TargetNomination)
-from pipeline.services import uniprot, depmap, horizon
+from pipeline.services import uniprot, depmap, horizon, abcam_ko
 from pipeline.services import bulk_targets, gene_symbol
 
 logger = logging.getLogger(__name__)
@@ -103,6 +103,7 @@ def feasibility_lookup(request):
         "depmap": None,
         "proteomics": None,
         "horizon_ko": None,
+        "abcam_ko": None,
         "pipeline_status": None,
     }
 
@@ -142,6 +143,9 @@ def feasibility_lookup(request):
     results["pipeline_status"] = _check_pipeline_db(key)
     results["proteomics"] = _check_proteomics(key)
     results["horizon_ko"] = horizon.lookup(key)
+    # Information only: deliberately not read by _compute_summary.
+    results["abcam_ko"] = abcam_ko.lookup(key, results.get("depmap"),
+                                          results.get("proteomics"))
 
     # Compute summary (Stage 1 only — no antibody data yet)
     results["feasibility_summary"] = _compute_summary(results)

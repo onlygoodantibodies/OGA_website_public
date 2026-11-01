@@ -3,7 +3,7 @@
 Three things are worth pinning and the rest is presentation.
 
 **Who may see it.** The page aggregates people who are not pipeline members —
-academy learners, workshop attendees, scientists who built a plan — and shows
+academy learners and scientists who built a plan — and shows
 which organisations hold API keys and how hard each is pulling, which is
 commercially sensitive in the way `/gene-detail/` is. It is superuser-only on
 purpose, and a gate that quietly opened would be invisible.
@@ -111,6 +111,50 @@ class ImpactPageTests(TestCase):
         self.assertEqual(n['keyed_requests'], 7)
         self.assertEqual(n['keyed_requests'] + n['keyless_requests'],
                          n['total_requests'])
+
+    def test_a_keyless_request_the_endpoint_refused_is_not_one_served(self):
+        """The counter writes a refused keyless request exactly as it writes a
+        served one, and the download described six refused pre-release figure
+        requests as "fetched a pre-release figure" — read as a leak (13 Oct
+        2026). Out of every figure, printed beside them, and named as a
+        refusal in the file."""
+        import csv
+        import io
+        from datetime import date
+
+        from core.models import ApiUsageDay
+        from django.utils import timezone
+
+        from pipeline.services import impact
+
+        today = timezone.now().date()
+        ApiUsageDay.objects.create(consumer=None, date=today,
+                                   endpoint="antibodies_feed", count=10)
+        ApiUsageDay.objects.create(consumer=None, date=today,
+                                   endpoint="pipeline_image", count=6)
+        # The feeds opened on 12 Aug 2026; the counter is three days older.
+        ApiUsageDay.objects.create(consumer=None, date=date(2026, 8, 10),
+                                   endpoint="antibodies_feed", count=3)
+
+        n = impact.api_usage()
+        self.assertEqual(n['total_requests'], 10)
+        self.assertEqual(n['keyless_requests'], 10)
+        self.assertEqual(n['refused_without_key'], 9)
+        self.assertEqual([r['endpoint'] for r in n['by_endpoint']],
+                         ["antibodies_feed"])
+
+        did = {(r['date'], r['endpoint']): r['what_they_did']
+               for r in csv.DictReader(io.StringIO(
+                   impact.api_usage_csv().lstrip('﻿')))}
+        self.assertEqual(did[(today.isoformat(), "pipeline_image")],
+                         impact.REFUSED_WITHOUT_KEY)
+        self.assertEqual(did[("2026-08-10", "antibodies_feed")],
+                         impact.REFUSED_WITHOUT_KEY)
+        self.assertEqual(did[(today.isoformat(), "antibodies_feed")],
+                         "pulled the antibody feed")
+
+        response = self._user("root", True).get(reverse("pipeline:impact"))
+        self.assertContains(response, "<strong>9</strong> such")
 
     def test_an_unused_key_is_not_counted_as_an_active_organisation(self):
         """A partnership set up and not taken up is a different fact from a
@@ -595,3 +639,107 @@ class InternalUsageIsExcludedButShownTests(TestCase):
         self.assertNotEqual(
             ImpactPageTests._user(self, "bench", False).get(url).status_code, 200,
             "A non-superuser downloaded the MCP usage history.")
+
+
+class ThePortalIsNotCountedAsApiUseTests(TestCase):
+    """The supplier portal is an API client, so its clicks are API requests.
+
+    On 13 Oct 2026 the page credited nine organisations with API use that was
+    96% the portal; one had called the API directly. What is pinned is the
+    split and that it adds up — a total that the parts do not sum to is two
+    answers to one question on one screen.
+    """
+
+    databases = {"pipeline_db", "academy_db"}
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from core.models import APIConsumer, ApiUsageDay
+
+        self.today = timezone.localdate()
+        self.yesterday = self.today - timedelta(days=1)
+        self.portal_only = APIConsumer.objects.create(
+            name="Bio-Techne", consumer_type="manufacturer")
+        self.scripted = APIConsumer.objects.create(
+            name="Abcam", consumer_type="manufacturer")
+
+        def row(consumer, endpoint, count, day, via_portal=None):
+            ApiUsageDay.objects.create(consumer=consumer, endpoint=endpoint,
+                                       count=count, date=day,
+                                       via_portal=via_portal)
+
+        # Before the label: a sign-in day (portal) and a feed with no
+        # sign-in (direct).
+        row(self.portal_only, "api_status", 2, self.yesterday)
+        row(self.portal_only, "antibodies_feed", 2, self.yesterday)
+        row(self.portal_only, "gene_detail", 10, self.yesterday)
+        row(self.scripted, "antibodies_feed", 1, self.yesterday)
+        row(self.scripted, "gene_detail", 6, self.yesterday)
+        # After it: the portal's sign-in, and a script calling /status/ too.
+        row(self.scripted, "api_status", 1, self.today, via_portal=True)
+        row(self.scripted, "api_status", 3, self.today, via_portal=False)
+
+    def test_the_split_adds_up_to_the_total(self):
+        from pipeline.services import impact
+
+        data = impact.api_usage()
+        self.assertEqual(data["total_requests"], 25)
+        self.assertEqual((data["portal_requests"], data["direct_requests"],
+                          data["unplaced_requests"]), (15, 10, 0))
+        self.assertEqual(data["direct_organisations"], 1)
+
+    def test_each_organisation_is_split_the_same_way(self):
+        from pipeline.services import impact
+
+        rows = {r["consumer__name"]: (r["requests"], r["portal"], r["direct"])
+                for r in impact.api_usage()["by_consumer"]}
+        self.assertEqual(rows, {"Bio-Techne": (14, 14, 0),
+                                "Abcam": (11, 1, 10)})
+
+    def test_a_script_calling_status_is_not_a_portal_sign_in(self):
+        """It is the first curl example on the data-access page."""
+        from pipeline.services import impact
+
+        data = impact.portal_sessions()
+        self.assertEqual(data["connects"], 3)
+        rows = {r["consumer__name"]: r for r in data["by_consumer"]}
+        self.assertEqual(rows["Abcam"]["connects"], 1)
+
+    def test_last_direct_call_ignores_the_portals_own_clicks(self):
+        """Any request at all kept it level with the last sign-in, and pushed
+        it a day past one for a tab left open — reading as a script."""
+        from pipeline.services import impact
+
+        rows = {r["consumer__name"]: r
+                for r in impact.portal_sessions()["by_consumer"]}
+        self.assertIsNone(rows["Bio-Techne"]["last_call"])
+        self.assertEqual(rows["Abcam"]["last_call"], self.today)
+
+    def test_the_download_says_which_route_and_whether_it_was_inferred(self):
+        import csv
+        import io
+
+        from pipeline.services import impact
+
+        rows = list(csv.DictReader(io.StringIO(
+            impact.api_usage_csv().lstrip("﻿"))))
+        routes = {(r["caller"], r["date"], r["endpoint"], r["requests"]):
+                  r["route"] for r in rows}
+        y, t = self.yesterday.isoformat(), self.today.isoformat()
+        self.assertEqual(routes[("Bio-Techne", y, "gene_detail", "10")],
+                         "portal (inferred from the day)")
+        self.assertEqual(routes[("Abcam", y, "gene_detail", "6")],
+                         "direct (inferred from the day)")
+        self.assertEqual(routes[("Abcam", t, "api_status", "1")], "portal")
+        self.assertEqual(routes[("Abcam", t, "api_status", "3")], "direct")
+
+    def test_the_page_draws_the_split(self):
+        self.site = Site.objects.using(DB).create(name="Leicester",
+                                                  short_code="LEI")
+        body = ImpactPageTests._user(self, "root", True).get(
+            reverse("pipeline:impact")).content.decode()
+        self.assertIn("went straight to the API", body)
+        self.assertIn("Last direct call", body)

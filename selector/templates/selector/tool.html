@@ -941,12 +941,20 @@ function renderPlan(){
     var payload={ plan:assemblePlan(finalProto), guidance:GUIDANCE, is_compliance:compliance,
       name:A.who_name||"", email:compliance?(A.who_email||""):"", institution:compliance?(A.who_inst||""):"" };
     fetch(SEL.recordUrl,{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":SEL.csrf},
-      body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
-        if(d.error) throw new Error(d.error);
+      body:JSON.stringify(payload)}).then(function(r){
+        // Not JSON = a page from a layer in front of the view (a 403, a 502).
+        return r.json().catch(function(){ return {}; });
+      }).then(function(d){
+        if(d.error) throw {refusal:d.error};
+        if(!d.pdf_url) throw {};
         savedPdf=d.pdf_url; msg.innerHTML='✓ Saved. Opening your PDF…';
         window.open(d.pdf_url,"_blank"); dl.textContent="Download PDF again"; dl.disabled=false;
         dl.onclick=function(){ window.open(savedPdf,"_blank"); };
-      }).catch(function(e){ refreshFinish(); msg.innerHTML='<span style="color:var(--red)">Couldn’t save ('+esc(e.message||"error")+'). Try again.</span>'; });
+      }).catch(function(e){ refreshFinish();
+        // The view's own refusals are written for a reader; anything else
+        // (network, a non-JSON page) gets a sentence, never the parser's words.
+        msg.innerHTML='<span style="color:var(--red)">'+(e && e.refusal ? esc(e.refusal) :
+          'Your plan was not saved — the site could not be reached or did not answer properly. Press Download again; if it keeps failing, '+link("https://onlygoodantibodies.co.uk/contact/","contact the OGA team")+'.')+'</span>'; });
   };
 
   stage.innerHTML=""; stage.appendChild(card); renderProgress();

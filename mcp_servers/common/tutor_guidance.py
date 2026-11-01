@@ -1,16 +1,16 @@
 """Shared behavioural guidance for the OGA AI tutor / data assistant.
 
-ONE source of truth for *how the AI should behave*, used by BOTH:
+ONE source of truth for *how the AI should behave*. It was written for two
+readers, and one is gone: the Academy's in-app hosted chat (``academy/
+assistant.py``) was retired on 14 Oct 2026. What reads it now is:
 
-  * the in-app hosted chat system prompt (``academy/assistant.py``), where OGA
-    controls the model directly, and
   * the MCP server's ``instructions`` (``server_a_readonly`` / ``server_a2``),
     which nudge a user's OWN AI (Claude / ChatGPT / …) when they connect the
     OGA connector — the "bring your own AI" path, where OGA can't set a system
     prompt and can only *influence* behaviour through the server.
 
-Keeping the guidance here means a lesson learned in one place improves both
-experiences and they can't silently drift apart. Pure strings, no imports —
+Keeping the guidance here means the connector's servers cannot silently drift
+apart. Pure strings, no imports —
 safe to load from anywhere (Django app or standalone MCP process).
 
 Note on the BYO path: ``instructions`` and tool descriptions are *advisory*.

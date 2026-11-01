@@ -21,8 +21,9 @@ Design notes
   optionally at the end (name + email) so there is still "a record that the
   person used it".
 * **Plan shape.** ``plan`` follows ``mcp_servers/content/plan_schema.json`` (the
-  7-item validation-framework checklist) so the artifact stays analysable and
-  interoperable with the workshop-certificate flow in ``credentials``.
+  7-item validation-framework checklist) so the artifact stays analysable. (It
+  was also shaped for the workshop-certificate flow in ``credentials``, which
+  was retired on 14 Oct 2026.)
 """
 import uuid
 

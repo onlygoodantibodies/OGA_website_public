@@ -48,7 +48,9 @@ from datetime import timedelta
 from django.db.models import Count, Max, Min, Q, Sum
 from django.utils import timezone
 
-from pipeline.services.impact import PORTAL_CONNECT_ENDPOINT, RECENT_DAYS
+from core import api_usage as usage
+from pipeline.services.impact import (PORTAL_CONNECT_ENDPOINT, RECENT_DAYS,
+                                      route_split)
 
 #: How many of a consumer's active days the page lists. Bounded so a partner
 #: pulling nightly for two years does not draw 700 rows; the total is printed
@@ -92,6 +94,9 @@ ENDPOINT_ACTIVITY = {
     'gene_progress': 'checked how far their genes have got',
     'not_supportive': 'reviewed their antibodies with no supportive result',
     'not_supportive_csv': 'downloaded their not-supportive list as a spreadsheet',
+    # Withdrawn 14 Sep 2026 (`core/api_not_supportive.py` says why); its rows
+    # stay in the counter, so it keeps a label after its route has gone.
+    'not_supportive_pdf': 'downloaded their not-supportive list as a PDF',
     # `api_usage.endpoint_of` writes this literal when a request resolves to no
     # URL name. It has never been seen in the data; if it ever is, it is a fact
     # about the counter and not about the partner, and it says so.
@@ -170,6 +175,11 @@ def _by_endpoint(rows):
     return out
 
 
+#: How a day's requests are drawn beside its bar, in the page's own words.
+ROUTE_LABELS = ((usage.PORTAL, 'portal'), (usage.DIRECT, 'direct'),
+                (usage.UNPLACED, 'cannot tell'))
+
+
 def _by_day(rows):
     """Their most recent active days, newest first, with the day's total.
 
@@ -177,10 +187,24 @@ def _by_day(rows):
     squares says less than a short list of real dates, and the empty squares
     would be doing the work of a claim the counter cannot make anyway — a
     throttled or keyless call is a day that looks empty and was not.
+
+    Each day says how its requests came — the portal, straight to the API, or
+    cannot tell — because that is the question these dates get read for.
     """
-    return list(rows.values('date')
-                    .annotate(requests=Sum('count'))
+    days = list(usage.with_route(rows).values('date')
+                    .annotate(requests=Sum('count'), **route_split())
                     .order_by('-date')[:DAYS_LISTED])
+    for day in days:
+        day['how'] = [(label, day[route]) for route, label in ROUTE_LABELS
+                      if day[route]]
+    return days
+
+
+def _routes(rows):
+    """Their requests as ``portal``, ``direct`` and ``unplaced``, which add up
+    to the total (`core/api_usage.py::route_of` decides each)."""
+    split = usage.with_route(rows).aggregate(**route_split())
+    return {key: value or 0 for key, value in split.items()}
 
 
 def _reviewed(consumer):
@@ -354,8 +378,7 @@ def _scope_sentences(consumer):
     return said
 
 
-def _story(consumer, totals, portal_requests, other_requests, reviewed, pending,
-           portal_actions=0):
+def _story(consumer, totals, routes, reviewed, pending, scripted_actions=0):
     """The paragraph at the top: what they have done, and how.
 
     Every branch here answers with a sentence rather than leaving a blank,
@@ -395,29 +418,46 @@ def _story(consumer, totals, portal_requests, other_requests, reviewed, pending,
                                        _plural(requests, 'request'), days,
                                        totals['first'], totals['last']))
 
-        if portal_requests and other_requests:
-            # "those requests" refers back to the total in the sentence before,
-            # so it agrees with `requests` — never with the subset being named.
-            said.append('They use both the portal and something automated — '
-                        f'{portal_requests} of those {_plural(requests, "request")} '
-                        'opened the portal, the rest did not.')
-        elif portal_requests:
+        # Split by how each request came, not by whether it was the sign-in:
+        # the portal is an API client, and counting only its sign-ins as "the
+        # portal" told nine organisations' pages that the rest of their clicks
+        # were "something automated" (13 Oct 2026). "those requests" refers
+        # back to the total in the sentence before, so it agrees with
+        # `requests` — never with the subset being named.
+        portal, direct, unplaced = (routes['portal'], routes['direct'],
+                                    routes['unplaced'])
+        those = 'of those ' + _plural(requests, 'request')
+        if portal and direct:
+            said.append(f'{portal} {those} came through the portal and {direct} '
+                        'went straight to the API — a script, or somebody '
+                        'calling it by hand.')
+        elif portal and not unplaced:
             said.append('Everything they have done has been through the portal. '
                         'There is no sign of a script.')
-        elif portal_actions:
+        elif portal:
+            said.append(f'{portal} {those} came through the portal, and none can '
+                        'be shown to have gone straight to the API.')
+        elif scripted_actions:
             # Not "all machine traffic against the feeds": the table below is
             # about to print "marked everything as reviewed", and a sentence
             # denying what the next table shows is a contradiction rather than
             # a caveat. Every portal action is a keyed HTTP endpoint a script
             # can call without ever fetching /v1/status/.
             said.append(
-                'They have never opened the portal, but {} of those {} did '
-                'something the portal does — marking records reviewed, or '
-                'changing their settings — so a script is driving that too.'
-                .format(portal_actions, _plural(requests, 'request')))
+                'They have never opened the portal, but {} {} did something '
+                'the portal does — marking records reviewed, or changing their '
+                'settings — so a script is driving that too.'
+                .format(scripted_actions, those))
         else:
             said.append('They have never opened the portal. All of this is '
                         'machine traffic against the feeds.')
+
+        if unplaced:
+            said.append(
+                '{} {} cannot be placed: recorded before the portal labelled '
+                'its own requests, with no sign-in the same day, and only for '
+                'things a portal tab left open also does.'.format(
+                    unplaced, _plural(unplaced, 'request')))
 
         last = totals['last']
         quiet = (timezone.localdate() - last).days if last else None
@@ -482,12 +522,17 @@ def for_consumer(consumer):
     rows = _usage_rows(consumer)
     totals = _totals(rows)
     by_endpoint = _by_endpoint(rows)
+    routes = _routes(rows)
 
-    portal_requests = sum(r['requests'] for r in by_endpoint
-                          if r['endpoint'] == PORTAL_CONNECT_ENDPOINT)
-    other_requests = (totals['requests'] or 0) - portal_requests
-    portal_actions = sum(r['requests'] for r in by_endpoint
-                         if r['endpoint'] in PORTAL_ACTION_ENDPOINTS)
+    # Sign-ins the portal made, and portal-shaped actions a script made — both
+    # asked of `route_of`, so neither counts the other's requests.
+    routed = usage.with_route(rows)
+    portal_connects = routed.filter(
+        endpoint=PORTAL_CONNECT_ENDPOINT, route=usage.PORTAL,
+    ).aggregate(n=Sum('count'))['n'] or 0
+    scripted_actions = routed.filter(
+        endpoint__in=PORTAL_ACTION_ENDPOINTS, route=usage.DIRECT,
+    ).aggregate(n=Sum('count'))['n'] or 0
 
     reviewed = _reviewed(consumer)
     pending = _pending(consumer)
@@ -495,14 +540,16 @@ def for_consumer(consumer):
     by_day = _by_day(rows)
     return {
         'consumer': consumer,
-        'story': _story(consumer, totals, portal_requests, other_requests,
-                        reviewed, pending, portal_actions),
+        'story': _story(consumer, totals, routes, reviewed, pending,
+                        scripted_actions),
         'scope': _scope_sentences(consumer),
         'totals': totals,
         'requests': totals['requests'] or 0,
         'days': totals['days'] or 0,
-        'portal_requests': portal_requests,
-        'other_requests': other_requests,
+        'portal_connects': portal_connects,
+        'through_portal': routes['portal'],
+        'direct': routes['direct'],
+        'unplaced': routes['unplaced'],
         'by_endpoint': by_endpoint,
         'by_day': by_day,
         # A chart's bars must be in proportion, and `widthratio` is all a
@@ -518,7 +565,7 @@ def for_consumer(consumer):
         # draws an outage as a confident "0 waiting".
         'pending_known': pending is not None,
         'portal_config': consumer.portal_config or {},
-        'portal_actions': portal_actions,
+        'scripted_actions': scripted_actions,
         'uncounted': list(UNCOUNTED_PATHS),
         'recent_days': RECENT_DAYS,
     }

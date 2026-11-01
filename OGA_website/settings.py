@@ -15,24 +15,6 @@ import os
 import sys
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
-# In-app AI assistant (academy chat) — cost guardrails, all env-overridable.
-ACADEMY_AI_MODEL = os.environ.get('ACADEMY_AI_MODEL', 'claude-haiku-4-5')
-ACADEMY_AI_DAILY_MESSAGE_CAP = int(os.environ.get('ACADEMY_AI_DAILY_MESSAGE_CAP', '40'))
-ACADEMY_AI_MAX_TOKENS = int(os.environ.get('ACADEMY_AI_MAX_TOKENS', '1500'))
-ACADEMY_AI_MAX_TOOL_ROUNDS = int(os.environ.get('ACADEMY_AI_MAX_TOOL_ROUNDS', '6'))
-
-# --- AI tutor maintenance switch -------------------------------------------
-# The conversational e-learning tutor is being reworked, so it's taken offline
-# while that happens. The AI database search is unaffected. Flip this back to
-# 'False' in the environment (no code change / redeploy of code needed) to bring
-# the tutor back once the rework lands.
-AI_TUTOR_OFFLINE = os.environ.get('AI_TUTOR_OFFLINE', 'True') == 'True'
-AI_TUTOR_OFFLINE_MESSAGE = os.environ.get(
-    'AI_TUTOR_OFFLINE_MESSAGE',
-    "Our AI tutor is temporarily offline while we give it a substantial "
-    "rework to make it better. It'll be back soon — thanks for your patience."
-)
-
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
