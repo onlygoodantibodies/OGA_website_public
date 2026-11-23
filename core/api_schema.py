@@ -842,6 +842,30 @@ def _paths():
                 },
             }},
 
+        '/uniprot/': {
+            'get': {
+                'tags': tag_data,
+                'summary': 'UniProt cross-reference file',
+                'security': [],
+                'operationId': 'getUniprotMapping',
+                'description': (
+                    'Every gene `/genes/` lists, one per line, tab-separated '
+                    'with a header row: `uniprot_accession`, `gene`, '
+                    '`antibodies` (the same number as `antibody_count`), '
+                    '`suppliers` (distinct suppliers of those antibodies) and '
+                    '`url` (the gene page). `uniprot_accession` is blank '
+                    'where none is on file. Columns are only ever added at '
+                    'the end.'),
+                'responses': {
+                    '200': {
+                        'description': ok,
+                        'headers': _rate_limit_headers(),
+                        'content': {'text/tab-separated-values': {
+                            'schema': {'type': 'string'}}}},
+                    **common_errors,
+                },
+            }},
+
         '/gene-detail/': {
             'get': {
                 'tags': tag_data,

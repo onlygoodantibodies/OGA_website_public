@@ -1141,7 +1141,7 @@ class TheApiSaysWhatChangedTests(APIFeedTestCase):
         self.assertEqual(whole['releases'][0]['version'], CURRENT)
         newer = self.client.get(url, {'since': '2.2.0'}).json()
         self.assertEqual([r['version'] for r in newer['releases']],
-                         ['2.7.0', '2.6.0', '2.5.0', '2.4.0', '2.3.0'])
+                         ['2.8.0', '2.7.0', '2.6.0', '2.5.0', '2.4.0', '2.3.0'])
         self.assertTrue(self.client.get(url, {'since': CURRENT}).json()['up_to_date'])
         self.assertEqual(self.client.get(url, {'since': 'latest'}).status_code, 400)
         # A version from the future is a typo, not "up to date" (field test,
@@ -1162,3 +1162,60 @@ class TheApiSaysWhatChangedTests(APIFeedTestCase):
         text = Path(settings.BASE_DIR, 'API.md').read_text(encoding='utf-8')
         for release in CHANGELOG:
             self.assertIn(f"### {release['version']} —", text, release['version'])
+
+
+class TheUniprotFileAgreesWithTheGenesFeedTests(APIFeedTestCase):
+    """`/v1/uniprot/` is what UniProt prints in its DR lines (12 Nov 2026).
+
+    Silent if wrong in three ways, each a number a registry republishes: a
+    gene count that is not `/genes/`'s, a supplier counted twice because two
+    `Company` rows print one name, and a cell that is not an accession handed
+    over as one.
+    """
+
+    def _rows(self, **headers):
+        response = self.client.get(reverse("api:uniprot_mapping"), **headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Type"].startswith(
+            "text/tab-separated-values"))
+        lines = response.content.decode().splitlines()
+        header = lines[0].split("\t")
+        self.assertEqual(header, ["uniprot_accession", "gene", "antibodies",
+                                  "suppliers", "url"])
+        return {r[1]: dict(zip(header, r))
+                for r in (line.split("\t") for line in lines[1:])}
+
+    def test_it_needs_no_key_and_lists_the_genes_feed_with_its_counts(self):
+        rows = self._rows()
+        feed = {g["gene"]: g["antibody_count"]
+                for g in self._get("api:genes_feed").json()["genes"]}
+        self.assertEqual({g: int(r["antibodies"]) for g, r in rows.items()},
+                         feed)
+        self.assertEqual(rows["SNCA"]["url"],
+                         "https://onlygoodantibodies.co.uk/antibodies/SNCA/")
+
+    def test_a_supplier_is_counted_once_per_printed_name(self):
+        twin = Company.objects.create(name="Proteintech Group",
+                                      display_name="Proteintech")
+        other = Company.objects.create(name="Abcam")
+        for company, catalogue in ((twin, "PT-2"), (other, "ab1")):
+            ab = Antibody.objects.create(target=self.snca, company=company,
+                                         catalogue_number=catalogue)
+            PublicationImage.objects.create(
+                antibody=ab, application_type="WB",
+                image=f"publication_images/2026/{catalogue}_WB.png")
+
+        snca = self._rows()["SNCA"]
+        self.assertEqual(snca["antibodies"], "4")
+        self.assertEqual(snca["suppliers"], "2",
+                         "Proteintech under two Company rows is one supplier")
+
+    def test_only_a_real_accession_is_passed_on(self):
+        Target.objects.filter(pk=self.snca.pk).update(uniprot_id=" p37840 ")
+        Target.objects.filter(pk=self.stmn2.pk).update(uniprot_id="Q93045-2")
+
+        rows = self._rows()
+        self.assertEqual(rows["SNCA"]["uniprot_accession"], "P37840")
+        self.assertEqual(rows["STMN2"]["uniprot_accession"], "",
+                         "an isoform id is not an entry UniProt files a DR "
+                         "line under; leave the gap rather than pass it on")

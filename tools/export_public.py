@@ -182,6 +182,10 @@ RULES: list[tuple[str, str, str]] = [
      "references -- a supplier's unreleased pipeline, the same ground as "
      "pre-release data (owner, 1 Nov 2026). The feasibility card says the list "
      "could not be read without it; its one test skips in the public copy."),
+    ("pipeline/data/thermofisher_ko_lines_2026.csv", DROP,
+     "Thermo Fisher's CRISPR knockout lines, completed or in progress, by their "
+     "internal roadmap year -- a supplier's unreleased pipeline, like Abcam's "
+     "(owner, 4 Nov 2026). Its test skips in the public copy."),
     ("pipeline/data/antibody_availability_2026_08_30.csv", SHIP,
      "The 30 Aug recheck of supplier availability; same kind of file as the 11-12 Aug pass above."),
     ("pipeline/data/methods_record_2026_09_30.json", DROP,

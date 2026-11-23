@@ -500,6 +500,18 @@ class TheBuildNamesWhatItLeavesOutTests(SimpleTestCase):
             with tarfile.open(many[-1]) as tar:
                 self.assertEqual(sorted(tar.getnames()), names[:2])
 
+    def test_a_bundle_holds_nothing_but_the_json_files(self):
+        # getnames() hides PAX header members, so read the raw blocks: the
+        # platform's loader opens every member, a hidden one included.
+        import gzip
+        row = E.row_for("MED", "1", "oga", [dict(GOOD_ANN, section="Abstract")])
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = E.submission_files(E.write_files([row], tmp, "plain"))[0]
+            raw = gzip.decompress(bundle.read_bytes())
+            self.assertNotIn(b"PaxHeader", raw)
+            with tarfile.open(bundle) as tar:
+                self.assertEqual([m.type for m in tar.getmembers()], [tarfile.REGTYPE])
+
     def test_a_bundle_holds_at_most_ten_files(self):
         row = E.row_for("MED", "1", "oga", [dict(GOOD_ANN, section="Abstract")])
         from unittest import mock

@@ -1096,7 +1096,11 @@ def write_files(rows, out_dir, stem):
     bundles = []
     for k, group in enumerate(_batches(parts, MAX_FILES_PER_BUNDLE), 1):
         archive = out_dir / f"{stem}.bundle{k:02d}.tar.gz"
-        with tarfile.open(archive, "w:gz") as tar:
+        # USTAR, never Python's default PAX: PAX adds a hidden header member
+        # (``28 mtime=...``) for the sub-second timestamp, and the platform's
+        # loader reads every member as a JSON file, so the 18 Oct sample was
+        # refused at "File: @PaxHeader, Line: 1" (DECISIONS.md, 5 Nov 2026).
+        with tarfile.open(archive, "w:gz", format=tarfile.USTAR_FORMAT) as tar:
             for path in group:
                 tar.add(path, arcname=path.name)
         bundles.append(archive)

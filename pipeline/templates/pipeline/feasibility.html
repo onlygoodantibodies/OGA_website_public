@@ -9,7 +9,7 @@
     <h1 class="text-3xl font-bold text-gray-900">Feasibility Lookup</h1>
     <p class="mt-2 text-gray-600">
       Type a gene name for a go/no-go assessment. Checks UniProt, DepMap expression,
-      Horizon HAP1 KO availability, Abcam's knockout lines, and proteomics data.
+      Horizon HAP1 KO availability, Abcam's and Thermo Fisher's knockout lines, and proteomics data.
     </p>
   </div>
 
@@ -336,6 +336,19 @@
           <span id="abcam-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
         </div>
         <div id="abcam-body" class="p-5">
+          <div class="text-gray-400 text-sm">Waiting for search…</div>
+        </div>
+      </div>
+
+      <!-- Thermo Fisher KO lines Card (information only — not part of the verdict) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <span class="text-lg">🧫</span> KO lines (Thermo Fisher)
+          </h3>
+          <span id="thermo-status" class="text-xs font-medium px-2 py-1 rounded-full"></span>
+        </div>
+        <div id="thermo-body" class="p-5">
           <div class="text-gray-400 text-sm">Waiting for search…</div>
         </div>
       </div>
@@ -872,7 +885,7 @@
     document.getElementById('results-container').classList.add('hidden');
 
     // Loading state on free cards
-    ['uniprot-body', 'depmap-body', 'horizon-body', 'abcam-body', 'proteomics-body', 'pipeline-body', 'registry-body'].forEach(id => {
+    ['uniprot-body', 'depmap-body', 'horizon-body', 'abcam-body', 'thermo-body', 'proteomics-body', 'pipeline-body', 'registry-body'].forEach(id => {
       document.getElementById(id).innerHTML =
         '<div class="flex items-center gap-2 text-gray-400"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Searching…</div>';
     });
@@ -902,7 +915,8 @@
     renderUniProt(data.uniprot);
     renderDepMap(data.depmap);
     renderHorizon(data.horizon_ko);
-    renderAbcam(data.abcam_ko);
+    renderKoList(data.abcam_ko, ABCAM_KO);
+    renderKoList(data.thermo_ko, THERMO_KO);
     renderProteomics(data.proteomics);
     renderPipeline(data.pipeline_status, data.add_refusal);
   }
@@ -1148,33 +1162,61 @@
     body.innerHTML = html;
   }
 
-  function renderAbcam(data) {
-    const body = document.getElementById('abcam-body');
-    const status = document.getElementById('abcam-status');
+  // One drawing for every supplier's knockout list; what differs per supplier
+  // is its status words and its last column.
+  const pillClass = tone => tone === 'done' ? 'bg-green-100 text-green-700'
+    : tone === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600';
+  const ABCAM_KO = {
+    id: 'abcam', supplier: 'Abcam',
+    source: d => `Abcam knockout cell lines, complete or in progress (list dated ${escHtml(d?.source_date || '')})`,
+    none: "Abcam's list has no knockout line for this gene, verified or in progress.",
+    status: s => s === 'Pass' ? ['Verified (Pass)', 'done'] : [s, s === 'Unvalidated' ? 'pending' : 'other'],
+    subline: ln => escHtml(ln.line_name || ''),
+    lastHeading: 'Catalogue',
+    last: ln => ln.catalogue
+      ? `<span class="font-mono text-gray-800">${escHtml(ln.catalogue)}</span>`
+      : `<span class="text-gray-400">${escHtml(ln.note || 'none')}</span>`,
+  };
+  const THERMO_KO = {
+    id: 'thermo', supplier: 'Thermo Fisher',
+    source: d => `Thermo Fisher CRISPR knockout list, completed or in progress (${escHtml(d?.source_date || '')}); the gene is resolved from each line's UniProt accession`,
+    none: "Thermo Fisher's list has no knockout line for this gene, completed or in progress.",
+    status: s => s === 'Completed' ? ['Completed', 'done']
+      : [s, /in progress|inconclusive/i.test(s) ? 'pending' : 'other'],
+    subline: ln => {
+      const named = ln.protein_name && ln.protein_name.toUpperCase() !== (ln.gene_display || '').toUpperCase()
+        ? `listed as ${escHtml(ln.protein_name)} · ` : '';
+      return `${named}UniProt ${escHtml(ln.uniprot || '')}`;
+    },
+    lastHeading: 'Roadmap',
+    last: ln => `<span class="text-gray-600 whitespace-nowrap">${escHtml((ln.roadmap || '').replace(/^RM_/, '') || '—')}</span>`,
+  };
+
+  function renderKoList(data, cfg) {
+    const body = document.getElementById(`${cfg.id}-body`);
+    const status = document.getElementById(`${cfg.id}-status`);
     if (!body || !status) return;
-    const src = `<p class="text-xs text-gray-400 mt-2">Source: Abcam knockout cell lines, complete or in progress (list dated ${escHtml(data?.source_date || '')}). Information only — not part of the verdict above. RNA is DepMap log₂(TPM+1) in the parental line; threshold ${escHtml(String(data?.threshold ?? 2.5))}. Protein is Sanger Cell Model Passports mass spectrometry (log₂ intensity), for context: it detects roughly the 5,000 most abundant proteins in a line, so “not detected” does not mean the protein is absent.</p>`;
+    const src = `<p class="text-xs text-gray-400 mt-2">Source: ${cfg.source(data)}. Information only — not part of the verdict above. RNA is DepMap log₂(TPM+1) in the parental line; threshold ${escHtml(String(data?.threshold ?? 2.5))}. Protein is Sanger Cell Model Passports mass spectrometry, for context: it detects roughly the 5,000 most abundant proteins in a line, so “not detected” does not mean the protein is absent.</p>`;
     if (!data || !data.found) {
       status.textContent = data?.error ? 'Error' : 'None listed';
       status.className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600';
       body.innerHTML = (data?.error
         ? `<p class="text-sm text-gray-500">${escHtml(data.error)}</p>`
-        : `<p class="text-sm text-gray-600">Abcam's list has no knockout line for this gene, verified or in progress.</p>`) + src;
+        : `<p class="text-sm text-gray-600">${escHtml(cfg.none)}</p>`) + src;
       return;
     }
     const lines = data.lines || [];
     const count = data.count || lines.length;
-    const passed = data.pass_count || 0;
-    status.textContent = `${passed} of ${count} verified`;
-    status.className = passed > 0
+    const done = data.done_count || 0;
+    const word = data.done_word || 'finished';
+    status.textContent = `${done} of ${count} ${word}`;
+    status.className = done > 0
       ? 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700'
       : 'text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700';
 
     const statusPill = s => {
-      const cls = s === 'Pass' ? 'bg-green-100 text-green-700'
-        : s === 'Unvalidated' ? 'bg-amber-100 text-amber-700'
-        : 'bg-gray-100 text-gray-600';
-      const word = s === 'Pass' ? 'Verified (Pass)' : s;
-      return `<span class="px-1.5 py-0.5 rounded ${cls} whitespace-nowrap">${escHtml(word)}</span>`;
+      const [label, tone] = cfg.status(s);
+      return `<span class="inline-block px-1.5 py-0.5 rounded ${pillClass(tone)}">${escHtml(label)}</span>`;
     };
     const rna = ln => {
       if (!ln.in_depmap) return '<span class="text-gray-400">RNA: not in DepMap data</span>';
@@ -1183,25 +1225,23 @@
         : `<span class="text-red-600 font-medium">RNA ${ln.tpm} — below threshold</span>`;
     };
     const protein = ln => {
-      if (ln.protein === 'detected') return `<span class="text-green-700">Protein: detected (${ln.protein_intensity})</span>`;
+      if (ln.protein === 'detected') return '<span class="text-green-700">Protein: detected</span>';
       if (ln.protein === 'not_detected') return '<span class="text-gray-600">Protein: not detected</span>';
       if (ln.protein === 'not_measured') return '<span class="text-gray-400">Protein: line not measured</span>';
       return '<span class="text-gray-400">Protein: could not be read</span>';
     };
     const expr = ln => `<div>${rna(ln)}</div><div>${protein(ln)}</div>`;
-    const ref = ln => ln.catalogue
-      ? `<span class="font-mono text-gray-800">${escHtml(ln.catalogue)}</span>`
-      : `<span class="text-gray-400">${escHtml(ln.note || 'none')}</span>`;
 
-    let html = `<p class="text-sm text-gray-700"><strong>${count}</strong> knockout line${count === 1 ? '' : 's'} on Abcam's list, <strong>${passed}</strong> verified.</p>`;
+    let html = `<p class="text-sm text-gray-700"><strong>${count}</strong> knockout line${count === 1 ? '' : 's'} on ${escHtml(cfg.supplier)}'s list, <strong>${done}</strong> ${escHtml(word)}.</p>`;
     html += '<div class="overflow-x-auto mt-2"><table class="w-full text-xs"><thead><tr class="text-left text-gray-500 border-b border-gray-200">'
       + '<th class="py-1 pr-2 font-medium">Parental line</th><th class="py-1 pr-2 font-medium">Status</th>'
-      + '<th class="py-1 pr-2 font-medium">Expression in parental</th><th class="py-1 font-medium">Catalogue</th>'
+      + `<th class="py-1 pr-2 font-medium">Expression in parental</th><th class="py-1 font-medium">${escHtml(cfg.lastHeading)}</th>`
       + '</tr></thead><tbody>';
     lines.forEach(ln => {
-      html += `<tr class="border-b border-gray-100 align-top"><td class="py-1 pr-2"><div class="text-gray-800 whitespace-nowrap">${escHtml(ln.parental_line || '(not stated)')}</div><div class="text-gray-400">${escHtml(ln.line_name)}</div></td>`
+      ln.gene_display = data.gene;
+      html += `<tr class="border-b border-gray-100 align-top"><td class="py-1 pr-2"><div class="text-gray-800 whitespace-nowrap">${escHtml(ln.parental_line || '(not stated)')}</div><div class="text-gray-400">${cfg.subline(ln)}</div></td>`
         + `<td class="py-1 pr-2">${statusPill(ln.status)}</td><td class="py-1 pr-2">${expr(ln)}</td>`
-        + `<td class="py-1 whitespace-nowrap">${ref(ln)}</td></tr>`;
+        + `<td class="py-1 whitespace-nowrap">${cfg.last(ln)}</td></tr>`;
     });
     html += '</tbody></table></div>';
     body.innerHTML = html + src;

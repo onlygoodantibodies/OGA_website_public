@@ -26,6 +26,21 @@ from __future__ import annotations
 
 CHANGELOG = [
     {
+        "version": "2.8.0",
+        "date": "2026-11-12",
+        "summary": "A tab-separated file mapping every gene with data to its "
+                   "UniProt accession, for UniProt's cross-references.",
+        "changes": [
+            {"kind": "added", "where": "/uniprot/",
+             "what": "Needs no key. One row per gene /genes/ lists: "
+                     "uniprot_accession, gene, antibodies (the same number "
+                     "as antibody_count), suppliers (distinct suppliers of "
+                     "those antibodies) and url (the gene page). The "
+                     "accession is blank where none is on file. Columns are "
+                     "only ever added at the end."},
+        ],
+    },
+    {
         "version": "2.7.0",
         "date": "2026-10-03",
         "summary": "A notice that the western blot criteria are being "

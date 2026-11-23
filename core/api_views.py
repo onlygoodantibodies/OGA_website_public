@@ -42,7 +42,7 @@ import uuid
 from datetime import datetime
 
 from django.core.mail import send_mail
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
@@ -61,7 +61,7 @@ from .models import APIConsumer, ReviewedAntibody
 from . import api_throttle, api_usage
 from pipeline.public import (control_word, is_verdict_application,
                              public_targets, published_antibodies,
-                             published_figures)
+                             published_figures, uniprot_mapping)
 # Clonality from the enum and `is_recombinant` together — see
 # pipeline/services/clonality.py.
 from pipeline.services import clonality as clonality_svc
@@ -969,6 +969,49 @@ def genes_feed(request):
         'application_notes': dict(INTERIM_NOTES),
         'genes': results,
     }), consumer)
+
+
+# ─────────────────────────────────────────────────────────
+# Endpoint: GET /api/v1/uniprot/
+# ─────────────────────────────────────────────────────────
+
+#: The file's columns, in order. A registry's loader reads them by position as
+#: often as by name, so a column is only ever added at the end.
+UNIPROT_COLUMNS = ('uniprot_accession', 'gene', 'antibodies', 'suppliers',
+                   'url')
+
+
+@require_safe
+@api_throttle.budget_headers
+def uniprot_mapping_tsv(request):
+    """Every public gene, its UniProt accession and its counts, as a TSV.
+
+    For UniProt's cross-references (DR lines), which it fetches on a schedule
+    with no password — so no key, like ``/genes/``, whose gene set and
+    ``antibody_count`` this shares (``pipeline/public.py::uniprot_mapping``).
+    The same file for every caller: a key is checked and counted, and changes
+    nothing in the body.
+
+    Tab-separated with one header row, because that is what a registry's
+    loader expects and a gene symbol never holds a tab. A blank
+    ``uniprot_accession`` is a gene with no usable accession on file, left for
+    UniProt to place by its symbol rather than guessed here.
+    """
+    consumer, err = _guard_optional(request)
+    if err:
+        return err
+
+    lines = ['\t'.join(UNIPROT_COLUMNS)]
+    for row in uniprot_mapping():
+        lines.append('\t'.join((
+            row['accession'], row['gene'], str(row['antibodies']),
+            str(row['suppliers']),
+            f"{BASE_URL}/antibodies/{row['gene']}/")))
+    response = HttpResponse('\n'.join(lines) + '\n',
+                            content_type='text/tab-separated-values; '
+                                         'charset=utf-8')
+    response['Content-Disposition'] = 'inline; filename="oga_uniprot.tsv"'
+    return _cache_headers(response, consumer)
 
 
 # ─────────────────────────────────────────────────────────

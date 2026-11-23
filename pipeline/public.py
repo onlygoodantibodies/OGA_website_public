@@ -21,6 +21,8 @@ only**: a funder page lists its genes under way by symbol
 """
 from __future__ import annotations
 
+import re
+
 from django.db.models import Exists, OuterRef
 
 
@@ -343,3 +345,61 @@ def published_suppliers():
 
 def supplier_count():
     return len(published_suppliers())
+
+
+#: A UniProtKB accession, as UniProt itself defines one. Anything else in
+#: ``Target.uniprot_id`` — an isoform suffix, two accessions in one cell, an
+#: Access-era placeholder — is not a key UniProt can file a cross-reference
+#: under, so the mapping leaves the field blank rather than pass it on.
+UNIPROT_ACCESSION = re.compile(
+    r"^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]"
+    r"|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})$")
+
+
+def uniprot_mapping():
+    """One row per public gene for UniProt's cross-references (DR lines).
+
+    UniProt asked (12 Nov 2026) for a URL it can fetch on a schedule, to
+    replace its YCharOS cross-references with OGA ones — ``DR   OGA; CHCHD10;
+    Tested 4 antibodies from 2 manufacturers.`` — linking to the gene page.
+
+    The genes are ``public_targets()``, which is the home page's *Browse every
+    gene* list, and the counts are drawn from the published set the gene page
+    and ``/api/v1/genes/`` count: ``antibodies`` is that feed's
+    ``antibody_count`` and ``suppliers`` is ``published_suppliers()``'s rule
+    applied to one gene — one supplier per printed name, so two ``Company``
+    rows that print the same supplier are one. A published antibody with no
+    supplier on file adds to ``antibodies`` and not to ``suppliers``.
+
+    ``accession`` is blank where the target has none on file or holds
+    something that is not one (``UNIPROT_ACCESSION``): never a guess from the
+    gene symbol, which is UniProt's own lookup to make.
+    """
+    from pipeline.models import Company
+
+    targets = list(public_targets().order_by("gene_name")
+                   .values_list("pk", "gene_name", "uniprot_id"))
+    antibodies = {}
+    suppliers = {}
+    rows = (published_antibodies()
+            .filter(target_id__in=[pk for pk, _, _ in targets])
+            .values_list("pk", "target_id", "company__display_name",
+                         "company__name"))
+    for _pk, target_id, display_name, name in rows:
+        antibodies[target_id] = antibodies.get(target_id, 0) + 1
+        shown = display_name or name
+        if shown:
+            suppliers.setdefault(target_id, set()).add(
+                Company.canonical_key(shown))
+
+    mapping = []
+    for pk, gene, accession in targets:
+        accession = (accession or "").strip().upper()
+        mapping.append({
+            "accession": (accession if UNIPROT_ACCESSION.match(accession)
+                          else ""),
+            "gene": gene,
+            "antibodies": antibodies.get(pk, 0),
+            "suppliers": len(suppliers.get(pk, ())),
+        })
+    return mapping

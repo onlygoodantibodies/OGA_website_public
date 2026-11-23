@@ -260,6 +260,20 @@
   transition: background 0.2s;
 }
 .nc-link-ghost:hover { background: #f5f8ff; }
+.nc-video {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 6px 0 16px;
+}
+.nc-video iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: none;
+}
 
 /* ── IMAGE CARD ── */
 .nc-with-image {
@@ -499,6 +513,26 @@
         </div>
 
         <div class="np-news-feed">
+
+            <!-- SGC-Leicester — 18 Nov 2026 -->
+            <article class="nc">
+                <div class="nc-body">
+                    <div class="nc-meta">
+                        <span class="nc-tag tag-new">New Site</span>
+                        <span class="nc-date">18 November 2026</span>
+                    </div>
+                    <h2>SGC-Leicester to test the selectivity of AI-designed binders in cells</h2>
+                    <p>The University of Leicester has joined the <strong>Structural Genomics Consortium (SGC)</strong> as SGC-Leicester, a new SGC Affiliated Site led by Dr Harvinder Virk, co-founder of Only Good Antibodies. The site will contribute to the SGC-led <strong>Target 2035</strong> mission, which aims to deliver a pharmacological tool for every protein in the human proteome, by independently testing AI-designed protein binders in cells.</p>
+                    <p>AI tools now design candidate binders faster than labs can test them, and most design effort goes into how tightly a binder binds its target. SGC-Leicester will ask the other question: does the binder recognise <em>only</em> its intended target, in cells where many other proteins are present? The team will use high-throughput flow cytometry and knockout cell lines, focusing on cell surface and secreted targets. Comparing cells that contain the target protein with cells that lack it shows how much of a binder&rsquo;s signal depends on that target, the same knockout-controlled approach behind the characterisation data in the OGA database.</p>
+                    <p>The site builds on the work of the OGA community and the UK arm of YCharOS, and will share its data openly, in partnership with SGC-Neuro and the wider SGC network.</p>
+                    <div class="nc-video">
+                        <iframe src="https://www.youtube-nocookie.com/embed/-TxhTYFEvto?rel=0" allowfullscreen title="Leicester joins global effort to advance trustworthy AI-driven drug discovery: Dr Harvinder Virk" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                    </div>
+                    <a href="https://www.thesgc.org/news/sgc-leicester-test-selectivity-ai-designed-binders-cells" class="nc-link" target="_blank" rel="noopener">SGC announcement →</a>
+                    <a href="https://leicesterbrc.nihr.ac.uk/leicester-joins-global-effort-to-advance-trustworthy-ai-driven-drug-discovery/" class="nc-link-ghost" target="_blank" rel="noopener">NIHR Leicester BRC news →</a>
+                    <a href="https://www.thesgc.org/target2035" class="nc-link-ghost" target="_blank" rel="noopener">About Target 2035 →</a>
+                </div>
+            </article>
 
             <!-- Cancer Research Horizons validation guidance — 1 Oct 2026 -->
             <article class="nc">

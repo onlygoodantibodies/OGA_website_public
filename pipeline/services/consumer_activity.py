@@ -83,6 +83,7 @@ ENDPOINT_ACTIVITY = {
     'antibodies_feed': 'pulled the antibody feed',
     'genes_feed': 'listed the genes with data',
     'gene_detail': 'looked up every antibody for one gene',
+    'uniprot_mapping': 'fetched the UniProt cross-reference file',
     'api_status': 'opened the portal',
     'portal_config_update': 'changed their download settings',
     'mark_reviewed': 'marked everything as reviewed',

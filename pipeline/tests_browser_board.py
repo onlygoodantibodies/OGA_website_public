@@ -328,26 +328,42 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         same shape as an export with no importer, one layer along: the cost of
         the shortcut is invisible until somebody breaks the form.
         """
-        self.page.context.clear_cookies()
-        self.page.goto(f"{self.live_server_url}/pipeline/login/")
-        self.page.fill("input[name=username]", "vera")
-        self.page.fill("input[name=password]", "pw")
-        self.page.click("button[type=submit], input[type=submit]")
+        page = self._new_visitor()
+        page.fill("input[name=username]", "vera")
+        page.fill("input[name=password]", "pw")
+        page.click("button[type=submit], input[type=submit]")
         # `nav a`, not a bare `[href*='/pipeline/']`: the stylesheet is served
         # from /static/pipeline/, so the loose form matched the `<link>` in the
         # head — which is never visible, so the wait sat there for 30s and
         # reported a timeout about the login form.
-        self.page.wait_for_selector("#task-hub, nav a[href*='/pipeline/']")
-        self.assertNotIn("/pipeline/login/", self.page.url,
+        page.wait_for_selector("#task-hub, nav a[href*='/pipeline/']")
+        self.assertNotIn("/pipeline/login/", page.url,
                          "a correct password left us on the login page")
 
         # And a wrong one is refused in words, on the page.
-        self.page.context.clear_cookies()
-        self.page.goto(f"{self.live_server_url}/pipeline/login/")
-        self.page.fill("input[name=username]", "vera")
-        self.page.fill("input[name=password]", "not-the-password")
-        self.page.click("button[type=submit], input[type=submit]")
-        self.page.wait_for_selector("text=Invalid username or password")
+        page = self._new_visitor()
+        page.fill("input[name=username]", "vera")
+        page.fill("input[name=password]", "not-the-password")
+        page.click("button[type=submit], input[type=submit]")
+        page.wait_for_selector("text=Invalid username or password")
+
+    def _new_visitor(self):
+        """The login page in a browser context of its own — never `clear_cookies`.
+
+        Clearing cookies on a page that has just signed in is a race, and it
+        lost once (public repo's nightly, 22 Nov 2026): Chrome asks for
+        `/favicon.ico` after the hub loads, carrying the session cookie, and
+        `SESSION_SAVE_EVERY_REQUEST` makes the reply set that cookie again. A
+        reply landing after the clear signs the browser back in, the login
+        page redirects to the hub, and the wait reports a missing username box
+        — a timeout about the form, from a form that was never drawn. A new
+        context shares no cookie jar with anything still in flight.
+        """
+        ctx = self.browser.new_context()
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        page.goto(f"{self.live_server_url}/pipeline/login/")
+        return page
 
     def test_the_grid_loads_and_the_console_is_clean(self):
         self.page.goto(f"{self.live_server_url}/pipeline/cell-lines/board/")

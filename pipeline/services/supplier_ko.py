@@ -1,10 +1,13 @@
 """
-Abcam knockout cell-line list for feasibility lookups.
+Suppliers' knockout cell-line lists for feasibility lookups — Abcam's and
+Thermo Fisher's.
 
-Answers: "Which knockout lines has Abcam made (or is making) for this gene, in
-which parental lines — and does the parental line express the gene?" The last
-half is what makes a knockout a usable control: a KO in a line where DepMap
-puts the gene below the 2.5 log2(TPM+1) threshold has nothing to remove.
+Answers: "Which knockout lines has this supplier made (or is making) for this
+gene, in which parental lines — and does the parental line express the gene?"
+The last half is what makes a knockout a usable control: a KO in a line where
+DepMap puts the gene below the 2.5 log2(TPM+1) threshold has nothing to remove.
+Both lists hold lines like that, so every row carries its parental line's
+readouts rather than the card trusting the supplier's choice of line.
 
 RNA is the readout the threshold is written for and the only one covering
 every gene; the Sanger mass-spec readout (``ProteomicsExpression``) rides
@@ -14,14 +17,11 @@ detected", never as a negative — and a line the dataset never measured
 (HAP1, HEK293T) is "not measured", a third answer, not the same as either.
 
 Information only — nothing here feeds the feasibility verdict (owner, 30 Oct
-2026), and it is drawn in the pipeline only, never on a public surface.
+2026), and it is drawn in the pipeline only, never on a public surface; both
+files are left out of the public snapshot (``tools/export_public.py``).
 
-Backed by a committed CSV (``pipeline/data/abcam_ko_lines_2026_09_28.csv``,
-converted from Abcam's ``KO_cells_complete_or_in_progress_28SEP2026.xlsx`` via
-the "KO_cells_summary_by_gene" workbook), read once per process. No table and
-no migration: a new list is a new file and a deploy. The workbook's UniProt
-column is deliberately not carried — it holds wrong-species accessions (SSB →
-P0AGE0, an E. coli protein).
+Each list is a committed CSV read once per process. No table and no
+migration: a new list is a new file and a deploy.
 """
 
 import csv
@@ -29,19 +29,60 @@ import functools
 import logging
 import os
 import re
+from dataclasses import dataclass, field
 
 from pipeline.services import depmap, gene_symbol
 
 logger = logging.getLogger(__name__)
 
-SOURCE_FILE = "abcam_ko_lines_2026_09_28.csv"
-SOURCE_DATE = "28 Sep 2026"
-CSV_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", SOURCE_FILE,
-)
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
-# Order the card lists a gene's lines in: verified first.
-STATUS_ORDER = {"Pass": 0, "Unvalidated": 1, "In development": 2}
+
+@dataclass(frozen=True)
+class KoList:
+    key: str
+    supplier: str
+    source_file: str
+    source_date: str
+    # The status that means a finished line, and the word the card counts it by.
+    done_status: str
+    done_word: str
+    # Order the card lists a gene's lines in: finished first.
+    status_order: dict = field(default_factory=dict)
+
+    @property
+    def csv_path(self) -> str:
+        return os.path.join(DATA_DIR, self.source_file)
+
+
+LISTS = {
+    # Converted from Abcam's KO_cells_complete_or_in_progress_28SEP2026.xlsx via
+    # the "KO_cells_summary_by_gene" workbook. The workbook's UniProt column is
+    # deliberately not carried: it holds wrong-species accessions (SSB → P0AGE0,
+    # an E. coli protein).
+    "abcam": KoList(
+        key="abcam", supplier="Abcam",
+        source_file="abcam_ko_lines_2026_09_28.csv", source_date="28 Sep 2026",
+        done_status="Pass", done_word="verified",
+        status_order={"Pass": 0, "Unvalidated": 1, "In development": 2},
+    ),
+    # Converted from "TFS_CRISPR_KO_LIST - 2026.xlsx". The sheet names proteins
+    # (ATX3, HER4, IKKA), so the gene is resolved from its UniProt accession
+    # (rest.uniprot.org, 4 Nov 2026) and the sheet's own name kept beside it.
+    # P19338 is NCL, not UniProt's "NUCLEOLIN"; P31645 is SLC6A4, whose alias
+    # 5-HTT the sheet wrote as "HTT" — the accession, not huntingtin.
+    "thermo": KoList(
+        key="thermo", supplier="Thermo Fisher",
+        source_file="thermofisher_ko_lines_2026.csv", source_date="2026",
+        done_status="Completed", done_word="completed",
+        status_order={
+            "Completed": 0,
+            "KO confirmed by NGS - Application in progress": 1,
+            "KO confirmed by NGS -CRISPR Inconclusive": 2,
+            "Failed in Application testing/Closed due to gene essentiality": 3,
+        },
+    ),
+}
 
 
 def _line_key(name: str) -> str:
@@ -62,10 +103,10 @@ def _line_key(name: str) -> str:
 LINE_ALIASES = {"LNCAPCLONEFGC": "LNCAP"}
 
 
-@functools.lru_cache(maxsize=1)
-def _by_gene() -> dict:
+@functools.lru_cache(maxsize=None)
+def _by_gene(list_key: str) -> dict:
     index = {}
-    with open(CSV_PATH, encoding="utf-8", newline="") as f:
+    with open(LISTS[list_key].csv_path, encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             index.setdefault(row["gene_name"].strip().upper(), []).append(row)
     return index
@@ -91,34 +132,35 @@ def _protein_readout(gene: str, proteomics: dict | None):
     return detected, measured
 
 
-def lookup(gene_name: str, expression: dict | None = None,
+def lookup(list_key: str, gene_name: str, expression: dict | None = None,
            proteomics: dict | None = None) -> dict:
     """
-    Abcam KO lines for a gene, each with the gene's DepMap expression in its
-    parental line.
+    One supplier's KO lines for a gene, each with the gene's DepMap RNA and
+    mass-spec readout in its parental line.
 
     ``expression`` is ``depmap.get_expression``'s answer and ``proteomics``
     the feasibility view's ``_check_proteomics`` answer, if the caller already
     has them (the view does); otherwise each is fetched.
 
     Returns dict with keys:
-        found (bool), gene (str), supplier ('Abcam'), source_date (str),
-        count (int), pass_count (int),
-        lines (list of {line_name, parental_line, status, catalogue, note,
-                        tpm (float|None), above_threshold (bool|None),
-                        in_depmap (bool),
-                        protein ('detected'|'not_detected'|'not_measured'|None),
-                        protein_intensity (float|None)}),
+        found (bool), gene (str), supplier (str), source_date (str),
+        count (int), done_count (int), done_word (str),
+        lines (list of the list's own columns, plus
+               tpm (float|None), above_threshold (bool|None), in_depmap (bool),
+               protein ('detected'|'not_detected'|'not_measured'|None),
+               protein_intensity (float|None)),
         threshold (float), error (str|None)
     """
+    ko_list = LISTS[list_key]
     gene = (gene_name or "").strip().upper()
     result = {
         "found": False,
         "gene": gene,
-        "supplier": "Abcam",
-        "source_date": SOURCE_DATE,
+        "supplier": ko_list.supplier,
+        "source_date": ko_list.source_date,
         "count": 0,
-        "pass_count": 0,
+        "done_count": 0,
+        "done_word": ko_list.done_word,
         "lines": [],
         "threshold": depmap.EXPRESSION_THRESHOLD,
         "error": None,
@@ -128,10 +170,10 @@ def lookup(gene_name: str, expression: dict | None = None,
         return result
 
     try:
-        rows = _by_gene().get(gene, [])
+        rows = _by_gene(list_key).get(gene, [])
     except Exception as e:  # a missing file must not take the page down
-        logger.error("Abcam KO list unreadable: %s", e)
-        result["error"] = "The Abcam knockout list could not be read."
+        logger.error("%s KO list unreadable: %s", ko_list.supplier, e)
+        result["error"] = f"The {ko_list.supplier} knockout list could not be read."
         return result
     if not rows:
         return result
@@ -140,7 +182,7 @@ def lookup(gene_name: str, expression: dict | None = None,
         try:
             expression = depmap.get_expression(gene)
         except Exception as e:
-            logger.error("DepMap lookup failed for Abcam KO card (%s): %s", gene, e)
+            logger.error("DepMap lookup failed for %s KO card (%s): %s", ko_list.supplier, gene, e)
             expression = {}
     tpm_by_line = {
         _line_key(cl.get("name")): cl.get("tpm")
@@ -150,7 +192,7 @@ def lookup(gene_name: str, expression: dict | None = None,
     try:
         detected, measured = _protein_readout(gene, proteomics)
     except Exception as e:  # context only — never takes the card down
-        logger.error("Proteomics lookup failed for Abcam KO card (%s): %s", gene, e)
+        logger.error("Proteomics lookup failed for %s KO card (%s): %s", ko_list.supplier, gene, e)
         detected, measured = None, set()
 
     lines = []
@@ -165,26 +207,23 @@ def lookup(gene_name: str, expression: dict | None = None,
             protein = "not_detected"
         else:
             protein = "not_measured"
-        lines.append({
-            "line_name": row["line_name"],
-            "parental_line": row["parental_line"],
-            "status": row["status"],
-            "catalogue": row["catalogue"],
-            "note": row["note"],
+        line = {k: v for k, v in row.items() if k != "gene_name"}
+        line.update({
             "tpm": tpm,
             "in_depmap": tpm is not None,
             "above_threshold": (tpm >= depmap.EXPRESSION_THRESHOLD) if tpm is not None else None,
             "protein": protein,
             "protein_intensity": (detected or {}).get(key),
         })
+        lines.append(line)
     lines.sort(key=lambda ln: (
-        STATUS_ORDER.get(ln["status"], 9),
+        ko_list.status_order.get(ln["status"], 9),
         -(ln["tpm"] if ln["tpm"] is not None else -99),
-        ln["parental_line"], ln["line_name"],
+        ln["parental_line"], ln.get("line_name", ""),
     ))
 
     result["lines"] = lines
     result["count"] = len(lines)
-    result["pass_count"] = sum(1 for ln in lines if ln["status"] == "Pass")
+    result["done_count"] = sum(1 for ln in lines if ln["status"] == ko_list.done_status)
     result["found"] = True
     return result

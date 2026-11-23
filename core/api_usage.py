@@ -59,10 +59,11 @@ logger = logging.getLogger(__name__)
 #: usage download said "no key · fetched a pre-release figure" six times and was
 #: read as a leak (13 Oct 2026). ``tests_api_usage`` asks each endpoint, so
 #: opening a third one fails a test rather than silently re-reading history.
-SERVED_WITHOUT_KEY = ('antibodies_feed', 'genes_feed')
+SERVED_WITHOUT_KEY = ('antibodies_feed', 'genes_feed', 'uniprot_mapping')
 
 #: The day those two opened. The counter is older (9 Aug), and a keyless row on
-#: them before this date was a 401 like any other.
+#: them before this date was a 401 like any other. ``uniprot_mapping`` was
+#: keyless from its first day (12 Nov 2026), so no row of it predates this.
 SERVED_WITHOUT_KEY_SINCE = date(2026, 8, 12)
 
 

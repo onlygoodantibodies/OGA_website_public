@@ -1071,6 +1071,12 @@ def api_index(request):
             },
             {'path': url('genes/'), 'method': 'GET',              'summary': 'Genes with antibody and figure counts.',
              'side_effects': 'none'},
+            {'path': url('uniprot/'), 'method': 'GET',
+             'summary': 'Every gene with data, its UniProt accession, its '
+                        'antibody and supplier counts and its page, as a '
+                        'tab-separated file. For UniProt cross-references. '
+                        'No key.',
+             'side_effects': 'none'},
             {'path': url('gene-detail/'), 'method': 'GET',
              'available_to': 'manufacturer consumers only',
              'summary': 'Every antibody for one gene, grouped by supplier — the '

@@ -828,6 +828,29 @@ all.
 
 ---
 
+## 7b. `GET /uniprot/` — the UniProt cross-reference file
+
+The genes in [`/genes/`](#7-get-genes--the-gene-catalogue), one per line,
+tab-separated, with their UniProt accession. **Needs no key.** It is the file
+UniProt reads to link its entries to OGA's gene pages.
+
+```bash
+curl -s https://onlygoodantibodies.co.uk/api/v1/uniprot/
+```
+
+```
+uniprot_accession	gene	antibodies	suppliers	url
+Q8WYQ3	CHCHD10	4	2	https://onlygoodantibodies.co.uk/antibodies/CHCHD10/
+```
+
+`antibodies` is the gene's `antibody_count` in `/genes/`; `suppliers` is how
+many distinct suppliers those antibodies come from, counted once per printed
+name. `uniprot_accession` is blank where no accession is on file for the gene,
+never inferred from the symbol. Columns are only ever added at the end, so a
+reader that takes them by position keeps working.
+
+---
+
 ## 8. `GET /gene-detail/` — the competitor view
 
 **Manufacturers only.** Every antibody against one gene, grouped by supplier,
@@ -1386,6 +1409,13 @@ until something actually changes.
 
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
+
+### 2.8.0 — 12 November 2026
+
+**Added: [`/uniprot/`](#7b-get-uniprot--the-uniprot-cross-reference-file)**,
+a tab-separated file of every gene `/genes/` lists with its UniProt
+accession, its published antibody count and how many suppliers those come
+from. Needs no key. Nothing else changed.
 
 ### 2.7.0 — 3 October 2026
 

@@ -14,6 +14,9 @@ urlpatterns = [
     path('v1/antibodies/', api_views.antibodies_feed, name='antibodies_feed'),
     path('v1/genes/', api_views.genes_feed, name='genes_feed'),
     path('v1/gene-detail/', api_views.gene_detail, name='gene_detail'),
+    # UniProt's cross-references (DR lines): every public gene, its accession
+    # and its counts, as a TSV it fetches with no key.
+    path('v1/uniprot/', api_views.uniprot_mapping_tsv, name='uniprot_mapping'),
     path('v1/status/', api_views.api_status, name='api_status'),
     path('v1/portal-config/', api_views.portal_config_update, name='portal_config_update'),
     path('v1/mark-reviewed/', api_views.mark_reviewed, name='mark_reviewed'),
