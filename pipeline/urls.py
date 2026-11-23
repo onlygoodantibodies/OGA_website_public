@@ -75,6 +75,7 @@ urlpatterns = [
     # half-written batch — see `services/bulk_targets.py`.
     path('feasibility/bulk-check/', views.feasibility_bulk_check, name='feasibility_bulk_check'),
     path('feasibility/bulk-add/', views.feasibility_bulk_add, name='feasibility_bulk_add'),
+    path('feasibility/ko-screen/', views.feasibility_ko_screen, name='feasibility_ko_screen'),
 
     # === Cell lines board (find + edit in place) ===
     path('cell-lines/board/', views.cell_line_board, name='cell_line_board'),

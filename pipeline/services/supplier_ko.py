@@ -18,7 +18,10 @@ detected", never as a negative — and a line the dataset never measured
 
 Information only — nothing here feeds the feasibility verdict (owner, 30 Oct
 2026), and it is drawn in the pipeline only, never on a public surface; both
-files are left out of the public snapshot (``tools/export_public.py``).
+files are left out of the public snapshot (``tools/export_public.py``). The
+rule is **not the public website and not the public repo without the owner's
+permission** (owner, 23 Nov 2026) — sharing what the lists say about a set of
+genes with a collaborator is fine, which is why the list screen can download.
 
 Each list is a committed CSV read once per process. No table and no
 migration: a new list is a new file and a deploy.
@@ -110,6 +113,15 @@ def _by_gene(list_key: str) -> dict:
         for row in csv.DictReader(f):
             index.setdefault(row["gene_name"].strip().upper(), []).append(row)
     return index
+
+
+def rows_for(list_key: str, gene: str) -> list:
+    """The list's own rows for one gene — no expression, no database.
+
+    For a caller that has already fetched expression for many genes at once
+    (`ko_screen`), where `lookup`'s per-gene queries would scale with the list.
+    """
+    return _by_gene(list_key).get((gene or "").strip().upper(), [])
 
 
 def _protein_readout(gene: str, proteomics: dict | None):

@@ -49,6 +49,78 @@
     </div>
   </div>
 
+  {% comment %}Checking knockout lines for a list, before Bulk Add because it
+  is the safer question and the one a collaborator's wish list asks. uOttawa
+  pasted a collaborator's 239 genes into Bulk Add to find KO lines (23 Nov 2026):
+  that box answers "is this a real gene, may it go on a list", and its second
+  button would have put every gene on Ontario's list. This one writes nothing.
+  The Abcam and Thermo columns are shareable with collaborators, never public
+  without the owner's permission (owner, 23 Nov 2026).{% endcomment %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
+    <button onclick="document.getElementById('ko-panel').classList.toggle('hidden')"
+      class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-3">
+        <span class="text-lg">🧫</span>
+        <div class="text-left">
+          <h2 class="font-semibold text-gray-900">Check knockout lines for a list</h2>
+          <p class="text-sm text-gray-500">Paste gene names to see which have KO lines — adds nothing to any list</p>
+        </div>
+      </div>
+    </button>
+    <div id="ko-panel" class="hidden border-t border-gray-200 p-6 space-y-4">
+      <div>
+        <label for="ko-genes" class="block text-sm font-medium text-gray-700 mb-1">
+          Gene names (one per line, or comma-separated)
+        </label>
+        <textarea id="ko-genes" rows="6" placeholder="CUX2&#10;FOXP2&#10;PRKN (PARK2)&#10;TMEM119"
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono resize-y"></textarea>
+        <p class="mt-1 text-xs text-gray-500">
+          Up to 500 genes. For each gene it shows a KO or knockdown line a consortium site already holds,
+          Horizon's HAP1 knockouts, Abcam's and Thermo Fisher's KO lists (each line checked against
+          whether its parental line expresses the gene), and DepMap expression for where a line could be made.
+          Answered from data already in the pipeline, so it is quick and asks no outside service.
+          <b>Nothing is written.</b> The result can be shared with collaborators; the Abcam and Thermo Fisher
+          lists must not go on a public website or a public repository without permission from OGA.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <button onclick="doKoScreen()" id="ko-check-btn"
+          class="px-5 py-2.5 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 disabled:opacity-50">
+          Check knockout lines
+        </button>
+        <button onclick="downloadKoScreen()" id="ko-download-btn" disabled
+          class="px-4 py-2.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Download as CSV
+        </button>
+        <span id="ko-why" class="text-sm text-gray-500">Check a list first — then it can be downloaded.</span>
+      </div>
+      <div id="ko-message" role="alert" class="hidden"></div>
+      <div id="ko-results" class="hidden space-y-3">
+        <div id="ko-summary" class="flex flex-wrap gap-2"></div>
+        <div id="ko-unreadable" class="hidden text-sm bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg"></div>
+        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-50 text-left text-gray-600">
+              <tr>
+                <th class="px-3 py-2">Gene</th><th class="px-3 py-2">Route</th>
+                <th class="px-3 py-2">Held by a site</th><th class="px-3 py-2">Horizon (HAP1)</th>
+                <th class="px-3 py-2">Abcam</th><th class="px-3 py-2">Thermo Fisher</th>
+                <th class="px-3 py-2">HAP1 log<sub>2</sub>(TPM+1)</th><th class="px-3 py-2">Expressed in</th>
+              </tr>
+            </thead>
+            <tbody id="ko-rows" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-500">
+          "Expresses" means DepMap RNA at or above <span id="ko-threshold">2.5</span> log<sub>2</sub>(TPM+1),
+          in the cell lines the pipeline keeps expression data for. A ✓ beside a supplier line means it is finished
+          (Abcam: Pass; Thermo Fisher: Completed) <i>and</i> its parental line expresses the gene; a parental
+          line with no expression data is marked "no data", not "not expressed".
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- ================================================================= -->
   <!-- Bulk Add Targets -->
   <!-- ================================================================= -->
@@ -99,6 +171,10 @@
             Add panel does the same check and the same add, on the page where the
             targets then live — this box is here because you are already looking
             a gene up.
+          </p>
+          <p class="mt-2 text-sm text-gray-500">
+            Only want to know which genes have knockout lines? Use
+            <b>Check knockout lines for a list</b> above — it adds nothing.
           </p>
         </div>
 
@@ -1492,4 +1568,132 @@ happened. This page is not a board and does not want the rest of it, but a bare
 a field test file the app's best output as broken.{% endcomment %}
 <script src="{% static 'pipeline/board.js' %}"></script>
 <script>document.addEventListener('DOMContentLoaded', () => OGABoard.downloadReceipts());</script>
+<script>
+  {% comment %}Check knockout lines for a list. The server sends the rows; this
+  draws them and builds the CSV from the same rows, so the file and the table
+  cannot disagree.{% endcomment %}
+  let koData = null;
+
+  function koMessage(text, kind) {
+    const el = document.getElementById('ko-message');
+    if (!text) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    const tone = kind === 'error' ? 'bg-red-50 border-red-200 text-red-700'
+                                  : 'bg-green-50 border-green-200 text-green-800';
+    el.className = `text-sm border px-4 py-3 rounded-lg ${tone}`;
+    el.textContent = text;
+    el.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+  }
+
+  function koSupplierCell(lines) {
+    if (!lines.length) return '<span class="text-gray-400">—</span>';
+    return lines.map(ln => {
+      const tpm = ln.tpm === null ? 'no data' : (ln.expresses ? `expresses ${ln.tpm}` : `${ln.tpm}, below`);
+      const mark = ln.finished && ln.expresses ? '✓ ' : '';
+      return `<div class="${ln.finished && ln.expresses ? 'text-green-700' : 'text-gray-600'}">`
+           + `${mark}${escHtml(ln.parental_line)} · ${escHtml(ln.status)} · ${tpm}</div>`;
+    }).join('');
+  }
+
+  function koRouteTone(route) {
+    if (route.startsWith('1') || route.startsWith('2')) return 'bg-green-100 text-green-800';
+    if (route.startsWith('3') || route.startsWith('4') || route.startsWith('5')) return 'bg-amber-100 text-amber-800';
+    if (route.startsWith('6')) return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-700';
+  }
+
+  function drawKoScreen(d) {
+    document.getElementById('ko-threshold').textContent = d.threshold;
+    const missing = (d.unreadable_lists || []).length
+      ? `<div class="w-full text-sm bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">`
+        + `${escHtml(d.unreadable_lists.join(' and '))} knockout list could not be read, so its column is empty `
+        + `for every gene — that is a missing list, not "no lines".</div>`
+      : '';
+    document.getElementById('ko-summary').innerHTML = missing + d.summary.map(s =>
+      `<span class="px-2.5 py-1 rounded-full text-xs ${koRouteTone(s.route)}">${escHtml(s.route)}: <b>${s.count}</b></span>`
+    ).join('');
+    const un = document.getElementById('ko-unreadable');
+    if (d.unreadable.length) {
+      un.classList.remove('hidden');
+      un.innerHTML = `<b>${d.unreadable.length} not checked</b> — each names more than one gene or is not a gene symbol. `
+        + `Write each gene on its own line (e.g. PRKCA, PRKCB, PRKCG) and check again: `
+        + d.unreadable.map(u => `<code class="bg-white px-1 rounded">${escHtml(u)}</code>`).join(' ');
+    } else {
+      un.classList.add('hidden');
+    }
+    document.getElementById('ko-rows').innerHTML = d.rows.map(r => {
+      const gene = r.target_id
+        ? `<a class="text-blue-600 hover:underline" href="/pipeline/target/${r.target_id}/">${escHtml(r.gene)}</a>`
+        : escHtml(r.gene);
+      const note = r.note ? `<div class="text-gray-400">${escHtml(r.note)}</div>` : '';
+      const held = r.held.length ? r.held.map(escHtml).join('<br>') : '<span class="text-gray-400">—</span>';
+      const hz = r.horizon.length ? `${r.horizon.length} clone${r.horizon.length === 1 ? '' : 's'}`
+                                  : '<span class="text-gray-400">—</span>';
+      const expr = r.panel_size
+        ? `${r.expressing_count} of ${r.panel_size}${r.expressing.length ? ': ' + escHtml(r.expressing.join(', ')) : ''}`
+        : '<span class="text-gray-400">no data</span>';
+      return `<tr class="align-top">
+        <td class="px-3 py-2 font-mono">${gene}${note}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded ${koRouteTone(r.route)}">${escHtml(r.route)}</span></td>
+        <td class="px-3 py-2">${held}</td><td class="px-3 py-2">${hz}</td>
+        <td class="px-3 py-2">${koSupplierCell(r.abcam)}</td><td class="px-3 py-2">${koSupplierCell(r.thermo)}</td>
+        <td class="px-3 py-2">${r.hap1_tpm === null ? '<span class="text-gray-400">no data</span>' : r.hap1_tpm}</td>
+        <td class="px-3 py-2">${expr}</td></tr>`;
+    }).join('');
+    document.getElementById('ko-results').classList.remove('hidden');
+  }
+
+  async function doKoScreen() {
+    const raw = document.getElementById('ko-genes').value;
+    const btn = document.getElementById('ko-check-btn');
+    const dl = document.getElementById('ko-download-btn');
+    koMessage('');
+    if (!raw.trim()) { koMessage('Paste at least one gene symbol first.', 'error'); return; }
+    btn.disabled = true; dl.disabled = true; koData = null;
+    document.getElementById('ko-why').textContent = 'Checking…';
+    try {
+      const resp = await fetch('/pipeline/feasibility/ko-screen/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({genes: raw}),
+      });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok || d.ok === false) throw new Error(d.error || 'The check could not be completed — try again.');
+      koData = d;
+      drawKoScreen(d);
+      dl.disabled = !d.rows.length;
+      document.getElementById('ko-why').textContent =
+        `${d.rows.length} gene${d.rows.length === 1 ? '' : 's'} checked`
+        + (d.unreadable.length ? `, ${d.unreadable.length} not readable (listed below)` : '') + '. Nothing was written.';
+    } catch (e) {
+      document.getElementById('ko-results').classList.add('hidden');
+      document.getElementById('ko-why').textContent = 'Check a list first — then it can be downloaded.';
+      koMessage(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function downloadKoScreen() {
+    if (!koData) return;
+    const q = v => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+    const sup = lines => lines.map(ln =>
+      `${ln.parental_line} (${ln.status}; ${ln.tpm === null ? 'no expression data' : ln.tpm})`).join('; ');
+    const head = ['gene as written', 'gene', 'route', 'held by a consortium site', 'Horizon HAP1 KO items',
+                  'Abcam KO lines (status; parental log2 TPM+1)', 'Thermo Fisher KO lines (status; parental log2 TPM+1)',
+                  'HAP1 log2(TPM+1)', 'panel lines expressing', 'highest-expressing lines', 'note'];
+    const lines = [head.map(q).join(',')].concat(koData.rows.map(r => [
+      r.written, r.gene, r.route, r.held.join('; '), r.horizon.join(', '), sup(r.abcam), sup(r.thermo),
+      r.hap1_tpm, r.panel_size ? `${r.expressing_count} of ${r.panel_size}` : '', r.expressing.join(', '), r.note,
+    ].map(q).join(','))).concat(koData.unreadable.map(u => [u, '', 'not checked — names more than one gene', '', '', '', '', '', '', '', ''].map(q).join(',')));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], {type: 'text/csv'});
+    const name = `ko_lines_${new Date().toISOString().slice(0, 10)}.csv`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    koMessage(`Downloaded ${name} — ${koData.rows.length} gene${koData.rows.length === 1 ? '' : 's'}`
+              + `${koData.unreadable.length ? ` and ${koData.unreadable.length} unreadable entr${koData.unreadable.length === 1 ? 'y' : 'ies'}` : ''}`
+              + `, ${(blob.size / 1024).toFixed(0)} KB. Fine to share with collaborators; the Abcam and Thermo Fisher lines in it are not for a public website or public repository without permission from OGA.`, 'ok');
+  }
+</script>
 {% endblock %}

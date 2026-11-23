@@ -433,6 +433,42 @@ def feasibility_bulk_check(request):
 
 @pipeline_member_required
 @require_POST
+def feasibility_ko_screen(request):
+    """Which knockout lines exist for a pasted list. **Writes nothing.**
+
+    The list-shaped version of the single-gene card's KO sections, for somebody
+    who wants to know what is available, not to add anything to a list
+    (`services/ko_screen.py`). Every source is local, so no deadline and no
+    UniProt — and a symbol none of them knows says so, rather than being
+    called a typo.
+
+    POST ``{"genes": "GENE1, GENE2 …"}``.
+    """
+    from pipeline.services import ko_screen
+    try:
+        body = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    entries, unreadable = ko_screen.parse(str(body.get("genes") or ""))
+    if not entries and not unreadable:
+        return JsonResponse({"ok": False, "error": "Paste at least one gene symbol."},
+                            status=400)
+    if len(entries) > ko_screen.MAX_GENES:
+        return JsonResponse(
+            {"ok": False,
+             "error": f"{len(entries)} genes pasted; {ko_screen.MAX_GENES} is the most "
+                      f"in one go. Split the list and check each half."}, status=400)
+    result = ko_screen.screen([e["gene"] for e in entries])
+    for entry, row in zip(entries, result["rows"]):
+        row["written"] = entry["written"]
+        row["note"] = entry["note"]
+    result["unreadable"] = unreadable
+    result["ok"] = True
+    return JsonResponse(result)
+
+
+@pipeline_member_required
+@require_POST
 def feasibility_bulk_add(request):
     """Create targets from a previewed gene list. **Makes no network call.**
 
