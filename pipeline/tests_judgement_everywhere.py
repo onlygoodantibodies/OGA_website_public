@@ -216,11 +216,11 @@ class FlowsBackgroundCaveatTests(_Base):
         resp = self._save("yes")
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertEqual(resp.json()["public_sentence"],
-                         "Supportive — with non-specific background")
+                         "Supportive under the consensus protocols — with non-specific background")
         axes = recs.capability_axes([self.ab.pk])[(self.ab.pk, "FC")]
         public = recs.describe(self.ab, "FC", {"FC"}, True, axes)
         self.assertEqual(public["sentence"],
-                         "Supportive — with non-specific background")
+                         "Supportive under the consensus protocols — with non-specific background")
         # The extension draws it from a code; one it cannot read draws nothing.
         self.assertEqual(recs.qualifier_code("FC", recs.RECOMMENDED, axes), "nb")
 

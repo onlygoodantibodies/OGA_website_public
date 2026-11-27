@@ -116,7 +116,7 @@ checked, the panel offers **Download registration sheet**: the unregistered
 antibodies in the registry's own field names, with a column saying what is
 missing before a row can be submitted (usually the product page link, which
 the registry requires). New registrations go to the registry by email —
-send the sheet to abr-help@scicrunch.org for bulk upload. The registry's
+send the sheet to rii-help@scicrunch.org, the address on the registry's own pages. The registry's
 curators issue the RRIDs, and **Find missing RRIDs** fills them in afterwards.
 The app cannot submit them itself: the registry only accepts a submission from
 a person logged in to its own site.

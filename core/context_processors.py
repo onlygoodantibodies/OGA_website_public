@@ -59,6 +59,10 @@ def recommendation_scope(request):
         # plain text, for anything that is not HTML.
         'scope_note_html': _emphasised(R.SCOPE_NOTE, R.SCOPE_EMPHASIS),
         'consensus_protocol_url': R.CONSENSUS_PROTOCOL_URL,
+        # "under the consensus protocols" — for the portal, whose label prints
+        # the rung alone and so cannot take it from `sentence` (owner, 27 Nov
+        # 2026: the manufacturers read their results there).
+        'conditions_qualifier': R.CONDITIONS_QUALIFIER,
         # The per-application caveats, as a plain list of sentences.
         #
         # Not the dict: `APPLICATION_SCOPE` is keyed on 'ICC-IF', and a Django

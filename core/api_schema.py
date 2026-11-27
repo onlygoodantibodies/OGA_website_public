@@ -230,7 +230,8 @@ def _schemas():
                         'sentence': {
                             'type': 'string',
                             'description': 'The rung and the clause, composed.',
-                            'example': 'Limited support - detects the target'},
+                            'example': ('Limited support under the consensus '
+                                        'protocols - detects the target')},
                         'tone': {
                             'type': 'string',
                             'enum': [R.TONE_SUPPORTIVE, R.TONE_QUALIFIED,

@@ -63,7 +63,7 @@ class TheVerdictValuesAreUnchangedTests(SimpleTestCase):
 
 class ACaveatOnlyQualifiesANegativeTests(SimpleTestCase):
     def test_a_negative_with_a_capability_earns_one(self):
-        """"Limited support — detects the target." """
+        """"Limited support under the consensus protocols — detects the target." """
         said = rec.qualifier("WB", rec.NOT_RECOMMENDED,
                              _axes(detects="yes", selective="no"))
         self.assertIn("detects the target", said)
@@ -157,9 +157,9 @@ class OneReaderBehindEveryStatementOfAVerdictTests(TestCase):
     def test_the_sentence_is_composed_once(self):
         """No surface assembles its own dash."""
         self.assertEqual(self._describe("WB")["sentence"],
-                         "Supportive — detects the target, but is not selective")
+                         "Supportive under the consensus protocols — detects the target, but is not selective")
         self.assertEqual(self._describe("ICC-IF")["sentence"],
-                         "Supportive — strongly selective")
+                         "Supportive under the consensus protocols — strongly selective")
         # An untested application still has words to print, even though the
         # gene page draws none — its cell carries a "No data available" image.
         self.assertEqual(self._describe("IP")["sentence"], "Not tested")
@@ -174,7 +174,7 @@ class OneReaderBehindEveryStatementOfAVerdictTests(TestCase):
         described = rec.describe_all(self.ab, {"WB", "ICC-IF"}, True)
         self.assertEqual(set(described), set(rec.APPLICATIONS))
         self.assertEqual(described["WB"]["sentence"],
-                         "Supportive — detects the target, but is not selective")
+                         "Supportive under the consensus protocols — detects the target, but is not selective")
 
 
 class OnlyAQualifierThatHoldsTheVerdictBackIsAmberTests(SimpleTestCase):

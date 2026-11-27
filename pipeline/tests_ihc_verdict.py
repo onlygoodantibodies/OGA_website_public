@@ -82,23 +82,23 @@ class TheIhcRungsTests(TestCase):
 
     def test_flagged_and_selective_is_supportive_with_the_band(self):
         self.assertEqual(self._caption(True, "selective"),
-                         (R.RECOMMENDED, "Supportive — selective"))
+                         (R.RECOMMENDED, "Supportive under the consensus protocols — selective"))
         self.assertEqual(self._caption(True, "strongly_selective")[1],
-                         "Supportive — strongly selective")
+                         "Supportive under the consensus protocols — strongly selective")
 
     def test_unflagged_but_selective_is_limited_support(self):
         self.assertEqual(self._caption(False, "selective"),
                          (R.NOT_RECOMMENDED,
-                          "Limited support — some selective signal"))
+                          "Limited support under the consensus protocols — some selective signal"))
 
     def test_a_flag_over_no_selective_signal_is_vetoed(self):
         value, caption = self._caption(True, "no_selective_signal")
         self.assertEqual(value, R.NOT_RECOMMENDED)
-        self.assertEqual(caption, "Not supportive")
+        self.assertEqual(caption, "Not supportive under the consensus protocols")
 
     def test_unclear_does_not_veto_and_adds_no_clause(self):
         self.assertEqual(self._caption(True, "unclear"),
-                         (R.RECOMMENDED, "Supportive"))
+                         (R.RECOMMENDED, "Supportive under the consensus protocols"))
 
 
 class TheIhcWriterTests(TestCase):
@@ -157,7 +157,7 @@ class OneGeneGateOnEverySurfaceTests(TestCase):
     def test_the_gene_page_the_api_the_mcp_and_the_index_agree(self):
         body = self.client.get("/antibodies/PPP2R5D/").content.decode()
         # The WB cell's own caption, not the colour key.
-        self.assertIn('experiment-caveat not-supportive">Not supportive</p>',
+        self.assertIn('experiment-caveat not-supportive">Not supportive under the consensus protocols</p>',
                       body)
 
         from core.api_views import _serialise_antibody
@@ -179,7 +179,7 @@ class OneGeneGateOnEverySurfaceTests(TestCase):
         self.assertNotIn("no OGA verdict for IHC", body)
         self.assertIn('<option value="ihc">', body)
         self.assertIn("cell pellets, not tissue", body)
-        self.assertIn('experiment-caveat supportive">Supportive</p>', body)
+        self.assertIn('experiment-caveat supportive">Supportive under the consensus protocols</p>', body)
 
         from core.api_views import _serialise_antibody
         record = _serialise_antibody(self.ihc_only, True, include_recs=True)

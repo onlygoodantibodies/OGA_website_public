@@ -26,6 +26,22 @@ from __future__ import annotations
 
 CHANGELOG = [
     {
+        "version": "2.8.1",
+        "date": "2026-11-27",
+        "summary": "Every tested result's sentence names the protocols it "
+                   "was obtained under.",
+        "changes": [
+            {"kind": "changed", "where": "oga_display[application].sentence",
+             "what": "The rung is followed by \"under the consensus "
+                     "protocols\", e.g. \"Supportive under the consensus "
+                     "protocols - detects the target, but is not selective\". "
+                     "Never on Not tested. words, qualifier and every "
+                     "controlled value are unchanged.",
+             "action": "None, unless you parse sentence: read words and "
+                       "qualifier instead."},
+        ],
+    },
+    {
         "version": "2.8.0",
         "date": "2026-11-12",
         "summary": "A tab-separated file mapping every gene with data to its "

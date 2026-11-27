@@ -285,7 +285,7 @@ def fill(ids, *, consented_count, member=None, is_superuser=False) -> dict:
 #
 # The registry's create endpoint (`POST /api/antibodies`) takes a logged-in
 # person's browser token and nothing an app can hold, so new registrations go
-# by its advertised route instead: a spreadsheet emailed to abr-help for bulk
+# by email instead: a spreadsheet sent to rii-help@scicrunch.org for bulk
 # upload. The headings are the registry API's own field names (`AddAntibody`
 # in its openapi.json), so the curators can map it without asking.
 #

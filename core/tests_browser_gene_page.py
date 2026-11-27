@@ -133,14 +133,14 @@ class TheQualifiedNegativeIsDrawnAsACaptionTests(StaticLiveServerTestCase):
         caption = self.page.query_selector(
             ".experiment-box.qualified + .experiment-caveat")
         self.assertGreater(caption.bounding_box()["width"], 150)
-        self.assertIn("Limited support — detects the target",
+        self.assertIn("Limited support under the consensus protocols — detects the target",
                       caption.text_content())
 
     def test_the_caption_is_not_crowded_against_the_box_or_the_next_card(self):
         """`td` carries no padding, so the caption's own margins are the only
         thing holding it off the figure above and the card below. At 6px a
         two-line caption touched both, which is what the rungs made common —
-        "Limited support — enriches the target, but not significantly" wraps
+        "Limited support under the consensus protocols — enriches the target, but not significantly" wraps
         where "Supportive" does not (owner, 29 Aug 2026).
         """
         self._open()
@@ -230,11 +230,11 @@ class TheQualifiedNegativeIsDrawnAsACaptionTests(StaticLiveServerTestCase):
         # side**: this fixture's supportive antibody is not selective, which is
         # the case that was invisible until 29 Aug 2026 — 36% of the green on
         # the live site.
-        self.assertIn("Supportive — detects the target, but is not selective", captions)
-        self.assertIn("Limited support — detects the target",
+        self.assertIn("Supportive under the consensus protocols — detects the target, but is not selective", captions)
+        self.assertIn("Limited support under the consensus protocols — detects the target",
                       captions)
         # And a bare verdict where there is nothing to add.
-        self.assertIn("Not supportive", captions)
+        self.assertIn("Not supportive under the consensus protocols", captions)
 
     def test_an_untested_cell_is_not_captioned_twice(self):
         """It already carries a "No data available" image."""

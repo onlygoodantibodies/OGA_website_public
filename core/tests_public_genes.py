@@ -289,8 +289,8 @@ class OneColourPerCellTests(TestCase):
         self.assertIn(
             'class="experiment-box supportive" data-app="icc_if"', body)
         # Both sentences are still there — it is only the colour that is one.
-        self.assertIn("Supportive — strongly selective", body)
-        self.assertIn("Supportive — detects the target, but is not selective", body)
+        self.assertIn("Supportive under the consensus protocols — strongly selective", body)
+        self.assertIn("Supportive under the consensus protocols — detects the target, but is not selective", body)
 
     def test_a_blank_rrid_or_host_says_so_rather_than_printing_none(self):
         """189 antibodies have no RRID (1 Oct 2026), 45 of them published; the
@@ -310,7 +310,7 @@ class OneColourPerCellTests(TestCase):
     def test_the_caveated_negative_owns_its_own_colour(self):
         body = self._body()
         self.assertIn('class="experiment-box qualified" data-app="wb"', body)
-        self.assertIn("Limited support — detects the target", body)
+        self.assertIn("Limited support under the consensus protocols — detects the target", body)
 
     def test_no_cell_carries_two_states(self):
         """The whole of the fix: amber inside a red border was the bug."""

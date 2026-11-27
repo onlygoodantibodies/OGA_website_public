@@ -470,6 +470,11 @@
 <script>
 'use strict';
 const API_BASE = '/api';
+/* "under the consensus protocols", after the rung on every tested result's
+   label (core/recommendations.py::CONDITIONS_QUALIFIER, owner 27 Nov 2026):
+   a manufacturer reads results here, and an unqualified rung read as a
+   property of the antibody rather than of one protocol. */
+const CONDITIONS = '{{ conditions_qualifier|escapejs }}';
 const EMBED_BASE = 'https://onlygoodantibodies.co.uk/embed/';
 /* The five applications OGA assesses, in the order every OGA surface prints
    them (core/recommendations.py::APPLICATIONS; IHC since API 2.2.0). It was
@@ -871,8 +876,10 @@ function renderAbCard(ab, showSupplier) {
       /* The rung only ("Supportive", "Limited support", ...). The full
          sentence is on hover: the page is for getting images, not reading
          qualifiers, and the yellow tab already marks a supportive result
-         with one (owner, 29 Sep 2026). */
-      + ((d.words || d.sentence) ? '<p class="exp-caveat ' + esc(tone) + '" title="' + escAttr(d.sentence || '') + '">' + esc(d.words || d.sentence) + '</p>' : '')
+         with one (owner, 29 Sep 2026). The rung does carry CONDITIONS,
+         which says whose test it was rather than what was seen
+         (owner, 27 Nov 2026). */
+      + ((d.words || d.sentence) ? '<p class="exp-caveat ' + esc(tone) + '" title="' + escAttr(d.sentence || '') + '">' + esc(d.words ? d.words + (d.support && d.support !== 'not_tested' && CONDITIONS ? ' ' + CONDITIONS : '') : d.sentence) + '</p>' : '')
       /* Copy methods, under the judgement — the paragraph is the API's own
          `oga_methods[app].text` (API 2.4.0), so the portal copies what the
          gene page copies. The API sends it only under a supportive result;

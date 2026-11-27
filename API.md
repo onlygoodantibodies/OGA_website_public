@@ -1410,6 +1410,14 @@ until something actually changes.
 The version in `openapi.json` (`info.version`) is this API's, not the site's.
 It is **not** the `v1` in the URL — that is the path and has not moved.
 
+### 2.8.1 — 27 November 2026
+
+**Changed: `oga_display[application].sentence`** names the protocols a result
+was obtained under: *Supportive under the consensus protocols — detects the
+target, but is not selective*. Never on *Not tested*. `words`, `qualifier`
+and every controlled value are unchanged; a client that parses `sentence`
+should read `words` and `qualifier` instead.
+
 ### 2.8.0 — 12 November 2026
 
 **Added: [`/uniprot/`](#7b-get-uniprot--the-uniprot-cross-reference-file)**,

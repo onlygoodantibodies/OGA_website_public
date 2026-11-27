@@ -834,13 +834,22 @@ def cell_caption(application, verdict, axes):
 
     ``NOT_TESTED`` is the deliberate blank: the cell already carries a "No data
     available" image, and a caption saying so twice is noise.
+
+    **The protocols are named inside the claim** (owner, 27 Nov 2026), as the
+    extension's card has done since 3 Sep: a manufacturer read
+    *Supportive — detects the target, but is not selective* as a property of
+    the antibody rather than of one assay run one way. ``SCOPE_NOTE`` says so,
+    but once per page; a reader who takes only the caption takes it
+    unqualified. So the rung carries ``CONDITIONS_QUALIFIER`` and every surface
+    reading ``sentence`` — the gene page, the API, the manufacturers' email,
+    the MCP, the review queue — gets it from here. Never on *Not tested*.
     """
     if verdict == NOT_TESTED:
         return ''
     clause, tempers = qualified(application, verdict, axes)
     # The rung leads and the observation follows, so a reader who stops after
     # two words has still read how much weight the evidence carries.
-    lead = words(verdict, tempers)
+    lead = f'{words(verdict, tempers)} {CONDITIONS_QUALIFIER}'
     return f'{lead} — {clause}' if clause else lead
 
 

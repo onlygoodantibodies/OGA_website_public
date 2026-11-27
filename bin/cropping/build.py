@@ -216,7 +216,11 @@ def add_figure(page, plan, fig):
     else:
         picked = [page.locator(f"#cell-{b}_{c}-ab").evaluate(
             "s => s.options[s.selectedIndex] ? s.options[s.selectedIndex].text : ''") for b, c in cells]
-    first = [re.split(r"\s", p.strip())[0] if p.strip() else "" for p in picked]
+    # The picker's text is the catalogue as typed (cropper.html::abOptions), and
+    # a catalogue can hold a space ("anti-Glucagon [4B1g]", "168 013"), so the
+    # whole text is compared; the first word is only a fallback.
+    first = [p.strip() if p.strip() in fig["order"]
+             else (re.split(r"\s", p.strip())[0] if p.strip() else "") for p in picked]
     if first != fig["order"]:
         sys.exit(f"{fig['name']}: panels read back as {first}, planned {fig['order']}")
     print(f"{fig['name']}: {len(first)} antibodies · {applied} · read back OK")

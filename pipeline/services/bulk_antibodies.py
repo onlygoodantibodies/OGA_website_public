@@ -430,7 +430,26 @@ def _identity_note(status, existing, lot):
         return f"matches the vial already recorded with lot {on_file}"
     if lot and not on_file:
         return f"fills in lot {lot} on the row that has none recorded"
-    return "matches the row already on file, which has no lot recorded"
+    if not on_file:
+        return "matches the row already on file, which has no lot recorded"
+    # This row names no lot and the vial it matched has one. It said "which has
+    # no lot recorded" over a vial with lot 1057445-2 (27 Nov 2026) — and where
+    # the bench holds several vials of the product, `find_vial` updates the
+    # oldest, so the sentence has to say which one and how to choose another.
+    sibling_lots = [(a.lot_number or "").strip() or "no lot"
+                    for a in Antibody.objects.using(DB)
+                    .filter(target_id=existing.target_id,
+                            company_id=existing.company_id,
+                            catalogue_number=existing.catalogue_number,
+                            site_id=existing.site_id)
+                    .exclude(pk=existing.pk).order_by("id")]
+    if not sibling_lots:
+        return (f"matches the vial already recorded with lot {on_file} "
+                "(this row names no lot)")
+    return (f"this row names no lot, and this bench holds "
+            f"{len(sibling_lots) + 1} vials of it (lots "
+            f"{', '.join([on_file] + sibling_lots)}) — it will update the one "
+            f"with lot {on_file}; type the lot to choose another")
 
 
 def _writing_sites(items, writes) -> dict:
