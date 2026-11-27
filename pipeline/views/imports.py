@@ -656,8 +656,13 @@ def import_upload(request, kind):
         items = bulk.plan(rows, member=_member(request),
                           number_now=request.POST.get("number_now")
                           in ("true", "1", "on"))
+        # The same registry lookup the paste box's check makes — one door
+        # asking and the other not is how one panel comes to behave
+        # differently from the one beside it. See `bulk.look_up_rrids`.
+        registry_rrids = bulk.look_up_rrids(items)
         return JsonResponse({"items": items, "summary": bulk.summarize(items),
-                             "text": text, "sheet_note": sheet_note})
+                             "text": text, "sheet_note": sheet_note,
+                             "registry_rrids": registry_rrids})
 
     if kind == "cell-lines":
         rows = bulkcl.parse(text, default_gene, request.POST.get("default_genotype", ""))

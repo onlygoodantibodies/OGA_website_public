@@ -111,9 +111,27 @@ def target_detail(request, pk):
         .order_by('site__name', 'company__name', 'catalogue_number')
     )
 
+    # How many papers cite each antibody (CiteAb, via `core/citations.py`).
+    # Three answers, never folded into a zero: a count; `no_rrid` (the snapshot
+    # is keyed on RRID, so it cannot be looked up); `not_found` (not in the
+    # snapshot — no papers, no CiteAb match, or not public when it was built).
+    from core import citations
+    from pipeline.rrid_utils import normalize_rrid
+    citation_counts = citations.counts_by_rrid()
+    citation_source = (citations.summary() or {}).get("source", {})
+
     # Group antibodies by site for side-by-side display
     antibodies_by_site = {}
     for ab in antibodies:
+        rrid = normalize_rrid(ab.rrid)
+        if citation_counts is None:
+            ab.citations, ab.citation_state = None, "unavailable"
+        elif not rrid:
+            ab.citations, ab.citation_state = None, "no_rrid"
+        elif rrid in citation_counts:
+            ab.citations, ab.citation_state = citation_counts[rrid], "counted"
+        else:
+            ab.citations, ab.citation_state = None, "not_found"
         site_name = ab.site.name if ab.site else 'Unassigned'
         antibodies_by_site.setdefault(site_name, []).append(ab)
 
@@ -443,6 +461,8 @@ def target_detail(request, pk):
         'nominated_agencies': nominated_agencies,
         'is_funded': any(n.funded for n in nominations),
         'antibodies_by_site': antibodies_by_site,
+        'citations_available': citation_counts is not None,
+        'citations_through': citation_source.get('citeab_data_through', ''),
         'antibody_count': antibodies.count(),
         'cell_line_pairs': cell_line_pairs,
         'cell_line_count': cell_lines.count(),

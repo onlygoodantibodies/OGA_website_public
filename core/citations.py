@@ -261,6 +261,44 @@ def unpack(packed, rrids, tokens):
     return out
 
 
+@lru_cache(maxsize=1)
+def counts_by_rrid():
+    """``{rrid: {"papers", "WB", "IP", "IF", "FC", "other", "first", "last"}}``,
+    or ``None`` when there is no snapshot.
+
+    How many papers CiteAb records as citing each antibody, for the pipeline's
+    gene page (asked for by a site drafting a manuscript, 23 Nov 2026, who could
+    see the data was here and not get a count out of it). Built once per process
+    from the same packed records ``unpack`` decodes, so the two cannot disagree
+    about a flag.
+
+    **An RRID missing from the result is not a count of zero.** The snapshot
+    holds only antibodies that were public with an RRID when it was built, and
+    only those CiteAb matched by catalogue number; a caller says so rather than
+    printing 0. ``None`` is the other answer and means the file is absent —
+    say that too, never an empty table.
+    """
+    data = load()
+    if data is None:
+        return None
+    rrids, tokens, years = data.get("rrids", []), data.get("tokens", []), data.get("years", [])
+    out = {}
+    for slot, packed in enumerate(data.get("papers", [])):
+        year = years[slot] if slot < len(years) else 0
+        for rrid, rec in unpack(packed, rrids, tokens).items():
+            row = out.setdefault(rrid, {"papers": 0, "WB": 0, "IP": 0, "IF": 0, "FC": 0,
+                                        "other": 0, "first": None, "last": None})
+            row["papers"] += 1
+            for app in rec["applications"]:
+                row[app] += 1
+            if rec["untested_terms"]:
+                row["other"] += 1
+            if year:
+                row["first"] = year if row["first"] is None else min(row["first"], year)
+                row["last"] = year if row["last"] is None else max(row["last"], year)
+    return out
+
+
 # Online-first and print years routinely differ by one. Mirrors
 # ``browser-extension/src/paper.js``'s YEAR_SLACK, and for the same reason.
 YEAR_SLACK = 1

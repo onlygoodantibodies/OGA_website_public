@@ -18,11 +18,13 @@ import logging
 
 from django.db import transaction
 
+from pipeline import rrid_utils
 from pipeline.models import Target, Antibody
 from pipeline.services import concentration as concentration_svc
 from pipeline.services import lab_numbers
 from pipeline.services import ownership
 from pipeline.services import received as received_svc
+from pipeline.services import registry_rrids
 from pipeline.services import sites as site_svc
 from pipeline.services import storage as storage_svc
 from pipeline.services.cropper import db as cdb
@@ -469,6 +471,12 @@ def summarize(items) -> dict:
         # McGill has always numbered on receipt and asked to keep doing it.
         # `board.js::labNumberNote` reads both keys; only one is ever non-zero.
         "will_be_numbered": sum(1 for i in items if i.get("will_be_numbered")),
+        # What the Antibody Registry said about the blank RRIDs, when the check
+        # asked it (`look_up_rrids`). Zero on a dry-run commit, which never asks.
+        "registry_found": _registry_count(items, "found"),
+        "registry_review": _registry_count(items, "review"),
+        "registry_none": _registry_count(items, "none"),
+        "registry_unchecked": _registry_count(items, "unchecked"),
         "new_companies": sorted({i["row"].get("company", "") for i in items
                                  if i["company_status"] == "new" and i["row"].get("company")}),
         # Every site the paste would write to. One name is the ordinary case; more
@@ -484,19 +492,18 @@ def summarize(items) -> dict:
 
 
 def apply(rows, member=None, overwrite: bool = False,
-          lookup_rrids: bool = False, number_now: bool = False):
+          number_now: bool = False, registry_rrids=None):
     """Create/update antibodies (and, if asked, missing targets) in one
     transaction. Fills only blank fields by default, so re-pasting never clobbers
     data; overwrite=True lets non-empty values replace existing ones (the edited-
     export round-trip). Returns a result dict with per-antibody handles.
 
-    ``lookup_rrids`` (opt-in): when a row leaves ``rrid`` blank, resolve it from
-    the Antibody Registry by catalogue + vendor + gene (the same strictly-gated
-    match the backfill command uses) and fill it — so new antibodies aren't
-    created RRID-less. OFF by default because each lookup is a ~seconds network
-    call: safe for the single-add form (one row), but NOT for large bulk pastes
-    under the request timeout — those rely on the periodic
-    ``backfill_rrid_from_registry`` command instead."""
+    ``registry_rrids`` is what the *check* found in the Antibody Registry
+    (``look_up_rrids``), handed back by the page as a value. The save makes no
+    call of its own — it runs inside one transaction, and holding PostgreSQL
+    open across a 4–5 s registry call per antibody is rule 3 of
+    ``tests_timeouts.py``. A found RRID fills a blank and never replaces one
+    somebody typed or one already on file."""
     # The same member the preview got. It used to be omitted here, so `plan`'s
     # per-row site — and therefore which rows it called new — was computed against
     # no site at all while the write used the member's. Preview and write have to
@@ -504,6 +511,10 @@ def apply(rows, member=None, overwrite: bool = False,
     items = plan(rows, member=member)
     out = {"created": [], "updated": [], "skipped": [],
            "blocked": [], "rrids_filled": 0,
+           # Every RRID this press took from the Antibody Registry, by name —
+           # a value the app supplied is a thing the app did, so the receipt
+           # says which rows got one (`board.js::registrySaved`).
+           "rrids_from_registry": [],
            # Rows written *without* the concentration they named, so the save can
            # repeat the refusal the preview gave. A warning that only appears
            # before the button is a warning the button can outlive.
@@ -596,9 +607,18 @@ def apply(rows, member=None, overwrite: bool = False,
                 # would go on sharing one record.
                 ab.site_id = site_id
             _apply_metadata(ab, r, overwrite=overwrite)
-            # Opt-in: fill a still-blank RRID from the registry (best-effort).
-            if lookup_rrids and not (ab.rrid or "").strip():
-                if _fill_rrid_from_registry(ab, cat, r.get("company", ""), target.gene_name or ""):
+            # An RRID the check found in the Antibody Registry, into a blank
+            # only. Keyed exactly as `look_up_rrids` keyed it, so a row that
+            # changed after the check simply finds nothing.
+            if registry_rrids and not (ab.rrid or "").strip():
+                found = _registry_hit(registry_rrids, it)
+                if found:
+                    ab.rrid = found["rrid"]
+                    ab.rrid_link = rrid_utils.registry_url(found["rrid"])
+                    if found["url"] and not (ab.supplier_url or "").strip():
+                        ab.supplier_url = found["url"]
+                    out["rrids_from_registry"].append(
+                        {"catalogue": ab.catalogue_number, "rrid": found["rrid"]})
                     out["rrids_filled"] += 1
             ab.save(using=DB)
             # Where the vial lives. After the save because a location is its own
@@ -633,31 +653,102 @@ def apply(rows, member=None, overwrite: bool = False,
     return out
 
 
-def _fill_rrid_from_registry(ab, catalogue: str, company: str, gene: str) -> bool:
-    """Best-effort: set ab.rrid (+ rrid_link, and supplier_url if blank) from a
-    HIGH-confidence registry match. Returns True if it filled the RRID. Never
-    raises — a registry hiccup just leaves the RRID blank."""
-    from pipeline.services import scicrunch, targets as targets_service
-    from pipeline import rrid_utils
-    try:
-        # Same alias list the backfill command passes, for the same reason: the
-        # registry names a gene by a synonym often enough that our primary
-        # symbol alone reads a match as a mismatch. Both doors, one behaviour.
-        aliases = (targets_service.registry_names(ab.target)
-                   if getattr(ab, "target_id", None) else [])
-        rrid, url, _note = scicrunch.resolve_rrid(catalogue, company, gene,
-                                                  aliases=aliases)
-    except Exception:
-        # Deliberately broad: a registry hiccup must leave the RRID blank rather
-        # than fail an import. But it is LOGGED, because this same handler will
-        # swallow a programming error -- a signature that drifted, say -- and
-        # report it as "no RRID found", which no screen contradicts.
-        logger.exception("RRID lookup failed for %r (%s)", catalogue, company)
-        return False
+# =============================================================================
+# The Antibody Registry, asked at the check
+# =============================================================================
+#
+# **The check owns the network; the save owns the writes and makes no call.**
+# `apply` runs inside one transaction, so asking from there would hold
+# PostgreSQL open for the length of the paste (rule 3 of `tests_timeouts.py`).
+# It was written that way first, as `apply(..., lookup_rrids=True)`, and no page
+# ever turned it on. So the check looks up every row that would be saved with no
+# RRID, through `services/registry_rrids.py` (the one place the pipeline asks
+# the registry — the antibodies board's *Find missing RRIDs* is the other door),
+# names what it found on each row, and hands the finds back as
+# `registry_rrids`, which the page posts with the save.
+
+registry_key = registry_rrids.key
+
+
+def _registry_count(items, status) -> int:
+    return sum(1 for i in items if (i.get("registry") or {}).get("status") == status)
+
+
+def _registry_hit(registry_rrids_found, item):
+    """The check's find for this row, or None. The value came back from the
+    browser, so it is read like a typed one: a malformed RRID is no RRID."""
+    if not isinstance(registry_rrids_found, dict):
+        return None
+    hit = registry_rrids_found.get(registry_key(item.get("catalogue"),
+                                                item.get("company"),
+                                                item.get("target_gene")))
+    if not isinstance(hit, dict):
+        return None
+    rrid = rrid_utils.normalize_rrid(str(hit.get("rrid") or ""))
     if not rrid:
-        return False
-    ab.rrid = rrid
-    ab.rrid_link = rrid_utils.registry_url(rrid)
-    if url and not (ab.supplier_url or "").strip():
-        ab.supplier_url = url
-    return True
+        return None
+    url = str(hit.get("url") or "").strip()
+    if not url.lower().startswith(("http://", "https://")):
+        url = ""
+    return {"rrid": rrid, "url": url}
+
+
+def look_up_rrids(items, **ask_kw):
+    """Ask the Antibody Registry about every row the save would leave without
+    an RRID. Marks each such item with ``registry`` and returns the finds as
+    ``{registry_key: {rrid, url}}`` — the value the save is handed.
+
+    Which rows: ones that will be written (create/update), with a catalogue
+    number, whose own RRID cell is blank, and — for a row already on file —
+    whose stored RRID is blank too, since the save never replaces one.
+    """
+    from pipeline.services import targets as targets_svc
+
+    wanted = [it for it in items
+              if it.get("status") in ("create", "update")
+              and it.get("catalogue") and it.get("target_id")
+              and not rrid_utils.normalize_rrid(
+                  str((it.get("row") or {}).get("rrid") or ""))]
+    if not wanted:
+        return {}
+    stored = dict(Antibody.objects.using(DB)
+                  .filter(id__in=[i["existing_ab_id"] for i in wanted
+                                  if i.get("existing_ab_id")])
+                  .values_list("id", "rrid"))
+    wanted = [i for i in wanted
+              if not (stored.get(i.get("existing_ab_id")) or "").strip()]
+    if not wanted:
+        return {}
+
+    # Everything a worker needs, read here on the request's own thread.
+    target_by_id = {t.id: t for t in Target.objects.using(DB)
+                    .filter(id__in={i["target_id"] for i in wanted})}
+    questions = {}
+    for it in wanted:
+        k = registry_key(it["catalogue"], it.get("company"), it.get("target_gene"))
+        if k not in questions:
+            target = target_by_id.get(it["target_id"])
+            questions[k] = (it["catalogue"],
+                            it.get("company_resolved") or it.get("company") or "",
+                            it.get("target_gene") or "",
+                            targets_svc.registry_names(target) if target else [])
+    answers = registry_rrids.ask(questions, **ask_kw)
+
+    finds = {}
+    for it in wanted:
+        k = registry_key(it["catalogue"], it.get("company"), it.get("target_gene"))
+        answer = answers.get(k) or {"status": registry_rrids.UNCHECKED}
+        it["registry"] = answer
+        if answer["status"] == registry_rrids.FOUND:
+            finds[k] = {"rrid": answer["rrid"], "url": answer.get("url") or ""}
+            sentence = (f"RRID {answer['rrid']} will be filled in from the "
+                        "Antibody Registry.")
+        elif answer["status"] == registry_rrids.UNCHECKED:
+            # The summary line says so for the whole paste; a per-row repeat
+            # of "did not answer" on every row is noise.
+            sentence = ""
+        else:
+            sentence = registry_rrids.NOTES.get(answer["status"], "")
+        if sentence:
+            it["note"] = f"{it['note']} {sentence}".strip() if it.get("note") else sentence
+    return finds

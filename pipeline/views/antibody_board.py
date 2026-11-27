@@ -25,6 +25,7 @@ from pipeline.services import board_page
 from pipeline.services import ownership
 from pipeline.services import next_step
 from pipeline.services import received as received_svc
+from pipeline.services import registry_rrids
 from pipeline.services import renumber as renumber_svc
 from pipeline.services import sites as site_svc
 from pipeline.services import storage as storage_svc
@@ -189,6 +190,69 @@ def antibody_renumber_apply(request):
              "error": "Could not renumber those — nothing has been changed."},
             status=400)
     return JsonResponse({"ok": True, **result})
+
+
+@pipeline_member_required
+@require_POST
+def antibody_rrid_check(request):
+    """Look up the next batch of the filtered antibodies with no RRID in the
+    Antibody Registry. Writes nothing. See `services/registry_rrids.py`."""
+    try:
+        offset = int(request.POST.get("offset") or 0)
+    except ValueError:
+        offset = 0
+    member, is_superuser = _asker(request)
+    return JsonResponse({"ok": True, "batch": registry_rrids.BATCH,
+                         **registry_rrids.check(_renumber_ids(request), offset=offset,
+                                                member=member,
+                                                is_superuser=is_superuser)})
+
+
+@pipeline_member_required
+@require_POST
+def antibody_rrid_fill(request):
+    """Write the RRIDs the checks found, for the antibodies named. The RRIDs
+    are re-derived on the server, never taken from the page."""
+    import json
+    try:
+        d = json.loads(request.body or "{}")
+        ids = [int(i) for i in d.get("ids") or []]
+        consented = int(d.get("consented_count", -1))
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False, "error": "Could not read that request."},
+                            status=400)
+    member, is_superuser = _asker(request)
+    try:
+        result = registry_rrids.fill(ids, consented_count=consented,
+                                     member=member, is_superuser=is_superuser)
+    except registry_rrids.Refused as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    except Exception:
+        logger.exception("filling RRIDs from the registry failed")
+        return JsonResponse(
+            {"ok": False, "error": "Could not fill those RRIDs — nothing has been "
+                                   "changed. The error has been logged."},
+            status=400)
+    return JsonResponse({"ok": True, **result})
+
+
+@pipeline_member_required
+@require_GET
+def antibody_rrid_sheet(request):
+    """The filtered antibodies the registry checks found unregistered, as a
+    sheet to email to the Antibody Registry for bulk upload."""
+    from django.http import HttpResponse
+    from django.utils import timezone
+    member, is_superuser = _asker(request)
+    sheet = registry_rrids.registration_sheet(_renumber_ids(request), member=member,
+                                              is_superuser=is_superuser)
+    resp = HttpResponse(
+        registry_rrids.registration_workbook(sheet),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = (
+        f'attachment; filename="antibody_registry_submission_'
+        f'{timezone.now():%Y-%m-%d}.xlsx"')
+    return resp
 
 
 @pipeline_member_required

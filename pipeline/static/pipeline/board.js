@@ -495,14 +495,55 @@ window.OGABoard = (function () {
    * antibody panel. */
   function checkNotes(summary) {
     return concentrationWarning(summary) + receivedWarning(summary)
-         + cNumberWarning(summary) + labNumberNote(summary);
+         + cNumberWarning(summary) + labNumberNote(summary)
+         + registryNote(summary);
   }
 
   function saveNotes(result) {
     return rowsNotSaved(result) + suppliersRequested(result)
          + concentrationSaved(result) + receivedSaved(result) + cNumberSaved(result)
          + labNumbersIssued(result) + labNumbersDeferred(result)
+         + registrySaved(result)
          + reportNeedsNote((result || {}).report_needs, 'saved');
+  }
+
+  /* What the Antibody Registry said about the blank RRIDs, asked at the check
+   * (`bulk_antibodies.look_up_rrids`). Each row also says it in its own note;
+   * this is the count, so a long paste can be read at a glance — and the one
+   * place an outage is said, since "not looked up" is not "not registered". */
+  function registryNote(summary) {
+    const s = summary || {};
+    const parts = [];
+    if (s.registry_found) {
+      parts.push(`<li>${plural(s.registry_found, 'RRID')} found in the Antibody
+        Registry ${s.registry_found === 1 ? 'is' : 'are'} filled in on save —
+        each named on its row below</li>`);
+    }
+    if (s.registry_review) {
+      parts.push(`<li class="text-amber-800">${plural(s.registry_review, 'row')}
+        ${s.registry_review === 1 ? 'has' : 'have'} a registry record that does not clearly
+        match, so no RRID is filled in — check ${s.registry_review === 1 ? 'it' : 'them'}
+        on antibodyregistry.org</li>`);
+    }
+    if (s.registry_none) {
+      parts.push(`<li>${plural(s.registry_none, 'row')} not in the Antibody Registry —
+        the RRID stays blank</li>`);
+    }
+    if (s.registry_unchecked) {
+      parts.push(`<li class="text-amber-800">The Antibody Registry did not answer for
+        ${plural(s.registry_unchecked, 'row')}, so ${s.registry_unchecked === 1 ? 'its' : 'their'}
+        RRID was not looked up. Press Check again to retry, or save now and add it later.</li>`);
+    }
+    return parts.join('');
+  }
+
+  function registrySaved(result) {
+    const list = (result || {}).rrids_from_registry || [];
+    if (!list.length) return '';
+    const listed = list.slice(0, 5).map(
+      d => `${esc(d.catalogue || '(row)')} → ${esc(d.rrid || '')}`).join(', ');
+    return `<br>${plural(list.length, 'RRID')} filled in from the Antibody Registry:
+      ${listed}${list.length > 5 ? ', …' : ''}.`;
   }
 
   /* The rows a save did not write, each with its reason — `not_saved`, from
@@ -1933,6 +1974,9 @@ window.OGABoard = (function () {
      * was no way to tell what had been written. The buttons go dead while a
      * request is in flight, so the first click is the only one that counts. */
     let inFlight = false;
+    // What the last check found in the Antibody Registry, posted back with the
+    // save so the save need not ask again (`bulk_antibodies.look_up_rrids`).
+    let registryRrids = null;
     const BUTTONS = ['preview', 'commit', 'clear'];
 
     /* Create them is *disabled* until a check has run, not absent.
@@ -2006,6 +2050,10 @@ window.OGABoard = (function () {
         return requestJson(req.url, req.options || {}, onError);
       }
       const payload = cfg.buildBody(text, extra, phase);
+      if (phase === 'commit' && registryRrids && payload
+          && typeof payload === 'object' && !(payload instanceof FormData)) {
+        payload.registry_rrids = registryRrids;
+      }
       return requestJson(url, {
         method: 'POST',
         headers: {'X-CSRFToken': cfg.csrf, 'Content-Type': 'application/json'},
@@ -2031,7 +2079,9 @@ window.OGABoard = (function () {
                    + 'above, or paste one into the Paste tab.');
           return;
         }
+        registryRrids = null;
         const d = await post(cfg.urls.preview, 'Checking…', 'preview');
+        if (d) registryRrids = d.registry_rrids || null;
         if (!d) {
           // A check the server refused leaves the save greyed — say which of the
           // two states you are in, or a disabled button after a visible error
@@ -2086,6 +2136,7 @@ window.OGABoard = (function () {
       addRow(startRows);
       el('paste').value = '';
       out.innerHTML = '';
+      registryRrids = null;
       arm(false);
     }
     el('clear').addEventListener('click', clear);
@@ -2235,6 +2286,8 @@ window.OGABoard = (function () {
     // The text the preview was built from, kept so the save commits exactly what
     // was shown rather than re-reading a file that may have been swapped.
     let previewed = '';
+    // The registry's finds from the preview, sent with the save — see newEntry.
+    let previewedRegistry = null;
     let busy = false;
     // A save has landed and its receipt is on screen, so the file in the input
     // is spent. See `setButtons`.
@@ -2282,10 +2335,12 @@ window.OGABoard = (function () {
         Object.entries(cfg.extraFields ? cfg.extraFields() : {})
           .forEach(([k, v]) => fd.append(k, v));
         out().innerHTML = '<span class="text-gray-500">Reading the file…</span>';
+        previewedRegistry = null;
         const d = await requestJson(cfg.urls.preview,
           {method: 'POST', headers: {'X-CSRFToken': cfg.csrf}, body: fd},
           fail, 'read');
         if (!d) return;
+        previewedRegistry = d.registry_rrids || null;
         if (cfg.renderPreview) {
           /* A preview that renders nothing reads as a click that did nothing.
            * That is exactly what run 11's Excel-saved workbook produced: a 200,
@@ -2351,6 +2406,7 @@ window.OGABoard = (function () {
           const body = Object.assign(
             {text: previewed, dry_run: false,
              overwrite: el('overwrite').checked},
+            previewedRegistry ? {registry_rrids: previewedRegistry} : {},
             cfg.extraBody ? cfg.extraBody() : {});
           d = await requestJson(cfg.urls.commit, {
             method: 'POST',

@@ -63,7 +63,12 @@ def bulk_antibodies_parse(request):
                       # check must answer the question the tick asks, or the
                       # preview contradicts the save.
                       number_now=bool(d.get("number_now")))
-    return JsonResponse({"items": items, "summary": bulk.summarize(items)})
+    # The registry is asked here, at the check, and never at the save — see
+    # `bulk_antibodies.look_up_rrids`. The finds go back to the page, which
+    # posts them with the save.
+    registry_rrids = bulk.look_up_rrids(items)
+    return JsonResponse({"items": items, "summary": bulk.summarize(items),
+                         "registry_rrids": registry_rrids})
 
 
 @pipeline_member_required
@@ -86,7 +91,10 @@ def bulk_antibodies_commit(request):
 
         result = bulk.apply(rows, member=_member(request),
                             overwrite=bool(d.get("overwrite")),
-                            number_now=number_now)
+                            number_now=number_now,
+                            # What the check found in the Antibody Registry —
+                            # a value, never a lookup made from here.
+                            registry_rrids=d.get("registry_rrids"))
     except Exception as exc:
         return _refusal("antibodies", exc)
     # The board, filtered to the row just written — the antibody edit page it

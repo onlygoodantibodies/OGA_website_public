@@ -564,6 +564,7 @@
                 <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Conc.</th>
                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase"
                     title="What the supplier recommends this antibody for">Apps</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Papers</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -604,11 +605,43 @@
                 <td class="px-3 py-2 text-center">
                   {% supplier_app_icons ab %}
                 </td>
+                {% comment %}Papers citing it, from CiteAb (`core/citations.py::
+                counts_by_rrid`). A blank is never drawn as 0: the word says why
+                there is no count, and the line under the table says what each
+                word means.{% endcomment %}
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  {% if ab.citation_state == "counted" %}
+                    <span class="font-medium text-gray-900">{{ ab.citations.papers }}</span>
+                    <div class="text-xs text-gray-500">
+                      WB {{ ab.citations.WB }} · IP {{ ab.citations.IP }} · IF {{ ab.citations.IF }} · FC {{ ab.citations.FC }}{% if ab.citations.other %} · other {{ ab.citations.other }}{% endif %}
+                    </div>
+                    {% if ab.citations.first %}<div class="text-xs text-gray-400">{{ ab.citations.first }}–{{ ab.citations.last }}</div>{% endif %}
+                  {% elif ab.citation_state == "no_rrid" %}
+                    <span class="text-xs text-gray-400">no RRID</span>
+                  {% elif ab.citation_state == "not_found" %}
+                    <span class="text-xs text-gray-400">none found</span>
+                  {% else %}
+                    <span class="text-xs text-gray-400">—</span>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+        <p class="mt-2 text-xs text-gray-500">
+          {% if citations_available %}
+            <b>Papers</b>: how many papers CiteAb records as citing the antibody{% if citations_through %} (CiteAb data to {{ citations_through }}){% endif %},
+            with what they used it for — a paper can count under more than one application, or none.
+            <b>none found</b> is not zero: no citation was found, CiteAb could not match the product, or the
+            antibody was not on the public site when the citation data was built. <b>no RRID</b>: the citation
+            data is looked up by RRID, so add one on the antibodies board to get a count. CiteAb's own site may
+            show more recent papers.
+          {% else %}
+            <b>Papers</b>: the citation data is not available on this copy of the site, so no counts are shown —
+            that is missing data, not zero papers.
+          {% endif %}
+        </p>
       </div>
       {% endfor %}
     {% else %}

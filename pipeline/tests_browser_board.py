@@ -811,6 +811,128 @@ class BoardInARealBrowserTests(_RealBrowserHarness):
         self.assertIn("no A-number yet", nudge)
         self.assertEqual([e for e in self.errors if "400 " not in e], [])
 
+    def test_an_rrid_the_check_found_is_the_one_the_save_writes(self):
+        """The registry is asked at the check and the save is handed the answer
+        by the page (`bulk_antibodies.look_up_rrids`). Everything that can go
+        wrong here is page code — a find the preview promises and the page
+        never posts is a save that silently writes no RRID under a check that
+        said it would. Two doors, because they are two writers in board.js:
+        the Add panel (`newEntry`) and an upload (`uploadPanel`), the second on
+        a gene's own page. The save is also made with the registry raising, so
+        it is proved to take the value rather than ask again.
+        """
+        from pipeline.models import Antibody, Company
+        from pipeline.services import scicrunch
+        Company.objects.using(DB).create(name="Abcam")
+
+        def found(catalogue, company, gene, aliases=(), lookup=None):
+            return {"status": "high", "rrid": "AB_" + catalogue[-3:], "url": "",
+                    "note": "", "reg": None, "catalogue": catalogue}
+
+        def asked_at_save(*a, **k):
+            raise AssertionError("the save asked the registry")
+
+        with mock.patch.object(scicrunch, "API_KEY", "test-key"):
+            # The Add panel on the antibodies board.
+            self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/")
+            self.page.wait_for_selector("#new-btn")
+            self.page.click("#new-btn")
+            self.page.wait_for_selector("#new-panel table tbody input")
+            self.page.click("#new-panel button:has-text('Paste')")
+            self.page.fill("#new-panel textarea",
+                           "gene\tcatalogue\tcompany\nSNCA\tab-rr-101\tAbcam")
+            with mock.patch.object(scicrunch, "lookup_and_match", found):
+                self.page.click("#new-panel button:has-text('Check')")
+                self._checked()
+            self.assertIn("AB_101", self.page.text_content("#new-panel"))
+            with mock.patch.object(scicrunch, "lookup_and_match", asked_at_save):
+                self.page.click("#new-panel button:has-text('Create')")
+                self._saved()
+            self.assertEqual(Antibody.objects.using(DB)
+                             .get(catalogue_number="ab-rr-101").rrid, "AB_101")
+            self.assertIn("filled in from the Antibody Registry",
+                          self.page.text_content("#new-panel"))
+
+            # An upload on the gene's own page.
+            panel = "#ab-upload-panel"
+            self.page.goto(f"{self.live_server_url}/pipeline/target/{self.target.pk}/")
+            self.page.wait_for_selector("#ab-add-btn")
+            self.page.click("#ab-upload-btn")
+            self.page.wait_for_selector(f'{panel} [id$="scrim"]:not(.hidden)',
+                                        state="attached")
+            self.page.set_input_files(
+                f"{panel} input[type=file]",
+                {"name": "ab.csv", "mimeType": "text/csv",
+                 "buffer": b"gene,catalogue,company\nSNCA,ab-rr-202,Abcam\n"})
+            out = f'{panel} [id$="-out"]'
+            with mock.patch.object(scicrunch, "lookup_and_match", found):
+                self.page.click(f"{panel} button:has-text('Preview changes')")
+                self.page.wait_for_function(
+                    "sel => { const el = document.querySelector(sel);"
+                    "         return el && !el.innerText.includes('Reading'); }",
+                    arg=out, timeout=20000)
+            self.assertIn("AB_202", self.page.text_content(out))
+            with mock.patch.object(scicrunch, "lookup_and_match", asked_at_save):
+                self._posted(self.page.query_selector(
+                    f"{panel} button:has-text('Save these changes')").click)
+        self.assertEqual(Antibody.objects.using(DB)
+                         .get(catalogue_number="ab-rr-202").rrid, "AB_202")
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
+    def test_find_missing_rrids_fills_what_the_registry_found(self):
+        """The board's *Find missing RRIDs* (`services/registry_rrids.py`).
+        Page code throughout: the check is sent with the board's filters, the
+        finds accumulate in the panel, and Fill sends their ids. A Fill that
+        posted nothing would read as a press that wrote no RRIDs. The fill is
+        made with the registry raising, so it is proved not to ask again.
+        """
+        from pipeline.models import Antibody, Company
+        from pipeline.services import scicrunch
+        company = Company.objects.using(DB).create(name="Abcam")
+        for cat in ("rr-found", "rr-none"):
+            Antibody.objects.using(DB).create(
+                target_id=self.target.pk, company_id=company.pk,
+                catalogue_number=cat, site_id=self.site.pk)
+
+        def registry(catalogue, company, gene, aliases=(), lookup=None):
+            hit = catalogue == "rr-found"
+            return {"status": "high" if hit else "nomatch",
+                    "rrid": "AB_4242" if hit else "", "url": "", "note": "",
+                    "reg": {"records": [], "error": None}, "catalogue": catalogue}
+
+        def asked_at_fill(*a, **k):
+            raise AssertionError("the fill asked the registry")
+
+        with mock.patch.object(scicrunch, "API_KEY", "test-key"):
+            self.page.goto(f"{self.live_server_url}/pipeline/antibodies/board/?gene=SNCA")
+            self.page.wait_for_selector("#rrid-btn")
+            with mock.patch.object(scicrunch, "lookup_and_match", registry):
+                with self.page.expect_response(lambda r: "/rrids/check/" in r.url):
+                    self.page.click("#rrid-btn")
+                self.page.wait_for_function(
+                    "() => (document.querySelector('#rr-rows') || {}).textContent"
+                    "        ?.includes('AB_4242')", timeout=20000)
+            panel = self.page.text_content("#rrid-panel")
+            self.assertIn("2 antibodies", panel, panel)
+            self.assertIn("not registered", panel, panel)
+            # Every row checked and one is unregistered, so the registration
+            # sheet is offered — and the download says it happened.
+            self.assertNotIn("hidden", self.page.get_attribute("#rr-sheet-box", "class"))
+            self.page.click("#rr-sheet")
+            self.page.wait_for_function(
+                "() => document.querySelector('#rr-sheet-receipt').textContent"
+                "        .includes('.xlsx')", timeout=20000)
+            with mock.patch.object(scicrunch, "lookup_and_match", asked_at_fill):
+                self._posted(lambda: self.page.click("#rr-fill"))
+        self.assertEqual(Antibody.objects.using(DB)
+                         .get(catalogue_number="rr-found").rrid, "AB_4242")
+        self.assertEqual(Antibody.objects.using(DB)
+                         .get(catalogue_number="rr-none").rrid, "")
+        self.page.wait_for_function(
+            "() => document.querySelector('#rr-out').textContent.includes('1 RRID filled')",
+            timeout=20000)
+        self.assertEqual([e for e in self.errors if "400 " not in e], [])
+
     def test_a_gene_page_deals_out_its_own_genes_numbers(self):
         """The second page to mount `OGABoard.renumberPanel`, and the reason it
         was moved into board.js rather than copied.

@@ -85,19 +85,41 @@ hand is how they end up pointing at different things, so **the board cell** show
 it as a link only and cannot be edited. (Giving one when you *add* an antibody is
 fine and encouraged — see below.)
 
-A new antibody added on the board starts with **no RRID** — the column shows `—`,
-and that is expected. Looking one up means calling the Antibody Registry, which
-is slow and often wrong about clonality, so it is not done while you wait.
+**Adding an antibody looks its RRID up for you.** When you press **Check** on
+Add antibodies or Upload a sheet, every row that would be saved without an RRID
+is looked up in the Antibody Registry, and each row says what was found:
+*"RRID AB_… will be filled in"*, *"not in the Antibody Registry"*, or *"a
+record that does not clearly match"* — the last is left for you to check on
+antibodyregistry.org and type in. Save fills only the first kind. It can make
+Check take up to fifteen seconds on a long paste.
+
+An RRID is only filled where the registry's record has the same catalogue
+number and agrees on the gene or the supplier, and **an RRID you typed, or one
+already on the row, is never replaced.**
 
 **If you already know the RRID, type it into the `rrid` column** of the Add
 antibodies grid, or of your paste or sheet, and it is kept. That column is there
 on purpose; it is only the inline cell on the board that is closed, so that the
 number and its link are always written as a pair.
 
-If you do not, the RRID stays empty until someone runs the registry backfill
-(`python manage.py backfill_rrid_from_registry`). **It is a hand-run command, not
-a scheduled job**, so an antibody added today has no RRID tomorrow unless
-somebody typed one or ran it.
+**For antibodies already on the board, press Find missing RRIDs.** It works on
+every row the filters are showing that has no RRID — your own bench's, unless
+you are a superuser — looking them up a batch of about eighteen at a time,
+because each lookup takes a few seconds. Press *Check the next* until it says
+*All checked*, read the list, then **Fill** writes the ones it found in one go.
+Narrow the filters first (one gene, or one supplier) to keep the list short.
+Many antibodies are simply not in the registry; those stay blank, and the list
+says so.
+
+**Registering the ones the registry does not hold.** Once every row has been
+checked, the panel offers **Download registration sheet**: the unregistered
+antibodies in the registry's own field names, with a column saying what is
+missing before a row can be submitted (usually the product page link, which
+the registry requires). New registrations go to the registry by email —
+send the sheet to abr-help@scicrunch.org for bulk upload. The registry's
+curators issue the RRIDs, and **Find missing RRIDs** fills them in afterwards.
+The app cannot submit them itself: the registry only accepts a submission from
+a person logged in to its own site.
 
 ---
 

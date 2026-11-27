@@ -51,6 +51,12 @@
     services/renumber.py.{% endcomment %}
     <button type="button" id="renumber-btn"
             class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Assign numbers</button>
+    {% comment %}The antibodies the filters show that have no RRID, looked up in
+    the Antibody Registry a batch at a time and filled on one press — the
+    backfill command from inside the pipeline. See
+    services/registry_rrids.py.{% endcomment %}
+    <button type="button" id="rrid-btn"
+            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Find missing RRIDs</button>
   </div>
   <p id="header-template-receipt" class="text-sm mt-2" role="status" aria-live="polite"></p>
   {% comment %}A number in a caveat with nothing to click is half a message.
@@ -67,6 +73,7 @@
     </p>
   {% endif %}
   <div id="renumber-panel"></div>
+  <div id="rrid-panel"></div>
   <div id="upload-panel"></div>
   <div id="identity-panel"></div>
 
@@ -453,6 +460,173 @@
     onDone: () => board.load(),
   });
   document.getElementById('renumber-btn').addEventListener('click', renumber.open);
+
+  /* Find missing RRIDs — `services/registry_rrids.py`. Works on every row the
+     filters show (the same set Assign numbers works on), a batch at a time,
+     because each lookup takes seconds and a request has a deadline. Finds
+     accumulate across batches; Fill writes them in one press, and the server
+     re-derives each RRID rather than taking it from this page. */
+  (function () {
+    const mount = document.getElementById('rrid-panel');
+    const checkUrl = "{% url 'pipeline:antibody_rrid_check' %}";
+    const fillUrl = "{% url 'pipeline:antibody_rrid_fill' %}";
+    const sheetUrl = "{% url 'pipeline:antibody_rrid_sheet' %}";
+    const {esc, pill, plural, requestJson, bringIntoView, formQuery} = OGABoard;
+    let offset = 0, total = 0, found = new Map(), rows = [];
+
+    const el = id => document.getElementById(id);
+    const TONE = {found: 'good', review: 'warn', none: 'flat', unchecked: 'warn'};
+    const WORD = {found: 'found', review: 'check by hand', none: 'not registered',
+                  unchecked: 'no answer'};
+
+    function draw() {
+      const remaining = Math.max(0, total - offset);
+      el('rr-status').innerHTML = total
+        ? `<b>${plural(total, 'antibody', 'antibodies')}</b> in this view ${total === 1 ? 'has' : 'have'}
+           no RRID. ${offset ? `Checked ${offset} so far.` : ''}`
+        : 'Every antibody in this view that you can edit already has an RRID.';
+      const next = el('rr-next');
+      next.disabled = !remaining;
+      next.classList.toggle('opacity-50', !remaining);
+      next.textContent = remaining
+        ? `Check the next ${Math.min(remaining, Number(next.dataset.batch || 18))}`
+        : 'All checked';
+      const go = el('rr-fill');
+      go.disabled = !found.size;
+      go.classList.toggle('opacity-50', !found.size);
+      go.classList.toggle('cursor-not-allowed', !found.size);
+      go.textContent = found.size ? `Fill ${plural(found.size, 'RRID')}` : 'Fill RRIDs';
+      el('rr-why').textContent = found.size ? '' : 'Nothing found to fill yet.';
+      /* The registration sheet: the rows the registry does not hold, for the
+         registry's bulk upload. Offered once every row has been checked, since
+         the sheet only lists what a check found missing. */
+      const unregistered = rows.filter(i => i.status === 'none' || i.status === 'review').length;
+      const done = total && offset >= total;
+      el('rr-sheet-box').classList.toggle('hidden', !(done && unregistered));
+      el('rr-sheet').href = `${sheetUrl}?${formQuery(filtersForm)}`;
+      el('rr-sheet-count').textContent = plural(unregistered, 'antibody', 'antibodies');
+      el('rr-rows').innerHTML = rows.length ? `
+        <div class="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+          <div class="max-h-80 overflow-y-auto">
+            <table class="text-xs w-full">
+              <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide sticky top-0">
+                <tr><th class="px-2 py-1 text-left font-semibold">Antibody</th>
+                    <th class="px-2 py-1 text-left font-semibold">Registry</th>
+                    <th class="px-2 py-1"></th></tr></thead>
+              <tbody class="divide-y divide-gray-100">${rows.map(it => `
+                <tr><td class="px-2 py-1">${esc(it.label)}</td>
+                    <td class="px-2 py-1 whitespace-nowrap">${pill(WORD[it.status] || it.status, TONE[it.status] || 'flat')}</td>
+                    <td class="px-2 py-1 text-gray-600">${esc(it.note)}</td></tr>`).join('')}
+              </tbody></table></div></div>` : '';
+    }
+
+    async function checkNext() {
+      const btn = el('rr-next');
+      btn.disabled = true;
+      btn.textContent = 'Asking the Antibody Registry… (up to 15 s)';
+      const d = await requestJson(`${checkUrl}?${formQuery(filtersForm)}`,
+        {method: 'POST',
+         headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded'},
+         body: new URLSearchParams({offset: String(offset)}).toString()},
+        msg => { el('rr-out').innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; },
+        'read');
+      if (d) {
+        total = d.total;
+        offset = d.next_offset;
+        btn.dataset.batch = d.batch;
+        (d.items || []).forEach(it => {
+          rows.push(it);
+          if (it.status === 'found') found.set(it.id, it);
+        });
+        const unchecked = (d.items || []).filter(i => i.status === 'unchecked').length;
+        el('rr-out').innerHTML = (d.other_sites
+          ? `<p class="text-xs text-gray-500">${plural(d.other_sites, 'antibody', 'antibodies')}
+             in this view ${d.other_sites === 1 ? 'is' : 'are'} another bench's, so left out —
+             a superuser can fill those.</p>` : '')
+          + (unchecked ? `<p class="text-xs text-amber-800">The registry did not answer for
+             ${plural(unchecked, 'row')} in time. Close and reopen this panel to ask again.</p>` : '');
+      }
+      draw();
+    }
+
+    async function fill() {
+      if (!found.size) return;
+      const ids = [...found.keys()];
+      const d = await requestJson(fillUrl,
+        {method: 'POST',
+         headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+         body: JSON.stringify({ids, consented_count: ids.length})},
+        msg => { el('rr-out').innerHTML = `<p class="text-red-700">${esc(msg)}</p>`; });
+      if (!d) return;
+      const filled = d.filled || [], skipped = d.skipped || [];
+      found = new Map();
+      el('rr-out').innerHTML = `
+        <div class="border border-emerald-200 bg-emerald-50 rounded-lg p-3 text-emerald-900">
+          <b>${plural(filled.length, 'RRID')} filled in.</b>
+          ${filled.length ? `<ul class="mt-1 list-disc list-inside text-xs">${filled.slice(0, 15).map(f =>
+              `<li>${esc(f.label)} → ${esc(f.rrid)}</li>`).join('')}${filled.length > 15 ? '<li>…</li>' : ''}</ul>` : ''}
+          ${skipped.length ? `<p class="mt-2 text-amber-800 text-xs"><b>${plural(skipped.length, 'row')} not filled:</b>
+            ${skipped.map(s => `${esc(s.label)} (${esc(s.why)})`).join('; ')}</p>` : ''}
+        </div>`;
+      draw();
+      bringIntoView(el('rr-out'));
+      board.load();
+    }
+
+    function open() {
+      offset = 0; total = 0; found = new Map(); rows = [];
+      mount.innerHTML = `
+        <div class="border border-gray-200 rounded-xl bg-white p-4 mt-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="text-sm text-gray-600 max-w-2xl">
+              <b class="text-gray-900">Find missing RRIDs.</b>
+              Looks up every antibody the filters below are showing that has no RRID,
+              in the Antibody Registry, a batch at a time — each lookup takes a few
+              seconds. Nothing is written until you press <b>Fill</b>.
+              <span class="block mt-2 text-gray-500">An RRID is only filled where the
+              registry's record has the same catalogue number and agrees on the gene or
+              the supplier. Anything doubtful is listed for you to check by hand, and an
+              RRID already on a row is never replaced. Your own bench's antibodies,
+              unless you are a superuser.</span>
+            </div>
+            <button type="button" id="rr-close"
+                    class="text-gray-400 hover:text-gray-700 font-bold text-lg leading-none">&times;</button>
+          </div>
+          <p id="rr-status" class="mt-3 text-sm text-gray-700"></p>
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <button type="button" id="rr-next"
+                    class="px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-sm">Check the next batch</button>
+            <button type="button" id="rr-fill" disabled aria-describedby="rr-why"
+                    class="px-4 py-2 rounded-lg bg-ycharos-600 text-white font-semibold text-sm opacity-50 cursor-not-allowed">Fill RRIDs</button>
+            <span id="rr-why" class="text-xs text-gray-500"></span>
+          </div>
+          <div id="rr-out" class="mt-3 text-sm" role="alert"></div>
+          <div id="rr-sheet-box" class="hidden mt-3 border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
+            <b><span id="rr-sheet-count"></span> are not in the Antibody Registry.</b>
+            New registrations go to the registry by email: download this sheet — in the
+            registry's own field names, with a column saying what is missing before a
+            row can be submitted — and send it to
+            <a href="mailto:abr-help@scicrunch.org" class="text-ycharos-700 underline">abr-help@scicrunch.org</a>
+            for bulk upload. Once they issue RRIDs, this button fills them in.
+            <span class="block mt-2">
+              <a id="rr-sheet" href="#" class="inline-block px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-800 font-semibold hover:bg-gray-50">⬇ Download registration sheet</a>
+              <span id="rr-sheet-receipt" class="ml-2 text-xs" role="status" aria-live="polite"></span>
+            </span>
+          </div>
+          <div id="rr-rows"></div>
+        </div>`;
+      el('rr-close').addEventListener('click', () => { mount.innerHTML = ''; });
+      el('rr-next').addEventListener('click', checkNext);
+      el('rr-fill').addEventListener('click', fill);
+      el('rr-sheet').addEventListener('click', ev => {
+        ev.preventDefault();
+        OGABoard.downloadWithReceipt(el('rr-sheet'), el('rr-sheet-receipt'));
+      });
+      el('rr-status').textContent = 'Counting…';
+      checkNext();
+    }
+    document.getElementById('rrid-btn').addEventListener('click', open);
+  })();
 
   const errors = banner('board-error', 'board-error-text', 'board-error-close');
 

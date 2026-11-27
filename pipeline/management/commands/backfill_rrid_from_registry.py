@@ -163,6 +163,17 @@ class Command(BaseCommand):
                                   f"error={reg.get('error')!r}")
                 self.stdout.write("  " + json.dumps(peek, indent=2, default=str)[:4000])
 
+            # Progress before any `continue`. It sat after the no-match branch,
+            # so a run where most catalogues are not in the registry — the usual
+            # case — printed nothing for a quarter of an hour and read as hung
+            # (Render shell, 27 Nov 2026). The counts are as of the row before.
+            if stats["candidates"] % 25 == 0:
+                self.stdout.write(f"  ... {stats['candidates']} checked "
+                                  f"(high={stats['high']} review={stats['review']} "
+                                  f"nomatch={stats['nomatch']} "
+                                  f"unreachable={stats['unreachable']})")
+                self.stdout.flush()
+
             if found["status"] == "nomatch":
                 # Distinguish "no such catalogue" (nomatch) from transport failure.
                 err = reg.get("error") or ""
@@ -171,11 +182,6 @@ class Command(BaseCommand):
                     continue
                 stats["nomatch"] += 1
                 continue
-
-            if stats["candidates"] % 25 == 0:
-                self.stdout.write(f"  ... {stats['candidates']} checked "
-                                  f"(high={stats['high']} review={stats['review']} "
-                                  f"nomatch={stats['nomatch']})")
 
             status, rrid, url, note = (found["status"], found["rrid"],
                                        found["url"], found["note"])

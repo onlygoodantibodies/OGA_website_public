@@ -97,6 +97,14 @@ urlpatterns = [
          name='antibody_renumber_plan'),
     path('antibodies/board/renumber/apply/', views.antibody_renumber_apply,
          name='antibody_renumber_apply'),
+    # Find missing RRIDs: the backfill command, a page-sized batch at a time
+    # (services/registry_rrids.py).
+    path('antibodies/board/rrids/check/', views.antibody_rrid_check,
+         name='antibody_rrid_check'),
+    path('antibodies/board/rrids/fill/', views.antibody_rrid_fill,
+         name='antibody_rrid_fill'),
+    path('antibodies/board/rrids/sheet/', views.antibody_rrid_sheet,
+         name='antibody_rrid_sheet'),
     # Identity — catalogue, supplier, gene — is not an inline cell, because
     # retyping one in a grid makes the row a different antibody while every
     # result stays attached. It is a deliberate change that shows what would
