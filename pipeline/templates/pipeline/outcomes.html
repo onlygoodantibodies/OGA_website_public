@@ -75,6 +75,15 @@
   .axis-btns button:disabled { cursor: default; opacity: 0.75; }
   .rec-btns button.on-yes { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 700; }
   .rec-btns button.on-no { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 700; }
+  /* Which control a published figure used. Neither kind is good news, so the
+     set one is navy rather than green or red. */
+  .rec-btns button.on-ctl { background: #e8eef7; border-color: var(--navy); color: var(--navy); font-weight: 700; }
+  .rec-btns button:disabled { cursor: not-allowed; opacity: 0.6; }
+  .ctl-note { font-size: 0.72rem; color: var(--amber); margin-top: 4px; }
+  #control-bar.out-hidden { display: none; }
+  #control-bar { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .85rem; }
+  #control-bar .rec-btns { min-width: 16rem; }
+  #control-why { font-size: .82rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; max-width: 60ch; }
   /* An axis button is coloured by whether its answer is good news, which the
      server decides (outcomes.tone_of) — never by its word: "No" non-specific
      background is the clean result. */
@@ -194,6 +203,23 @@
     <span id="withdraw-why" class="withdraw-why"></span>
   </div>
 
+  {% comment %}Which control the published figures used — knockout or knockdown.
+  The gene page's heading, <title>, JSON-LD and the API print it, and a figure
+  queued before the field existed (18 Sep 2026) is blank, which reads as
+  knockout. The figure's lane labels (WT/KO, Ctrl/KD) are the evidence, so it is
+  set here, beside the figures. One press for every figure of this application
+  on the gene, so a correction is one edge purge, not one per card. The count
+  is every figure the server sent, not the cards the tick box leaves drawn.
+  Superusers only; the reason is drawn ON THE PAGE.{% endcomment %}
+  <div id="control-bar" class="out-hidden">
+    <span id="control-summary"></span>
+    <span id="control-all-wrap" class="rec-btns">
+      <button type="button" data-ctl-all="KO"></button>
+      <button type="button" data-ctl-all="KD"></button>
+    </span>
+    <span id="control-why"></span>
+  </div>
+
   <div id="withdraw-panel" class="out-hidden" role="dialog" aria-modal="true"
        aria-labelledby="withdraw-title">
     <div class="withdraw-card">
@@ -234,6 +260,7 @@ const URL_ANTIBODIES = "{% url 'pipeline:outcome_antibodies' %}";
 const URL_SAVE = "{% url 'pipeline:outcome_save' %}";
 const URL_RECOMMEND = "{% url 'pipeline:outcome_recommend' %}";
 const URL_WITHDRAW = "{% url 'pipeline:outcome_withdraw' %}";
+const URL_CONTROL = "{% url 'pipeline:outcome_control' %}";
 /* Resolved server-side to the target's own spelling, so `?gene=trpa1` and the
    eight mis-cased symbols still select the right option. Empty when nothing was
    asked for or the request could not be honoured — and in that second case the
@@ -257,6 +284,10 @@ const REVIEW = '\u0000review';
 const UNUSED = '\u0000unused';
 const FCREVIEW = '\u0000fcreview';
 let caveatAxes = [];
+/* The control-type picker: why it is greyed (empty for a superuser), and what
+   the gene page's heading says about its controls now. */
+let controlWhyNot = '';
+let geneControlPhrase = '';
 let antibodies = [];
 let changeCount = 0;
 
@@ -393,6 +424,8 @@ async function loadGene() {
      withdraw the gene the reader is no longer looking at. */
   withdrawInfo = null;
   drawWithdrawButton();
+  antibodies = [];
+  drawControlBar();
   if (!gene) {
     antibodies = [];
     grid.innerHTML = '<div class="empty-state">Pick a gene above. The list is ordered by how much is left to judge.</div>';
@@ -428,6 +461,9 @@ async function loadGene() {
   caveatAxes = data.caveat_axes || [];
   withdrawInfo = data.withdraw || null;
   drawWithdrawButton();
+  controlWhyNot = data.control_why_not || '';
+  geneControlPhrase = data.gene_control_phrase || '';
+  drawControlBar();
   showGeneStats(data.summary);
   renderGrid();
 }
@@ -732,7 +768,91 @@ function renderVerdict(ab) {
        ? '<div class="public-line tone-' + esc(ab.public_tone || 'none') + '">'
          + '<small>Public gene page</small><b>' + esc(ab.public_sentence) + '</b></div>'
        : '')
+    + renderControl(ab)
     + '</div>';
+}
+
+const CONTROL_LABELS = {KO: 'Knockout', KD: 'Knockdown'};
+
+/* Which control this published figure used. Neither button is lit while the
+   field is blank: the figure has not been read yet, and lighting "Knockout"
+   because that is what a blank prints would state the thing nobody checked. */
+function renderControl(ab) {
+  const cur = ab.control || '';
+  const button = v => '<button type="button" data-ctl="' + ab.id + '" data-ctl-value="' + v + '"'
+    + (cur === v ? ' class="on-ctl"' : '') + (controlWhyNot ? ' disabled' : '') + '>'
+    + CONTROL_LABELS[v] + '</button>';
+  return '<div class="rec-row">'
+    + '<span class="rec-label">Control in this figure (read the lane labels)</span>'
+    + '<div class="rec-btns">' + button('KO') + button('KD') + '</div>'
+    + (cur ? '' : '<div class="ctl-note">Not recorded, so the public page says knockout.</div>')
+    + '</div>';
+}
+
+/* The bar above the grid: what the gene page says, and one press for every
+   figure of this application on the gene. Not on a worklist, which spans
+   genes. */
+function drawControlBar() {
+  const bar = document.getElementById('control-bar');
+  if (!antibodies.length) { bar.classList.add('out-hidden'); return; }
+  bar.classList.remove('out-hidden');
+  const n = antibodies.length;
+  const app = document.getElementById('out-app').selectedOptions[0].textContent.toLowerCase();
+  const blank = antibodies.filter(a => !a.control).length;
+  const summary = document.getElementById('control-summary');
+  summary.textContent = conflictsView
+    ? 'Set each figure\u2019s control on its card.'
+    : (geneControlPhrase ? 'Public gene page: ' + geneControlPhrase + '. ' : '')
+      + (blank ? blank + ' of ' + n + ' ' + app + ' figure' + (n === 1 ? '' : 's')
+                 + ' with no control recorded. Set all ' + n + ':'
+               : 'Set all ' + n + ' ' + app + ' figure' + (n === 1 ? '' : 's') + ':');
+  document.getElementById('control-all-wrap').style.display = conflictsView ? 'none' : '';
+  document.querySelectorAll('[data-ctl-all]').forEach(b => {
+    b.textContent = CONTROL_LABELS[b.dataset.ctlAll] + ' (' + n + ')';
+    b.disabled = !!controlWhyNot;
+  });
+  const why = document.getElementById('control-why');
+  why.textContent = controlWhyNot;
+  why.style.display = controlWhyNot ? '' : 'none';
+}
+
+/* One write for a card or for the whole gene, and one receipt. The count goes
+   back so a set that changed underneath the button is refused. */
+async function saveControl(ids, value) {
+  let data, resp;
+  try {
+    resp = await fetch(URL_CONTROL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({antibody_ids: ids, value: value,
+                            application: application, count: ids.length}),
+    });
+    data = await resp.json();
+  } catch (err) {
+    banner('That did not save — the page could not reach the server. Nothing has been changed.', true);
+    return;
+  }
+  if (!resp.ok) {
+    banner(data.error || 'That did not save. Nothing has been changed.', true);
+    return;
+  }
+  data.antibody_ids.forEach(id => {
+    const ab = antibodies.find(a => a.id === id);
+    if (!ab) return;
+    ab.control = data.value;
+    const card = document.getElementById('out-card-' + id);
+    if (card) card.outerHTML = renderCard(ab);
+  });
+  const phrases = data.gene_phrases || {};
+  const gene = document.getElementById('out-gene').value;
+  if (phrases[gene]) geneControlPhrase = phrases[gene];
+  drawControlBar();
+  const said = Object.entries(phrases).map(([g, p]) => g + '\u2019s page now says \u201c' + p + '\u201d.').join(' ');
+  banner((data.changed
+          ? data.changed + ' figure' + (data.changed === 1 ? '' : 's') + ' set to ' + data.word + '.'
+          : 'Already ' + data.word + ' \u2014 nothing changed.')
+         + (said ? ' ' + said : '')
+         + (data.purge_note ? ' ' + data.purge_note : ''), false);
 }
 
 /* One delegated listener rather than an inline handler per button: a catalogue
@@ -742,6 +862,14 @@ document.addEventListener('click', async e => {
   if (zoom) { openPreview(Number(zoom.dataset.zoom)); return; }
   const rec = e.target.closest('button[data-rec]');
   if (rec && !rec.disabled) { await saveRecommendation(rec); return; }
+  const ctl = e.target.closest('button[data-ctl]');
+  if (ctl && !ctl.disabled) {
+    const ab = antibodies.find(a => a.id === Number(ctl.dataset.ctl));
+    if (ab && ab.control !== ctl.dataset.ctlValue) await saveControl([ab.id], ctl.dataset.ctlValue);
+    return;
+  }
+  const all = e.target.closest('button[data-ctl-all]');
+  if (all && !all.disabled) { await saveControl(antibodies.map(a => a.id), all.dataset.ctlAll); return; }
   const btn = e.target.closest('.axis-btns button');
   if (btn && !btn.disabled) await save(btn);
 });

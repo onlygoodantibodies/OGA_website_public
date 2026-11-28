@@ -296,10 +296,18 @@ def _card(ab, axes, img, application, gene, curated=True, **extra):
         "conflict_direction": outcome_svc.conflict_direction(
             axes, getattr(ab, _REC_FIELD[application]), application),
         **_public(ab, axes, application, curated),
+        # Which genetic control the published figure used, as stored: "KO",
+        # "KD", or "" for a figure released before the column existed, which
+        # every public surface reads as knockout (`pipeline/public.py::
+        # control_kinds`). Set on this page (`outcome_control`), because the
+        # figure is what says which it was.
+        "control": ((img.control_genotype or "").strip().upper()
+                    if img is not None else ""),
     }, **extra)
 
 
-def _worklist_cards(application, found, note, keep_order=False):
+def _worklist_cards(application, found, note, keep_order=False,
+                    control_why_not=""):
     """One card per antibody in a worklist, ordered by gene.
 
     Both lists come through here — where the recommendation and the data
@@ -315,7 +323,8 @@ def _worklist_cards(application, found, note, keep_order=False):
     if not found:
         return _payload([], {"total": 0, "judged": 0, "gaps": 0,
                              "conflicts": 0}, application,
-                        conflicts_view=True, worklist_note=note)
+                        conflicts_view=True, worklist_note=note,
+                        control_why_not=control_why_not)
 
     ab_ids = list(found)
     images = {
@@ -343,21 +352,27 @@ def _worklist_cards(application, found, note, keep_order=False):
     # that agree with theirs perfectly well.
     return _payload(rows, {"total": len(rows), "judged": 0, "gaps": 0,
                            "conflicts": len(rows)}, application,
-                    conflicts_view=True, worklist_note=note)
+                    conflicts_view=True, worklist_note=note,
+                    control_why_not=control_why_not)
 
 
 @pipeline_member_required
 def outcome_antibodies(request):
     """One gene's published WB figures, with both axes and where each came from."""
     application = _application(request)
+    from pipeline.views.review import _asker
+    member, is_superuser = _asker(request)
+    control_why_not = control_refusal(is_superuser)
     if request.GET.get("conflicts"):
         return _worklist_cards(
             application, outcome_svc.conflicts(application),
-            "where the recommendation and the recorded data disagree")
+            "where the recommendation and the recorded data disagree",
+            control_why_not=control_why_not)
     if request.GET.get("review"):
         return _worklist_cards(
             application, outcome_svc.unrecommended_but_capable(application),
-            "not recommended, and the data records on-target signal")
+            "not recommended, and the data records on-target signal",
+            control_why_not=control_why_not)
     if request.GET.get("fcreview"):
         found = outcome_svc.fc_recommended()
         # Unanswered first: the pass is for setting the caveat, and a row
@@ -368,11 +383,12 @@ def outcome_antibodies(request):
         return _worklist_cards(
             "FC", ordered,
             "recommended for flow cytometry — set the background caveat",
-            keep_order=True)
+            keep_order=True, control_why_not=control_why_not)
     if request.GET.get("unused"):
         return _worklist_cards(
             application, outcome_svc.ratio_not_used(application),
-            "where a ratio on file disagrees with what is recorded")
+            "where a ratio on file disagrees with what is recorded",
+            control_why_not=control_why_not)
 
     gene_name = (request.GET.get("gene") or "").strip()
     if not gene_name:
@@ -407,10 +423,14 @@ def outcome_antibodies(request):
     # picker; then by catalogue number, which is how people refer to them.
     rows.sort(key=lambda r: (not r["is_gap"], r["name"] or ""))
 
-    from pipeline.views.review import _asker
-    member, is_superuser = _asker(request)
+    from pipeline import public as public_svc
     return _payload(rows, outcome_svc.summarise(by_ab, application),
                     application,
+                    control_why_not=control_why_not,
+                    # What the gene page's heading says about its controls,
+                    # over every application — the phrase a change here moves.
+                    gene_control_phrase=public_svc.control_phrase(
+                        public_svc.control_kinds(target)),
                     # Drawn with the cards rather than fetched separately: a
                     # button whose count arrives after the grid is a button
                     # that is briefly wrong.
@@ -621,4 +641,114 @@ def outcome_withdraw(request):
         "purged": purged,
         "purge_note": purge_note,
         "review_url": "/pipeline/review/",
+    })
+
+
+#: The two kinds a published figure's control can be, in the order the buttons
+#: are drawn. `pipeline/public.py` owns the words.
+CONTROL_KINDS = ("KO", "KD")
+
+
+def control_refusal(is_superuser) -> str:
+    """Why this person cannot set a published figure's control type, or ``""``.
+
+    Superusers only, the same gate as releasing and withdrawing: the word is
+    printed on the public gene page, in its ``<title>``, its JSON-LD and the
+    API the moment it is saved, and a figure on another bench's gene is not a
+    member's to relabel."""
+    if is_superuser:
+        return ""
+    return ("Only a superuser can change which control a published figure "
+            "used, because the public gene page changes as soon as it is "
+            "saved. Ask one to set it.")
+
+
+@pipeline_member_required
+@require_POST
+def outcome_control(request):
+    """Set knockout or knockdown on published figures, from the figures.
+
+    Until this existed the only way to correct a figure the public site
+    described with the wrong control was `backfill_control_genotype` in Render
+    Shell (27 Nov 2026: RAB12, TMEFF2 and DDX1's western blots are labelled
+    KD on the figure and were published knockout-controlled, because they were
+    queued before the column existed and a blank reads as knockout).
+
+    ``antibody_ids`` is one card, or every card the page shows — one press,
+    one edge purge, rather than one per figure. ``count`` is the number the
+    button printed, and a set that differs from it is refused.
+
+    The released queue row for each figure is corrected too, so the record of
+    what went public agrees with it; a crop still queued keeps its own value,
+    which is the cropper session's and is copied over at release.
+    """
+    from django.db import transaction
+    from OGA_website import edge_cache
+    from pipeline import public as public_svc
+    from pipeline.models import PendingPublicationImage
+    from pipeline.views.review import _asker
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    _member, is_superuser = _asker(request)
+    why_not = control_refusal(is_superuser)
+    if why_not:
+        return JsonResponse({"error": why_not}, status=403)
+
+    application = _application(request, data)
+    value = (data.get("value") or "").strip().upper()
+    if value not in CONTROL_KINDS:
+        return JsonResponse(
+            {"error": "A control is knockout (KO) or knockdown (KD)."},
+            status=400)
+    ids = data.get("antibody_ids")
+    if (not isinstance(ids, list) or not ids
+            or not all(isinstance(i, int) for i in ids)):
+        return JsonResponse({"error": "Say which figures to set."}, status=400)
+
+    label = APPLICATION_LABELS[application].lower()
+    figures = list(PublicationImage.objects.using(DB)
+                   .filter(application_type=application, antibody_id__in=ids)
+                   .select_related("antibody", "antibody__target"))
+    count = data.get("count")
+    if len(figures) != len(set(ids)) or (count is not None
+                                         and count != len(figures)):
+        return JsonResponse({
+            "error": f"{len(set(ids))} {label} figure(s) were asked for and "
+                     f"{len(figures)} are published, so nothing was changed. "
+                     "Load the gene again and press it once more."},
+            status=409)
+
+    changed = [f for f in figures
+               if (f.control_genotype or "").strip().upper() != value]
+    with transaction.atomic(using=DB):
+        for fig in changed:
+            fig.control_genotype = value
+            fig.save(using=DB, update_fields=["control_genotype"])
+        (PendingPublicationImage.objects.using(DB)
+         .filter(application_type=application,
+                 antibody_id__in=[f.antibody_id for f in changed],
+                 released_at__isnull=False)
+         .update(control_genotype=value))
+
+    purged, purge_note = (edge_cache.purge_public_pages() if changed
+                          else (False, ""))
+    targets = {f.antibody.target_id: f.antibody.target for f in figures
+               if f.antibody.target_id}
+    return JsonResponse({
+        "ok": True,
+        "value": value,
+        "word": public_svc.control_word(value),
+        "changed": len(changed),
+        "unchanged": len(figures) - len(changed),
+        "antibody_ids": [f.antibody_id for f in figures],
+        # What each gene's heading now says, read back after the write.
+        "gene_phrases": {t.gene_name: public_svc.control_phrase(
+                             public_svc.control_kinds(t))
+                         for t in targets.values()},
+        "purged": purged,
+        "purge_note": purge_note,
     })

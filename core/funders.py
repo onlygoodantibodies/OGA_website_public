@@ -159,10 +159,10 @@ ALS_RAP = FunderPage(
         year=2026,
         title="A validated antibody toolbox for ALS research",
         journal="eLife",
-        # Version 2, the revised Reviewed Preprint (9 Oct 2026), by the owner's
-        # choice. The all-versions DOI is 10.7554/eLife.111349; change this
-        # one when the version of record is out.
-        doi="10.7554/eLife.111349.2",
+        # The Version of Record (3 Nov 2026). Version 2 was the revised
+        # Reviewed Preprint (9 Oct 2026); the all-versions DOI is
+        # 10.7554/eLife.111349.
+        doi="10.7554/eLife.111349.3",
         journal_logo="core/supporters/elife.png",
         reported=("303 antibodies against 33 ALS-associated proteins, tested in "
                   "western blot, immunoprecipitation and immunofluorescence"),

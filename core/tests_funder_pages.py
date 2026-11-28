@@ -270,7 +270,7 @@ class AlsRapPageTests(TestCase):
 
     def test_the_paper_is_linked_and_its_count_is_said_to_be_its_own(self):
         html = self.client.get(self.url).content.decode()
-        doi = "https://doi.org/10.7554/eLife.111349.2"
+        doi = "https://doi.org/10.7554/eLife.111349.3"
         self.assertEqual(html.count(f'href="{doi}"'), 3)  # hero, logo, DOI
         self.assertIn(f">{doi}</a>", html)  # printed whole, not "read more"
         self.assertIn('alt="eLife"', html)

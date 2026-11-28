@@ -1331,3 +1331,104 @@ class TheConflictWorklistTests(_Fixture):
         self.assertEqual(resp.status_code, 200)
         # Judged the other way, it leaves the list.
         self.assertEqual(outcome_svc.conflicts("ICC-IF"), {})
+
+
+class TheControlTypeIsSetFromTheFiguresTests(_Fixture):
+    """Knockout or knockdown, set on Judge outcomes (27 Nov 2026).
+
+    RAB12, TMEFF2 and DDX1's western blots are labelled KD on the figure and
+    were published knockout-controlled: queued before the column existed, so
+    blank, and a blank reads as knockout. The only fix was a management command
+    in Render Shell. What would be silently wrong here: the public row moving
+    and the released queue row not (a withdraw then carries the old value
+    back), a member relabelling a public page, and a press writing a different
+    set from the one its button counted.
+    """
+    CONTROL = "/pipeline/outcomes/control/"
+
+    def _superuser(self):
+        from django.contrib.auth.models import User
+        User.objects.using("academy_db").filter(username="carl").update(
+            is_superuser=True)
+
+    def _post(self, **body):
+        return self.client.post(self.CONTROL, json.dumps(body),
+                                content_type="application/json")
+
+    def test_a_card_says_what_is_stored_and_blank_stays_blank(self):
+        ab = self._antibody("ab-card")
+        card = self.client.get(CARDS, {"gene": "TRPA1", "app": "WB"}).json()
+        self.assertEqual(card["antibodies"][0]["control"], "")
+        self.assertEqual(card["gene_control_phrase"], "Knockout-controlled")
+        PublicationImage.objects.using(DB).filter(antibody=ab).update(
+            control_genotype="KD")
+        card = self.client.get(CARDS, {"gene": "TRPA1", "app": "WB"}).json()
+        self.assertEqual(card["antibodies"][0]["control"], "KD")
+        self.assertEqual(card["gene_control_phrase"], "Knockdown-controlled")
+
+    def test_a_member_is_refused_and_told_why_on_the_page(self):
+        ab = self._antibody("ab-member")
+        card = self.client.get(CARDS, {"gene": "TRPA1", "app": "WB"}).json()
+        self.assertIn("superuser", card["control_why_not"])
+        resp = self._post(antibody_ids=[ab.pk], value="KD", application="WB",
+                          count=1)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(PublicationImage.objects.using(DB).get(
+            antibody=ab).control_genotype, "")
+
+    def test_it_writes_the_figure_and_its_released_queue_row(self):
+        from django.utils import timezone
+        from pipeline.models import PendingPublicationImage
+        self._superuser()
+        a, b = self._antibody("ab-1"), self._antibody("ab-2")
+        PendingPublicationImage.objects.using(DB).create(
+            antibody=a, application_type="WB", image="pending_figures/x.png",
+            released_at=timezone.now())
+        resp = self._post(antibody_ids=[a.pk, b.pk], value="KD",
+                          application="WB", count=2)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        data = resp.json()
+        self.assertEqual((data["changed"], data["word"]), (2, "knockdown"))
+        self.assertEqual(data["gene_phrases"], {"TRPA1": "Knockdown-controlled"})
+        self.assertEqual(
+            set(PublicationImage.objects.using(DB)
+                .values_list("control_genotype", flat=True)), {"KD"})
+        self.assertEqual(PendingPublicationImage.objects.using(DB).get(
+            antibody=a).control_genotype, "KD")
+
+    def test_a_queued_crop_keeps_its_own_value(self):
+        """An unreleased crop's value is the cropper session's and is copied to
+        the public row at release; this page corrects what is public."""
+        from pipeline.models import PendingPublicationImage
+        self._superuser()
+        ab = self._antibody("ab-q")
+        PendingPublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="WB", image="publication_images/q.png",
+            control_genotype="KO")
+        self._post(antibody_ids=[ab.pk], value="KD", application="WB", count=1)
+        self.assertEqual(PendingPublicationImage.objects.using(DB).get(
+            antibody=ab).control_genotype, "KO")
+
+    def test_a_count_that_does_not_match_writes_nothing(self):
+        self._superuser()
+        a = self._antibody("ab-c1")
+        unpublished = self._antibody("ab-c2", published=False)
+        resp = self._post(antibody_ids=[a.pk, unpublished.pk], value="KD",
+                          application="WB", count=2)
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(PublicationImage.objects.using(DB).get(
+            antibody=a).control_genotype, "")
+
+    def test_only_the_named_application_moves(self):
+        self._superuser()
+        ab = self._antibody("ab-app")
+        PublicationImage.objects.using(DB).create(
+            antibody=ab, application_type="ICC-IF", control_genotype="KO",
+            image=SimpleUploadedFile("ab-app-if.png", b"x"))
+        self._post(antibody_ids=[ab.pk], value="KD", application="WB", count=1)
+        got = dict(PublicationImage.objects.using(DB).filter(antibody=ab)
+                   .values_list("application_type", "control_genotype"))
+        self.assertEqual(got, {"WB": "KD", "ICC-IF": "KO"})
+        card = self.client.get(CARDS, {"gene": "TRPA1", "app": "WB"}).json()
+        self.assertEqual(card["gene_control_phrase"],
+                         "Knockout- and knockdown-controlled")

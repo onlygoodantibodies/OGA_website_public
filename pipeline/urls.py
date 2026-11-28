@@ -284,4 +284,6 @@ urlpatterns = [
          name='outcome_recommend'),
     path('outcomes/withdraw/', views.outcome_withdraw,
          name='outcome_withdraw'),
+    path('outcomes/control/', views.outcome_control,
+         name='outcome_control'),
     ]
